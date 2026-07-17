@@ -21,7 +21,6 @@ export function UploadStatementModalBody({ card, progress, onSubmit }: UploadSta
   const [minPayment, setMinPayment] = useState('');
   const [note, setNote] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
-  const [error, setError] = useState('');
 
   if (progress) {
     return (
@@ -51,15 +50,6 @@ export function UploadStatementModalBody({ card, progress, onSubmit }: UploadSta
   }
 
   const handleSubmit = () => {
-    if (!fileName) {
-      setError('Lütfen bir PDF ekstresi seçin.');
-      return;
-    }
-    if (!period || !statementDate || !dueDate || Number(totalDebt) < 0 || Number(minPayment) < 0) {
-      setError('Lütfen ekstre bilgilerini eksiksiz ve geçerli girin.');
-      return;
-    }
-    setError('');
     onSubmit({
       period,
       statementDate,
@@ -134,17 +124,7 @@ export function UploadStatementModalBody({ card, progress, onSubmit }: UploadSta
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (!f) return;
-                if (f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')) {
-                  setError('Yalnızca PDF dosyası yükleyebilirsiniz.');
-                  return;
-                }
-                if (f.size > 10 * 1024 * 1024) {
-                  setError('PDF dosyası 10 MB’dan küçük olmalıdır.');
-                  return;
-                }
-                setError('');
-                setFileName(f.name);
+                if (f) setFileName(f.name);
               }}
             />
           </label>
@@ -155,8 +135,6 @@ export function UploadStatementModalBody({ card, progress, onSubmit }: UploadSta
         <label className="label">Not</label>
         <textarea className="input min-h-[72px] resize-none" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ekstreyle ilgili not (opsiyonel)" />
       </div>
-
-      {error && <p className="text-sm font-medium text-red-600">{error}</p>}
 
       <button
         className="btn-primary w-full"

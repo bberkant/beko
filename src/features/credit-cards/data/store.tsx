@@ -147,7 +147,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCards((prev) =>
       prev.map((c) =>
         c.id === input.cardId
-          ? { ...c, currentDebt: input.totalDebt, statementStatus: 'yuklendi' as const }
+          ? { ...c, statementStatus: 'yuklendi' as const }
           : c,
       ),
     );
