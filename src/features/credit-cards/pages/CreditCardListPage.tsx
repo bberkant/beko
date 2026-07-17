@@ -42,6 +42,7 @@ export function CreditCardListPage() {
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [showFilters, setShowFilters] = useState(false);
   const [uploadCard, setUploadCard] = useState<CreditCardType | null>(null);
+  const [cardPickerOpen, setCardPickerOpen] = useState(false);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
 
   const banks = useMemo(() => Array.from(new Set(cards.map((c) => c.bank))), [cards]);
@@ -145,7 +146,7 @@ export function CreditCardListPage() {
         description="Şirket kredi kartlarını, borçlarını, limitlerini ve son ödeme tarihlerini yönetin."
         actions={
           <>
-            <button className="btn-secondary" onClick={() => notify('Ekstre yükleme akışı başlatıldı (mock).', 'info')}>
+            <button className="btn-secondary" onClick={() => setCardPickerOpen(true)}>
               <Upload size={16} /> Ekstre Yükle
             </button>
             <button className="btn-secondary" onClick={() => notify('Kart listesi dışa aktarıldı (mock).', 'success')}>
@@ -393,6 +394,31 @@ export function CreditCardListPage() {
       </div>
 
       {/* Upload statement modal */}
+      <Modal
+        open={cardPickerOpen}
+        onClose={() => setCardPickerOpen(false)}
+        title="Ekstre Yüklenecek Kartı Seçin"
+        description="Ekstreyi ilişkilendirmek istediğiniz kredi kartını seçin."
+        size="md"
+      >
+        <div className="max-h-80 space-y-2 overflow-y-auto">
+          {cards.map((card) => (
+            <button
+              key={card.id}
+              className="flex w-full items-center gap-3 rounded-lg border border-gray-200 p-3 text-left hover:border-brand-300 hover:bg-brand-50/40"
+              onClick={() => { setCardPickerOpen(false); setUploadCard(card); setProgress(null); }}
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-600">{card.bankShort}</span>
+              <span>
+                <span className="block text-sm font-medium text-gray-900">{card.bank} {card.cardName}</span>
+                <span className="block text-xs text-gray-500">•••• {card.last4} · {card.holder}</span>
+              </span>
+            </button>
+          ))}
+          {cards.length === 0 && <p className="py-6 text-center text-sm text-gray-500">Önce bir kredi kartı eklemelisiniz.</p>}
+        </div>
+      </Modal>
+
       <Modal
         open={Boolean(uploadCard)}
         onClose={() => { setUploadCard(null); setProgress(null); }}
