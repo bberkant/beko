@@ -93,7 +93,7 @@ Deno.serve(async (request) => {
 
   const { data, error } = await supabase
     .from('statements')
-    .select('id,organization_id,card_id,period,due_date,total_debt,payment_status,credit_cards!inner(id,bank,card_name,last4,status)')
+    .select('id,organization_id,card_id,period,due_date,total_debt,payment_status,credit_cards!statements_card_id_fkey(id,bank,card_name,last4,status)')
     .eq('due_date', targetDueDate)
     .neq('payment_status', 'odendi')
     .eq('credit_cards.status', 'aktif');
