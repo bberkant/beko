@@ -286,7 +286,7 @@ export function CreditCardListPage() {
                         <div className="min-w-0"><button className="block max-w-full truncate font-medium text-brand-600 hover:text-brand-700" onClick={() => navigate(`/finance/credit-cards/${c.id}`)}>{c.bank}</button><span className="block truncate text-[10px] text-gray-400">{c.cardName}</span></div>
                       </div>
                     </td>
-                    <td className="table-td !px-2 !text-xs font-mono text-gray-600">{maskCard(c.last4)}</td>
+                    <td className="table-td !px-2 !text-sm font-mono text-gray-700">{maskCard(c.last4)}</td>
                     <td className="table-td truncate !px-2 !text-xs text-gray-700">{c.holder || '—'}</td>
                     <td className="table-td !px-2 !text-xs text-gray-700">{formatTRY(c.limit)}</td>
                     <td className="table-td !px-2 !text-xs font-normal text-gray-900">{formatTRY(c.currentDebt)}</td>
