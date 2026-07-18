@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const TELEGRAM_API = 'https://api.telegram.org';
-const REMINDER_DAYS = 2;
+const REMINDER_DAYS = [2, 1] as const;
 const TIME_ZONE = 'Europe/Istanbul';
 
 interface CardRow {
@@ -89,12 +89,15 @@ Deno.serve(async (request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const today = localDate(new Date());
-  const targetDueDate = addDays(today, REMINDER_DAYS);
+  const targetDueDates = REMINDER_DAYS.map((days) => addDays(today, days));
+  const reminderDaysByDueDate = new Map(
+    REMINDER_DAYS.map((days) => [addDays(today, days), days]),
+  );
 
   const { data, error } = await supabase
     .from('statements')
     .select('id,organization_id,card_id,period,due_date,total_debt,payment_status,credit_cards!statements_card_id_fkey(id,bank,card_name,last4,status)')
-    .eq('due_date', targetDueDate)
+    .in('due_date', targetDueDates)
     .neq('payment_status', 'odendi')
     .eq('credit_cards.status', 'aktif');
 
@@ -105,6 +108,8 @@ Deno.serve(async (request) => {
   const failures: string[] = [];
 
   for (const statement of (data ?? []) as unknown as StatementRow[]) {
+    const reminderDays = reminderDaysByDueDate.get(statement.due_date.slice(0, 10));
+    if (!reminderDays) continue;
     const card = Array.isArray(statement.credit_cards)
       ? statement.credit_cards[0]
       : statement.credit_cards;
@@ -115,7 +120,7 @@ Deno.serve(async (request) => {
       .select('id')
       .eq('statement_id', statement.id)
       .eq('channel', 'telegram')
-      .eq('reminder_days', REMINDER_DAYS)
+      .eq('reminder_days', reminderDays)
       .eq('recipient_ref', telegramChatId)
       .maybeSingle();
     if (previous) {
@@ -130,7 +135,7 @@ Deno.serve(async (request) => {
       `Ekstre: ${statement.period}`,
       `Toplam borç: ${money(statement.total_debt)}`,
       `Son ödeme: ${displayDate(statement.due_date)}`,
-      `Kalan süre: ${REMINDER_DAYS} gün`,
+      `Kalan süre: ${reminderDays} gün`,
     ].join('\n');
 
     const telegramResponse = await fetch(`${TELEGRAM_API}/bot${telegramToken}/sendMessage`, {
@@ -149,12 +154,12 @@ Deno.serve(async (request) => {
       card_id: statement.card_id,
       statement_id: statement.id,
       channel: 'telegram',
-      reminder_days: REMINDER_DAYS,
+      reminder_days: reminderDays,
       recipient_ref: telegramChatId,
     });
     if (logError && logError.code !== '23505') failures.push(`${statement.id}: ${logError.message}`);
     sent += 1;
   }
 
-  return Response.json({ date: today, targetDueDate, found: data?.length ?? 0, sent, skipped, failures });
+  return Response.json({ date: today, targetDueDates, found: data?.length ?? 0, sent, skipped, failures });
 });
