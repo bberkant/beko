@@ -6,11 +6,11 @@ import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 
 type ModuleName = 'bank_accounts' | 'vehicles' | 'traffic_fines' | 'drivers' | 'tenders';
-interface Props { module: ModuleName; exportName: string; rows: Record<string, unknown>[] }
+interface Props { module: ModuleName; exportName: string; rows: Record<string, unknown>[]; uploadEnabled?: boolean }
 
 function csvValue(value: unknown) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
 
-export function ModuleFileActions({ module, exportName, rows }: Props) {
+export function ModuleFileActions({ module, exportName, rows, uploadEnabled = true }: Props) {
   const { user } = useAuth(); const { notify } = useToast();
   const [open, setOpen] = useState(false); const [file, setFile] = useState<File>();
   const [note, setNote] = useState(''); const [saving, setSaving] = useState(false);
@@ -36,10 +36,10 @@ export function ModuleFileActions({ module, exportName, rows }: Props) {
     finally { setSaving(false); }
   };
   return <>
-    <button className="btn-secondary" onClick={() => setOpen(true)}><Upload size={16}/> PDF Yükle</button>
+    {uploadEnabled && <button className="btn-secondary" onClick={() => setOpen(true)}><Upload size={16}/> PDF Yükle</button>}
     <button className="btn-secondary" onClick={exportCsv}><Download size={16}/> Dışa Aktar</button>
-    <Modal open={open} onClose={() => setOpen(false)} title="PDF Yükle" description="Dosya yalnızca şirketinizdeki yetkili kullanıcılar tarafından görülebilir.">
+    {uploadEnabled && <Modal open={open} onClose={() => setOpen(false)} title="PDF Yükle" description="Dosya yalnızca şirketinizdeki yetkili kullanıcılar tarafından görülebilir.">
       <div className="space-y-4"><label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-gray-300 p-5"><FileText className="text-brand-600"/><span className="text-sm">{file?.name ?? 'PDF dosyası seçin'}</span><input hidden type="file" accept="application/pdf,.pdf" onChange={e => { const f=e.target.files?.[0]; if(f && f.size<=10*1024*1024)setFile(f); else notify('PDF en fazla 10 MB olabilir.','error'); }}/></label><textarea className="input" placeholder="Dosya notu (opsiyonel)" value={note} onChange={e=>setNote(e.target.value)}/><button className="btn-primary w-full" disabled={saving} onClick={upload}>{saving?'Yükleniyor...':'PDF Yükle'}</button></div>
-    </Modal>
+    </Modal>}
   </>;
 }
