@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get('invite') ?? '';
   const { login, signUp } = useAuth();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup'>(inviteToken ? 'signup' : 'login');
   const [name, setName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
@@ -22,8 +24,8 @@ export function LoginPage() {
     setMessage('');
     try {
       if (mode === 'signup') {
-        if (!name.trim() || !companyName.trim()) throw new Error('Ad soyad ve şirket adı zorunludur.');
-        const result = await signUp(name.trim(), companyName.trim(), email.trim(), password);
+        if (!name.trim() || (!inviteToken && !companyName.trim())) throw new Error(inviteToken ? 'Ad soyad zorunludur.' : 'Ad soyad ve şirket adı zorunludur.');
+        const result = await signUp(name.trim(), companyName.trim(), email.trim(), password, inviteToken || undefined);
         setMessage(result);
         if (!result.includes('doğrulama')) navigate('/dashboard');
       } else {
@@ -46,9 +48,9 @@ export function LoginPage() {
         </div>
         <div className="card p-6">
           <h1 className="text-lg font-semibold text-gray-900">{mode === 'login' ? 'Giriş Yap' : 'Güvenli Hesap Oluştur'}</h1>
-          <p className="mt-1 text-sm text-gray-500">{mode === 'login' ? 'Devam etmek için giriş yapın.' : 'İlk kullanıcı şirket yöneticisi olur.'}</p>
+          <p className="mt-1 text-sm text-gray-500">{mode === 'login' ? 'Devam etmek için giriş yapın.' : inviteToken ? 'Şirket davetinizi kabul etmek için hesabınızı oluşturun.' : 'İlk kullanıcı şirket yöneticisi olur.'}</p>
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-            {mode === 'signup' && <><div><label className="label">Ad Soyad</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} required /></div><div><label className="label">Şirket Adı</label><input className="input" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required /></div></>}
+            {mode === 'signup' && <><div><label className="label">Ad Soyad</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} required /></div>{!inviteToken&&<div><label className="label">Şirket Adı</label><input className="input" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required /></div>}</>}
             <div><label className="label">E-posta</label><input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
             <div><label className="label">Şifre</label><input type="password" minLength={8} className="input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="En az 8 karakter" required /></div>
             {mode === 'login' && <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />Beni hatırla</label>}
@@ -56,9 +58,9 @@ export function LoginPage() {
             {message && <p className="text-sm font-medium text-emerald-600">{message}</p>}
             <button type="submit" className="btn-primary w-full" disabled={loading}>{loading ? 'İşleniyor...' : mode === 'login' ? 'Giriş Yap' : 'Hesap Oluştur'}</button>
           </form>
-          <button className="mt-4 w-full text-sm font-medium text-brand-600" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setMessage(''); }}>
+          {!inviteToken&&<button className="mt-4 w-full text-sm font-medium text-brand-600" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setMessage(''); }}>
             {mode === 'login' ? 'Yeni şirket hesabı oluştur' : 'Zaten hesabım var'}
-          </button>
+          </button>}
         </div>
       </div>
     </div>
