@@ -18,6 +18,7 @@ import { TrafficFinesPage, DriversPage } from './features/vehicles/subpages';
 import { UsersPage } from './features/users/UsersPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TendersPage } from './features/tenders/TendersPage';
+import { CalendarPage } from './features/calendar/CalendarPage';
 
 export default function App() {
   return (
@@ -46,7 +47,7 @@ export default function App() {
                 <Route path="/arac-yonetimi/:id/duzenle" element={<VehicleFormPage />} />
                 <Route path="/ihaleler" element={<TendersPage />} />
                 <Route path="/belgeler" element={<PlaceholderPage />} />
-                <Route path="/takvim" element={<PlaceholderPage />} />
+                <Route path="/takvim" element={<CalendarPage />} />
                 <Route path="/ai-asistan" element={<PlaceholderPage />} />
                 <Route path="/bildirimler" element={<PlaceholderPage />} />
                 <Route path="/kullanicilar" element={<UsersPage />} />
