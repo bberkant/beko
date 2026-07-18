@@ -114,9 +114,11 @@ export function CreditCardListPage() {
     const avgUsage = cards.length > 0
       ? Math.round(cardsWithBilling.reduce((sum, item) => sum + limitUsage(item.debt, item.card.limit), 0) / cards.length)
       : 0;
-    const critical = cardsWithBilling.filter(
-      ({ card, debt }) => usageLevel(limitUsage(debt, card.limit)) === 'kritik' || card.status === 'bloke',
-    ).length;
+    const critical = cardsWithBilling.filter(({ debt, dueDate }) => {
+      const due = new Date(`${dueDate}T00:00:00`);
+      const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
+      return debt > 0 && diff >= 0 && diff <= 2;
+    }).length;
     return { total: cards.length, totalLimit, totalDebt, in7, avgUsage, critical };
   }, [cards, statements]);
 
@@ -202,7 +204,7 @@ export function CreditCardListPage() {
     { id: 'debt', label: 'Toplam Güncel Borç', value: formatTRY(kpis.totalDebt), icon: CreditCardIcon, hint: 'tüm kartlar' },
     { id: 'in7', label: '7 Gün İçinde Ödenecek', value: formatTRY(kpis.in7), icon: Clock, hint: 'yaklaşan' },
     { id: 'avg', label: 'Ortalama Limit Kullanımı', value: `%${kpis.avgUsage}`, icon: Gauge, hint: 'tüm kartlar' },
-    { id: 'crit', label: 'Kritik Durumdaki Kartlar', value: String(kpis.critical), icon: AlertOctagon, hint: 'kritik' },
+    { id: 'crit', label: 'Son Ödemesine 2 Gün Kalan Kartlar', value: String(kpis.critical), icon: AlertOctagon, hint: 'yaklaşan' },
   ];
 
   return (
