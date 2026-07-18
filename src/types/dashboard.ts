@@ -9,7 +9,7 @@ import {
   Sparkles,
   Clock,
   AlertTriangle,
-  ReceiptText,
+  CreditCard,
 } from 'lucide-react';
 
 export type StatusLevel = 'green' | 'yellow' | 'red';
@@ -99,12 +99,12 @@ export interface KpiCard {
 
 export const operationModules: OperationModule[] = [
   {
-    id: 'finans',
-    label: 'Finans',
+    id: 'kredi-kartlari',
+    label: 'Kredi Kartları',
     status: 'yellow',
     summary: 'Nakit akışında dikkat',
     detail: '₺180.000 açık tahmin ediliyor',
-    icon: Wallet,
+    icon: CreditCard,
   },
   {
     id: 'araclar',
@@ -113,14 +113,6 @@ export const operationModules: OperationModule[] = [
     summary: 'Filo sağlıklı',
     detail: '25 araç, 2 müsait',
     icon: Car,
-  },
-  {
-    id: 'cekler',
-    label: 'Çekler',
-    status: 'red',
-    summary: '2 çek bugün son tarih',
-    detail: 'Toplam ₺95.000',
-    icon: ReceiptText,
   },
   {
     id: 'ihaleler',
