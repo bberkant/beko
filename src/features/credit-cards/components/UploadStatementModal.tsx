@@ -1,16 +1,28 @@
 import { useState } from 'react';
 import { FileText, Loader2, CheckCircle2, X } from 'lucide-react';
 import type { CreditCard as CreditCardType } from '../types';
+import { parseStatementPdf, type ParsedStatementTransaction } from '../lib/statementParser';
 
 export interface UploadProgress {
   percent: number;
   status: string;
 }
 
+export interface StatementUploadData {
+  period: string;
+  statementDate: string;
+  dueDate: string;
+  totalDebt: number;
+  minPayment: number;
+  note: string;
+  fileName: string;
+  transactions: ParsedStatementTransaction[];
+}
+
 interface UploadStatementModalBodyProps {
   card: CreditCardType;
   progress: UploadProgress | null;
-  onSubmit: (data: { period: string; statementDate: string; dueDate: string; totalDebt: number; minPayment: number; note: string }) => void;
+  onSubmit: (data: StatementUploadData) => void;
 }
 
 export function UploadStatementModalBody({ card, progress, onSubmit }: UploadStatementModalBodyProps) {
@@ -20,7 +32,9 @@ export function UploadStatementModalBody({ card, progress, onSubmit }: UploadSta
   const [totalDebt, setTotalDebt] = useState(String(card.currentDebt));
   const [minPayment, setMinPayment] = useState('');
   const [note, setNote] = useState('');
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState('');
+  const [parsing, setParsing] = useState(false);
 
   if (progress) {
     return (
@@ -49,15 +63,34 @@ export function UploadStatementModalBody({ card, progress, onSubmit }: UploadSta
     );
   }
 
-  const handleSubmit = () => {
-    onSubmit({
-      period,
-      statementDate,
-      dueDate,
-      totalDebt: Number(totalDebt) || 0,
-      minPayment: Number(minPayment) || 0,
-      note,
-    });
+  const handleSubmit = async () => {
+    if (!file) {
+      setError('Lütfen bir PDF ekstresi seçin.');
+      return;
+    }
+    if (!period || !statementDate || !dueDate || Number(totalDebt) < 0 || Number(minPayment) < 0) {
+      setError('Lütfen ekstre bilgilerini eksiksiz ve geçerli girin.');
+      return;
+    }
+    setError('');
+    setParsing(true);
+    try {
+      const parsed = await parseStatementPdf(file);
+      onSubmit({
+        period,
+        statementDate: parsed.statementDate ?? statementDate,
+        dueDate: parsed.dueDate ?? dueDate,
+        totalDebt: parsed.totalDebt ?? (Number(totalDebt) || 0),
+        minPayment: parsed.minPayment ?? (Number(minPayment) || 0),
+        note,
+        fileName: file.name,
+        transactions: parsed.transactions,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'PDF işlenirken bir hata oluştu.');
+    } finally {
+      setParsing(false);
+    }
   };
 
   return (
@@ -105,11 +138,11 @@ export function UploadStatementModalBody({ card, progress, onSubmit }: UploadSta
 
       <div>
         <label className="label">PDF Dosyası</label>
-        {fileName ? (
+        {file ? (
           <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5">
             <FileText size={18} className="text-brand-600" />
-            <span className="flex-1 truncate text-sm text-gray-700">{fileName}</span>
-            <button onClick={() => setFileName(null)} className="rounded-md p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+            <span className="flex-1 truncate text-sm text-gray-700">{file.name}</span>
+            <button onClick={() => setFile(null)} className="rounded-md p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600">
               <X size={14} />
             </button>
           </div>
@@ -124,7 +157,17 @@ export function UploadStatementModalBody({ card, progress, onSubmit }: UploadSta
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) setFileName(f.name);
+                if (!f) return;
+                if (f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')) {
+                  setError('Yalnızca PDF dosyası yükleyebilirsiniz.');
+                  return;
+                }
+                if (f.size > 10 * 1024 * 1024) {
+                  setError('PDF dosyası 10 MB’dan küçük olmalıdır.');
+                  return;
+                }
+                setError('');
+                setFile(f);
               }}
             />
           </label>
@@ -136,11 +179,15 @@ export function UploadStatementModalBody({ card, progress, onSubmit }: UploadSta
         <textarea className="input min-h-[72px] resize-none" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ekstreyle ilgili not (opsiyonel)" />
       </div>
 
+      {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+
       <button
         className="btn-primary w-full"
         onClick={handleSubmit}
+        disabled={parsing}
       >
-        <FileText size={16} /> Yükle ve analiz için sıraya al
+        {parsing ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+        {parsing ? 'PDF hareketleri okunuyor...' : 'Yükle ve hareketleri işle'}
       </button>
     </div>
   );
