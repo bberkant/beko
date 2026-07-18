@@ -17,6 +17,7 @@ import { BankAccountListPage, BankAccountFormPage, BankAccountDetailPage } from 
 import { VehiclesProvider } from './features/vehicles/store';
 import { VehicleListPage, VehicleFormPage, VehicleDetailPage } from './features/vehicles/pages';
 import { TrafficFinesPage, DriversPage } from './features/vehicles/subpages';
+import { UsersPage } from './features/users/UsersPage';
 
 export default function App() {
   return (
@@ -52,7 +53,7 @@ export default function App() {
                 <Route path="/takvim" element={<PlaceholderPage />} />
                 <Route path="/ai-asistan" element={<PlaceholderPage />} />
                 <Route path="/bildirimler" element={<PlaceholderPage />} />
-                <Route path="/kullanicilar" element={<PlaceholderPage />} />
+                <Route path="/kullanicilar" element={<UsersPage />} />
                 <Route path="/ayarlar" element={<PlaceholderPage />} />
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="*" element={<PlaceholderPage />} />
