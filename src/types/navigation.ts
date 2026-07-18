@@ -32,7 +32,7 @@ export const navItems: NavItem[] = [
     to: '/arac-yonetimi',
     icon: Car,
     children: [
-      { label: 'Araç Listesi', to: '/arac-yonetimi' },
+      { label: 'Araç Listesi - Muayene', to: '/arac-yonetimi' },
       { label: 'Trafik Cezaları', to: '/arac-yonetimi/trafik-cezalari' },
       { label: 'HGS - Geçiş', to: '/arac-yonetimi/hgs-gecis' },
       { label: 'Şoförler', to: '/arac-yonetimi/soforler' },
