@@ -67,7 +67,7 @@ export function StatementsPage() {
         actions={
           <>
             <button className="btn-secondary" onClick={() => setCardPickerOpen(true)}>
-              <Upload size={16} /> PDF Yükle
+              <Upload size={16} /> Ekstre Yükle
             </button>
             <button className="btn-secondary" onClick={() => notify('Ekstre listesi dışa aktarıldı (mock).', 'success')}>
               <Download size={16} /> Dışa Aktar
@@ -187,7 +187,7 @@ export function StatementsPage() {
       <Modal
         open={cardPickerOpen}
         onClose={() => setCardPickerOpen(false)}
-        title="PDF Yüklenecek Kartı Seçin"
+        title="Ekstre Yüklenecek Kartı Seçin"
         size="md"
       >
         <div className="max-h-80 space-y-2 overflow-y-auto">
@@ -205,7 +205,7 @@ export function StatementsPage() {
         </div>
       </Modal>
 
-      <Modal open={Boolean(uploadCard)} onClose={() => { setUploadCard(null); setProgress(null); }} title="PDF Yükle"
+      <Modal open={Boolean(uploadCard)} onClose={() => { setUploadCard(null); setProgress(null); }} title="Ekstre Yükle"
         description={uploadCard ? `${uploadCard.bank} ${uploadCard.cardName} •••• ${uploadCard.last4}` : ''} size="md">
         {uploadCard && <UploadStatementModalBody card={uploadCard} progress={progress} onSubmit={handleUploadSubmit} />}
       </Modal>
