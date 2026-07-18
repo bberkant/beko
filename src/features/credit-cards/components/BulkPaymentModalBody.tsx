@@ -25,13 +25,23 @@ export function BulkPaymentModalBody({ cards, submitting, onSubmit }: BulkPaymen
   const [amounts, setAmounts] = useState<Record<string, string>>({});
 
   const selectedCount = useMemo(() => Object.values(selected).filter(Boolean).length, [selected]);
+  const allSelected = cards.length > 0 && cards.every((card) => selected[card.id]);
 
   const toggleCard = (card: CreditCard) => {
     setSelected((current) => ({ ...current, [card.id]: !current[card.id] }));
     setAmounts((current) => ({
       ...current,
-      [card.id]: current[card.id] ?? (card.currentDebt > 0 ? String(card.currentDebt) : ''),
+      [card.id]: current[card.id] ?? String(card.currentDebt),
     }));
+  };
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelected({});
+      return;
+    }
+    setSelected(Object.fromEntries(cards.map((card) => [card.id, true])));
+    setAmounts(Object.fromEntries(cards.map((card) => [card.id, String(card.currentDebt)])));
   };
 
   const submit = () => {
@@ -68,7 +78,13 @@ export function BulkPaymentModalBody({ cards, submitting, onSubmit }: BulkPaymen
       <div>
         <div className="mb-2 flex items-center justify-between">
           <label className="label !mb-0">Kartlar ve Ödeme Tutarları</label>
-          <span className="text-xs text-gray-500">{selectedCount} kart seçildi</span>
+          <div className="flex items-center gap-4">
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-brand-600">
+              <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 rounded border-gray-300 text-brand-600" />
+              Tümünü Seç
+            </label>
+            <span className="text-xs text-gray-500">{selectedCount} kart seçildi</span>
+          </div>
         </div>
         <div className="max-h-72 overflow-y-auto rounded-xl border border-gray-200">
           {cards.map((card) => (
