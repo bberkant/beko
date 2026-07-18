@@ -290,7 +290,7 @@ export function CreditCardListPage() {
                     <td className="table-td truncate !px-2 !text-xs text-gray-700">{c.holder || '—'}</td>
                     <td className="table-td !px-2 !text-xs text-gray-700">{formatTRY(c.limit)}</td>
                     <td className="table-td !px-2 !text-xs font-normal text-gray-900">{formatTRY(c.currentDebt)}</td>
-                    <td className="table-td !px-2 !text-xs font-semibold text-gray-900">{c.statementDay}. gün</td>
+                    <td className="table-td !px-2 !text-sm font-semibold text-gray-900">{c.statementDay}. gün</td>
                     <td className="table-td !px-2 !text-xs"><DueDateCell dueDate={dueDate} statementStatus={c.statementStatus} /></td>
                     <td className="table-td !px-2">
                       <div className="flex items-center gap-1.5">
