@@ -67,9 +67,9 @@ export function DashboardPage() {
           <div className="grid grid-cols-2 gap-3">
             {[
               { label: 'Kredi Kartları', to: '/finance/credit-cards' },
-              { label: 'Ödemeler', to: '/finans/odemeler' },
-              { label: 'Belgeler', to: '/belgeler' },
-              { label: 'Araçlar', to: '/arac-yonetimi' },
+              { label: 'Araç Listesi', to: '/arac-yonetimi' },
+              { label: 'İhaleler', to: '/ihaleler' },
+              { label: 'Takvim', to: '/takvim' },
             ].map((q) => (
               <a key={q.to} href={q.to} className="card flex items-center justify-center p-4 text-sm font-medium text-gray-700 transition-colors hover:border-brand-300 hover:text-brand-600">
                 {q.label}
