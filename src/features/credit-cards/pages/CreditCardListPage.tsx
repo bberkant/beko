@@ -18,7 +18,7 @@ import {
 } from '../data/labels';
 import { CardRowMenu } from '../components/CardRowMenu';
 import { DueDateCell } from '../components/DueDateCell';
-import { UploadStatementModalBody, UploadProgress } from '../components/UploadStatementModal';
+import { UploadStatementModalBody, UploadProgress, type StatementUploadData } from '../components/UploadStatementModal';
 
 interface Filters {
   bank: string;
@@ -100,7 +100,7 @@ export function CreditCardListPage() {
     return { total: cards.length, totalLimit, totalDebt, in7, avgUsage, critical };
   }, [cards]);
 
-  const handleUploadSubmit = (data: { period: string; statementDate: string; dueDate: string; totalDebt: number; minPayment: number; note: string }) => {
+  const handleUploadSubmit = (data: StatementUploadData) => {
     if (!uploadCard) return;
     setProgress({ percent: 0, status: 'Yükleniyor' });
     let p = 0;
@@ -118,6 +118,8 @@ export function CreditCardListPage() {
           totalDebt: data.totalDebt,
           minPayment: data.minPayment,
           note: data.note,
+          fileName: data.fileName,
+          transactions: data.transactions,
         });
         notify(`${uploadCard.cardName} •••• ${uploadCard.last4} için ${data.period} ekstresi yüklendi.`, 'success');
         window.setTimeout(() => {
