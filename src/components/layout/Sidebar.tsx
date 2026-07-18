@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { navItems } from '../../types/navigation';
 import { Logo } from '../ui/Logo';
@@ -11,8 +11,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) {
-  const [expanded, setExpanded] = useState<string | null>('Finans');
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['Finans']));
   const location = useLocation();
+  const navigate = useNavigate();
 
   const asideCls = [
     'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-gray-200 bg-white transition-all duration-300',
@@ -37,13 +38,22 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
           {navItems.map((item) => {
             const Icon = item.icon;
             const hasChildren = Boolean(item.children);
-            const isExpanded = expanded === item.label;
+            const isExpanded = expanded.has(item.label);
 
             if (hasChildren) {
               return (
                 <div key={item.label}>
                   <button
-                    onClick={() => setExpanded(isExpanded ? null : item.label)}
+                    onClick={() => {
+                      setExpanded((current) => {
+                        const next = new Set(current);
+                        if (next.has(item.label)) next.delete(item.label);
+                        else next.add(item.label);
+                        return next;
+                      });
+                      navigate(item.to);
+                      onCloseMobile();
+                    }}
                     className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 ${collapsed ? 'justify-center' : ''}`}
                   >
                     <Icon size={18} className="shrink-0" />
