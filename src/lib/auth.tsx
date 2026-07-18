@@ -20,7 +20,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
-  signUp: (name: string, companyName: string, email: string, password: string) => Promise<string>;
+  signUp: (name: string, companyName: string, email: string, password: string, inviteToken?: string) => Promise<string>;
   logout: () => Promise<void>;
 }
 
@@ -90,29 +90,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     let next = await resolveUser(data.session);
-    if (!next.organizationId && data.user.user_metadata.company_name) {
-      const { error: bootstrapError } = await supabase.rpc('bootstrap_organization', {
-        company_name: data.user.user_metadata.company_name,
-      });
+    if (!next.organizationId && data.user.user_metadata.invitation_token) {
+      const { error: invitationError } = await supabase.rpc('accept_organization_invitation', { invitation_token: data.user.user_metadata.invitation_token });
+      if (invitationError) throw invitationError;
+      next = await resolveUser(data.session);
+    } else if (!next.organizationId && data.user.user_metadata.company_name) {
+      const { error: bootstrapError } = await supabase.rpc('bootstrap_organization', { company_name: data.user.user_metadata.company_name });
       if (bootstrapError) throw bootstrapError;
       next = await resolveUser(data.session);
     }
     setUser(next);
   }, []);
 
-  const signUp = useCallback(async (name: string, companyName: string, email: string, password: string) => {
+  const signUp = useCallback(async (name: string, companyName: string, email: string, password: string, inviteToken?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name, company_name: companyName } },
+      options: { data: { full_name: name, company_name: inviteToken ? '' : companyName, invitation_token: inviteToken ?? '' } },
     });
     if (error) throw error;
     if (!data.session) return 'E-posta adresinize gelen doğrulama bağlantısını açın, sonra giriş yapın.';
 
-    const { error: bootstrapError } = await supabase.rpc('bootstrap_organization', {
-      company_name: companyName,
-    });
-    if (bootstrapError) throw bootstrapError;
+    if (inviteToken) {
+      const { error: invitationError } = await supabase.rpc('accept_organization_invitation', { invitation_token: inviteToken });
+      if (invitationError) throw invitationError;
+    } else {
+      const { error: bootstrapError } = await supabase.rpc('bootstrap_organization', { company_name: companyName });
+      if (bootstrapError) throw bootstrapError;
+    }
     const next = await resolveUser(data.session);
     setUser(next);
     return 'Hesabınız ve şirketiniz oluşturuldu.';
