@@ -6,6 +6,8 @@ import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { useToast } from '../../../lib/toast';
 import { useStore } from '../data/store';
+import type { CreditCard as CreditCardType } from '../types';
+import { UploadStatementModalBody, type UploadProgress } from '../components/UploadStatementModal';
 import {
   formatTRY, formatDate,
   aiStatusLabel, aiStatusCls,
@@ -15,10 +17,25 @@ import {
 export function StatementsPage() {
   const navigate = useNavigate();
   const { notify } = useToast();
-  const { statements, cards, deleteStatement } = useStore();
+  const { statements, cards, deleteStatement, addStatement } = useStore();
 
   const [search, setSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [cardPickerOpen, setCardPickerOpen] = useState(false);
+  const [uploadCard, setUploadCard] = useState<CreditCardType | null>(null);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+
+  const handleUploadSubmit = (data: { period: string; statementDate: string; dueDate: string; totalDebt: number; minPayment: number; note: string }) => {
+    if (!uploadCard) return;
+    setProgress({ percent: 25, status: 'Yükleniyor' });
+    window.setTimeout(() => setProgress({ percent: 70, status: 'Ekstre işleniyor' }), 250);
+    window.setTimeout(() => {
+      addStatement({ cardId: uploadCard.id, ...data });
+      setProgress({ percent: 100, status: 'Analiz Bekliyor' });
+      notify(`${uploadCard.cardName} •••• ${uploadCard.last4} için ${data.period} ekstresi eklendi.`, 'success');
+      window.setTimeout(() => { setUploadCard(null); setProgress(null); }, 700);
+    }, 600);
+  };
 
   const cardMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -49,8 +66,8 @@ export function StatementsPage() {
         description="Tüm kredi kartı ekstrelerini görüntüleyin ve yönetin."
         actions={
           <>
-            <button className="btn-secondary" onClick={() => notify('Ekstre yükleme akışı başlatıldı (mock).', 'info')}>
-              <Upload size={16} /> Ekstre Yükle
+            <button className="btn-secondary" onClick={() => setCardPickerOpen(true)}>
+              <Upload size={16} /> PDF Yükle
             </button>
             <button className="btn-secondary" onClick={() => notify('Ekstre listesi dışa aktarıldı (mock).', 'success')}>
               <Download size={16} /> Dışa Aktar
@@ -166,6 +183,32 @@ export function StatementsPage() {
         ))}
         {filtered.length === 0 && <div className="py-12 text-center text-sm text-gray-400">Ekstre bulunamadı.</div>}
       </div>
+
+      <Modal
+        open={cardPickerOpen}
+        onClose={() => setCardPickerOpen(false)}
+        title="PDF Yüklenecek Kartı Seçin"
+        size="md"
+      >
+        <div className="max-h-80 space-y-2 overflow-y-auto">
+          {cards.map((card) => (
+            <button key={card.id} className="flex w-full items-center gap-3 rounded-lg border border-gray-200 p-3 text-left hover:border-brand-300 hover:bg-brand-50/40"
+              onClick={() => { setCardPickerOpen(false); setUploadCard(card); setProgress(null); }}>
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-600">{card.bankShort}</span>
+              <span>
+                <span className="block text-sm font-medium text-gray-900">{card.bank} {card.cardName}</span>
+                <span className="block text-xs text-gray-500">•••• {card.last4} · {card.holder}</span>
+              </span>
+            </button>
+          ))}
+          {cards.length === 0 && <p className="py-6 text-center text-sm text-gray-500">Önce bir kredi kartı eklemelisiniz.</p>}
+        </div>
+      </Modal>
+
+      <Modal open={Boolean(uploadCard)} onClose={() => { setUploadCard(null); setProgress(null); }} title="PDF Yükle"
+        description={uploadCard ? `${uploadCard.bank} ${uploadCard.cardName} •••• ${uploadCard.last4}` : ''} size="md">
+        {uploadCard && <UploadStatementModalBody card={uploadCard} progress={progress} onSubmit={handleUploadSubmit} />}
+      </Modal>
 
       <Modal
         open={Boolean(deleteTarget)}
