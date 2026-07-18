@@ -33,7 +33,7 @@ export function CreditCardFormPage() {
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async () => {
-    if (!bank || !cardName || !last4 || !holder) {
+    if (!bank || !cardName || !last4) {
       notify('Lütfen zorunlu alanları doldurun.', 'error');
       return;
     }
@@ -110,7 +110,7 @@ export function CreditCardFormPage() {
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="label">Kartı Kullanan *</label>
+              <label className="label">Kartı Kullanan</label>
               <input className="input" value={holder} onChange={(e) => setHolder(e.target.value)} placeholder="Ahmet Yılmaz" />
             </div>
             <div>
