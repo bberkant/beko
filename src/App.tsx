@@ -19,6 +19,7 @@ import { UsersPage } from './features/users/UsersPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TendersPage } from './features/tenders/TendersPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
+import { HgsPassagesPage } from './features/vehicles/HgsPassagesPage';
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
                 <Route path="/arac-yonetimi" element={<VehicleListPage />} />
                 <Route path="/arac-yonetimi/yeni" element={<VehicleFormPage />} />
                 <Route path="/arac-yonetimi/trafik-cezalari" element={<TrafficFinesPage />} />
+                <Route path="/arac-yonetimi/hgs-gecis" element={<HgsPassagesPage />} />
                 <Route path="/arac-yonetimi/soforler" element={<DriversPage />} />
                 <Route path="/arac-yonetimi/:id" element={<VehicleDetailPage />} />
                 <Route path="/arac-yonetimi/:id/duzenle" element={<VehicleFormPage />} />
