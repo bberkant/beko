@@ -71,6 +71,20 @@ Deno.serve(async (request) => {
     return Response.json({ error: 'Gerekli sunucu secret değerleri eksik.' }, { status: 500 });
   }
 
+  const body = await request.json().catch(() => ({}));
+  if (body?.test === true) {
+    const testResponse = await fetch(`${TELEGRAM_API}/bot${telegramToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: telegramChatId,
+        text: '✅ OPS360 Telegram bağlantısı başarıyla kuruldu. Kredi kartı hatırlatmaları bu sohbetten gönderilecek.',
+      }),
+    });
+    const testResult = await testResponse.json().catch(() => null);
+    return Response.json(testResult, { status: testResponse.ok ? 200 : 502 });
+  }
+
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
