@@ -12,7 +12,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) {
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['Finans']));
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['Araç Yönetimi']));
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
