@@ -35,7 +35,6 @@ export const navItems: NavItem[] = [
       { label: 'Kredi Kartları', to: '/finance/credit-cards' },
       { label: 'Banka Hesapları', to: '/finans/banka-hesaplari' },
       { label: 'Çekler', to: '/finans/cekler' },
-      { label: 'Ödemeler', to: '/finans/odemeler' },
     ],
   },
   { label: 'Araç Yönetimi', to: '/arac-yonetimi', icon: Car },
