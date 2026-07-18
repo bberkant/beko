@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Search, Trash2, Upload, Users } from "lucide-react";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Badge } from "../../components/ui/Badge";
@@ -197,6 +198,7 @@ export function DriversPage() {
   );
 }
 export function TrafficFinesPage() {
+  const navigate = useNavigate();
   const { fines, vehicles, drivers, saveFine, updateFineStatus } =
     useVehicles();
   const { notify } = useToast();
@@ -218,7 +220,7 @@ export function TrafficFinesPage() {
       <PageHeader
         title="Trafik Cezaları"
         description="Araç ve şoför bazında trafik cezalarını ve ödeme durumlarını takip edin."
-        actions={<><ModuleFileActions module="traffic_fines" exportName="trafik-cezalari" rows={fines.map(f=>({Tarih:f.fineDate,Araç:vehicles.find(v=>v.id===f.vehicleId)?.plate,Şoför:drivers.find(d=>d.id===f.driverId)?.fullName,"Ceza No":f.fineNumber,İhlal:f.violationType,Konum:f.location,Tutar:f.amount,Durum:f.paymentStatus}))}/><button className="btn-primary" onClick={() => setOpen(true)}><Plus size={16} />Ceza Ekle</button></>}
+        actions={<><ModuleFileActions module="traffic_fines" exportName="trafik-cezalari" rows={fines.map(f=>({Tarih:f.fineDate,Araç:vehicles.find(v=>v.id===f.vehicleId)?.plate,Şoför:drivers.find(d=>d.id===f.driverId)?.fullName,"Ceza No":f.fineNumber,İhlal:f.violationType,Konum:f.location,Tutar:f.amount,Durum:f.paymentStatus}))}/><button className="btn-secondary" onClick={() => navigate('/arac-yonetimi/yeni')}><Plus size={16} />Yeni Araç</button><button className="btn-primary" onClick={() => setOpen(true)}><Plus size={16} />Ceza Ekle</button></>}
       />
       <div className="mb-4 grid gap-4 sm:grid-cols-3">
         <K v={String(fines.length)} l="Toplam Ceza" />
