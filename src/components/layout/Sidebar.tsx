@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { navItems } from '../../types/navigation';
 import { Logo } from '../ui/Logo';
+import { useAuth } from '../../lib/auth';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -14,6 +15,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['Finans']));
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const asideCls = [
     'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-gray-200 bg-white transition-all duration-300',
@@ -35,7 +37,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
           <Logo collapsed={collapsed} />
         </div>
         <nav className="flex-1 overflow-y-auto py-3">
-          {navItems.map((item) => {
+          {navItems.filter((item) => item.to !== '/kullanicilar' || user?.role === 'Yönetici').map((item) => {
             const Icon = item.icon;
             const hasChildren = Boolean(item.children);
             const isExpanded = expanded.has(item.label);
