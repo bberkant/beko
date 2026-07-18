@@ -30,10 +30,15 @@ export function CreditCardFormPage() {
   const [expiryYear, setExpiryYear] = useState(String(existing?.expiryYear ?? '2028'));
   const [status, setStatus] = useState<CardStatus>(existing?.status ?? 'aktif');
   const [description, setDescription] = useState(existing?.description ?? '');
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!bank || !cardName || !last4 || !holder) {
       notify('Lütfen zorunlu alanları doldurun.', 'error');
+      return;
+    }
+    if (!/^[0-9]{4}$/.test(last4)) {
+      notify('Son 4 hane tam olarak 4 rakam olmalıdır.', 'error');
       return;
     }
     const input = {
@@ -47,14 +52,22 @@ export function CreditCardFormPage() {
       expiryYear: Number(expiryYear) || 2028,
       status, description,
     };
-    if (existing) {
-      updateCard(existing.id, input);
-      notify('Kart güncellendi.', 'success');
-    } else {
-      addCard(input);
-      notify('Yeni kart eklendi.', 'success');
+    setSaving(true);
+    try {
+      if (existing) {
+        await updateCard(existing.id, input);
+        notify('Kart güncellendi.', 'success');
+      } else {
+        await addCard(input);
+        notify('Yeni kart eklendi.', 'success');
+      }
+      navigate('/finance/credit-cards');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Kart kaydedilemedi.';
+      notify(`Kart kaydedilemedi: ${message}`, 'error');
+    } finally {
+      setSaving(false);
     }
-    navigate('/finance/credit-cards');
   };
 
   return (
@@ -154,7 +167,7 @@ export function CreditCardFormPage() {
           </div>
           <div className="flex items-center justify-end gap-2.5">
             <button className="btn-ghost" onClick={() => navigate('/finance/credit-cards')}>İptal</button>
-            <button className="btn-primary" onClick={handleSubmit}>{existing ? 'Güncelle' : 'Kaydet'}</button>
+            <button className="btn-primary" onClick={handleSubmit} disabled={saving}>{saving ? 'Kaydediliyor...' : existing ? 'Güncelle' : 'Kaydet'}</button>
           </div>
         </div>
       </div>
