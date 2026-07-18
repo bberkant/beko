@@ -5,7 +5,7 @@ import {
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
-export type OrganizationRole = 'admin' | 'muhasebe' | 'goruntuleyici';
+export type OrganizationRole = 'admin' | 'muhasebe' | 'finans' | 'goruntuleyici';
 
 export interface AuthUser {
   id: string;
@@ -29,6 +29,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const roleLabels: Record<OrganizationRole, string> = {
   admin: 'Yönetici',
   muhasebe: 'Muhasebe',
+  finans: 'Finans',
   goruntuleyici: 'Görüntüleyici',
 };
 
