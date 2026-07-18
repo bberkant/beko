@@ -52,7 +52,7 @@ export function LoginPage() {
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             {mode === 'signup' && <><div><label className="label">Ad Soyad</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} required /></div>{!inviteToken&&<div><label className="label">Şirket Adı</label><input className="input" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required /></div>}</>}
             <div><label className="label">{mode === 'login' ? 'Kullanıcı adı veya e-posta' : 'E-posta'}</label><input type={mode === 'login' ? 'text' : 'email'} className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={mode === 'login' ? 'Kullanıcı adınızı yazın' : 'kullanici@sirket.com'} required /></div>
-            <div><label className="label">Şifre</label><input type="password" minLength={8} className="input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="En az 8 karakter" required /></div>
+            <div><label className="label">Şifre</label><input type="password" minLength={mode === 'signup' ? 8 : 6} className="input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={mode === 'signup' ? 'En az 8 karakter' : 'Şifrenizi yazın'} required /></div>
             {mode === 'login' && <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />Beni hatırla</label>}
             {error && <p className="text-sm font-medium text-red-600">{error}</p>}
             {message && <p className="text-sm font-medium text-emerald-600">{message}</p>}
