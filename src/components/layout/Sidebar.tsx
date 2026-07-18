@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { navItems } from '../../types/navigation';
 import { Logo } from '../ui/Logo';
@@ -12,6 +12,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) {
   const [expanded, setExpanded] = useState<string | null>('Finans');
+  const location = useLocation();
 
   const asideCls = [
     'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-gray-200 bg-white transition-all duration-300',
@@ -58,21 +59,27 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                   </button>
                   {!collapsed && isExpanded && (
                     <div className="mb-1 ml-6 border-l border-gray-100 pl-2">
-                      {item.children!.map((child) => (
-                        <NavLink
-                          key={child.to}
-                          to={child.to}
-                          className={({ isActive }) =>
-                            `block rounded-md px-3 py-2 text-sm transition-colors ${
-                              isActive
+                      {item.children!.map((child) => {
+                        const moreSpecificChildIsActive = item.children!.some(
+                          (other) => other.to !== child.to &&
+                            (location.pathname === other.to || location.pathname.startsWith(`${other.to}/`)),
+                        );
+                        const isChildActive = location.pathname === child.to ||
+                          (location.pathname.startsWith(`${child.to}/`) && !moreSpecificChildIsActive);
+                        return (
+                          <NavLink
+                            key={child.to}
+                            to={child.to}
+                            className={`block rounded-md px-3 py-2 text-sm transition-colors ${
+                              isChildActive
                                 ? 'bg-brand-50 font-medium text-brand-700'
                                 : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
-                            }`
-                          }
-                        >
-                          {child.label}
-                        </NavLink>
-                      ))}
+                            }`}
+                          >
+                            {child.label}
+                          </NavLink>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
