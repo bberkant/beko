@@ -262,23 +262,20 @@ export function CreditCardListPage() {
           <table className="w-full table-fixed divide-y divide-gray-200">
             <thead className="bg-gray-50/60">
               <tr>
-                <th className="table-th w-[14%] !px-2">Kart</th>
-                <th className="table-th w-[7%] !px-2">Son 4</th>
-                <th className="table-th w-[10%] !px-2">Kullanan</th>
-                <th className="table-th w-[9%] !px-2">Limit</th>
-                <th className="table-th w-[9%] !px-2">Borç</th>
-                <th className="table-th w-[12%] !px-2">Kullanım</th>
-                <th className="table-th w-[7%] !px-2">Kesim</th>
-                <th className="table-th w-[14%] !px-2">Son Ödeme</th>
-                <th className="table-th w-[8%] !px-2">Ekstre</th>
-                <th className="table-th w-[6%] !px-2">Durum</th>
-                <th className="table-th w-[4%] !px-1 text-center" aria-label="İşlemler"></th>
+                <th className="table-th w-[16%] !px-2">Kart</th>
+                <th className="table-th w-[8%] !px-2">Son 4</th>
+                <th className="table-th w-[11%] !px-2">Kullanan</th>
+                <th className="table-th w-[10%] !px-2">Limit</th>
+                <th className="table-th w-[10%] !px-2">Borç</th>
+                <th className="table-th w-[8%] !px-2">Kesim</th>
+                <th className="table-th w-[16%] !px-2">Son Ödeme</th>
+                <th className="table-th w-[9%] !px-2">Ekstre</th>
+                <th className="table-th w-[7%] !px-2">Durum</th>
+                <th className="table-th w-[5%] !px-1 text-center" aria-label="İşlemler"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map((c) => {
-                const usage = limitUsage(c.currentDebt, c.limit);
-                const level = usageLevel(usage);
                 const today = new Date();
                 const dueDate = new Date(today.getFullYear(), today.getMonth(), c.dueDay).toISOString();
                 return (
@@ -293,7 +290,6 @@ export function CreditCardListPage() {
                     <td className="table-td truncate !px-2 !text-xs text-gray-700">{c.holder || '—'}</td>
                     <td className="table-td !px-2 !text-xs text-gray-700">{formatTRY(c.limit)}</td>
                     <td className="table-td !px-2 !text-xs font-medium text-gray-900">{formatTRY(c.currentDebt)}</td>
-                    <td className="table-td !px-2"><ProgressBar value={usage} level={level} showLabel /></td>
                     <td className="table-td !px-2 !text-xs text-gray-600">{c.statementDay}. gün</td>
                     <td className="table-td !px-2 !text-xs"><DueDateCell dueDate={dueDate} statementStatus={c.statementStatus} /></td>
                     <td className="table-td !px-2">
