@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Upload, Download, SlidersHorizontal, Search,
-  AlertTriangle, CreditCard as CreditCardIcon, Wallet, Clock, Gauge, AlertOctagon, Eye,
+  AlertTriangle, CreditCard as CreditCardIcon, Wallet, Clock, Gauge, AlertOctagon, Eye, ReceiptText,
 } from 'lucide-react';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Badge } from '../../../components/ui/Badge';
@@ -19,6 +19,7 @@ import {
 import { CardRowMenu } from '../components/CardRowMenu';
 import { DueDateCell } from '../components/DueDateCell';
 import { UploadStatementModalBody, UploadProgress, type StatementUploadData } from '../components/UploadStatementModal';
+import { BulkPaymentModalBody, type BulkPaymentData } from '../components/BulkPaymentModalBody';
 
 interface Filters {
   bank: string;
@@ -36,7 +37,7 @@ const emptyFilters: Filters = {
 export function CreditCardListPage() {
   const navigate = useNavigate();
   const { notify } = useToast();
-  const { cards, addStatement } = useStore();
+  const { cards, addStatement, addPayment } = useStore();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -44,6 +45,8 @@ export function CreditCardListPage() {
   const [uploadCard, setUploadCard] = useState<CreditCardType | null>(null);
   const [cardPickerOpen, setCardPickerOpen] = useState(false);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [bulkPaymentOpen, setBulkPaymentOpen] = useState(false);
+  const [bulkPaymentSubmitting, setBulkPaymentSubmitting] = useState(false);
 
   const banks = useMemo(() => Array.from(new Set(cards.map((c) => c.bank))), [cards]);
   const holders = useMemo(() => Array.from(new Set(cards.map((c) => c.holder).filter(Boolean))), [cards]);
@@ -132,6 +135,31 @@ export function CreditCardListPage() {
     }, 250);
   };
 
+  const handleBulkPaymentSubmit = async (data: BulkPaymentData) => {
+    if (data.payments.length === 0) {
+      notify('En az bir kart seçin ve sıfırdan büyük ödeme tutarı girin.', 'error');
+      return;
+    }
+    setBulkPaymentSubmitting(true);
+    try {
+      await Promise.all(data.payments.map((payment) => addPayment({
+        cardId: payment.cardId,
+        date: data.date,
+        amount: payment.amount,
+        type: data.type,
+        bankAccount: data.bankAccount,
+        description: data.description,
+      })));
+      notify(`${data.payments.length} kart için ödeme kaydı eklendi.`, 'success');
+      setBulkPaymentOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Ödeme kayıtları eklenemedi.';
+      notify(`Toplu ödeme kaydedilemedi: ${message}`, 'error');
+    } finally {
+      setBulkPaymentSubmitting(false);
+    }
+  };
+
   const kpiList = [
     { id: 'total', label: 'Toplam Kart Sayısı', value: String(kpis.total), icon: CreditCardIcon, hint: 'tüm kartlar' },
     { id: 'limit', label: 'Toplam Kart Limiti', value: formatTRY(kpis.totalLimit), icon: Wallet, hint: 'birleşik limit' },
@@ -150,6 +178,9 @@ export function CreditCardListPage() {
           <>
             <button className="btn-secondary" onClick={() => setCardPickerOpen(true)}>
               <Upload size={16} /> Ekstre Yükle
+            </button>
+            <button className="btn-secondary" onClick={() => setBulkPaymentOpen(true)}>
+              <ReceiptText size={16} /> Toplu Ödeme Kaydı Ekle
             </button>
             <button className="btn-secondary" onClick={() => notify('Kart listesi dışa aktarıldı (mock).', 'success')}>
               <Download size={16} /> Dışa Aktar
@@ -418,6 +449,20 @@ export function CreditCardListPage() {
         {uploadCard && (
           <UploadStatementModalBody card={uploadCard} progress={progress} onSubmit={handleUploadSubmit} />
         )}
+      </Modal>
+
+      <Modal
+        open={bulkPaymentOpen}
+        onClose={() => { if (!bulkPaymentSubmitting) setBulkPaymentOpen(false); }}
+        title="Toplu Ödeme Kaydı Ekle"
+        description="Birden fazla kredi kartı için tek işlemde ödeme kaydı oluşturun."
+        size="lg"
+      >
+        <BulkPaymentModalBody
+          cards={cards.filter((card) => card.status !== 'pasif')}
+          submitting={bulkPaymentSubmitting}
+          onSubmit={(data) => void handleBulkPaymentSubmit(data)}
+        />
       </Modal>
     </div>
   );
