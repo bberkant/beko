@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ekap:scan": "node --env-file-if-exists=.env.local scripts/ekap-scanner.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",
@@ -23,6 +24,7 @@
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.39",
+    "playwright": "^1.54.1",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.5.3",
     "vite": "^5.4.0"
