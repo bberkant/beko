@@ -4,91 +4,36 @@ import {
 } from 'react';
 import type { CreditCard, Statement, Payment, Transaction } from '../types';
 import type { ParsedStatementTransaction } from '../lib/statementParser';
-import {
-  seedCards, seedStatements, seedTransactions, seedPayments,
-} from './seed';
-
-const CARDS_KEY = 'ops360_cc_cards';
-const STATEMENTS_KEY = 'ops360_cc_statements';
-const PAYMENTS_KEY = 'ops360_cc_payments';
-const TRANSACTIONS_KEY = 'ops360_cc_transactions';
-
-function load<T>(key: string, fallback: T[]): T[] {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed as T[];
-    }
-  } catch {
-    /* ignore */
-  }
-  return fallback;
-}
-
-function save<T>(key: string, data: T[]): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch {
-    /* ignore */
-  }
-}
-
-function genId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-}
+import { supabase } from '../../../lib/supabase';
+import { useAuth } from '../../../lib/auth';
 
 export interface NewCardInput {
-  bank: string;
-  cardName: string;
-  cardType: CreditCard['cardType'];
-  last4: string;
-  holder: string;
-  department: string;
-  limit: number;
-  currency: CreditCard['currency'];
-  statementDay: number;
-  dueDay: number;
-  minPaymentRate: number;
-  startDate: string;
-  expiryMonth: number;
-  expiryYear: number;
-  status: CreditCard['status'];
-  description?: string;
+  bank: string; cardName: string; cardType: CreditCard['cardType']; last4: string;
+  holder: string; department: string; limit: number; currency: CreditCard['currency'];
+  statementDay: number; dueDay: number; minPaymentRate: number; startDate: string;
+  expiryMonth: number; expiryYear: number; status: CreditCard['status']; description?: string;
 }
 
 export interface NewStatementInput {
-  cardId: string;
-  period: string;
-  statementDate: string;
-  dueDate: string;
-  totalDebt: number;
-  minPayment: number;
-  note?: string;
-  fileName?: string;
-  transactions?: ParsedStatementTransaction[];
+  cardId: string; period: string; statementDate: string; dueDate: string;
+  totalDebt: number; minPayment: number; note?: string; fileName?: string;
+  file?: File; transactions?: ParsedStatementTransaction[];
 }
 
 export interface NewPaymentInput {
-  cardId: string;
-  date: string;
-  amount: number;
-  type: Payment['type'];
-  bankAccount: string;
-  description?: string;
+  cardId: string; date: string; amount: number; type: Payment['type'];
+  bankAccount: string; description?: string;
 }
 
 interface StoreContextValue {
-  cards: CreditCard[];
-  statements: Statement[];
-  payments: Payment[];
-  transactions: Transaction[];
-  addCard: (input: NewCardInput) => CreditCard;
-  updateCard: (id: string, input: NewCardInput) => void;
-  deleteCard: (id: string) => void;
-  addStatement: (input: NewStatementInput) => Statement;
-  deleteStatement: (id: string) => void;
-  addPayment: (input: NewPaymentInput) => Payment;
+  cards: CreditCard[]; statements: Statement[]; payments: Payment[]; transactions: Transaction[];
+  loading: boolean; error: string | null; refresh: () => Promise<void>;
+  addCard: (input: NewCardInput) => Promise<CreditCard>;
+  updateCard: (id: string, input: NewCardInput) => Promise<void>;
+  deleteCard: (id: string) => Promise<void>;
+  addStatement: (input: NewStatementInput) => Promise<Statement>;
+  deleteStatement: (id: string) => Promise<void>;
+  addPayment: (input: NewPaymentInput) => Promise<Payment>;
   getCard: (id: string) => CreditCard | undefined;
   getStatementsByCard: (cardId: string) => Statement[];
   getStatement: (id: string) => Statement | undefined;
@@ -97,102 +42,156 @@ interface StoreContextValue {
   getPaymentsByCard: (cardId: string) => Payment[];
 }
 
+type Row = Record<string, any>;
+const cardFromRow = (r: Row): CreditCard => ({
+  id: r.id, bank: r.bank, bankShort: r.bank_short, cardName: r.card_name,
+  cardType: r.card_type, last4: r.last4, holder: r.holder, department: r.department,
+  limit: Number(r.card_limit), currentDebt: Number(r.current_debt), currency: r.currency,
+  statementDay: r.statement_day, dueDay: r.due_day, minPaymentRate: Number(r.min_payment_rate),
+  startDate: r.start_date, expiryMonth: r.expiry_month, expiryYear: r.expiry_year,
+  status: r.status, statementStatus: r.statement_status, description: r.description ?? undefined,
+});
+const statementFromRow = (r: Row): Statement => ({
+  id: r.id, cardId: r.card_id, period: r.period, statementDate: r.statement_date,
+  dueDate: r.due_date, totalDebt: Number(r.total_debt), minPayment: Number(r.min_payment),
+  transactionCount: r.transaction_count, hasFile: Boolean(r.file_path), fileName: r.file_name ?? undefined,
+  aiStatus: r.ai_status, paymentStatus: r.payment_status, note: r.note ?? undefined,
+});
+const transactionFromRow = (r: Row): Transaction => ({
+  id: r.id, cardId: r.card_id, statementId: r.statement_id, date: r.transaction_date,
+  merchant: r.merchant, description: r.description, category: r.category, amount: Number(r.amount),
+  installments: r.installments, spender: r.spender, reviewStatus: r.review_status, unusual: r.unusual,
+});
+const paymentFromRow = (r: Row): Payment => ({
+  id: r.id, cardId: r.card_id, statementId: r.statement_id ?? undefined, date: r.payment_date,
+  amount: Number(r.amount), type: r.payment_type, bankAccount: r.bank_account,
+  description: r.description ?? undefined, hasReceipt: Boolean(r.receipt_path), recordedBy: 'Muhasebe',
+});
+
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [cards, setCards] = useState<CreditCard[]>(() => load(CARDS_KEY, seedCards));
-  const [statements, setStatements] = useState<Statement[]>(() => load(STATEMENTS_KEY, seedStatements));
-  const [payments, setPayments] = useState<Payment[]>(() => load(PAYMENTS_KEY, seedPayments));
-  const [transactions, setTransactions] = useState<Transaction[]>(() => load(TRANSACTIONS_KEY, seedTransactions));
+  const { user } = useAuth();
+  const orgId = user?.organizationId ?? null;
+  const [cards, setCards] = useState<CreditCard[]>([]);
+  const [statements, setStatements] = useState<Statement[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { save(CARDS_KEY, cards); }, [cards]);
-  useEffect(() => { save(STATEMENTS_KEY, statements); }, [statements]);
-  useEffect(() => { save(PAYMENTS_KEY, payments); }, [payments]);
-  useEffect(() => { save(TRANSACTIONS_KEY, transactions); }, [transactions]);
+  const requireOrg = useCallback(() => {
+    if (!orgId) throw new Error('Kullanıcı bir şirkete bağlı değil. İlk kurulumu tamamlayın.');
+    return orgId;
+  }, [orgId]);
 
-  const addCard = useCallback((input: NewCardInput): CreditCard => {
+  const refresh = useCallback(async () => {
+    if (!orgId) { setCards([]); setStatements([]); setPayments([]); setTransactions([]); setLoading(false); return; }
+    setLoading(true); setError(null);
+    const [cardRes, statementRes, transactionRes, paymentRes] = await Promise.all([
+      supabase.from('credit_cards').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }),
+      supabase.from('statements').select('*').eq('organization_id', orgId).order('statement_date', { ascending: false }),
+      supabase.from('transactions').select('*').eq('organization_id', orgId).order('transaction_date', { ascending: false }),
+      supabase.from('payments').select('*').eq('organization_id', orgId).order('payment_date', { ascending: false }),
+    ]);
+    const failed = [cardRes, statementRes, transactionRes, paymentRes].find((r) => r.error);
+    if (failed?.error) { setError(failed.error.message); setLoading(false); throw failed.error; }
+    setCards((cardRes.data ?? []).map(cardFromRow));
+    setStatements((statementRes.data ?? []).map(statementFromRow));
+    setTransactions((transactionRes.data ?? []).map(transactionFromRow));
+    setPayments((paymentRes.data ?? []).map(paymentFromRow));
+    setLoading(false);
+  }, [orgId]);
+
+  useEffect(() => { void refresh().catch(console.error); }, [refresh]);
+
+  const addCard = useCallback(async (input: NewCardInput) => {
+    const organizationId = requireOrg();
     const bankShort = input.bank.split(' ').map((w) => w[0]).join('').slice(0, 5).toUpperCase();
-    const newCard: CreditCard = {
-      id: genId('cc'),
-      ...input,
-      bankShort,
-      currentDebt: 0,
-      statementStatus: 'bekleniyor',
-    };
-    setCards((prev) => [newCard, ...prev]);
-    return newCard;
-  }, []);
+    const { data, error: dbError } = await supabase.from('credit_cards').insert({
+      organization_id: organizationId, bank: input.bank, bank_short: bankShort,
+      card_name: input.cardName, card_type: input.cardType, last4: input.last4,
+      holder: input.holder, department: input.department, card_limit: input.limit,
+      currency: input.currency, statement_day: input.statementDay, due_day: input.dueDay,
+      min_payment_rate: input.minPaymentRate, start_date: input.startDate,
+      expiry_month: input.expiryMonth, expiry_year: input.expiryYear,
+      status: input.status, description: input.description,
+    }).select().single();
+    if (dbError) throw dbError;
+    const card = cardFromRow(data); setCards((prev) => [card, ...prev]); return card;
+  }, [requireOrg]);
 
-  const updateCard = useCallback((id: string, input: NewCardInput) => {
+  const updateCard = useCallback(async (id: string, input: NewCardInput) => {
+    const organizationId = requireOrg();
     const bankShort = input.bank.split(' ').map((w) => w[0]).join('').slice(0, 5).toUpperCase();
-    setCards((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? { ...c, ...input, bankShort }
-          : c,
-      ),
-    );
-  }, []);
+    const { data, error: dbError } = await supabase.from('credit_cards').update({
+      bank: input.bank, bank_short: bankShort, card_name: input.cardName, card_type: input.cardType,
+      last4: input.last4, holder: input.holder, department: input.department, card_limit: input.limit,
+      currency: input.currency, statement_day: input.statementDay, due_day: input.dueDay,
+      min_payment_rate: input.minPaymentRate, start_date: input.startDate, expiry_month: input.expiryMonth,
+      expiry_year: input.expiryYear, status: input.status, description: input.description,
+    }).eq('id', id).eq('organization_id', organizationId).select().single();
+    if (dbError) throw dbError;
+    setCards((prev) => prev.map((c) => c.id === id ? cardFromRow(data) : c));
+  }, [requireOrg]);
 
-  const deleteCard = useCallback((id: string) => {
-    setCards((prev) => prev.filter((c) => c.id !== id));
-    setStatements((prev) => prev.filter((s) => s.cardId !== id));
-    setPayments((prev) => prev.filter((p) => p.cardId !== id));
-    setTransactions((prev) => prev.filter((t) => t.cardId !== id));
-  }, []);
+  const deleteCard = useCallback(async (id: string) => {
+    const organizationId = requireOrg();
+    const { error: dbError } = await supabase.from('credit_cards').delete().eq('id', id).eq('organization_id', organizationId);
+    if (dbError) throw dbError;
+    await refresh();
+  }, [requireOrg, refresh]);
 
-  const addStatement = useCallback((input: NewStatementInput): Statement => {
-    const statementId = genId('st');
-    const parsedTransactions = input.transactions ?? [];
-    const newStmt: Statement = {
-      id: statementId,
-      cardId: input.cardId,
-      period: input.period,
-      statementDate: input.statementDate,
-      dueDate: input.dueDate,
-      totalDebt: input.totalDebt,
-      minPayment: input.minPayment,
-      note: input.note,
-      fileName: input.fileName,
-      transactionCount: parsedTransactions.length,
-      hasFile: true,
-      aiStatus: 'analiz-bekliyor',
-      paymentStatus: 'odenmedi',
-    };
-    const newTransactions: Transaction[] = parsedTransactions.map((transaction, index) => ({
-      id: `${statementId}-tx-${index + 1}`,
-      cardId: input.cardId,
-      statementId,
-      spender: cards.find((card) => card.id === input.cardId)?.holder ?? 'Bilinmiyor',
-      ...transaction,
-    }));
-    setStatements((prev) => [newStmt, ...prev]);
-    setTransactions((prev) => [...newTransactions, ...prev]);
-    setCards((prev) =>
-      prev.map((c) =>
-        c.id === input.cardId
-          ? { ...c, currentDebt: input.totalDebt, statementStatus: 'yuklendi' as const }
-          : c,
-      ),
-    );
-    return newStmt;
-  }, [cards]);
+  const addStatement = useCallback(async (input: NewStatementInput) => {
+    const organizationId = requireOrg();
+    let filePath: string | null = null;
+    if (input.file) {
+      filePath = `${organizationId}/${input.cardId}/${crypto.randomUUID()}.pdf`;
+      const { error: uploadError } = await supabase.storage.from('credit-card-statements').upload(filePath, input.file, { contentType: 'application/pdf' });
+      if (uploadError) throw uploadError;
+    }
+    const parsed = input.transactions ?? [];
+    const { data, error: statementError } = await supabase.from('statements').insert({
+      organization_id: organizationId, card_id: input.cardId, period: input.period,
+      statement_date: input.statementDate, due_date: input.dueDate, total_debt: input.totalDebt,
+      min_payment: input.minPayment, transaction_count: parsed.length, file_name: input.fileName,
+      file_path: filePath, note: input.note,
+    }).select().single();
+    if (statementError) { if (filePath) await supabase.storage.from('credit-card-statements').remove([filePath]); throw statementError; }
+    if (parsed.length) {
+      const holder = cards.find((card) => card.id === input.cardId)?.holder ?? 'Bilinmiyor';
+      const { error: transactionError } = await supabase.from('transactions').insert(parsed.map((t) => ({
+        organization_id: organizationId, card_id: input.cardId, statement_id: data.id,
+        transaction_date: t.date, merchant: t.merchant, description: t.description,
+        category: t.category, amount: t.amount, installments: t.installments,
+        spender: holder, review_status: t.reviewStatus, unusual: false,
+      })));
+      if (transactionError) { await supabase.from('statements').delete().eq('id', data.id); throw transactionError; }
+    }
+    await supabase.from('credit_cards').update({ current_debt: input.totalDebt, statement_status: 'yuklendi' }).eq('id', input.cardId).eq('organization_id', organizationId);
+    await refresh();
+    return statementFromRow(data);
+  }, [cards, requireOrg, refresh]);
 
-  const deleteStatement = useCallback((id: string) => {
-    setStatements((prev) => prev.filter((s) => s.id !== id));
-    setTransactions((prev) => prev.filter((t) => t.statementId !== id));
-  }, []);
+  const deleteStatement = useCallback(async (id: string) => {
+    const organizationId = requireOrg();
+    const { data } = await supabase.from('statements').select('file_path').eq('id', id).eq('organization_id', organizationId).maybeSingle();
+    const { error: dbError } = await supabase.from('statements').delete().eq('id', id).eq('organization_id', organizationId);
+    if (dbError) throw dbError;
+    if (data?.file_path) await supabase.storage.from('credit-card-statements').remove([data.file_path]);
+    await refresh();
+  }, [requireOrg, refresh]);
 
-  const addPayment = useCallback((input: NewPaymentInput): Payment => {
-    const newPay: Payment = {
-      id: genId('py'),
-      ...input,
-      hasReceipt: false,
-      recordedBy: 'Muhasebe',
-    };
-    setPayments((prev) => [newPay, ...prev]);
-    return newPay;
-  }, []);
+  const addPayment = useCallback(async (input: NewPaymentInput) => {
+    const organizationId = requireOrg();
+    const { data, error: dbError } = await supabase.from('payments').insert({
+      organization_id: organizationId, card_id: input.cardId, payment_date: input.date,
+      amount: input.amount, payment_type: input.type, bank_account: input.bankAccount,
+      description: input.description,
+    }).select().single();
+    if (dbError) throw dbError;
+    const payment = paymentFromRow(data); setPayments((prev) => [payment, ...prev]); return payment;
+  }, [requireOrg]);
 
   const getCard = useCallback((id: string) => cards.find((c) => c.id === id), [cards]);
   const getStatementsByCard = useCallback((cardId: string) => statements.filter((s) => s.cardId === cardId), [statements]);
@@ -201,14 +200,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const getTransactionsByStatement = useCallback((statementId: string) => transactions.filter((t) => t.statementId === statementId), [transactions]);
   const getPaymentsByCard = useCallback((cardId: string) => payments.filter((p) => p.cardId === cardId), [payments]);
 
-  const value = useMemo<StoreContextValue>(() => ({
-    cards, statements, payments, transactions,
-    addCard, updateCard, deleteCard,
-    addStatement, deleteStatement, addPayment,
-    getCard, getStatementsByCard, getStatement,
-    getTransactionsByCard, getTransactionsByStatement, getPaymentsByCard,
-  }), [cards, statements, payments, transactions, addCard, updateCard, deleteCard, addStatement, deleteStatement, addPayment, getCard, getStatementsByCard, getStatement, getTransactionsByCard, getTransactionsByStatement, getPaymentsByCard]);
-
+  const value = useMemo<StoreContextValue>(() => ({ cards, statements, payments, transactions, loading, error, refresh,
+    addCard, updateCard, deleteCard, addStatement, deleteStatement, addPayment, getCard, getStatementsByCard,
+    getStatement, getTransactionsByCard, getTransactionsByStatement, getPaymentsByCard,
+  }), [cards, statements, payments, transactions, loading, error, refresh, addCard, updateCard, deleteCard, addStatement, deleteStatement, addPayment, getCard, getStatementsByCard, getStatement, getTransactionsByCard, getTransactionsByStatement, getPaymentsByCard]);
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
