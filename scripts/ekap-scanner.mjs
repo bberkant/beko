@@ -26,6 +26,8 @@ if (!['admin', 'muhasebe', 'finans'].includes(membership.role)) throw new Error(
 
 const searchTerms = ['kırmızı et', 'dana eti', 'sığır eti', 'kuzu eti', 'koyun eti', 'karkas et', 'et ve et ürünleri'];
 const meatPattern = /(kırmızı\s+et|dana\s+eti?|sığır\s+eti?|kuzu\s+eti?|koyun\s+eti?|karkas\s+et|et\s+ve\s+et\s+ürünleri)/iu;
+const scanStartedAt = new Date();
+const scanEndsAt = new Date(scanStartedAt.getTime() + (90 * 24 * 60 * 60 * 1000));
 const found = new Map();
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 
@@ -56,6 +58,7 @@ try {
       const [, city, day, month, year, hour, minute] = match;
       const deadline = new Date(`${year}-${month}-${day}T${hour}:${minute}:00+03:00`);
       if (Number.isNaN(deadline.getTime())) continue;
+      if (deadline < scanStartedAt || deadline > scanEndsAt) continue;
       found.set(row.ikn, {
         organization_id: membership.organization_id,
         ikn: row.ikn,
@@ -83,5 +86,5 @@ if (candidates.length) {
   if (error) throw error;
 }
 
-console.log(`EKAP taraması tamamlandı. ${candidates.length} uygun ihale bulundu.`);
+console.log(`EKAP taraması tamamlandı. Önümüzdeki 90 gün içinde ${candidates.length} uygun ihale bulundu.`);
 await supabase.auth.signOut();
