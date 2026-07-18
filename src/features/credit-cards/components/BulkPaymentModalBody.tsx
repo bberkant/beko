@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { CreditCard, Payment, Statement } from '../types';
 import { formatTRY } from '../data/labels';
-import { isCardPaymentOverdue } from '../lib/billingDateEngine';
+import { isCardPaymentOverdue, resolveCardOutstandingDebt } from '../lib/billingDateEngine';
 
 export interface BulkPaymentData {
   date: string;
@@ -35,10 +35,11 @@ export function BulkPaymentModalBody({ cards, statements, submitting, onSubmit }
   const allSelected = visibleCards.length > 0 && visibleCards.every((card) => selected[card.id]);
 
   const toggleCard = (card: CreditCard) => {
+    const outstandingDebt = resolveCardOutstandingDebt(card, statements);
     setSelected((current) => ({ ...current, [card.id]: !current[card.id] }));
     setAmounts((current) => ({
       ...current,
-      [card.id]: current[card.id] ?? String(card.currentDebt),
+      [card.id]: current[card.id] ?? String(outstandingDebt),
     }));
   };
 
@@ -48,7 +49,7 @@ export function BulkPaymentModalBody({ cards, statements, submitting, onSubmit }
       return;
     }
     setSelected((current) => ({ ...current, ...Object.fromEntries(visibleCards.map((card) => [card.id, true])) }));
-    setAmounts((current) => ({ ...current, ...Object.fromEntries(visibleCards.map((card) => [card.id, String(card.currentDebt)])) }));
+    setAmounts((current) => ({ ...current, ...Object.fromEntries(visibleCards.map((card) => [card.id, String(resolveCardOutstandingDebt(card, statements))])) }));
   };
 
   const submit = () => {
@@ -103,7 +104,7 @@ export function BulkPaymentModalBody({ cards, statements, submitting, onSubmit }
               <input type="checkbox" checked={Boolean(selected[card.id])} onChange={() => toggleCard(card)} className="h-4 w-4 rounded border-gray-300 text-brand-600" />
               <button type="button" className="min-w-0 text-left" onClick={() => toggleCard(card)}>
                 <span className="block truncate text-sm font-medium text-gray-900">{card.bank} · •••• {card.last4}</span>
-                <span className="block text-xs text-gray-500">Güncel borç: {formatTRY(card.currentDebt)}</span>
+                <span className="block text-xs text-gray-500">Güncel borç: {formatTRY(resolveCardOutstandingDebt(card, statements))}</span>
               </button>
               <input
                 type="number"
@@ -118,7 +119,7 @@ export function BulkPaymentModalBody({ cards, statements, submitting, onSubmit }
           ))}
           {visibleCards.length === 0 && (
             <p className="p-6 text-center text-sm text-gray-500">
-              {showOverdueOnly ? 'Son ödeme günü geçmiş borçlu kart bulunamadı.' : 'Ödeme kaydı eklenebilecek kart bulunamadı.'}
+              {showOverdueOnly ? 'Son ödeme günü geçmiş kart bulunamadı.' : 'Ödeme kaydı eklenebilecek kart bulunamadı.'}
             </p>
           )}
         </div>
