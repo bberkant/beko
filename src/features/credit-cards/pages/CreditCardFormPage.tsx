@@ -123,7 +123,14 @@ export function CreditCardFormPage() {
             </div>
             <div>
               <label className="label">Kart Limiti (₺)</label>
-              <input type="number" className="input" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="850000" />
+              <input
+                type="text"
+                inputMode="numeric"
+                className="input"
+                value={limit ? Number(limit).toLocaleString('tr-TR') : ''}
+                onChange={(e) => setLimit(e.target.value.replace(/\D/g, ''))}
+                placeholder="850.000"
+              />
             </div>
           </div>
           <div>
