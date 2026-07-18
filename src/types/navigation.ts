@@ -37,16 +37,7 @@ export const navItems: NavItem[] = [
       { label: 'Çekler', to: '/finans/cekler' },
     ],
   },
-  {
-    label: 'Araç Yönetimi',
-    to: '/arac-yonetimi',
-    icon: Car,
-    children: [
-      { label: 'Araç Listesi', to: '/arac-yonetimi' },
-      { label: 'Trafik Cezaları', to: '/arac-yonetimi/trafik-cezalari' },
-      { label: 'Şoförler', to: '/arac-yonetimi/soforler' },
-    ],
-  },
+  { label: 'Araç Yönetimi', to: '/arac-yonetimi', icon: Car },
   { label: 'İhaleler', to: '/ihaleler', icon: Gavel },
   { label: 'Belgeler', to: '/belgeler', icon: FileText },
   { label: 'Takvim', to: '/takvim', icon: CalendarDays },

@@ -16,7 +16,6 @@ import { BankAccountsProvider } from './features/bank-accounts/store';
 import { BankAccountListPage, BankAccountFormPage, BankAccountDetailPage } from './features/bank-accounts/pages';
 import { VehiclesProvider } from './features/vehicles/store';
 import { VehicleListPage, VehicleFormPage, VehicleDetailPage } from './features/vehicles/pages';
-import { TrafficFinesPage, DriversPage } from './features/vehicles/subpages';
 
 export default function App() {
   return (
@@ -43,8 +42,6 @@ export default function App() {
                 <Route path="/finans/odemeler" element={<PlaceholderPage />} />
                 <Route path="/arac-yonetimi" element={<VehicleListPage />} />
                 <Route path="/arac-yonetimi/yeni" element={<VehicleFormPage />} />
-                <Route path="/arac-yonetimi/trafik-cezalari" element={<TrafficFinesPage />} />
-                <Route path="/arac-yonetimi/soforler" element={<DriversPage />} />
                 <Route path="/arac-yonetimi/:id" element={<VehicleDetailPage />} />
                 <Route path="/arac-yonetimi/:id/duzenle" element={<VehicleFormPage />} />
                 <Route path="/ihaleler" element={<PlaceholderPage />} />
