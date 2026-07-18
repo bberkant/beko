@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 
-type ModuleName = 'bank_accounts' | 'vehicles' | 'traffic_fines' | 'drivers';
+type ModuleName = 'bank_accounts' | 'vehicles' | 'traffic_fines' | 'drivers' | 'tenders';
 interface Props { module: ModuleName; exportName: string; rows: Record<string, unknown>[] }
 
 function csvValue(value: unknown) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
