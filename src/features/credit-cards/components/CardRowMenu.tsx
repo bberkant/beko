@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { MoreHorizontal, Eye, Pencil, Upload, CreditCard, Pause } from 'lucide-react';
+import { MoreHorizontal, Eye, Pencil, Upload, CreditCard, Pause, Trash2 } from 'lucide-react';
 import { useToast } from '../../../lib/toast';
 import { useStore } from '../data/store';
 import type { CreditCard as CreditCardType } from '../types';
@@ -20,7 +20,7 @@ export function CardRowMenu({ card, onUploadStatement, onAddPayment }: CardRowMe
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const navigate = useNavigate();
   const { notify } = useToast();
-  const { updateCard } = useStore();
+  const { updateCard, deleteCard } = useStore();
 
   useEffect(() => {
     if (!open) return;
@@ -33,7 +33,7 @@ export function CardRowMenu({ card, onUploadStatement, onAddPayment }: CardRowMe
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
       const menuWidth = 192;
-      const menuHeight = 210;
+      const menuHeight = 250;
       setPosition({
         left: Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth)),
         top: rect.bottom + menuHeight > window.innerHeight - 8 ? rect.top - menuHeight - 4 : rect.bottom + 4,
@@ -92,6 +92,26 @@ export function CardRowMenu({ card, onUploadStatement, onAddPayment }: CardRowMe
             }}
           >
             <Pause size={15} /> Pasife Al
+          </button>
+          <div className="my-1 border-t border-gray-100" />
+          <button
+            className={`${itemCls} text-red-600 hover:bg-red-50`}
+            onClick={async () => {
+              setOpen(false);
+              const confirmed = window.confirm(
+                `${card.bank} ${card.cardName} •••• ${card.last4} kartını kalıcı olarak silmek istediğinize emin misiniz?\n\nKarta bağlı ekstre, hareket ve ödeme kayıtları da silinecek.`,
+              );
+              if (!confirmed) return;
+              try {
+                await deleteCard(card.id);
+                notify('Kart ve bağlı kayıtları silindi.', 'success');
+              } catch (error) {
+                const message = error instanceof Error ? error.message : 'Kart silinemedi.';
+                notify(`Kart silinemedi: ${message}`, 'error');
+              }
+            }}
+          >
+            <Trash2 size={15} /> Kartı Sil
           </button>
         </div>, document.body
       )}
