@@ -42,6 +42,7 @@ export interface Statement {
   minPayment: number;
   transactionCount: number;
   hasFile: boolean;
+  fileName?: string;
   aiStatus: AIAnalysisStatus;
   paymentStatus: PaymentStatus;
   note?: string;
