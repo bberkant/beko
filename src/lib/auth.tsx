@@ -88,7 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string, remember: boolean) => {
     if (!remember) sessionStorage.setItem('ops360_session_only', '1');
     else sessionStorage.removeItem('ops360_session_only');
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const loginIdentity = email.includes('@') ? email.trim().toLowerCase() : `${email.trim().toLowerCase()}@ops360.local`;
+    const { data, error } = await supabase.auth.signInWithPassword({ email: loginIdentity, password });
     if (error) throw error;
     let next = await resolveUser(data.session);
     if (!next.organizationId && data.user.user_metadata.invitation_token) {
