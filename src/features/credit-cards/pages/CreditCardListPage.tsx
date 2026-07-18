@@ -20,6 +20,8 @@ import { CardRowMenu } from '../components/CardRowMenu';
 import { DueDateCell } from '../components/DueDateCell';
 import { UploadStatementModalBody, UploadProgress, type StatementUploadData } from '../components/UploadStatementModal';
 import { BulkPaymentModalBody, type BulkPaymentData } from '../components/BulkPaymentModalBody';
+import { PaymentModalBody } from '../components/PaymentModalBody';
+import type { Payment } from '../types';
 
 interface Filters {
   bank: string;
@@ -47,6 +49,8 @@ export function CreditCardListPage() {
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [bulkPaymentOpen, setBulkPaymentOpen] = useState(false);
   const [bulkPaymentSubmitting, setBulkPaymentSubmitting] = useState(false);
+  const [paymentCard, setPaymentCard] = useState<CreditCardType | null>(null);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
 
   const banks = useMemo(() => Array.from(new Set(cards.map((c) => c.bank))), [cards]);
   const holders = useMemo(() => Array.from(new Set(cards.map((c) => c.holder).filter(Boolean))), [cards]);
@@ -157,6 +161,25 @@ export function CreditCardListPage() {
       notify(`Toplu ödeme kaydedilemedi: ${message}`, 'error');
     } finally {
       setBulkPaymentSubmitting(false);
+    }
+  };
+
+  const handlePaymentSubmit = async (data: { date: string; amount: number; type: Payment['type']; bankAccount: string; description: string }) => {
+    if (!paymentCard) return;
+    if (data.amount <= 0) {
+      notify('Ödeme tutarı sıfırdan büyük olmalıdır.', 'error');
+      return;
+    }
+    setPaymentSubmitting(true);
+    try {
+      await addPayment({ cardId: paymentCard.id, ...data });
+      notify(`${paymentCard.bank} •••• ${paymentCard.last4} için ödeme kaydı eklendi.`, 'success');
+      setPaymentCard(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Ödeme kaydı eklenemedi.';
+      notify(`Ödeme kaydı eklenemedi: ${message}`, 'error');
+    } finally {
+      setPaymentSubmitting(false);
     }
   };
 
@@ -331,7 +354,7 @@ export function CreditCardListPage() {
                     </td>
                     <td className="table-td !px-2"><Badge className={cardStatusCls[c.status]}>{cardStatusLabel[c.status]}</Badge></td>
                     <td className="table-td !px-1 text-center">
-                      <CardRowMenu card={c} onUploadStatement={() => { setUploadCard(c); setProgress(null); }} onAddPayment={() => notify('Ödeme kaydı modalı açıldı (mock).', 'info')} />
+                      <CardRowMenu card={c} onUploadStatement={() => { setUploadCard(c); setProgress(null); }} onAddPayment={() => setPaymentCard(c)} />
                     </td>
                   </tr>
                 );
@@ -405,7 +428,7 @@ export function CreditCardListPage() {
                 <button className="btn-secondary !px-3 !py-1.5 !text-xs" onClick={() => navigate(`/finance/credit-cards/${c.id}`)}>
                   <Eye size={14} /> Görüntüle
                 </button>
-                <CardRowMenu card={c} onUploadStatement={() => { setUploadCard(c); setProgress(null); }} onAddPayment={() => notify('Ödeme kaydı modalı açıldı (mock).', 'info')} />
+                <CardRowMenu card={c} onUploadStatement={() => { setUploadCard(c); setProgress(null); }} onAddPayment={() => setPaymentCard(c)} />
               </div>
             </div>
           );
@@ -463,6 +486,16 @@ export function CreditCardListPage() {
           submitting={bulkPaymentSubmitting}
           onSubmit={(data) => void handleBulkPaymentSubmit(data)}
         />
+      </Modal>
+
+      <Modal
+        open={Boolean(paymentCard)}
+        onClose={() => { if (!paymentSubmitting) setPaymentCard(null); }}
+        title="Ödeme Kaydı Ekle"
+        description={paymentCard ? `${paymentCard.bank} ${paymentCard.cardName} •••• ${paymentCard.last4}` : ''}
+        size="md"
+      >
+        {paymentCard && <PaymentModalBody onSubmit={(data) => void handlePaymentSubmit(data)} />}
       </Modal>
     </div>
   );
