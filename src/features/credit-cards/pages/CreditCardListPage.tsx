@@ -264,12 +264,12 @@ export function CreditCardListPage() {
               <tr>
                 <th className="table-th w-[16%] !px-2">Kart</th>
                 <th className="table-th w-[8%] !px-2">Son 4</th>
-                <th className="table-th w-[11%] !px-2">Kullanan</th>
-                <th className="table-th w-[10%] !px-2">Limit</th>
-                <th className="table-th w-[10%] !px-2">Borç</th>
-                <th className="table-th w-[8%] !px-2">Hesap Kesim Tarihi</th>
+                <th className="table-th w-[10%] !px-2">Hesap Kesim Tarihi</th>
                 <th className="table-th w-[16%] !px-2">Son Ödeme</th>
-                <th className="table-th w-[9%] !px-2">Ekstre</th>
+                <th className="table-th w-[9%] !px-2">Limit</th>
+                <th className="table-th w-[9%] !px-2">Borç</th>
+                <th className="table-th w-[10%] !px-2">Kullanan</th>
+                <th className="table-th w-[8%] !px-2">Ekstre</th>
                 <th className="table-th w-[7%] !px-2">Durum</th>
                 <th className="table-th w-[5%] !px-1 text-center" aria-label="İşlemler"></th>
               </tr>
@@ -287,11 +287,11 @@ export function CreditCardListPage() {
                       </div>
                     </td>
                     <td className="table-td !px-2 !text-sm font-mono text-gray-700">{maskCard(c.last4)}</td>
-                    <td className="table-td truncate !px-2 !text-xs text-gray-700">{c.holder || '—'}</td>
-                    <td className="table-td !px-2 !text-xs text-gray-700">{formatTRY(c.limit)}</td>
-                    <td className="table-td !px-2 !text-xs font-normal text-gray-900">{formatTRY(c.currentDebt)}</td>
                     <td className="table-td !px-2 !text-sm font-semibold text-gray-900">{c.statementDay}. gün</td>
                     <td className="table-td !px-2 !text-xs"><DueDateCell dueDate={dueDate} statementStatus={c.statementStatus} /></td>
+                    <td className="table-td !px-2 !text-xs text-gray-700">{formatTRY(c.limit)}</td>
+                    <td className="table-td !px-2 !text-xs font-normal text-gray-900">{formatTRY(c.currentDebt)}</td>
+                    <td className="table-td truncate !px-2 !text-xs text-gray-700">{c.holder || '—'}</td>
                     <td className="table-td !px-2">
                       <div className="flex items-center gap-1.5">
                         {(c.statementStatus === 'bu-ay-eksik' || c.statementStatus === 'bekleniyor') && <AlertTriangle size={13} className="text-amber-400" />}
