@@ -4,7 +4,7 @@ import { PageHeader } from '../../../components/ui/PageHeader';
 import { useToast } from '../../../lib/toast';
 import { useStore } from '../data/store';
 import type { CardType, CardStatus, Currency } from '../types';
-import { cardTypeLabel, currencyLabel } from '../data/labels';
+import { currencyLabel } from '../data/labels';
 import { Trash2 } from 'lucide-react';
 
 export function CreditCardFormPage() {
@@ -17,10 +17,10 @@ export function CreditCardFormPage() {
 
   const [bank, setBank] = useState(existing?.bank ?? '');
   const [cardName, setCardName] = useState(existing?.cardName ?? '');
-  const [cardType, setCardType] = useState<CardType>(existing?.cardType ?? 'business');
+  const [cardType] = useState<CardType>(existing?.cardType ?? 'business');
   const [last4, setLast4] = useState(existing?.last4 ?? '');
   const [holder, setHolder] = useState(existing?.holder ?? '');
-  const [department, setDepartment] = useState(existing?.department ?? '');
+  const [department] = useState(existing?.department ?? '');
   const [limit, setLimit] = useState(String(existing?.limit ?? ''));
   const [currency, setCurrency] = useState<Currency>(existing?.currency ?? 'TRY');
   const [statementDay, setStatementDay] = useState(String(existing?.statementDay ?? '15'));
@@ -116,13 +116,7 @@ export function CreditCardFormPage() {
               <input className="input" value={cardName} onChange={(e) => setCardName(e.target.value)} placeholder="Kredi Kartı (opsiyonel)" />
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div>
-              <label className="label">Kart Tipi</label>
-              <select className="input" value={cardType} onChange={(e) => setCardType(e.target.value as CardType)}>
-                {Object.entries(cardTypeLabel).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="label">Son 4 Hane *</label>
               <input className="input" maxLength={4} value={last4} onChange={(e) => setLast4(e.target.value)} placeholder="4821" />
@@ -134,15 +128,9 @@ export function CreditCardFormPage() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label">Kartı Kullanan</label>
-              <input className="input" value={holder} onChange={(e) => setHolder(e.target.value)} placeholder="Ahmet Yılmaz" />
-            </div>
-            <div>
-              <label className="label">Departman</label>
-              <input className="input" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Satın Alma" />
-            </div>
+          <div>
+            <label className="label">Kartı Kullanan</label>
+            <input className="input" value={holder} onChange={(e) => setHolder(e.target.value)} placeholder="Ahmet Yılmaz" />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
