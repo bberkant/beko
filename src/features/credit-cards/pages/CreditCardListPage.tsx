@@ -257,62 +257,53 @@ export function CreditCardListPage() {
       )}
 
       {/* Desktop table — hidden below lg */}
-      <div className="hidden lg:block card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+      <div className="hidden lg:block card overflow-visible">
+        <div>
+          <table className="w-full table-fixed divide-y divide-gray-200">
             <thead className="bg-gray-50/60">
               <tr>
-                <th className="table-th">Banka</th>
-                <th className="table-th">Kart Adı</th>
-                <th className="table-th">Son 4</th>
-                <th className="table-th">Kartı Kullanan</th>
-                <th className="table-th">Kart Limiti</th>
-                <th className="table-th">Güncel Borç</th>
-                <th className="table-th">Kullanılabilir</th>
-                <th className="table-th">Limit Kullanımı</th>
-                <th className="table-th">Kesim</th>
-                <th className="table-th">Son Ödeme</th>
-                <th className="table-th">Ekstre</th>
-                <th className="table-th">Durum</th>
-                <th className="table-th text-right">İşlemler</th>
+                <th className="table-th w-[14%] !px-2">Kart</th>
+                <th className="table-th w-[7%] !px-2">Son 4</th>
+                <th className="table-th w-[10%] !px-2">Kullanan</th>
+                <th className="table-th w-[9%] !px-2">Limit</th>
+                <th className="table-th w-[9%] !px-2">Borç</th>
+                <th className="table-th w-[12%] !px-2">Kullanım</th>
+                <th className="table-th w-[7%] !px-2">Kesim</th>
+                <th className="table-th w-[14%] !px-2">Son Ödeme</th>
+                <th className="table-th w-[8%] !px-2">Ekstre</th>
+                <th className="table-th w-[6%] !px-2">Durum</th>
+                <th className="table-th w-[4%] !px-1 text-center" aria-label="İşlemler"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map((c) => {
                 const usage = limitUsage(c.currentDebt, c.limit);
                 const level = usageLevel(usage);
-                const available = c.limit - c.currentDebt;
                 const today = new Date();
                 const dueDate = new Date(today.getFullYear(), today.getMonth(), c.dueDay).toISOString();
                 return (
                   <tr key={c.id} className="hover:bg-gray-50/40">
-                    <td className="table-td">
+                    <td className="table-td !px-2">
                       <div className="flex items-center gap-2">
                         <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gray-100 text-[10px] font-semibold text-gray-600">{c.bankShort}</span>
-                        <span className="font-medium text-gray-900">{c.bank}</span>
+                        <div className="min-w-0"><button className="block max-w-full truncate font-medium text-brand-600 hover:text-brand-700" onClick={() => navigate(`/finance/credit-cards/${c.id}`)}>{c.cardName}</button><span className="block truncate text-[10px] text-gray-400">{c.bank}</span></div>
                       </div>
                     </td>
-                    <td className="table-td">
-                      <button className="font-medium text-brand-600 hover:text-brand-700" onClick={() => navigate(`/finance/credit-cards/${c.id}`)}>
-                        {c.cardName}
-                      </button>
-                    </td>
-                    <td className="table-td font-mono text-gray-600">{maskCard(c.last4)}</td>
-                    <td className="table-td text-gray-700">{c.holder}</td>
-                    <td className="table-td text-gray-700">{formatTRY(c.limit)}</td>
-                    <td className="table-td font-medium text-gray-900">{formatTRY(c.currentDebt)}</td>
-                    <td className="table-td text-gray-700">{formatTRY(available)}</td>
-                    <td className="table-td"><ProgressBar value={usage} level={level} showLabel /></td>
-                    <td className="table-td text-gray-600">{c.statementDay}. gün</td>
-                    <td className="table-td"><DueDateCell dueDate={dueDate} statementStatus={c.statementStatus} /></td>
-                    <td className="table-td">
+                    <td className="table-td !px-2 !text-xs font-mono text-gray-600">{maskCard(c.last4)}</td>
+                    <td className="table-td truncate !px-2 !text-xs text-gray-700">{c.holder}</td>
+                    <td className="table-td !px-2 !text-xs text-gray-700">{formatTRY(c.limit)}</td>
+                    <td className="table-td !px-2 !text-xs font-medium text-gray-900">{formatTRY(c.currentDebt)}</td>
+                    <td className="table-td !px-2"><ProgressBar value={usage} level={level} showLabel /></td>
+                    <td className="table-td !px-2 !text-xs text-gray-600">{c.statementDay}. gün</td>
+                    <td className="table-td !px-2 !text-xs"><DueDateCell dueDate={dueDate} statementStatus={c.statementStatus} /></td>
+                    <td className="table-td !px-2">
                       <div className="flex items-center gap-1.5">
                         {(c.statementStatus === 'bu-ay-eksik' || c.statementStatus === 'bekleniyor') && <AlertTriangle size={13} className="text-amber-400" />}
                         <Badge className={statementStatusCls[c.statementStatus as StatementStatus]}>{statementStatusLabel[c.statementStatus as StatementStatus]}</Badge>
                       </div>
                     </td>
-                    <td className="table-td"><Badge className={cardStatusCls[c.status]}>{cardStatusLabel[c.status]}</Badge></td>
-                    <td className="table-td text-right">
+                    <td className="table-td !px-2"><Badge className={cardStatusCls[c.status]}>{cardStatusLabel[c.status]}</Badge></td>
+                    <td className="table-td !px-1 text-center">
                       <CardRowMenu card={c} onUploadStatement={() => { setUploadCard(c); setProgress(null); }} onAddPayment={() => notify('Ödeme kaydı modalı açıldı (mock).', 'info')} />
                     </td>
                   </tr>
