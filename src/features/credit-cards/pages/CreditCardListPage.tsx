@@ -200,7 +200,7 @@ export function CreditCardListPage() {
         actions={
           <>
             <button className="btn-secondary" onClick={() => setBulkPaymentOpen(true)}>
-              <ReceiptText size={16} /> Toplu Ödeme Ekle
+              <ReceiptText size={16} /> Toplu Ödeme Gir
             </button>
             <button className="btn-secondary" onClick={() => setCardPickerOpen(true)}>
               <Upload size={16} /> Ekstre Yükle
@@ -477,7 +477,7 @@ export function CreditCardListPage() {
       <Modal
         open={bulkPaymentOpen}
         onClose={() => { if (!bulkPaymentSubmitting) setBulkPaymentOpen(false); }}
-        title="Toplu Ödeme Ekle"
+        title="Toplu Ödeme Gir"
         description="Birden fazla kredi kartı için tek işlemde ödeme kaydı oluşturun."
         size="lg"
       >
