@@ -33,7 +33,7 @@ export function CreditCardFormPage() {
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async () => {
-    if (!bank || !cardName || !last4) {
+    if (!bank || !last4) {
       notify('Lütfen zorunlu alanları doldurun.', 'error');
       return;
     }
@@ -47,7 +47,7 @@ export function CreditCardFormPage() {
       return;
     }
     const input = {
-      bank, cardName, cardType, last4, holder, department,
+      bank, cardName: cardName.trim() || 'Kredi Kartı', cardType, last4, holder, department,
       limit: Number(limit) || 0, currency,
       statementDay: Number(statementDay) || 1,
       dueDay: Number(dueDay) || 1,
@@ -91,8 +91,8 @@ export function CreditCardFormPage() {
               <input className="input" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Garanti BBVA" />
             </div>
             <div>
-              <label className="label">Kart Adı *</label>
-              <input className="input" value={cardName} onChange={(e) => setCardName(e.target.value)} placeholder="Business" />
+              <label className="label">Kart Adı</label>
+              <input className="input" value={cardName} onChange={(e) => setCardName(e.target.value)} placeholder="Kredi Kartı (opsiyonel)" />
             </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
