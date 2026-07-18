@@ -22,7 +22,7 @@ import { UploadStatementModalBody, UploadProgress, type StatementUploadData } fr
 import { BulkPaymentModalBody, type BulkPaymentData } from '../components/BulkPaymentModalBody';
 import { PaymentModalBody } from '../components/PaymentModalBody';
 import type { Payment } from '../types';
-import { resolveCardDueDate, resolveCardOutstandingDebt } from '../lib/billingDateEngine';
+import { resolveCardDueDate } from '../lib/billingDateEngine';
 
 interface Filters {
   bank: string;
@@ -102,7 +102,7 @@ export function CreditCardListPage() {
     today.setHours(0, 0, 0, 0);
     const cardsWithBilling = cards.map((card) => ({
       card,
-      debt: resolveCardOutstandingDebt(card, statements),
+      debt: Number(card.currentDebt) || 0,
       dueDate: resolveCardDueDate(card, statements).date,
     }));
     const totalDebt = cardsWithBilling.reduce((sum, item) => sum + item.debt, 0);
