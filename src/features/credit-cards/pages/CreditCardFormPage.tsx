@@ -26,8 +26,8 @@ export function CreditCardFormPage() {
   const [statementDay, setStatementDay] = useState(String(existing?.statementDay ?? '15'));
   const [dueDay, setDueDay] = useState(String(existing?.dueDay ?? '5'));
   const [minPaymentPercent, setMinPaymentPercent] = useState(String(existing ? Math.round(existing.minPaymentRate * 100) : 40));
-  const [startDate, setStartDate] = useState(existing?.startDate ?? '2026-01-01');
-  const [expiryMonth, setExpiryMonth] = useState(String(existing?.expiryMonth ?? '12'));
+  const startDate = existing?.startDate ?? new Date().toISOString().slice(0, 10);
+  const [expiryMonth, setExpiryMonth] = useState(String(existing?.expiryMonth ?? '1'));
   const [expiryYear, setExpiryYear] = useState(String(existing?.expiryYear ?? '2028'));
   const [status, setStatus] = useState<CardStatus>(existing?.status ?? 'aktif');
   const [description, setDescription] = useState(existing?.description ?? '');
@@ -146,17 +146,13 @@ export function CreditCardFormPage() {
               <input type="number" className="input" value={dueDay} onChange={(e) => setDueDay(e.target.value)} min={1} max={31} />
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="label">Asgari Ödeme Oranı (%)</label>
               <div className="relative">
                 <input type="number" min="0" max="100" step="1" className="input pr-9" value={minPaymentPercent} onChange={(e) => setMinPaymentPercent(e.target.value)} placeholder="40" />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">%</span>
               </div>
-            </div>
-            <div>
-              <label className="label">Başlangıç Tarihi</label>
-              <input type="date" className="input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div>
               <label className="label">Durum</label>
