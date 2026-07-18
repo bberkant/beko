@@ -1,7 +1,449 @@
-import { useMemo,useState } from 'react'; import { useNavigate,useParams } from 'react-router-dom'; import { Building2,Plus,Search,ArrowDownLeft,ArrowUpRight,Trash2,Upload } from 'lucide-react';
-import { PageHeader } from '../../components/ui/PageHeader'; import { Badge } from '../../components/ui/Badge'; import { Modal } from '../../components/ui/Modal'; import { useToast } from '../../lib/toast'; import { useBankAccounts } from './store'; import type { BankAccountInput,BankTransactionInput } from './types';
-const money=(n:number,c='TRY')=>new Intl.NumberFormat('tr-TR',{style:'currency',currency:c,maximumFractionDigits:2}).format(n); const statusCls:any={aktif:'bg-emerald-50 text-emerald-700',pasif:'bg-gray-100 text-gray-600',bloke:'bg-red-50 text-red-700'};
-export function BankAccountListPage(){const nav=useNavigate();const{accounts,deleteAccount}=useBankAccounts();const{notify}=useToast();const[q,setQ]=useState('');const list=accounts.filter(a=>`${a.bank} ${a.accountName} ${a.iban}`.toLowerCase().includes(q.toLowerCase()));const total=accounts.filter(a=>a.currency==='TRY').reduce((s,a)=>s+a.balance,0);return <div className="mx-auto max-w-7xl"><PageHeader title="Banka Hesapları" description="Şirket banka hesaplarını, bakiyeleri ve hesap hareketlerini yönetin." actions={<button className="btn-primary" onClick={()=>nav('/finans/banka-hesaplari/yeni')}><Plus size={16}/>Yeni Hesap</button>}/><div className="mb-6 grid gap-4 sm:grid-cols-3"><K icon={<Building2 size={16}/>} v={String(accounts.length)} l="Toplam Hesap"/><K icon={<ArrowDownLeft size={16}/>} v={money(total)} l="Toplam TRY Bakiye"/><K icon={<ArrowUpRight size={16}/>} v={String(accounts.filter(a=>a.status==='aktif').length)} l="Aktif Hesap"/></div><div className="relative mb-4 max-w-md"><Search className="absolute left-3 top-3 text-gray-400" size={16}/><input className="input pl-9" value={q} onChange={e=>setQ(e.target.value)} placeholder="Banka, hesap veya IBAN ara..."/></div><div className="card overflow-x-auto"><table className="min-w-full"><thead className="bg-gray-50"><tr><th className="table-th">Banka / Hesap</th><th className="table-th">IBAN</th><th className="table-th">Tür</th><th className="table-th">Bakiye</th><th className="table-th">Durum</th><th className="table-th"></th></tr></thead><tbody>{list.map(a=><tr key={a.id} className="border-t"><td className="table-td"><button className="font-semibold text-brand-600" onClick={()=>nav(`/finans/banka-hesaplari/${a.id}`)}>{a.bank}<span className="block text-xs font-normal text-gray-500">{a.accountName}</span></button></td><td className="table-td font-mono text-xs">{a.iban}</td><td className="table-td capitalize">{a.accountType}</td><td className="table-td font-semibold">{money(a.balance,a.currency)}</td><td className="table-td"><Badge className={statusCls[a.status]}>{a.status}</Badge></td><td className="table-td text-right"><button className="text-red-500" onClick={async()=>{if(confirm('Hesap silinsin mi?')){try{await deleteAccount(a.id);notify('Hesap silindi.','success')}catch(e){notify(e instanceof Error?e.message:'Silinemedi','error')}}}}><Trash2 size={16}/></button></td></tr>)}</tbody></table>{!list.length&&<p className="py-12 text-center text-sm text-gray-400">Hesap bulunamadı.</p>}</div></div>}
-function K({icon,v,l}:{icon:any;v:string;l:string}){return <div className="card p-4"><span className="text-gray-500">{icon}</span><p className="mt-3 text-xl font-semibold">{v}</p><p className="text-xs text-gray-500">{l}</p></div>}
-export function BankAccountFormPage(){const{id}=useParams();const nav=useNavigate();const{getAccount,saveAccount}=useBankAccounts();const{notify}=useToast();const a=id?getAccount(id):undefined;const[x,setX]=useState<BankAccountInput>({bank:a?.bank??'',accountName:a?.accountName??'',accountType:a?.accountType??'vadesiz',iban:a?.iban??'',accountNumber:a?.accountNumber??'',branchName:a?.branchName??'',currency:a?.currency??'TRY',balance:a?.balance??0,availableBalance:a?.availableBalance??0,status:a?.status??'aktif',description:a?.description});const[saving,setSaving]=useState(false);const set=(k:string,v:any)=>setX({...x,[k]:v});return <div className="mx-auto max-w-3xl"><PageHeader title={a?'Hesabı Düzenle':'Yeni Banka Hesabı'} backTo="/finans/banka-hesaplari"/><div className="card grid gap-4 p-6 sm:grid-cols-2">{[['Banka','bank'],['Hesap Adı','accountName'],['IBAN','iban'],['Hesap Numarası','accountNumber'],['Şube','branchName']].map(([l,k])=><label key={k}><span className="label">{l}</span><input className="input" value={(x as any)[k]??''} onChange={e=>set(k,e.target.value)}/></label>)}<label><span className="label">Hesap Türü</span><select className="input" value={x.accountType} onChange={e=>set('accountType',e.target.value)}><option value="vadesiz">Vadesiz</option><option value="vadeli">Vadeli</option><option value="kredi">Kredi</option><option value="pos">POS</option></select></label><label><span className="label">Para Birimi</span><select className="input" value={x.currency} onChange={e=>set('currency',e.target.value)}><option>TRY</option><option>USD</option><option>EUR</option></select></label><label><span className="label">Bakiye</span><input type="number" className="input" value={x.balance} onChange={e=>{setX({...x,balance:Number(e.target.value),availableBalance:Number(e.target.value)})}}/></label><label><span className="label">Durum</span><select className="input" value={x.status} onChange={e=>set('status',e.target.value)}><option value="aktif">Aktif</option><option value="pasif">Pasif</option><option value="bloke">Bloke</option></select></label><label className="sm:col-span-2"><span className="label">Açıklama</span><textarea className="input" value={x.description??''} onChange={e=>set('description',e.target.value)}/></label><div className="sm:col-span-2 flex justify-end"><button disabled={saving} className="btn-primary" onClick={async()=>{setSaving(true);try{await saveAccount(x,id);notify('Hesap kaydedildi.','success');nav('/finans/banka-hesaplari')}catch(e){notify(e instanceof Error?e.message:'Kaydedilemedi','error')}finally{setSaving(false)}}}>{saving?'Kaydediliyor...':'Kaydet'}</button></div></div></div>}
-export function BankAccountDetailPage(){const{id}=useParams();const nav=useNavigate();const{getAccount,getTransactions,addTransaction}=useBankAccounts();const{notify}=useToast();const a=id?getAccount(id):undefined;const[open,setOpen]=useState(false);const[t,setT]=useState<BankTransactionInput>({accountId:id??'',date:new Date().toISOString().slice(0,10),type:'giris',category:'diger',amount:0,counterparty:'',description:''});const tx=useMemo(()=>id?getTransactions(id):[],[id,getTransactions]);if(!a)return <p>Hesap yükleniyor...</p>;return <div className="mx-auto max-w-6xl"><PageHeader title={a.accountName} description={`${a.bank} · ${a.iban}`} backTo="/finans/banka-hesaplari" actions={<><button className="btn-secondary" onClick={()=>nav(`/finans/banka-hesaplari/${a.id}/duzenle`)}>Düzenle</button><button className="btn-primary" onClick={()=>setOpen(true)}><Plus size={16}/>Hareket Ekle</button></>}/><div className="mb-6 grid gap-4 sm:grid-cols-3"><K icon={<Building2 size={16}/>} v={money(a.balance,a.currency)} l="Güncel Bakiye"/><K icon={<ArrowDownLeft size={16}/>} v={money(tx.filter(x=>x.type==='giris').reduce((s,x)=>s+x.amount,0),a.currency)} l="Toplam Giriş"/><K icon={<ArrowUpRight size={16}/>} v={money(tx.filter(x=>x.type==='cikis').reduce((s,x)=>s+x.amount,0),a.currency)} l="Toplam Çıkış"/></div><div className="card overflow-x-auto"><table className="min-w-full"><thead><tr><th className="table-th">Tarih</th><th className="table-th">Tür</th><th className="table-th">Karşı Taraf</th><th className="table-th">Açıklama</th><th className="table-th">Tutar</th><th className="table-th">Dekont</th></tr></thead><tbody>{tx.map(x=><tr className="border-t" key={x.id}><td className="table-td">{x.date}</td><td className="table-td">{x.type==='giris'?'Giriş':'Çıkış'}</td><td className="table-td">{x.counterparty}</td><td className="table-td">{x.description}</td><td className={`table-td font-semibold ${x.type==='giris'?'text-emerald-600':'text-red-600'}`}>{x.type==='giris'?'+':'-'}{money(x.amount,a.currency)}</td><td className="table-td">{x.hasReceipt?'Var':'—'}</td></tr>)}</tbody></table></div><Modal open={open} onClose={()=>setOpen(false)} title="Hesap Hareketi Ekle"><div className="space-y-3"><input type="date" className="input" value={t.date} onChange={e=>setT({...t,date:e.target.value})}/><select className="input" value={t.type} onChange={e=>setT({...t,type:e.target.value as any})}><option value="giris">Para Girişi</option><option value="cikis">Para Çıkışı</option></select><input className="input" placeholder="Karşı taraf" onChange={e=>setT({...t,counterparty:e.target.value})}/><input type="number" className="input" placeholder="Tutar" onChange={e=>setT({...t,amount:Number(e.target.value)})}/><textarea className="input" placeholder="Açıklama" onChange={e=>setT({...t,description:e.target.value})}/><label className="btn-secondary cursor-pointer"><Upload size={16}/>Dekont<input hidden type="file" accept=".pdf,image/*" onChange={e=>setT({...t,file:e.target.files?.[0]})}/></label><button className="btn-primary w-full" onClick={async()=>{try{await addTransaction(t);notify('Hareket eklendi.','success');setOpen(false)}catch(e){notify(e instanceof Error?e.message:'Eklenemedi','error')}}}>Kaydet</button></div></Modal></div>}
+import { useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  Building2,
+  Plus,
+  Search,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Badge } from "../../components/ui/Badge";
+import { Modal } from "../../components/ui/Modal";
+import { ModuleFileActions } from "../../components/ui/ModuleFileActions";
+import { useToast } from "../../lib/toast";
+import { useBankAccounts } from "./store";
+import type { BankAccountInput, BankTransactionInput } from "./types";
+const money = (n: number, c = "TRY") =>
+  new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: c,
+    maximumFractionDigits: 2,
+  }).format(n);
+const statusCls: any = {
+  aktif: "bg-emerald-50 text-emerald-700",
+  pasif: "bg-gray-100 text-gray-600",
+  bloke: "bg-red-50 text-red-700",
+};
+export function BankAccountListPage() {
+  const nav = useNavigate();
+  const { accounts, deleteAccount } = useBankAccounts();
+  const { notify } = useToast();
+  const [q, setQ] = useState("");
+  const list = accounts.filter((a) =>
+    `${a.bank} ${a.accountName} ${a.iban}`
+      .toLowerCase()
+      .includes(q.toLowerCase()),
+  );
+  const total = accounts
+    .filter((a) => a.currency === "TRY")
+    .reduce((s, a) => s + a.balance, 0);
+  return (
+    <div className="mx-auto max-w-7xl">
+      <PageHeader
+        title="Banka Hesapları"
+        description="Şirket banka hesaplarını, bakiyeleri ve hesap hareketlerini yönetin."
+        actions={<><ModuleFileActions module="bank_accounts" exportName="banka-hesaplari" rows={accounts.map(a=>({Banka:a.bank,"Hesap Adı":a.accountName,IBAN:a.iban,"Hesap Türü":a.accountType,"Para Birimi":a.currency,Bakiye:a.balance,Durum:a.status}))}/><button className="btn-primary" onClick={() => nav("/finans/banka-hesaplari/yeni")}><Plus size={16} />Yeni Banka Hesabı</button></>}
+      />
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <K
+          icon={<Building2 size={16} />}
+          v={String(accounts.length)}
+          l="Toplam Hesap"
+        />
+        <K
+          icon={<ArrowDownLeft size={16} />}
+          v={money(total)}
+          l="Toplam TRY Bakiye"
+        />
+        <K
+          icon={<ArrowUpRight size={16} />}
+          v={String(accounts.filter((a) => a.status === "aktif").length)}
+          l="Aktif Hesap"
+        />
+      </div>
+      <div className="relative mb-4 max-w-md">
+        <Search className="absolute left-3 top-3 text-gray-400" size={16} />
+        <input
+          className="input pl-9"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Banka, hesap veya IBAN ara..."
+        />
+      </div>
+      <div className="card overflow-x-auto">
+        <table className="min-w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="table-th">Banka / Hesap</th>
+              <th className="table-th">IBAN</th>
+              <th className="table-th">Tür</th>
+              <th className="table-th">Bakiye</th>
+              <th className="table-th">Durum</th>
+              <th className="table-th"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((a) => (
+              <tr key={a.id} className="border-t">
+                <td className="table-td">
+                  <button
+                    className="font-semibold text-brand-600"
+                    onClick={() => nav(`/finans/banka-hesaplari/${a.id}`)}
+                  >
+                    {a.bank}
+                    <span className="block text-xs font-normal text-gray-500">
+                      {a.accountName}
+                    </span>
+                  </button>
+                </td>
+                <td className="table-td font-mono text-xs">{a.iban}</td>
+                <td className="table-td capitalize">{a.accountType}</td>
+                <td className="table-td font-semibold">
+                  {money(a.balance, a.currency)}
+                </td>
+                <td className="table-td">
+                  <Badge className={statusCls[a.status]}>{a.status}</Badge>
+                </td>
+                <td className="table-td text-right">
+                  <button
+                    className="text-red-500"
+                    onClick={async () => {
+                      if (confirm("Hesap silinsin mi?")) {
+                        try {
+                          await deleteAccount(a.id);
+                          notify("Hesap silindi.", "success");
+                        } catch (e) {
+                          notify(
+                            e instanceof Error ? e.message : "Silinemedi",
+                            "error",
+                          );
+                        }
+                      }
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!list.length && (
+          <p className="py-12 text-center text-sm text-gray-400">
+            Hesap bulunamadı.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+function K({ icon, v, l }: { icon: any; v: string; l: string }) {
+  return (
+    <div className="card p-4">
+      <span className="text-gray-500">{icon}</span>
+      <p className="mt-3 text-xl font-semibold">{v}</p>
+      <p className="text-xs text-gray-500">{l}</p>
+    </div>
+  );
+}
+export function BankAccountFormPage() {
+  const { id } = useParams();
+  const nav = useNavigate();
+  const { getAccount, saveAccount } = useBankAccounts();
+  const { notify } = useToast();
+  const a = id ? getAccount(id) : undefined;
+  const [x, setX] = useState<BankAccountInput>({
+    bank: a?.bank ?? "",
+    accountName: a?.accountName ?? "",
+    accountType: a?.accountType ?? "vadesiz",
+    iban: a?.iban ?? "",
+    accountNumber: a?.accountNumber ?? "",
+    branchName: a?.branchName ?? "",
+    currency: a?.currency ?? "TRY",
+    balance: a?.balance ?? 0,
+    availableBalance: a?.availableBalance ?? 0,
+    status: a?.status ?? "aktif",
+    description: a?.description,
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k: string, v: any) => setX({ ...x, [k]: v });
+  return (
+    <div className="mx-auto max-w-3xl">
+      <PageHeader
+        title={a ? "Hesabı Düzenle" : "Yeni Banka Hesabı"}
+        backTo="/finans/banka-hesaplari"
+      />
+      <div className="card grid gap-4 p-6 sm:grid-cols-2">
+        {[
+          ["Banka", "bank"],
+          ["Hesap Adı", "accountName"],
+          ["IBAN", "iban"],
+          ["Hesap Numarası", "accountNumber"],
+          ["Şube", "branchName"],
+        ].map(([l, k]) => (
+          <label key={k}>
+            <span className="label">{l}</span>
+            <input
+              className="input"
+              value={(x as any)[k] ?? ""}
+              onChange={(e) => set(k, e.target.value)}
+            />
+          </label>
+        ))}
+        <label>
+          <span className="label">Hesap Türü</span>
+          <select
+            className="input"
+            value={x.accountType}
+            onChange={(e) => set("accountType", e.target.value)}
+          >
+            <option value="vadesiz">Vadesiz</option>
+            <option value="vadeli">Vadeli</option>
+            <option value="kredi">Kredi</option>
+            <option value="pos">POS</option>
+          </select>
+        </label>
+        <label>
+          <span className="label">Para Birimi</span>
+          <select
+            className="input"
+            value={x.currency}
+            onChange={(e) => set("currency", e.target.value)}
+          >
+            <option>TRY</option>
+            <option>USD</option>
+            <option>EUR</option>
+          </select>
+        </label>
+        <label>
+          <span className="label">Bakiye</span>
+          <input
+            type="number"
+            className="input"
+            value={x.balance}
+            onChange={(e) => {
+              setX({
+                ...x,
+                balance: Number(e.target.value),
+                availableBalance: Number(e.target.value),
+              });
+            }}
+          />
+        </label>
+        <label>
+          <span className="label">Durum</span>
+          <select
+            className="input"
+            value={x.status}
+            onChange={(e) => set("status", e.target.value)}
+          >
+            <option value="aktif">Aktif</option>
+            <option value="pasif">Pasif</option>
+            <option value="bloke">Bloke</option>
+          </select>
+        </label>
+        <label className="sm:col-span-2">
+          <span className="label">Açıklama</span>
+          <textarea
+            className="input"
+            value={x.description ?? ""}
+            onChange={(e) => set("description", e.target.value)}
+          />
+        </label>
+        <div className="sm:col-span-2 flex justify-end">
+          <button
+            disabled={saving}
+            className="btn-primary"
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await saveAccount(x, id);
+                notify("Hesap kaydedildi.", "success");
+                nav("/finans/banka-hesaplari");
+              } catch (e) {
+                notify(
+                  e instanceof Error ? e.message : "Kaydedilemedi",
+                  "error",
+                );
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
+            {saving ? "Kaydediliyor..." : "Kaydet"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+export function BankAccountDetailPage() {
+  const { id } = useParams();
+  const nav = useNavigate();
+  const { getAccount, getTransactions, addTransaction } = useBankAccounts();
+  const { notify } = useToast();
+  const a = id ? getAccount(id) : undefined;
+  const [open, setOpen] = useState(false);
+  const [t, setT] = useState<BankTransactionInput>({
+    accountId: id ?? "",
+    date: new Date().toISOString().slice(0, 10),
+    type: "giris",
+    category: "diger",
+    amount: 0,
+    counterparty: "",
+    description: "",
+  });
+  const tx = useMemo(
+    () => (id ? getTransactions(id) : []),
+    [id, getTransactions],
+  );
+  if (!a) return <p>Hesap yükleniyor...</p>;
+  return (
+    <div className="mx-auto max-w-6xl">
+      <PageHeader
+        title={a.accountName}
+        description={`${a.bank} · ${a.iban}`}
+        backTo="/finans/banka-hesaplari"
+        actions={
+          <>
+            <button
+              className="btn-secondary"
+              onClick={() => nav(`/finans/banka-hesaplari/${a.id}/duzenle`)}
+            >
+              Düzenle
+            </button>
+            <button className="btn-primary" onClick={() => setOpen(true)}>
+              <Plus size={16} />
+              Hareket Ekle
+            </button>
+          </>
+        }
+      />
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <K
+          icon={<Building2 size={16} />}
+          v={money(a.balance, a.currency)}
+          l="Güncel Bakiye"
+        />
+        <K
+          icon={<ArrowDownLeft size={16} />}
+          v={money(
+            tx
+              .filter((x) => x.type === "giris")
+              .reduce((s, x) => s + x.amount, 0),
+            a.currency,
+          )}
+          l="Toplam Giriş"
+        />
+        <K
+          icon={<ArrowUpRight size={16} />}
+          v={money(
+            tx
+              .filter((x) => x.type === "cikis")
+              .reduce((s, x) => s + x.amount, 0),
+            a.currency,
+          )}
+          l="Toplam Çıkış"
+        />
+      </div>
+      <div className="card overflow-x-auto">
+        <table className="min-w-full">
+          <thead>
+            <tr>
+              <th className="table-th">Tarih</th>
+              <th className="table-th">Tür</th>
+              <th className="table-th">Karşı Taraf</th>
+              <th className="table-th">Açıklama</th>
+              <th className="table-th">Tutar</th>
+              <th className="table-th">Dekont</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tx.map((x) => (
+              <tr className="border-t" key={x.id}>
+                <td className="table-td">{x.date}</td>
+                <td className="table-td">
+                  {x.type === "giris" ? "Giriş" : "Çıkış"}
+                </td>
+                <td className="table-td">{x.counterparty}</td>
+                <td className="table-td">{x.description}</td>
+                <td
+                  className={`table-td font-semibold ${x.type === "giris" ? "text-emerald-600" : "text-red-600"}`}
+                >
+                  {x.type === "giris" ? "+" : "-"}
+                  {money(x.amount, a.currency)}
+                </td>
+                <td className="table-td">{x.hasReceipt ? "Var" : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Hesap Hareketi Ekle"
+      >
+        <div className="space-y-3">
+          <input
+            type="date"
+            className="input"
+            value={t.date}
+            onChange={(e) => setT({ ...t, date: e.target.value })}
+          />
+          <select
+            className="input"
+            value={t.type}
+            onChange={(e) => setT({ ...t, type: e.target.value as any })}
+          >
+            <option value="giris">Para Girişi</option>
+            <option value="cikis">Para Çıkışı</option>
+          </select>
+          <input
+            className="input"
+            placeholder="Karşı taraf"
+            onChange={(e) => setT({ ...t, counterparty: e.target.value })}
+          />
+          <input
+            type="number"
+            className="input"
+            placeholder="Tutar"
+            onChange={(e) => setT({ ...t, amount: Number(e.target.value) })}
+          />
+          <textarea
+            className="input"
+            placeholder="Açıklama"
+            onChange={(e) => setT({ ...t, description: e.target.value })}
+          />
+          <label className="btn-secondary cursor-pointer">
+            <Upload size={16} />
+            Dekont
+            <input
+              hidden
+              type="file"
+              accept=".pdf,image/*"
+              onChange={(e) => setT({ ...t, file: e.target.files?.[0] })}
+            />
+          </label>
+          <button
+            className="btn-primary w-full"
+            onClick={async () => {
+              try {
+                await addTransaction(t);
+                notify("Hareket eklendi.", "success");
+                setOpen(false);
+              } catch (e) {
+                notify(e instanceof Error ? e.message : "Eklenemedi", "error");
+              }
+            }}
+          >
+            Kaydet
+          </button>
+        </div>
+      </Modal>
+    </div>
+  );
+}
