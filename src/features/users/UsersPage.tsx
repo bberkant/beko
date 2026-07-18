@@ -7,8 +7,8 @@ import { useAuth, type OrganizationRole } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 
 interface Member { user_id: string; full_name: string; email: string; role: OrganizationRole; active: boolean; joined_at: string }
-const roleLabels: Record<OrganizationRole, string> = { admin: 'Yönetici', muhasebe: 'Muhasebe', goruntuleyici: 'Görüntüleyici' };
-const roleStyles: Record<OrganizationRole, string> = { admin: 'bg-violet-50 text-violet-700', muhasebe: 'bg-blue-50 text-blue-700', goruntuleyici: 'bg-gray-100 text-gray-600' };
+const roleLabels: Record<OrganizationRole, string> = { admin: 'Yönetici', muhasebe: 'Muhasebe', finans: 'Finans', goruntuleyici: 'Görüntüleyici' };
+const roleStyles: Record<OrganizationRole, string> = { admin: 'bg-violet-50 text-violet-700', muhasebe: 'bg-blue-50 text-blue-700', finans: 'bg-cyan-50 text-cyan-700', goruntuleyici: 'bg-gray-100 text-gray-600' };
 
 export function UsersPage() {
   const { user } = useAuth(); const { notify } = useToast();
