@@ -149,7 +149,7 @@ export function CreditCardListPage() {
         actions={
           <>
             <button className="btn-secondary" onClick={() => setCardPickerOpen(true)}>
-              <Upload size={16} /> Ekstre Yükle
+              <Upload size={16} /> PDF Yükle
             </button>
             <button className="btn-secondary" onClick={() => notify('Kart listesi dışa aktarıldı (mock).', 'success')}>
               <Download size={16} /> Dışa Aktar
@@ -399,7 +399,7 @@ export function CreditCardListPage() {
       <Modal
         open={cardPickerOpen}
         onClose={() => setCardPickerOpen(false)}
-        title="Ekstre Yüklenecek Kartı Seçin"
+        title="PDF Yüklenecek Kartı Seçin"
         description="Ekstreyi ilişkilendirmek istediğiniz kredi kartını seçin."
         size="md"
       >
@@ -424,7 +424,7 @@ export function CreditCardListPage() {
       <Modal
         open={Boolean(uploadCard)}
         onClose={() => { setUploadCard(null); setProgress(null); }}
-        title="Ekstre Yükle"
+        title="PDF Yükle"
         description={uploadCard ? `${uploadCard.bank} ${uploadCard.cardName} •••• ${uploadCard.last4}` : ''}
         size="md"
       >
