@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import type { CreditCard, Payment } from '../types';
+import type { CreditCard, Payment, Statement } from '../types';
 import { formatTRY } from '../data/labels';
+import { isCardPaymentOverdue } from '../lib/billingDateEngine';
 
 export interface BulkPaymentData {
   date: string;
@@ -12,11 +13,12 @@ export interface BulkPaymentData {
 
 interface BulkPaymentModalBodyProps {
   cards: CreditCard[];
+  statements: Statement[];
   submitting: boolean;
   onSubmit: (data: BulkPaymentData) => void;
 }
 
-export function BulkPaymentModalBody({ cards, submitting, onSubmit }: BulkPaymentModalBodyProps) {
+export function BulkPaymentModalBody({ cards, statements, submitting, onSubmit }: BulkPaymentModalBodyProps) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [type, setType] = useState<Payment['type']>('tam-odeme');
   const [bankAccount, setBankAccount] = useState('');
@@ -28,13 +30,8 @@ export function BulkPaymentModalBody({ cards, submitting, onSubmit }: BulkPaymen
   const selectedCount = useMemo(() => Object.values(selected).filter(Boolean).length, [selected]);
   const visibleCards = useMemo(() => {
     if (!showOverdueOnly) return cards;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return cards.filter((card) => {
-      const dueDate = new Date(today.getFullYear(), today.getMonth(), card.dueDay);
-      return dueDate < today && card.currentDebt > 0;
-    });
-  }, [cards, showOverdueOnly]);
+    return cards.filter((card) => isCardPaymentOverdue(card, statements));
+  }, [cards, statements, showOverdueOnly]);
   const allSelected = visibleCards.length > 0 && visibleCards.every((card) => selected[card.id]);
 
   const toggleCard = (card: CreditCard) => {
