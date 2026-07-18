@@ -22,7 +22,7 @@ import { UploadStatementModalBody, UploadProgress, type StatementUploadData } fr
 import { BulkPaymentModalBody, type BulkPaymentData } from '../components/BulkPaymentModalBody';
 import { PaymentModalBody } from '../components/PaymentModalBody';
 import type { Payment } from '../types';
-import { resolveCardDueDate } from '../lib/billingDateEngine';
+import { resolveCardDueDate, resolveCardOutstandingDebt } from '../lib/billingDateEngine';
 
 interface Filters {
   bank: string;
@@ -82,7 +82,7 @@ export function CreditCardListPage() {
       if (filters.dueRange) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const due = new Date(today.getFullYear(), today.getMonth(), c.dueDay);
+        const due = new Date(`${dueDates.get(c.id)}T00:00:00`);
         const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
         if (filters.dueRange === 'overdue' && diff >= 0) return false;
         if (filters.dueRange === '7days' && (diff < 0 || diff > 7)) return false;
@@ -98,23 +98,27 @@ export function CreditCardListPage() {
 
   const kpis = useMemo(() => {
     const totalLimit = cards.reduce((s, c) => s + c.limit, 0);
-    const totalDebt = cards.reduce((s, c) => s + c.currentDebt, 0);
     const today = new Date();
-    const in7 = cards
-      .filter((c) => {
-        const due = new Date(today.getFullYear(), today.getMonth(), c.dueDay);
-        const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
-        return diff >= 0 && diff <= 7 && c.currentDebt > 0;
-      })
-      .reduce((s, c) => s + c.currentDebt, 0);
+    today.setHours(0, 0, 0, 0);
+    const cardsWithBilling = cards.map((card) => ({
+      card,
+      debt: resolveCardOutstandingDebt(card, statements),
+      dueDate: resolveCardDueDate(card, statements).date,
+    }));
+    const totalDebt = cardsWithBilling.reduce((sum, item) => sum + item.debt, 0);
+    const in7 = cardsWithBilling.reduce((sum, item) => {
+      const due = new Date(`${item.dueDate}T00:00:00`);
+      const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
+      return diff >= 0 && diff <= 7 ? sum + item.debt : sum;
+    }, 0);
     const avgUsage = cards.length > 0
-      ? Math.round(cards.reduce((s, c) => s + limitUsage(c.currentDebt, c.limit), 0) / cards.length)
+      ? Math.round(cardsWithBilling.reduce((sum, item) => sum + limitUsage(item.debt, item.card.limit), 0) / cards.length)
       : 0;
-    const critical = cards.filter(
-      (c) => usageLevel(limitUsage(c.currentDebt, c.limit)) === 'kritik' || c.status === 'bloke',
+    const critical = cardsWithBilling.filter(
+      ({ card, debt }) => usageLevel(limitUsage(debt, card.limit)) === 'kritik' || card.status === 'bloke',
     ).length;
     return { total: cards.length, totalLimit, totalDebt, in7, avgUsage, critical };
-  }, [cards]);
+  }, [cards, statements]);
 
   const handleUploadSubmit = (data: StatementUploadData) => {
     if (!uploadCard) return;
