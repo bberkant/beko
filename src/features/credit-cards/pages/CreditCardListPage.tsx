@@ -46,7 +46,7 @@ export function CreditCardListPage() {
   const [progress, setProgress] = useState<UploadProgress | null>(null);
 
   const banks = useMemo(() => Array.from(new Set(cards.map((c) => c.bank))), [cards]);
-  const holders = useMemo(() => Array.from(new Set(cards.map((c) => c.holder))), [cards]);
+  const holders = useMemo(() => Array.from(new Set(cards.map((c) => c.holder).filter(Boolean))), [cards]);
 
   const filtered = useMemo(() => {
     return cards.filter((c) => {
@@ -290,7 +290,7 @@ export function CreditCardListPage() {
                       </div>
                     </td>
                     <td className="table-td !px-2 !text-xs font-mono text-gray-600">{maskCard(c.last4)}</td>
-                    <td className="table-td truncate !px-2 !text-xs text-gray-700">{c.holder}</td>
+                    <td className="table-td truncate !px-2 !text-xs text-gray-700">{c.holder || '—'}</td>
                     <td className="table-td !px-2 !text-xs text-gray-700">{formatTRY(c.limit)}</td>
                     <td className="table-td !px-2 !text-xs font-medium text-gray-900">{formatTRY(c.currentDebt)}</td>
                     <td className="table-td !px-2"><ProgressBar value={usage} level={level} showLabel /></td>
@@ -340,7 +340,7 @@ export function CreditCardListPage() {
               <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <p className="text-gray-400">Kartı Kullanan</p>
-                  <p className="font-medium text-gray-700">{c.holder}</p>
+                  <p className="font-medium text-gray-700">{c.holder || '—'}</p>
                 </div>
                 <div>
                   <p className="text-gray-400">Güncel Borç</p>
@@ -404,7 +404,7 @@ export function CreditCardListPage() {
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-600">{card.bankShort}</span>
               <span>
                 <span className="block text-sm font-medium text-gray-900">{card.bank} {card.cardName}</span>
-                <span className="block text-xs text-gray-500">•••• {card.last4} · {card.holder}</span>
+                <span className="block text-xs text-gray-500">•••• {card.last4}{card.holder ? ` · ${card.holder}` : ''}</span>
               </span>
             </button>
           ))}
