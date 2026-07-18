@@ -219,7 +219,7 @@ export function StatementDetailPage() {
               <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
                 <FileText size={20} className="text-brand-600" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">{statement.period}_ekstre.pdf</p>
+                  <p className="text-sm font-medium text-gray-900">{statement.fileName ?? `${statement.period}_ekstre.pdf`}</p>
                   <p className="text-xs text-gray-500">Yüklendi · {formatDate(statement.statementDate)}</p>
                 </div>
                 <button className="btn-secondary !py-1.5 !text-xs" onClick={() => notify('Dosya indiriliyor (mock).', 'info')}>
