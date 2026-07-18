@@ -23,9 +23,19 @@ export function BulkPaymentModalBody({ cards, submitting, onSubmit }: BulkPaymen
   const [description, setDescription] = useState('');
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [showOverdueOnly, setShowOverdueOnly] = useState(false);
 
   const selectedCount = useMemo(() => Object.values(selected).filter(Boolean).length, [selected]);
-  const allSelected = cards.length > 0 && cards.every((card) => selected[card.id]);
+  const visibleCards = useMemo(() => {
+    if (!showOverdueOnly) return cards;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return cards.filter((card) => {
+      const dueDate = new Date(today.getFullYear(), today.getMonth(), card.dueDay);
+      return dueDate < today && card.currentDebt > 0;
+    });
+  }, [cards, showOverdueOnly]);
+  const allSelected = visibleCards.length > 0 && visibleCards.every((card) => selected[card.id]);
 
   const toggleCard = (card: CreditCard) => {
     setSelected((current) => ({ ...current, [card.id]: !current[card.id] }));
@@ -40,8 +50,8 @@ export function BulkPaymentModalBody({ cards, submitting, onSubmit }: BulkPaymen
       setSelected({});
       return;
     }
-    setSelected(Object.fromEntries(cards.map((card) => [card.id, true])));
-    setAmounts(Object.fromEntries(cards.map((card) => [card.id, String(card.currentDebt)])));
+    setSelected((current) => ({ ...current, ...Object.fromEntries(visibleCards.map((card) => [card.id, true])) }));
+    setAmounts((current) => ({ ...current, ...Object.fromEntries(visibleCards.map((card) => [card.id, String(card.currentDebt)])) }));
   };
 
   const submit = () => {
@@ -76,9 +86,13 @@ export function BulkPaymentModalBody({ cards, submitting, onSubmit }: BulkPaymen
       </div>
 
       <div>
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <label className="label !mb-0">Kartlar ve Ödeme Tutarları</label>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-gray-600">
+              <input type="checkbox" checked={showOverdueOnly} onChange={(e) => setShowOverdueOnly(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand-600" />
+              Son ödemesi geçenleri göster
+            </label>
             <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-brand-600">
               <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 rounded border-gray-300 text-brand-600" />
               Tümünü Seç
@@ -87,7 +101,7 @@ export function BulkPaymentModalBody({ cards, submitting, onSubmit }: BulkPaymen
           </div>
         </div>
         <div className="max-h-72 overflow-y-auto rounded-xl border border-gray-200">
-          {cards.map((card) => (
+          {visibleCards.map((card) => (
             <div key={card.id} className="grid grid-cols-[auto_1fr_140px] items-center gap-3 border-b border-gray-100 p-3 last:border-b-0">
               <input type="checkbox" checked={Boolean(selected[card.id])} onChange={() => toggleCard(card)} className="h-4 w-4 rounded border-gray-300 text-brand-600" />
               <button type="button" className="min-w-0 text-left" onClick={() => toggleCard(card)}>
@@ -105,7 +119,11 @@ export function BulkPaymentModalBody({ cards, submitting, onSubmit }: BulkPaymen
               />
             </div>
           ))}
-          {cards.length === 0 && <p className="p-6 text-center text-sm text-gray-500">Ödeme kaydı eklenebilecek kart bulunamadı.</p>}
+          {visibleCards.length === 0 && (
+            <p className="p-6 text-center text-sm text-gray-500">
+              {showOverdueOnly ? 'Son ödeme günü geçmiş borçlu kart bulunamadı.' : 'Ödeme kaydı eklenebilecek kart bulunamadı.'}
+            </p>
+          )}
         </div>
       </div>
 
