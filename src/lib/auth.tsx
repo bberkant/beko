@@ -1,83 +1,128 @@
 import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
+  createContext, useCallback, useContext, useEffect, useMemo, useState,
   type ReactNode,
 } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from './supabase';
+
+export type OrganizationRole = 'admin' | 'muhasebe' | 'goruntuleyici';
 
 export interface AuthUser {
+  id: string;
   name: string;
   email: string;
   role: string;
+  organizationId: string | null;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  loading: boolean;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
-  demoLogin: () => void;
-  logout: () => void;
+  signUp: (name: string, companyName: string, email: string, password: string) => Promise<string>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const DEMO_USER: AuthUser = {
-  name: 'Berkant Yılmaz',
-  email: 'demo@ops360.ai',
-  role: 'Yönetici',
+const roleLabels: Record<OrganizationRole, string> = {
+  admin: 'Yönetici',
+  muhasebe: 'Muhasebe',
+  goruntuleyici: 'Görüntüleyici',
 };
 
-const STORAGE_KEY = 'ops360_auth_user';
+async function resolveUser(session: Session): Promise<AuthUser> {
+  const authUser = session.user;
+  const [{ data: profile }, { data: membership, error }] = await Promise.all([
+    supabase.from('profiles').select('full_name').eq('id', authUser.id).maybeSingle(),
+    supabase
+      .from('organization_members')
+      .select('organization_id, role')
+      .eq('user_id', authUser.id)
+      .eq('active', true)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (error) throw error;
+
+  const role = membership?.role as OrganizationRole | undefined;
+  return {
+    id: authUser.id,
+    name: profile?.full_name || authUser.user_metadata.full_name || authUser.email?.split('@')[0] || 'Kullanıcı',
+    email: authUser.email || '',
+    role: role ? roleLabels[role] : 'Kurulum Bekliyor',
+    organizationId: membership?.organization_id ?? null,
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as AuthUser) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const persist = useCallback((u: AuthUser | null, remember: boolean) => {
-    setUser(u);
-    try {
-      if (u && remember) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-      } else {
-        localStorage.removeItem(STORAGE_KEY);
+  useEffect(() => {
+    let active = true;
+    const applySession = async (session: Session | null) => {
+      try {
+        const next = session ? await resolveUser(session) : null;
+        if (active) setUser(next);
+      } catch (error) {
+        console.error('Oturum bilgileri yüklenemedi:', error);
+        if (active) setUser(null);
+      } finally {
+        if (active) setLoading(false);
       }
-    } catch {
-      /* ignore */
-    }
+    };
+
+    void supabase.auth.getSession().then(({ data }) => applySession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(() => void applySession(session), 0);
+    });
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
-  const login = useCallback(
-    async (email: string, _password: string, remember: boolean) => {
-      const u: AuthUser = {
-        name: email.split('@')[0] || 'Kullanıcı',
-        email,
-        role: 'Yönetici',
-      };
-      persist(u, remember);
-    },
-    [persist],
-  );
+  const login = useCallback(async (email: string, password: string, remember: boolean) => {
+    if (!remember) sessionStorage.setItem('ops360_session_only', '1');
+    else sessionStorage.removeItem('ops360_session_only');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  }, []);
 
-  const demoLogin = useCallback(() => {
-    persist(DEMO_USER, true);
-  }, [persist]);
+  const signUp = useCallback(async (name: string, companyName: string, email: string, password: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: name } },
+    });
+    if (error) throw error;
+    if (!data.session) return 'E-posta adresinize gelen doğrulama bağlantısını açın, sonra giriş yapın.';
 
-  const logout = useCallback(() => {
-    persist(null, false);
-  }, [persist]);
+    const { error: bootstrapError } = await supabase.rpc('bootstrap_organization', {
+      company_name: companyName,
+    });
+    if (bootstrapError) throw bootstrapError;
+    const next = await resolveUser(data.session);
+    setUser(next);
+    return 'Hesabınız ve şirketiniz oluşturuldu.';
+  }, []);
 
-  const value = useMemo<AuthContextValue>(
-    () => ({ user, isAuthenticated: Boolean(user), login, demoLogin, logout }),
-    [user, login, demoLogin, logout],
-  );
+  const logout = useCallback(async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    setUser(null);
+  }, []);
+
+  const value = useMemo<AuthContextValue>(() => ({
+    user,
+    isAuthenticated: Boolean(user),
+    loading,
+    login,
+    signUp,
+    logout,
+  }), [user, loading, login, signUp, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
