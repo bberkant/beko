@@ -22,7 +22,7 @@ import {
   paymentTypeLabel,
 } from '../data/labels';
 import { DueDateCell } from '../components/DueDateCell';
-import { UploadStatementModalBody, UploadProgress } from '../components/UploadStatementModal';
+import { UploadStatementModalBody, UploadProgress, type StatementUploadData } from '../components/UploadStatementModal';
 import { PaymentModalBody } from '../components/PaymentModalBody';
 
 export function CreditCardDetailPage() {
@@ -56,7 +56,7 @@ export function CreditCardDetailPage() {
   const level = usageLevel(usage);
   const available = card.limit - card.currentDebt;
 
-  const handleUploadSubmit = (data: { period: string; statementDate: string; dueDate: string; totalDebt: number; minPayment: number; note: string }) => {
+  const handleUploadSubmit = (data: StatementUploadData) => {
     setProgress({ percent: 0, status: 'Yükleniyor' });
     let p = 0;
     const timer = window.setInterval(() => {
@@ -73,6 +73,8 @@ export function CreditCardDetailPage() {
           totalDebt: data.totalDebt,
           minPayment: data.minPayment,
           note: data.note,
+          fileName: data.fileName,
+          transactions: data.transactions,
         });
         notify(`${card.cardName} •••• ${card.last4} için ${data.period} ekstresi yüklendi.`, 'success');
         window.setTimeout(() => {
