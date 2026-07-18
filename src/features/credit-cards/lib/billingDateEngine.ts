@@ -54,10 +54,7 @@ export function resolveCardOutstandingDebt(card: CreditCard, statements: Stateme
 }
 
 export function isCardPaymentOverdue(card: CreditCard, statements: Statement[], reference = new Date()) {
-  const openStatement = statements
-    .filter((statement) => statement.cardId === card.id && statement.paymentStatus !== 'odendi' && statement.dueDate)
-    .sort((a, b) => b.statementDate.localeCompare(a.statementDate))[0];
   const today = new Date(reference); today.setHours(0, 0, 0, 0);
-  if (openStatement) return parseDate(openStatement.dueDate) < today;
-  return estimatedCycles(card, today).some((cycle) => cycle.dueDate < today);
+  const dueDate = resolveCardDueDate(card, statements, today).date;
+  return (Number(card.currentDebt) || 0) > 0 && parseDate(dueDate) < today;
 }
