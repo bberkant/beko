@@ -24,6 +24,7 @@ import {
 import { DueDateCell } from '../components/DueDateCell';
 import { UploadStatementModalBody, UploadProgress, type StatementUploadData } from '../components/UploadStatementModal';
 import { PaymentModalBody } from '../components/PaymentModalBody';
+import { resolveCardDueDate } from '../lib/billingDateEngine';
 
 export function CreditCardDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -100,8 +101,7 @@ export function CreditCardDetailPage() {
     setPaymentOpen(false);
   };
 
-  const today = new Date();
-  const dueDate = new Date(today.getFullYear(), today.getMonth(), card.dueDay).toISOString();
+  const dueDate = resolveCardDueDate(card, statements);
 
   const tabItems = [
     { key: 'overview', label: 'Genel Bakış' },
@@ -162,9 +162,9 @@ export function CreditCardDetailPage() {
           <div className="flex items-center justify-between">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-500"><Clock size={15} /></span>
           </div>
-          <p className="mt-3 text-sm font-semibold tracking-tight text-gray-900">{formatDate(dueDate)}</p>
+          <p className="mt-3 text-sm font-semibold tracking-tight text-gray-900">{formatDate(dueDate.date)}</p>
           <p className="mt-0.5 text-xs font-medium text-gray-600">Son Ödeme Tarihi</p>
-          <div className="mt-1"><DueDateCell dueDate={dueDate} statementStatus={card.statementStatus} /></div>
+          <div className="mt-1"><DueDateCell dueDate={dueDate.date} statementStatus={card.statementStatus} /></div>
         </div>
       </div>
 
