@@ -16,6 +16,7 @@ export interface StatementUploadData {
   minPayment: number;
   note: string;
   fileName: string;
+  file: File;
   transactions: ParsedStatementTransaction[];
 }
 
@@ -84,6 +85,7 @@ export function UploadStatementModalBody({ card, progress, onSubmit }: UploadSta
         minPayment: parsed.minPayment ?? (Number(minPayment) || 0),
         note,
         fileName: file.name,
+        file,
         transactions: parsed.transactions,
       });
     } catch (err) {
