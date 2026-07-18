@@ -87,15 +87,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string, remember: boolean) => {
     if (!remember) sessionStorage.setItem('ops360_session_only', '1');
     else sessionStorage.removeItem('ops360_session_only');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    let next = await resolveUser(data.session);
+    if (!next.organizationId && data.user.user_metadata.company_name) {
+      const { error: bootstrapError } = await supabase.rpc('bootstrap_organization', {
+        company_name: data.user.user_metadata.company_name,
+      });
+      if (bootstrapError) throw bootstrapError;
+      next = await resolveUser(data.session);
+    }
+    setUser(next);
   }, []);
 
   const signUp = useCallback(async (name: string, companyName: string, email: string, password: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name } },
+      options: { data: { full_name: name, company_name: companyName } },
     });
     if (error) throw error;
     if (!data.session) return 'E-posta adresinize gelen doğrulama bağlantısını açın, sonra giriş yapın.';
