@@ -24,7 +24,7 @@ export function CreditCardFormPage() {
   const [currency, setCurrency] = useState<Currency>(existing?.currency ?? 'TRY');
   const [statementDay, setStatementDay] = useState(String(existing?.statementDay ?? '15'));
   const [dueDay, setDueDay] = useState(String(existing?.dueDay ?? '5'));
-  const [minPaymentRate, setMinPaymentRate] = useState(String(existing?.minPaymentRate ?? '0.2'));
+  const [minPaymentPercent, setMinPaymentPercent] = useState(String(existing ? Math.round(existing.minPaymentRate * 100) : 40));
   const [startDate, setStartDate] = useState(existing?.startDate ?? '2026-01-01');
   const [expiryMonth, setExpiryMonth] = useState(String(existing?.expiryMonth ?? '12'));
   const [expiryYear, setExpiryYear] = useState(String(existing?.expiryYear ?? '2028'));
@@ -41,12 +41,17 @@ export function CreditCardFormPage() {
       notify('Son 4 hane tam olarak 4 rakam olmalıdır.', 'error');
       return;
     }
+    const parsedMinPaymentPercent = Number(minPaymentPercent);
+    if (!Number.isFinite(parsedMinPaymentPercent) || parsedMinPaymentPercent < 0 || parsedMinPaymentPercent > 100) {
+      notify('Asgari ödeme oranı %0 ile %100 arasında olmalıdır.', 'error');
+      return;
+    }
     const input = {
       bank, cardName, cardType, last4, holder, department,
       limit: Number(limit) || 0, currency,
       statementDay: Number(statementDay) || 1,
       dueDay: Number(dueDay) || 1,
-      minPaymentRate: Number(minPaymentRate) || 0.2,
+      minPaymentRate: parsedMinPaymentPercent / 100,
       startDate,
       expiryMonth: Number(expiryMonth) || 1,
       expiryYear: Number(expiryYear) || 2028,
@@ -134,8 +139,11 @@ export function CreditCardFormPage() {
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className="label">Asgari Ödeme Oranı</label>
-              <input type="number" step="0.01" className="input" value={minPaymentRate} onChange={(e) => setMinPaymentRate(e.target.value)} placeholder="0.2" />
+              <label className="label">Asgari Ödeme Oranı (%)</label>
+              <div className="relative">
+                <input type="number" min="0" max="100" step="1" className="input pr-9" value={minPaymentPercent} onChange={(e) => setMinPaymentPercent(e.target.value)} placeholder="40" />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">%</span>
+              </div>
             </div>
             <div>
               <label className="label">Başlangıç Tarihi</label>
