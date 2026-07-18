@@ -337,7 +337,7 @@ export function CreditCardListPage() {
                     <td className="table-td !px-2">
                       <div className="flex items-center gap-2">
                         <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gray-100 text-[10px] font-semibold text-gray-600">{c.bankShort}</span>
-                        <div className="min-w-0"><button className="block max-w-full truncate font-medium text-brand-600 hover:text-brand-700" onClick={() => navigate(`/finance/credit-cards/${c.id}`)}>{c.bank}</button><span className="block truncate text-[10px] text-gray-400">{c.cardName}</span></div>
+                        <div className="min-w-0"><button className="block max-w-full truncate font-medium text-brand-600 hover:text-brand-700" onClick={() => navigate(`/finance/credit-cards/${c.id}`)}>{c.bank}</button><span className="block truncate text-[11px] text-gray-400">{c.cardName}</span></div>
                       </div>
                     </td>
                     <td className="table-td !px-2 !text-sm font-mono text-gray-700">{maskCard(c.last4)}</td>
