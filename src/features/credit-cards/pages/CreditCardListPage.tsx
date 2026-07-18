@@ -267,7 +267,7 @@ export function CreditCardListPage() {
                 <th className="table-th w-[11%] !px-2">Kullanan</th>
                 <th className="table-th w-[10%] !px-2">Limit</th>
                 <th className="table-th w-[10%] !px-2">Borç</th>
-                <th className="table-th w-[8%] !px-2">Kesim</th>
+                <th className="table-th w-[8%] !px-2">Hesap Kesim Tarihi</th>
                 <th className="table-th w-[16%] !px-2">Son Ödeme</th>
                 <th className="table-th w-[9%] !px-2">Ekstre</th>
                 <th className="table-th w-[7%] !px-2">Durum</th>
