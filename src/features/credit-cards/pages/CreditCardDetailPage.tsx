@@ -122,7 +122,7 @@ export function CreditCardDetailPage() {
         actions={
           <>
             <button className="btn-secondary" onClick={() => setUploadOpen(true)}>
-              <Upload size={16} /> Ekstre Yükle
+              <Upload size={16} /> PDF Yükle
             </button>
             <button className="btn-secondary" onClick={() => setPaymentOpen(true)}>
               <CreditCardIcon size={16} /> Ödeme Ekle
@@ -251,7 +251,7 @@ export function CreditCardDetailPage() {
             <div className="mb-4 flex items-center justify-between px-4 pt-4">
               <h3 className="text-sm font-semibold text-gray-900">Ekstreler ({statements.length})</h3>
               <button className="btn-primary !py-2 !text-xs" onClick={() => setUploadOpen(true)}>
-                <Upload size={14} /> Ekstre Yükle
+                <Upload size={14} /> PDF Yükle
               </button>
             </div>
             <div className="overflow-x-auto">
@@ -389,7 +389,7 @@ export function CreditCardDetailPage() {
       <Modal
         open={uploadOpen}
         onClose={() => { setUploadOpen(false); setProgress(null); }}
-        title="Ekstre Yükle"
+        title="PDF Yükle"
         description={`${card.bank} ${card.cardName} •••• ${card.last4}`}
         size="md"
       >
