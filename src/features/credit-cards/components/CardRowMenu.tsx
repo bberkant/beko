@@ -49,7 +49,7 @@ export function CardRowMenu({ card, onUploadStatement, onAddPayment }: CardRowMe
             <Pencil size={15} className="text-gray-400" /> Düzenle
           </button>
           <button className={itemCls} onClick={() => { setOpen(false); onUploadStatement(); }}>
-            <Upload size={15} className="text-gray-400" /> PDF Yükle
+            <Upload size={15} className="text-gray-400" /> Ekstre Yükle
           </button>
           <button className={itemCls} onClick={() => { setOpen(false); onAddPayment(); }}>
             <CreditCard size={15} className="text-gray-400" /> Ödeme Kaydı Ekle
