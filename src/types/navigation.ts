@@ -2,8 +2,6 @@ import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
   CreditCard,
-  Landmark,
-  ReceiptText,
   Car,
   Gavel,
   FileText,
@@ -29,8 +27,6 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   { label: 'Kredi Kartları', to: '/finance/credit-cards', icon: CreditCard },
-  { label: 'Banka Hesapları', to: '/finans/banka-hesaplari', icon: Landmark },
-  { label: 'Çekler', to: '/finans/cekler', icon: ReceiptText },
   {
     label: 'Araç Yönetimi',
     to: '/arac-yonetimi',
