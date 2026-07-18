@@ -57,6 +57,10 @@ export function CreditCardListPage() {
   const holders = useMemo(() => Array.from(new Set(cards.map((c) => c.holder).filter(Boolean))), [cards]);
 
   const filtered = useMemo(() => {
+    const dueDates = new Map(
+      cards.map((card) => [card.id, resolveCardDueDate(card, statements).date]),
+    );
+
     return cards.filter((c) => {
       if (search) {
         const q = search.toLowerCase();
@@ -85,8 +89,12 @@ export function CreditCardListPage() {
         if (filters.dueRange === '30days' && (diff < 0 || diff > 30)) return false;
       }
       return true;
+    }).sort((a, b) => {
+      const dueDateComparison = (dueDates.get(a.id) ?? '').localeCompare(dueDates.get(b.id) ?? '');
+      if (dueDateComparison !== 0) return dueDateComparison;
+      return a.bank.localeCompare(b.bank, 'tr');
     });
-  }, [cards, search, filters]);
+  }, [cards, statements, search, filters]);
 
   const kpis = useMemo(() => {
     const totalLimit = cards.reduce((s, c) => s + c.limit, 0);
