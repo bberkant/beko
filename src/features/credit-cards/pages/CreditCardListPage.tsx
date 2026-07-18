@@ -22,6 +22,7 @@ import { UploadStatementModalBody, UploadProgress, type StatementUploadData } fr
 import { BulkPaymentModalBody, type BulkPaymentData } from '../components/BulkPaymentModalBody';
 import { PaymentModalBody } from '../components/PaymentModalBody';
 import type { Payment } from '../types';
+import { resolveCardDueDate } from '../lib/billingDateEngine';
 
 interface Filters {
   bank: string;
@@ -39,7 +40,7 @@ const emptyFilters: Filters = {
 export function CreditCardListPage() {
   const navigate = useNavigate();
   const { notify } = useToast();
-  const { cards, addStatement, addPayment } = useStore();
+  const { cards, statements, addStatement, addPayment } = useStore();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -330,8 +331,7 @@ export function CreditCardListPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map((c) => {
-                const today = new Date();
-                const dueDate = new Date(today.getFullYear(), today.getMonth(), c.dueDay).toISOString();
+                const dueDate = resolveCardDueDate(c, statements);
                 return (
                   <tr key={c.id} className="hover:bg-gray-50/40">
                     <td className="table-td !px-2">
@@ -342,7 +342,7 @@ export function CreditCardListPage() {
                     </td>
                     <td className="table-td !px-2 !text-sm font-mono text-gray-700">{maskCard(c.last4)}</td>
                     <td className="table-td !px-2 !text-sm font-semibold text-gray-900">{c.statementDay}. gün</td>
-                    <td className="table-td !px-2 !text-xs"><DueDateCell dueDate={dueDate} statementStatus={c.statementStatus} /></td>
+                    <td className="table-td !px-2 !text-xs"><DueDateCell dueDate={dueDate.date} statementStatus={c.statementStatus} /></td>
                     <td className="table-td !px-2 !text-xs text-gray-700">{formatTRY(c.limit)}</td>
                     <td className="table-td !px-2 !text-xs font-normal text-gray-900">{formatTRY(c.currentDebt)}</td>
                     <td className="table-td truncate !px-2 !text-xs text-gray-700">{c.holder || '—'}</td>
@@ -371,8 +371,7 @@ export function CreditCardListPage() {
           const usage = limitUsage(c.currentDebt, c.limit);
           const level = usageLevel(usage);
           const available = c.limit - c.currentDebt;
-          const today = new Date();
-          const dueDate = new Date(today.getFullYear(), today.getMonth(), c.dueDay).toISOString();
+          const dueDate = resolveCardDueDate(c, statements);
           return (
             <div key={c.id} className="card p-4">
               <div className="flex items-start justify-between">
@@ -414,7 +413,7 @@ export function CreditCardListPage() {
               <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <p className="text-gray-400">Son Ödeme</p>
-                  <DueDateCell dueDate={dueDate} statementStatus={c.statementStatus} />
+                  <DueDateCell dueDate={dueDate.date} statementStatus={c.statementStatus} />
                 </div>
                 <div>
                   <p className="text-gray-400">Ekstre Durumu</p>
@@ -483,6 +482,7 @@ export function CreditCardListPage() {
       >
         <BulkPaymentModalBody
           cards={cards.filter((card) => card.status !== 'pasif')}
+          statements={statements}
           submitting={bulkPaymentSubmitting}
           onSubmit={(data) => void handleBulkPaymentSubmit(data)}
         />
