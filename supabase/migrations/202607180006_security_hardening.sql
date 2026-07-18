@@ -42,7 +42,7 @@ begin
   end if;
   if not exists (select 1 from pg_constraint where conname = 'payments_statement_same_org_fk') then
     alter table public.payments add constraint payments_statement_same_org_fk
-      foreign key (organization_id, statement_id) references public.statements (organization_id, id) on delete set null;
+      foreign key (organization_id, statement_id) references public.statements (organization_id, id);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'bank_transactions_account_same_org_fk') then
     alter table public.bank_transactions add constraint bank_transactions_account_same_org_fk
@@ -54,7 +54,7 @@ begin
   end if;
   if not exists (select 1 from pg_constraint where conname = 'drivers_vehicle_same_org_fk') then
     alter table public.drivers add constraint drivers_vehicle_same_org_fk
-      foreign key (organization_id, assigned_vehicle_id) references public.vehicles (organization_id, id) on delete set null;
+      foreign key (organization_id, assigned_vehicle_id) references public.vehicles (organization_id, id);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'traffic_fines_vehicle_same_org_fk') then
     alter table public.traffic_fines add constraint traffic_fines_vehicle_same_org_fk
@@ -62,7 +62,7 @@ begin
   end if;
   if not exists (select 1 from pg_constraint where conname = 'traffic_fines_driver_same_org_fk') then
     alter table public.traffic_fines add constraint traffic_fines_driver_same_org_fk
-      foreign key (organization_id, driver_id) references public.drivers (organization_id, id) on delete set null;
+      foreign key (organization_id, driver_id) references public.drivers (organization_id, id);
   end if;
 end $$;
 
