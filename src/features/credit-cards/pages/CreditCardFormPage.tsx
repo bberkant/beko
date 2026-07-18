@@ -122,10 +122,8 @@ export function CreditCardFormPage() {
               <input className="input" maxLength={4} value={last4} onChange={(e) => setLast4(e.target.value)} placeholder="4821" />
             </div>
             <div>
-              <label className="label">Para Birimi</label>
-              <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
-                {Object.entries(currencyLabel).map(([k, v]) => <option key={k} value={k}>{k} ({v})</option>)}
-              </select>
+              <label className="label">Kart Limiti (₺)</label>
+              <input type="number" className="input" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="850000" />
             </div>
           </div>
           <div>
@@ -134,8 +132,10 @@ export function CreditCardFormPage() {
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className="label">Kart Limiti (₺)</label>
-              <input type="number" className="input" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="850000" />
+              <label className="label">Para Birimi</label>
+              <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
+                {Object.entries(currencyLabel).map(([k, v]) => <option key={k} value={k}>{k} ({v})</option>)}
+              </select>
             </div>
             <div>
               <label className="label">Kesim Günü</label>
