@@ -5,12 +5,13 @@ import { useToast } from '../../../lib/toast';
 import { useStore } from '../data/store';
 import type { CardType, CardStatus, Currency } from '../types';
 import { cardTypeLabel, currencyLabel } from '../data/labels';
+import { Trash2 } from 'lucide-react';
 
 export function CreditCardFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { notify } = useToast();
-  const { getCard, addCard, updateCard } = useStore();
+  const { getCard, addCard, updateCard, deleteCard } = useStore();
 
   const existing = id ? getCard(id) : undefined;
 
@@ -31,6 +32,26 @@ export function CreditCardFormPage() {
   const [status, setStatus] = useState<CardStatus>(existing?.status ?? 'aktif');
   const [description, setDescription] = useState(existing?.description ?? '');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!existing) return;
+    const confirmed = window.confirm(
+      `${existing.bank} ${existing.cardName} •••• ${existing.last4} kartını kalıcı olarak silmek istediğinize emin misiniz?\n\nKarta bağlı ekstre, hareket ve ödeme kayıtları da silinecek.`,
+    );
+    if (!confirmed) return;
+    setDeleting(true);
+    try {
+      await deleteCard(existing.id);
+      notify('Kart ve bağlı kayıtları silindi.', 'success');
+      navigate('/finance/credit-cards');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Kart silinemedi.';
+      notify(`Kart silinemedi: ${message}`, 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!bank || !last4) {
@@ -173,9 +194,20 @@ export function CreditCardFormPage() {
             <label className="label">Açıklama</label>
             <textarea className="input min-h-[72px] resize-none" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Açıklama (opsiyonel)" />
           </div>
-          <div className="flex items-center justify-end gap-2.5">
-            <button className="btn-ghost" onClick={() => navigate('/finance/credit-cards')}>İptal</button>
-            <button className="btn-primary" onClick={handleSubmit} disabled={saving}>{saving ? 'Kaydediliyor...' : existing ? 'Güncelle' : 'Kaydet'}</button>
+          <div className={`flex items-center gap-2.5 ${existing ? 'justify-between' : 'justify-end'}`}>
+            {existing && (
+              <button
+                className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => void handleDelete()}
+                disabled={saving || deleting}
+              >
+                <Trash2 size={16} /> {deleting ? 'Siliniyor...' : 'Kartı Sil'}
+              </button>
+            )}
+            <div className="flex items-center gap-2.5">
+              <button className="btn-ghost" onClick={() => navigate('/finance/credit-cards')} disabled={saving || deleting}>İptal</button>
+              <button className="btn-primary" onClick={handleSubmit} disabled={saving || deleting}>{saving ? 'Kaydediliyor...' : existing ? 'Güncelle' : 'Kaydet'}</button>
+            </div>
           </div>
         </div>
       </div>
