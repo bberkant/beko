@@ -12,6 +12,10 @@ import { CreditCardFormPage } from './features/credit-cards/pages/CreditCardForm
 import { CreditCardDetailPage } from './features/credit-cards/pages/CreditCardDetailPage';
 import { StatementsPage } from './features/credit-cards/pages/StatementsPage';
 import { StatementDetailPage } from './features/credit-cards/pages/StatementDetailPage';
+import { BankAccountsProvider } from './features/bank-accounts/store';
+import { BankAccountListPage, BankAccountFormPage, BankAccountDetailPage } from './features/bank-accounts/pages';
+import { VehiclesProvider } from './features/vehicles/store';
+import { VehicleListPage, VehicleFormPage, VehicleDetailPage } from './features/vehicles/pages';
 
 export default function App() {
   return (
@@ -21,7 +25,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route element={<ProtectedRoute />}>
-              <Route element={<StoreProvider><AppLayout /></StoreProvider>}>
+              <Route element={<StoreProvider><BankAccountsProvider><VehiclesProvider><AppLayout /></VehiclesProvider></BankAccountsProvider></StoreProvider>}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/finance/credit-cards" element={<CreditCardListPage />} />
                 <Route path="/finance/credit-cards/new" element={<CreditCardFormPage />} />
@@ -30,10 +34,16 @@ export default function App() {
                 <Route path="/finance/credit-cards/:id/edit" element={<CreditCardFormPage />} />
                 <Route path="/finance/credit-cards/:id/statements/:statementId" element={<StatementDetailPage />} />
                 <Route path="/finans" element={<PlaceholderPage />} />
-                <Route path="/finans/banka-hesaplari" element={<PlaceholderPage />} />
+                <Route path="/finans/banka-hesaplari" element={<BankAccountListPage />} />
+                <Route path="/finans/banka-hesaplari/yeni" element={<BankAccountFormPage />} />
+                <Route path="/finans/banka-hesaplari/:id" element={<BankAccountDetailPage />} />
+                <Route path="/finans/banka-hesaplari/:id/duzenle" element={<BankAccountFormPage />} />
                 <Route path="/finans/cekler" element={<PlaceholderPage />} />
                 <Route path="/finans/odemeler" element={<PlaceholderPage />} />
-                <Route path="/arac-yonetimi" element={<PlaceholderPage />} />
+                <Route path="/arac-yonetimi" element={<VehicleListPage />} />
+                <Route path="/arac-yonetimi/yeni" element={<VehicleFormPage />} />
+                <Route path="/arac-yonetimi/:id" element={<VehicleDetailPage />} />
+                <Route path="/arac-yonetimi/:id/duzenle" element={<VehicleFormPage />} />
                 <Route path="/ihaleler" element={<PlaceholderPage />} />
                 <Route path="/belgeler" element={<PlaceholderPage />} />
                 <Route path="/takvim" element={<PlaceholderPage />} />
