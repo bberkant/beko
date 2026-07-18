@@ -176,11 +176,11 @@ export function CreditCardListPage() {
         description="Şirket kredi kartlarını, borçlarını, limitlerini ve son ödeme tarihlerini yönetin."
         actions={
           <>
+            <button className="btn-secondary" onClick={() => setBulkPaymentOpen(true)}>
+              <ReceiptText size={16} /> Toplu Ödeme Ekle
+            </button>
             <button className="btn-secondary" onClick={() => setCardPickerOpen(true)}>
               <Upload size={16} /> Ekstre Yükle
-            </button>
-            <button className="btn-secondary" onClick={() => setBulkPaymentOpen(true)}>
-              <ReceiptText size={16} /> Toplu Ödeme Kaydı Ekle
             </button>
             <button className="btn-secondary" onClick={() => notify('Kart listesi dışa aktarıldı (mock).', 'success')}>
               <Download size={16} /> Dışa Aktar
@@ -454,7 +454,7 @@ export function CreditCardListPage() {
       <Modal
         open={bulkPaymentOpen}
         onClose={() => { if (!bulkPaymentSubmitting) setBulkPaymentOpen(false); }}
-        title="Toplu Ödeme Kaydı Ekle"
+        title="Toplu Ödeme Ekle"
         description="Birden fazla kredi kartı için tek işlemde ödeme kaydı oluşturun."
         size="lg"
       >
