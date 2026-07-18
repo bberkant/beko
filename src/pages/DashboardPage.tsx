@@ -3,6 +3,7 @@ import { SectionCard } from '../components/ui/SectionCard';
 import {
   Wallet, TrendingUp, Users, FileText, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
+import { DashboardCalendar } from '../features/calendar/CalendarPage';
 
 export function DashboardPage() {
   const kpis = [
@@ -45,6 +46,7 @@ export function DashboardPage() {
           );
         })}
       </div>
+      <DashboardCalendar />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <SectionCard title="Son Aktiviteler" icon={<FileText size={16} className="text-gray-400" />}>
           <div className="space-y-3">
