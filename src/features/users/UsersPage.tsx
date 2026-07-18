@@ -19,11 +19,12 @@ export function UsersPage() {
   const isAdmin = user?.role === 'Yönetici';
 
   const refresh = useCallback(async () => {
+    if (!isAdmin) { setLoading(false); return; }
     setLoading(true);
     const { data, error } = await supabase.rpc('list_organization_users');
     if (error) notify(error.message, 'error'); else setMembers((data ?? []) as Member[]);
     setLoading(false);
-  }, [notify]);
+  }, [isAdmin, notify]);
   useEffect(() => { void refresh(); }, [refresh]);
   const filtered = useMemo(() => members.filter(m => `${m.full_name} ${m.email} ${roleLabels[m.role]}`.toLowerCase().includes(query.toLowerCase())), [members, query]);
 
@@ -40,6 +41,7 @@ export function UsersPage() {
     if (error) notify(error.message, 'error'); else { notify('Kullanıcı güncellendi.', 'success'); await refresh(); }
   };
 
+  if (!isAdmin) return <div className="mx-auto max-w-7xl"><PageHeader title="Yetkisiz Erişim" description="Kullanıcılar modülünü yalnızca yöneticiler görüntüleyebilir."/></div>;
   return <div className="mx-auto max-w-7xl">
     <PageHeader title="Kullanıcılar" description="Şirket kullanıcılarını, rollerini ve erişim durumlarını yönetin."
       actions={isAdmin ? <button className="btn-primary" onClick={() => { setInviteOpen(true); setInviteUrl(''); }}><UserPlus size={16}/> Kullanıcı Davet Et</button> : undefined}/>
