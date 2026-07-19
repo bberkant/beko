@@ -6,22 +6,29 @@ const TIME_ZONE = 'Europe/Istanbul';
 
 interface CardRow {
   id: string;
+  organization_id: string;
   bank: string;
   card_name: string;
   last4: string;
   status: string;
+  card_limit: number | string;
+  current_debt: number | string;
+  statement_day: number;
+  due_day: number;
 }
 
 interface StatementRow {
   id: string;
-  organization_id: string;
   card_id: string;
   period: string;
+  statement_date: string;
   due_date: string;
-  total_debt: number | string;
   payment_status: string;
-  credit_cards: CardRow | CardRow[];
 }
+
+const fixedHolidayKeys = new Set(['01-01', '04-23', '05-01', '05-19', '07-15', '08-30', '10-29']);
+const dateKey = (date: Date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+const parseDate = (value: string) => { const [year, month, day] = value.slice(0, 10).split('-').map(Number); return new Date(Date.UTC(year, month - 1, day, 12)); };
 
 function localDate(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -35,9 +42,33 @@ function localDate(date: Date): string {
 }
 
 function addDays(date: string, days: number): string {
-  const value = new Date(`${date}T12:00:00Z`);
+  const value = parseDate(date);
   value.setUTCDate(value.getUTCDate() + days);
-  return value.toISOString().slice(0, 10);
+  return dateKey(value);
+}
+
+function isBusinessDay(date: Date) {
+  const day = date.getUTCDay();
+  return day !== 0 && day !== 6 && !fixedHolidayKeys.has(dateKey(date).slice(5));
+}
+
+function moveToBusinessDay(value: Date, direction: -1 | 1) {
+  const date = new Date(value);
+  while (!isBusinessDay(date)) date.setUTCDate(date.getUTCDate() + direction);
+  return date;
+}
+
+function estimatedDueDate(card: CardRow, today: string) {
+  const reference = parseDate(today);
+  for (const offset of [-1, 0, 1, 2]) {
+    const nominalStatement = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth() + offset, card.statement_day, 12));
+    const statementDate = moveToBusinessDay(nominalStatement, -1);
+    const dueMonthOffset = card.due_day <= card.statement_day ? 1 : 0;
+    const nominalDue = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth() + offset + dueMonthOffset, card.due_day, 12));
+    const dueDate = moveToBusinessDay(nominalDue, 1);
+    if (dueDate >= reference && statementDate <= reference) return dateKey(dueDate);
+  }
+  return '';
 }
 
 function money(value: number | string): string {
@@ -54,19 +85,16 @@ function displayDate(value: string): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  }).format(new Date(`${value}T12:00:00+03:00`));
+  }).format(parseDate(value));
 }
 
 Deno.serve(async (request) => {
-  if (request.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
-  }
+  if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const telegramToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
   const telegramChatId = Deno.env.get('TELEGRAM_CHAT_ID');
-
   if (!supabaseUrl || !serviceRoleKey || !telegramToken || !telegramChatId) {
     return Response.json({ error: 'Gerekli sunucu secret değerleri eksik.' }, { status: 500 });
   }
@@ -76,65 +104,73 @@ Deno.serve(async (request) => {
     const testResponse = await fetch(`${TELEGRAM_API}/bot${telegramToken}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: telegramChatId,
-        text: '✅ OPS360 Telegram bağlantısı başarıyla kuruldu. Kredi kartı hatırlatmaları bu sohbetten gönderilecek.',
-      }),
+      body: JSON.stringify({ chat_id: telegramChatId, text: '✅ OPS360 Telegram bağlantısı başarıyla kuruldu. Kredi kartı hatırlatmaları bu sohbetten gönderilecek.' }),
     });
     const testResult = await testResponse.json().catch(() => null);
     return Response.json(testResult, { status: testResponse.ok ? 200 : 502 });
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const today = localDate(new Date());
   const targetDueDates = REMINDER_DAYS.map((days) => addDays(today, days));
-  const reminderDaysByDueDate = new Map(
-    REMINDER_DAYS.map((days) => [addDays(today, days), days]),
-  );
+  const reminderDaysByDueDate = new Map(REMINDER_DAYS.map((days) => [addDays(today, days), days]));
 
-  const { data, error } = await supabase
-    .from('statements')
-    .select('id,organization_id,card_id,period,due_date,total_debt,payment_status,credit_cards!statements_card_id_fkey(id,bank,card_name,last4,status)')
-    .in('due_date', targetDueDates)
-    .neq('payment_status', 'odendi')
-    .eq('credit_cards.status', 'aktif');
+  const { data: cardData, error: cardError } = await supabase
+    .from('credit_cards')
+    .select('id,organization_id,bank,card_name,last4,status,card_limit,current_debt,statement_day,due_day')
+    .eq('status', 'aktif')
+    .gt('card_limit', 0)
+    .gt('current_debt', 0);
+  if (cardError) return Response.json({ error: cardError.message }, { status: 500 });
 
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  const cards = (cardData ?? []) as CardRow[];
+  const cardIds = cards.map((card) => card.id);
+  let statements: StatementRow[] = [];
+  if (cardIds.length > 0) {
+    const { data: statementData, error: statementError } = await supabase
+      .from('statements')
+      .select('id,card_id,period,statement_date,due_date,payment_status')
+      .in('card_id', cardIds)
+      .neq('payment_status', 'odendi')
+      .order('statement_date', { ascending: false });
+    if (statementError) return Response.json({ error: statementError.message }, { status: 500 });
+    statements = (statementData ?? []) as StatementRow[];
+  }
+
+  const latestStatementByCard = new Map<string, StatementRow>();
+  for (const statement of statements) {
+    if (!latestStatementByCard.has(statement.card_id)) latestStatementByCard.set(statement.card_id, statement);
+  }
+
+  const candidates = cards.flatMap((card) => {
+    const statement = latestStatementByCard.get(card.id);
+    const dueDate = statement?.due_date?.slice(0, 10) || estimatedDueDate(card, today);
+    const reminderDays = reminderDaysByDueDate.get(dueDate);
+    return reminderDays ? [{ card, statement, dueDate, reminderDays }] : [];
+  });
 
   let sent = 0;
   let skipped = 0;
   const failures: string[] = [];
-
-  for (const statement of (data ?? []) as unknown as StatementRow[]) {
-    const reminderDays = reminderDaysByDueDate.get(statement.due_date.slice(0, 10));
-    if (!reminderDays) continue;
-    const card = Array.isArray(statement.credit_cards)
-      ? statement.credit_cards[0]
-      : statement.credit_cards;
-    if (!card) continue;
-
+  for (const { card, statement, dueDate, reminderDays } of candidates) {
     const { data: previous } = await supabase
       .from('credit_card_reminder_logs')
       .select('id')
-      .eq('statement_id', statement.id)
+      .eq('card_id', card.id)
+      .eq('due_date', dueDate)
       .eq('channel', 'telegram')
       .eq('reminder_days', reminderDays)
       .eq('recipient_ref', telegramChatId)
       .maybeSingle();
-    if (previous) {
-      skipped += 1;
-      continue;
-    }
+    if (previous) { skipped += 1; continue; }
 
     const message = [
       '🔔 Kredi Kartı Son Ödeme Hatırlatması',
       '',
       `Kart: ${card.bank} ${card.card_name} •••• ${card.last4}`,
-      `Ekstre: ${statement.period}`,
-      `Toplam borç: ${money(statement.total_debt)}`,
-      `Son ödeme: ${displayDate(statement.due_date)}`,
+      statement ? `Ekstre: ${statement.period}` : 'Ekstre: Henüz yüklenmedi',
+      `Güncel borç: ${money(card.current_debt)}`,
+      `Son ödeme: ${displayDate(dueDate)}`,
       `Kalan süre: ${reminderDays} gün`,
     ].join('\n');
 
@@ -145,21 +181,22 @@ Deno.serve(async (request) => {
     });
     const telegramResult = await telegramResponse.json().catch(() => null);
     if (!telegramResponse.ok || !telegramResult?.ok) {
-      failures.push(`${statement.id}: ${telegramResult?.description ?? telegramResponse.statusText}`);
+      failures.push(`${card.id}: ${telegramResult?.description ?? telegramResponse.statusText}`);
       continue;
     }
 
     const { error: logError } = await supabase.from('credit_card_reminder_logs').insert({
-      organization_id: statement.organization_id,
-      card_id: statement.card_id,
-      statement_id: statement.id,
+      organization_id: card.organization_id,
+      card_id: card.id,
+      statement_id: statement?.id ?? null,
+      due_date: dueDate,
       channel: 'telegram',
       reminder_days: reminderDays,
       recipient_ref: telegramChatId,
     });
-    if (logError && logError.code !== '23505') failures.push(`${statement.id}: ${logError.message}`);
+    if (logError && logError.code !== '23505') failures.push(`${card.id}: ${logError.message}`);
     sent += 1;
   }
 
-  return Response.json({ date: today, targetDueDates, found: data?.length ?? 0, sent, skipped, failures });
+  return Response.json({ date: today, targetDueDates, cards: cards.length, found: candidates.length, sent, skipped, failures });
 });
