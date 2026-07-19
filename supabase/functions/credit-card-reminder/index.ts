@@ -96,7 +96,7 @@ Deno.serve(async (request) => {
   const telegramToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
   const telegramChatId = Deno.env.get('TELEGRAM_CHAT_ID');
   if (!supabaseUrl || !serviceRoleKey || !telegramToken || !telegramChatId) {
-    return Response.json({ error: 'Gerekli sunucu secret değerleri eksik.' }, { status: 500 });
+    return Response.json({ error: 'Gerekli sunucu secret de\u011ferleri eksik.' }, { status: 500 });
   }
 
   const body = await request.json().catch(() => ({}));
@@ -104,7 +104,7 @@ Deno.serve(async (request) => {
     const testResponse = await fetch(`${TELEGRAM_API}/bot${telegramToken}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: telegramChatId, text: '✅ OPS360 Telegram bağlantısı başarıyla kuruldu. Kredi kartı hatırlatmaları bu sohbetten gönderilecek.' }),
+      body: JSON.stringify({ chat_id: telegramChatId, text: '\u2705 OPS360 Telegram ba\u011flant\u0131s\u0131 ba\u015far\u0131yla kuruldu. Kredi kart\u0131 hat\u0131rlatmalar\u0131 bu sohbetten g\u00f6nderilecek.' }),
     });
     const testResult = await testResponse.json().catch(() => null);
     return Response.json(testResult, { status: testResponse.ok ? 200 : 502 });
@@ -165,13 +165,13 @@ Deno.serve(async (request) => {
     if (previous) { skipped += 1; continue; }
 
     const message = [
-      '🔔 Kredi Kartı Son Ödeme Hatırlatması',
+      '\ud83d\udd14 Kredi Kart\u0131 Son \u00d6deme Hat\u0131rlatmas\u0131',
       '',
-      `Kart: ${card.bank} ${card.card_name} •••• ${card.last4}`,
-      statement ? `Ekstre: ${statement.period}` : 'Ekstre: Henüz yüklenmedi',
-      `Güncel borç: ${money(card.current_debt)}`,
-      `Son ödeme: ${displayDate(dueDate)}`,
-      `Kalan süre: ${reminderDays} gün`,
+      `Kart: ${card.bank} ${card.card_name} \u2022\u2022\u2022\u2022 ${card.last4}`,
+      statement ? `Ekstre: ${statement.period}` : 'Ekstre: Hen\u00fcz y\u00fcklenmedi',
+      `G\u00fcncel bor\u00e7: ${money(card.current_debt)}`,
+      `Son \u00f6deme: ${displayDate(dueDate)}`,
+      `Kalan s\u00fcre: ${reminderDays} g\u00fcn`,
     ].join('\n');
 
     const telegramResponse = await fetch(`${TELEGRAM_API}/bot${telegramToken}/sendMessage`, {
