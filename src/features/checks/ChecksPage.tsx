@@ -2051,34 +2051,34 @@ export function ChecksPage() {
               <table className="w-full text-left border-collapse" style={{ fontFamily: 'Calibri, Arial, sans-serif' }}>
                 <thead>
                   <tr className="border border-black bg-[#FFFF00]" style={{ fontFamily: 'Calibri, sans-serif' }}>
-                    <th className="bg-[#FFFF00] text-[#FF0000] font-black text-center py-2 text-[15px] border border-black uppercase w-[40%]">
+                    <th className="bg-[#FFFF00] text-[#FF0000] font-black text-center py-1.5 text-[13px] border border-black uppercase w-[40%]">
                       Alacaklı / Açıklama
                     </th>
-                    <th className="bg-[#FFFF00] text-[#FF0000] font-black text-center py-2 text-[15px] border border-black uppercase w-[20%]">
+                    <th className="bg-[#FFFF00] text-[#FF0000] font-black text-center py-1.5 text-[13px] border border-black uppercase w-[20%]">
                       Banka
                     </th>
-                    <th className="bg-[#FFFF00] text-[#FF0000] font-black text-center py-2 text-[15px] border border-black uppercase w-[20%]">
+                    <th className="bg-[#FFFF00] text-[#FF0000] font-black text-center py-1.5 text-[13px] border border-black uppercase w-[20%]">
                       Tutar
                     </th>
-                    <th className="bg-[#FFFF00] text-[#FF0000] font-black text-center py-2 text-[15px] border border-black uppercase w-[20%]">
+                    <th className="bg-[#FFFF00] text-[#FF0000] font-black text-center py-1.5 text-[13px] border border-black uppercase w-[20%]">
                       Vade Tarihi
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-black text-[15px]" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                <tbody className="divide-y divide-black text-[13px]" style={{ fontFamily: 'Calibri, sans-serif' }}>
                   {FIXED_KAYIP_CHECKS.map((check, rowIndex) => {
                     return (
-                      <tr key={rowIndex} className="h-[34px] divide-x divide-black hover:bg-gray-50/30">
-                        <td className="px-3 py-1.5 border border-black font-normal text-gray-700 uppercase">
+                      <tr key={rowIndex} className="h-[28px] divide-x divide-black hover:bg-gray-50/30">
+                        <td className="px-3 py-1 border border-black font-normal text-gray-700 uppercase">
                           {check.creditor}
                         </td>
-                        <td className="px-3 py-1.5 border border-black text-center font-normal text-gray-700 uppercase">
+                        <td className="px-3 py-1 border border-black text-center font-normal text-gray-700 uppercase">
                           {check.bank_name}
                         </td>
-                        <td className="px-3 py-1.5 border border-black text-center font-normal text-gray-700">
+                        <td className="px-3 py-1 border border-black text-center font-normal text-gray-700">
                           {check.amountText}
                         </td>
-                        <td className="px-3 py-1.5 border border-black text-center font-normal text-gray-650">
+                        <td className="px-3 py-1 border border-black text-center font-normal text-gray-650">
                           {check.due_dateText}
                         </td>
                       </tr>
@@ -2087,11 +2087,11 @@ export function ChecksPage() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-yellow-50 font-black border-t-2 border-black text-center divide-x divide-black" style={{ fontFamily: 'Calibri, sans-serif' }}>
-                    <td colSpan={2} className="px-3 py-2 text-[15px] text-red-650 uppercase border border-black text-left pl-3">TOPLAM</td>
-                    <td className="text-center py-2 text-[15px] font-black text-red-650 border border-black">
+                    <td colSpan={2} className="px-3 py-1.5 text-[13px] text-red-650 uppercase border border-black text-left pl-3">TOPLAM</td>
+                    <td className="text-center py-1.5 text-[13px] font-black text-red-650 border border-black">
                       3.348.822
                     </td>
-                    <td className="px-3 py-2 border border-black bg-yellow-50"></td>
+                    <td className="px-3 py-1.5 border border-black bg-yellow-50"></td>
                   </tr>
                 </tfoot>
               </table>
@@ -2110,9 +2110,9 @@ export function ChecksPage() {
               <div className="overflow-y-auto max-h-[220px]">
                 <table className="w-full text-left border-collapse" style={{ fontFamily: 'Calibri, Arial, sans-serif' }}>
                   <thead>
-                    <tr className="bg-gray-50/50 border-b border-gray-200 text-[15px] font-bold text-gray-600" style={{ fontFamily: 'Calibri, sans-serif' }}>
-                      <th className="px-3 py-2">Banka Hesabı</th>
-                      <th className="px-3 py-2 text-right pr-3">Bakiye</th>
+                    <tr className="bg-gray-50/50 border-b border-gray-200 text-[13px] font-bold text-gray-600" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                      <th className="px-3 py-1.5">Banka Hesabı</th>
+                      <th className="px-3 py-1.5 text-right pr-3">Bakiye</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -2131,14 +2131,14 @@ export function ChecksPage() {
                         })();
 
                         return (
-                          <tr key={acc.id} className="h-[34px] divide-x divide-gray-200 hover:bg-gray-50/30">
-                            <td className="pl-3 py-2 text-[15px] font-normal text-gray-700 bg-gray-50/20" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                          <tr key={acc.id} className="h-[28px] divide-x divide-gray-200 hover:bg-gray-50/30">
+                            <td className="pl-3 py-1 text-[13px] font-normal text-gray-700 bg-gray-50/20" style={{ fontFamily: 'Calibri, sans-serif' }}>
                               {displayName}
                             </td>
                             <td className="p-0 border border-gray-300">
                               <input
                                 type="text"
-                                className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-[15px] font-normal text-gray-700"
+                                className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-[13px] font-normal text-gray-700"
                                 style={{ fontFamily: 'Calibri, sans-serif' }}
                                 defaultValue={formatExcelNumber(Number(acc.balance || 0))}
                                 onChange={handleNumberInput}
@@ -2155,8 +2155,8 @@ export function ChecksPage() {
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-50 font-bold border-t border-gray-300 text-right" style={{ fontFamily: 'Calibri, sans-serif' }}>
-                      <td className="px-3 py-2 text-[15px] text-gray-600">Toplam Bakiye</td>
-                      <td className="text-center py-2 text-[15px] font-black text-gray-800">
+                      <td className="px-3 py-1.5 text-[13px] text-gray-600">Toplam Bakiye</td>
+                      <td className="text-center py-1.5 text-[13px] font-black text-gray-800">
                         {formatExcelNumber(dashboardData.totalBankBalance)}
                       </td>
                     </tr>
