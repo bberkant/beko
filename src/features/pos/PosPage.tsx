@@ -236,7 +236,7 @@ export function PosPage() {
     const result = TEMPLATE_RIGHT_ROWS.map((templateRow, idx) => {
       const dbRow = rows[idx];
       return {
-        ...templateRow,
+        name: dbRow && dbRow.name.trim() !== '' ? dbRow.name : templateRow.name,
         amount: dbRow ? dbRow.amount : ''
       };
     });
