@@ -233,23 +233,47 @@ export function PosPage() {
   };
 
   const padRightRows = (rows: RightRow[]): RightRow[] => {
-    const result = TEMPLATE_RIGHT_ROWS.map((templateRow, idx) => {
-      const dbRow = rows[idx];
+    const dbRowsByName: { [key: string]: string[] } = {};
+    rows.forEach(r => {
+      const nameKey = r.name.trim().toUpperCase();
+      if (!dbRowsByName[nameKey]) {
+        dbRowsByName[nameKey] = [];
+      }
+      dbRowsByName[nameKey].push(r.amount);
+    });
+
+    const usedCounts: { [key: string]: number } = {};
+    const result = TEMPLATE_RIGHT_ROWS.map(templateRow => {
+      const nameKey = templateRow.name.trim().toUpperCase();
+      if (usedCounts[nameKey] === undefined) {
+        usedCounts[nameKey] = 0;
+      }
+      const idx = usedCounts[nameKey];
+      const list = dbRowsByName[nameKey] || [];
+      const amount = list[idx] !== undefined ? list[idx] : '';
+      usedCounts[nameKey]++;
       return {
-        name: dbRow && dbRow.name.trim() !== '' ? dbRow.name : templateRow.name,
-        amount: dbRow ? dbRow.amount : ''
+        ...templateRow,
+        amount
       };
     });
 
-    if (rows.length > TEMPLATE_RIGHT_ROWS.length) {
-      for (let i = TEMPLATE_RIGHT_ROWS.length; i < rows.length; i++) {
-        result.push({
-          name: rows[i].name,
-          amount: rows[i].amount
-        });
+    const extraRows: RightRow[] = [];
+    Object.keys(dbRowsByName).forEach(nameKey => {
+      const list = dbRowsByName[nameKey];
+      const used = usedCounts[nameKey] || 0;
+      if (list.length > used) {
+        for (let i = used; i < list.length; i++) {
+          const originalRow = rows.find(r => r.name.trim().toUpperCase() === nameKey);
+          extraRows.push({
+            name: originalRow ? originalRow.name : nameKey,
+            amount: list[i]
+          });
+        }
       }
-    }
-    return result;
+    });
+
+    return [...result, ...extraRows];
   };
 
   const excelInputRef = useRef<HTMLInputElement>(null);
