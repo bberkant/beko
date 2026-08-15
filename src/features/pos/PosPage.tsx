@@ -1090,7 +1090,7 @@ export function PosPage() {
         {/* Table Title block */}
         <div className="flex flex-wrap items-center gap-4 mb-4 border-b border-gray-200 pb-2">
           <div className="text-[17px] font-bold text-brand-800 uppercase tracking-wider shrink-0">
-            POS GÜNLÜK HESAP TABLOSU
+            POS GÜNLÜK TAKİP
           </div>
           <div className="flex items-center gap-3">
             {/* Tarih Seçici Kontrolleri (Daha büyük ve belirgin) */}
