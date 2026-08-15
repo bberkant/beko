@@ -549,9 +549,12 @@ export function PosPage() {
       const nextLeft = prevLeft.map(row => {
         // 1. Calculate colB (sum of rightRows tutar)
         let sumB = 0;
-        rightRows.forEach(r => {
+        rightRows.forEach((r, idx) => {
           if (matchPOSName(row.bank, r.name)) {
-            sumB += parseFormattedNumber(r.amount);
+            const templateRow = TEMPLATE_RIGHT_ROWS[idx];
+            if (templateRow && matchPOSName(templateRow.name, r.name)) {
+              sumB += parseFormattedNumber(r.amount);
+            }
           }
         });
         const formattedB = sumB > 0 ? formatTRNum(sumB) : '';
