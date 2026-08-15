@@ -547,9 +547,9 @@ export function PosPage() {
     setLeftRows(prevLeft => {
       let changed = false;
       const nextLeft = prevLeft.map(row => {
-        // 1. Calculate colB (sum of rightRows tutar - top 15 branch POS rows only)
+        // 1. Calculate colB (sum of rightRows tutar)
         let sumB = 0;
-        rightRows.slice(0, 15).forEach(r => {
+        rightRows.forEach(r => {
           if (matchPOSName(row.bank, r.name)) {
             sumB += parseFormattedNumber(r.amount);
           }
