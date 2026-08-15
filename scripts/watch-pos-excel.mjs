@@ -406,7 +406,7 @@ const processDayData = async (reportDate, worksheet, isMonthly = false) => {
           }
 
           leftTableMapping[mappedName] = {
-            banka_gecen: formatExcelAmount(cellC ? cellC.v : 0),
+            banka_gecen: '',
             komisyon: formattedKom,
             kesinti: formattedKes
           };
@@ -454,13 +454,10 @@ const processDayData = async (reportDate, worksheet, isMonthly = false) => {
       const existingLeftTable = existing.left_table || [];
       const updatedLeftTable = finalLeftTable.map(row => {
         const existingRow = existingLeftTable.find(r => r.bank === row.bank);
-        if (existingRow && existingRow.banka_gecen !== undefined && existingRow.banka_gecen.trim() !== '') {
-          return {
-            ...row,
-            banka_gecen: existingRow.banka_gecen
-          };
-        }
-        return row;
+        return {
+          ...row,
+          banka_gecen: existingRow ? existingRow.banka_gecen : ''
+        };
       });
 
       const { error: updateError } = await supabase
