@@ -86,9 +86,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string, remember: boolean) => {
-    if (!remember) sessionStorage.setItem('ops360_session_only', '1');
-    else sessionStorage.removeItem('ops360_session_only');
-    const loginIdentity = email.includes('@') ? email.trim().toLowerCase() : `${email.trim().toLowerCase()}@ops360.local`;
+    if (!remember) {
+      sessionStorage.setItem('dars_session_only', '1');
+      sessionStorage.setItem('ets360_session_only', '1');
+    } else {
+      sessionStorage.removeItem('dars_session_only');
+      sessionStorage.removeItem('ets360_session_only');
+    }
+    let loginIdentity = email.trim().toLowerCase();
+    if (loginIdentity === 'berkant') {
+      loginIdentity = 'berkantkaplan@gmail.com';
+    } else if (!loginIdentity.includes('@')) {
+      loginIdentity = `${loginIdentity}@dars.local`;
+    }
     const { data, error } = await supabase.auth.signInWithPassword({ email: loginIdentity, password });
     if (error) throw error;
     let next = await resolveUser(data.session);
