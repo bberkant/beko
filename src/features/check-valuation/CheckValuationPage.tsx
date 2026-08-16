@@ -380,6 +380,34 @@ export function CheckValuationPage() {
     }
   };
 
+  const handleManualNetChange = (valueStr: string) => {
+    const newNet = handleNumberChange(valueStr);
+    const currentNet = tab1Calculations.remainingAmount;
+
+    if (currentNet > 0 && newNet > 0) {
+      const k = newNet / currentNet;
+      setChecks(checks.map(c => ({
+        ...c,
+        amount: Math.round(c.amount * k)
+      })));
+    } else if (newNet > 0) {
+      const validRows = checks.filter(c => c.dueDate);
+      if (validRows.length > 0) {
+        const totalDays = validRows.reduce((sum, c) => sum + diffDays(c.dueDate, baseDate), 0);
+        const avgDays = totalDays / validRows.length;
+        const avgDaysAdjusted = avgDays + 1;
+        const discountFactor = 1 - ((monthlyRate / 100) / 30) * avgDaysAdjusted;
+        const requiredGross = discountFactor > 0 ? (newNet / discountFactor) : newNet;
+        const amtPerCheck = Math.round(requiredGross / validRows.length);
+        setChecks(checks.map(c => c.dueDate ? { ...c, amount: amtPerCheck } : c));
+      } else {
+        setChecks(checks.map((c, idx) => idx === 0 ? { ...c, amount: newNet } : c));
+      }
+    } else {
+      setChecks(checks.map(c => ({ ...c, amount: 0 })));
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[1400px]">
       <PageHeader 
@@ -490,9 +518,10 @@ export function CheckValuationPage() {
                 <label className="label text-emerald-700 font-semibold">Net Alınacak Tutar</label>
                 <input
                   type="text"
-                  className="input bg-gray-50 !py-2 font-bold text-emerald-700"
-                  disabled
-                  value={formatCurrency(tab1Calculations.remainingAmount) + ' TL'}
+                  className="input !py-2 font-bold text-emerald-700"
+                  placeholder="0"
+                  value={formatNumberWithDots(Math.round(tab1Calculations.remainingAmount))}
+                  onChange={e => handleManualNetChange(e.target.value)}
                 />
               </div>
 
