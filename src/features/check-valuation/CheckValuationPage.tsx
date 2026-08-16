@@ -597,9 +597,9 @@ export function CheckValuationPage() {
                   <span className="text-xs font-semibold">Toplam Komisyon:</span>
                   <span className="text-sm font-bold">{formatCurrency(tab1Calculations.totalCommission)}</span>
                 </div>
-                <div className="flex justify-between pt-1 bg-brand-50/50 rounded-lg p-2.5 border border-brand-100 text-emerald-700">
-                  <span className="text-xs font-bold">Kalan (Net):</span>
-                  <span className="text-base font-bold">{formatCurrency(tab1Calculations.remainingAmount)}</span>
+                <div className="flex justify-between items-center bg-brand-50/50 rounded-lg p-3 border border-brand-100 text-emerald-700">
+                  <span className="text-sm font-bold">Kalan (Net):</span>
+                  <span className="text-xl font-extrabold">{formatCurrency(tab1Calculations.remainingAmount)}</span>
                 </div>
               </div>
             </SectionCard>
@@ -626,9 +626,9 @@ export function CheckValuationPage() {
                   <span className="text-xs font-medium">Çek Başına Brüt Tutar:</span>
                   <span className="text-sm font-semibold">{formatCurrency(tab2Calculations.amountPerCheck)}</span>
                 </div>
-                <div className="flex justify-between pt-1 bg-brand-50/50 rounded-lg p-2.5 border border-brand-100 text-brand-800">
-                  <span className="text-xs font-bold">Gerekli Toplam Brüt:</span>
-                  <span className="text-base font-bold">{formatCurrency(tab2Calculations.requiredGrossAmount)}</span>
+                <div className="flex justify-between items-center bg-brand-50/50 rounded-lg p-3 border border-brand-100 text-brand-800">
+                  <span className="text-sm font-bold">Gerekli Toplam Brüt:</span>
+                  <span className="text-xl font-extrabold">{formatCurrency(tab2Calculations.requiredGrossAmount)}</span>
                 </div>
               </div>
             </SectionCard>
