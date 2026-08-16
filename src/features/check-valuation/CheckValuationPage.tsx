@@ -99,7 +99,7 @@ export function CheckValuationPage() {
     const query = ebsSearch.toLowerCase();
     return ebsChecks.filter(x => 
       (x.check_no && x.check_no.toLowerCase().includes(query)) ||
-      (x.debtor && x.debtor.toLowerCase().includes(query))
+      (x.kesideci && x.kesideci.toLowerCase().includes(query))
     );
   }, [ebsChecks, ebsSearch]);
 
@@ -720,8 +720,8 @@ export function CheckValuationPage() {
                         />
                       </td>
                       <td className="px-4 py-3 text-gray-700 font-medium">{x.check_no || '-'}</td>
-                      <td className="px-4 py-3 text-gray-650 max-w-[150px] truncate font-medium" title={x.debtor}>
-                        {x.debtor || '-'}
+                      <td className="px-4 py-3 text-gray-655 max-w-[150px] truncate font-medium" title={x.kesideci}>
+                        {x.kesideci || '-'}
                       </td>
                       <td className="px-4 py-3 text-gray-650">
                         {x.due_date ? new Date(x.due_date).toLocaleDateString('tr-TR') : '-'}
