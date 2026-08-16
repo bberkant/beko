@@ -163,6 +163,12 @@ export function CheckValuationPage() {
         });
       }
       setTargetDates(combined);
+
+      // Automatically set targetNet to total sum of selected checks
+      const totalSelectedAmount = selectedChecks.reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
+      if (totalSelectedAmount > 0) {
+        setTargetNet(totalSelectedAmount);
+      }
     }
 
     setIsEbsModalOpen(false);
@@ -607,6 +613,15 @@ export function CheckValuationPage() {
                         </tr>
                       );
                     })}
+                    {/* Summary row */}
+                    <tr className="bg-gray-50/50 font-bold border-t border-gray-200">
+                      <td className="px-4 py-3"></td>
+                      <td className="px-4 py-3 text-gray-600 uppercase text-xs">TOPLAM (BRÜT)</td>
+                      <td className="px-4 py-3 text-center text-gray-900 text-sm">
+                        {formatCurrency(tab2Calculations.requiredGrossAmount)} TL
+                      </td>
+                      <td className="px-4 py-3"></td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
