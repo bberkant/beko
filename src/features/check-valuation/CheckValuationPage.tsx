@@ -399,7 +399,7 @@ export function CheckValuationPage() {
       // Solve for monthlyRate:
       // monthlyRate = 100 * (1 - remainingAmount / totalAmount) * (30 / averageMaturityDays)
       const calculatedRate = 100 * (1 - newNet / totalAmount) * (30 / averageMaturityDays);
-      setMonthlyRate(calculatedRate >= 0 ? Number(calculatedRate.toFixed(4)) : 0);
+      setMonthlyRate(calculatedRate >= 0 ? Number(calculatedRate.toFixed(2)) : 0);
     }
   };
 
