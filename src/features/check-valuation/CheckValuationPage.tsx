@@ -588,7 +588,7 @@ export function CheckValuationPage() {
                     className="btn-secondary flex items-center gap-1.5 !py-1.5 !px-3 text-xs text-brand-600 hover:text-brand-700 hover:bg-brand-50 border-brand-200"
                   >
                     <RefreshCw size={14} className={ebsLoading ? 'animate-spin' : ''} />
-                    {ebsLoading ? 'EBS\'ten Çekiliyor...' : 'EBS\'ten Çekleri Getir'}
+                    {ebsLoading ? 'EBS\'ten Çekiliyor...' : 'EBS Elimizdeki Çekler'}
                   </button>
                   <button
                     onClick={clearAllChecks}
@@ -695,7 +695,7 @@ export function CheckValuationPage() {
                     className="btn-secondary flex items-center gap-1.5 !py-1.5 !px-3 text-xs text-brand-600 hover:text-brand-700 hover:bg-brand-50 border-brand-200"
                   >
                     <RefreshCw size={14} className={ebsLoading ? 'animate-spin' : ''} />
-                    {ebsLoading ? 'EBS\'ten Çekiliyor...' : 'EBS\'ten Çekleri Getir'}
+                    {ebsLoading ? 'EBS\'ten Çekiliyor...' : 'EBS Elimizdeki Çekler'}
                   </button>
                   <button
                     onClick={clearAllTargetDates}
