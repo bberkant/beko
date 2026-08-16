@@ -133,33 +133,67 @@ export function CheckValuationPage() {
       return;
     }
 
-    const currentFilled = checks.filter(c => c.dueDate || c.amount > 0);
-
-    const newRows = selectedChecks.map(x => ({
-      id: String(x.id),
-      dueDate: x.due_date || '',
-      amount: Number(x.amount) || 0
-    }));
-
-    const combined = [...currentFilled, ...newRows];
-
-    while (combined.length < 5) {
-      combined.push({
-        id: `empty-${Date.now()}-${Math.random()}`,
-        dueDate: '',
-        amount: 0
-      });
+    if (activeTab === 'commission') {
+      const currentFilled = checks.filter(c => c.dueDate || c.amount > 0);
+      const newRows = selectedChecks.map(x => ({
+        id: String(x.id),
+        dueDate: x.due_date || '',
+        amount: Number(x.amount) || 0
+      }));
+      const combined = [...currentFilled, ...newRows];
+      while (combined.length < 5) {
+        combined.push({
+          id: `empty-${Date.now()}-${Math.random()}`,
+          dueDate: '',
+          amount: 0
+        });
+      }
+      setChecks(combined);
+    } else {
+      const currentFilled = targetDates.filter(d => d.dueDate);
+      const newRows = selectedChecks.map(x => ({
+        id: String(x.id),
+        dueDate: x.due_date || ''
+      }));
+      const combined = [...currentFilled, ...newRows];
+      while (combined.length < 5) {
+        combined.push({
+          id: `empty-${Date.now()}-${Math.random()}`,
+          dueDate: ''
+        });
+      }
+      setTargetDates(combined);
     }
 
-    setChecks(combined);
     setIsEbsModalOpen(false);
   };
 
   // Tab 2: Target Amount Calculator state
   const [targetNet, setTargetNet] = useState<number>(3000000);
-  const [targetDates, setTargetDates] = useState<TargetDateRow[]>([
-    { id: '1', dueDate: '2026-02-02' },
-  ]);
+  const [targetDates, setTargetDates] = useState<TargetDateRow[]>(() => {
+    const saved = localStorage.getItem('check-valuation-target-dates');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Error parsing saved target dates', e);
+      }
+    }
+    return [
+      { id: '1', dueDate: '' },
+      { id: '2', dueDate: '' },
+      { id: '3', dueDate: '' },
+      { id: '4', dueDate: '' },
+      { id: '5', dueDate: '' },
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('check-valuation-target-dates', JSON.stringify(targetDates));
+  }, [targetDates]);
 
   // Yearly Rate auto calculation
   const yearlyRate = useMemo(() => (monthlyRate * 12).toFixed(2), [monthlyRate]);
@@ -291,7 +325,11 @@ export function CheckValuationPage() {
   };
 
   const removeTargetDateRow = (id: string) => {
-    setTargetDates(targetDates.filter(d => d.id !== id));
+    if (targetDates.length > 5) {
+      setTargetDates(targetDates.filter(d => d.id !== id));
+    } else {
+      setTargetDates(targetDates.map(d => d.id === id ? { ...d, dueDate: '' } : d));
+    }
   };
 
   const updateTargetDateRow = (id: string, value: string) => {
@@ -312,7 +350,13 @@ export function CheckValuationPage() {
 
   const clearAllTargetDates = () => {
     if (confirm('Tüm tarihler silinsin mi?')) {
-      setTargetDates([]);
+      setTargetDates([
+        { id: '1', dueDate: '' },
+        { id: '2', dueDate: '' },
+        { id: '3', dueDate: '' },
+        { id: '4', dueDate: '' },
+        { id: '5', dueDate: '' },
+      ]);
     }
   };
 
@@ -492,6 +536,14 @@ export function CheckValuationPage() {
               action={
                 <div className="flex gap-2">
                   <button
+                    onClick={handleImportFromEbs}
+                    disabled={ebsLoading}
+                    className="btn-secondary flex items-center gap-1.5 !py-1.5 !px-3 text-xs text-brand-600 hover:text-brand-700 hover:bg-brand-50 border-brand-200"
+                  >
+                    <RefreshCw size={14} className={ebsLoading ? 'animate-spin' : ''} />
+                    {ebsLoading ? 'EBS\'ten Çekiliyor...' : 'EBS\'ten Çekleri Getir'}
+                  </button>
+                  <button
                     onClick={clearAllTargetDates}
                     className="btn-secondary flex items-center gap-1.5 !py-1.5 !px-3 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                   >
@@ -541,14 +593,13 @@ export function CheckValuationPage() {
                             />
                           </td>
                           <td className={`px-4 py-3 text-center font-semibold ${days < 0 ? 'text-red-500' : 'text-brand-600'}`}>
-                            {days} Gün
+                            {dateRow.dueDate ? `${days} Gün` : '-'}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <button
                               onClick={() => removeTargetDateRow(dateRow.id)}
                               className="text-gray-400 hover:text-red-500 transition-colors p-1"
                               title="Sil"
-                              disabled={targetDates.length <= 1}
                             >
                               <Trash2 size={16} />
                             </button>
