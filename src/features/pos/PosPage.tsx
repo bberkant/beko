@@ -1276,14 +1276,6 @@ export function PosPage() {
           <div className="w-full lg:w-[320px] overflow-x-auto right-print-table">
             <div className="flex items-center justify-between mb-2 print:hidden">
               <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">ŞUBE DAĞILIMI</span>
-              <button
-                onClick={() => excelInputRef.current?.click()}
-                className="flex items-center gap-1 px-2.5 py-1 bg-[#f37021]/10 border border-[#f37021]/20 text-[#f37021] rounded-md text-[11px] font-bold hover:bg-[#f37021]/20 transition-all hover:scale-105 shadow-sm shrink-0"
-                title="Excel Raporundan Şubeleri Yükle"
-              >
-                <FileSpreadsheet size={12} />
-                <span>Excel'den Oku</span>
-              </button>
             </div>
             <input
               ref={excelInputRef}
