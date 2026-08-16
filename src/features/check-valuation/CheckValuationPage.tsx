@@ -96,7 +96,6 @@ export function CheckValuationPage() {
     const query = ebsSearch.toLowerCase();
     return ebsChecks.filter(x => 
       (x.check_no && x.check_no.toLowerCase().includes(query)) ||
-      (x.debtor && x.debtor.toLowerCase().includes(query)) ||
       (x.bank_name && x.bank_name.toLowerCase().includes(query))
     );
   }, [ebsChecks, ebsSearch]);
@@ -669,7 +668,7 @@ export function CheckValuationPage() {
           <input
             type="text"
             className="input pl-9 text-sm !py-2"
-            placeholder="Çek No, Borçlu veya Banka Adı ile filtreleyin..."
+            placeholder="Çek No veya Banka Adı ile filtreleyin..."
             value={ebsSearch}
             onChange={e => setEbsSearch(e.target.value)}
           />
@@ -688,7 +687,6 @@ export function CheckValuationPage() {
                   />
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Çek No</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Borçlu (Keşideci)</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Banka</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Vade Tarihi</th>
                 <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Tutar</th>
@@ -697,7 +695,7 @@ export function CheckValuationPage() {
             <tbody className="divide-y divide-gray-100 bg-white">
               {filteredEbsChecks.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
                     Arama kriterine uygun çek bulunamadı.
                   </td>
                 </tr>
@@ -719,9 +717,6 @@ export function CheckValuationPage() {
                         />
                       </td>
                       <td className="px-4 py-3 text-gray-700 font-medium">{x.check_no || '-'}</td>
-                      <td className="px-4 py-3 text-gray-600 max-w-[140px] truncate" title={x.debtor}>
-                        {x.debtor || '-'}
-                      </td>
                       <td className="px-4 py-3 text-gray-600 max-w-[140px] truncate" title={x.bank_name}>
                         {x.bank_name || '-'}
                       </td>
