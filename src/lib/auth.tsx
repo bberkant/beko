@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     let loginIdentity = email.trim().toLowerCase();
     if (loginIdentity === 'berkant') {
-      loginIdentity = 'berkant@ops360.local';
+      loginIdentity = 'berkant@dars.local';
     } else if (!loginIdentity.includes('@')) {
       loginIdentity = `${loginIdentity}@dars.local`;
     }
