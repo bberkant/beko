@@ -71,6 +71,7 @@ export function CheckValuationPage() {
         .select('*')
         .eq('organization_id', user.organizationId)
         .eq('check_type', 'alinan')
+        .eq('document_type', 'cek')
         .order('due_date', { ascending: true });
 
       if (error) throw error;
