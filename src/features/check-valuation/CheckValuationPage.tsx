@@ -486,6 +486,16 @@ export function CheckValuationPage() {
                 </div>
               }
             >
+              <div className="mb-4">
+                <label className="label text-emerald-700 font-semibold">Net Alınacak Tutar</label>
+                <input
+                  type="text"
+                  className="input bg-gray-50 !py-2 font-bold text-emerald-700"
+                  disabled
+                  value={formatCurrency(tab1Calculations.remainingAmount) + ' TL'}
+                />
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
