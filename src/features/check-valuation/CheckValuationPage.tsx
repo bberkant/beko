@@ -134,7 +134,7 @@ export function CheckValuationPage() {
         .eq('check_type', 'alinan')
         .eq('document_type', 'cek')
         .gte('due_date', todayStr)
-        .order('due_date', { ascending: false });
+        .order('due_date', { ascending: true });
 
       if (error) throw error;
 
