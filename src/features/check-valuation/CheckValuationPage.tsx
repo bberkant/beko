@@ -73,6 +73,15 @@ export function CheckValuationPage() {
     localStorage.setItem('check-valuation-monthly-rate', monthlyRate.toString());
   }, [monthlyRate]);
 
+  const [rateInputStr, setRateInputStr] = useState<string>('');
+  const [isRateInputFocused, setIsRateInputFocused] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isRateInputFocused) {
+      setRateInputStr(monthlyRate.toFixed(2).replace('.', ','));
+    }
+  }, [monthlyRate, isRateInputFocused]);
+
   // Tab 1: Commission Calculator state
   const [checks, setChecks] = useState<CheckRow[]>(() => {
     const saved = localStorage.getItem('check-valuation-checks');
@@ -533,13 +542,21 @@ export function CheckValuationPage() {
                 <label className="label font-bold text-gray-700">Komisyon Oranı (%)</label>
                 <div className="relative rounded-md shadow-sm">
                   <input
-                    type="number"
-                    step="0.01"
-                    className="input pr-12 no-spinner"
-                    placeholder="5.94"
-                    value={monthlyRate}
+                    type="text"
+                    className="input pr-12"
+                    placeholder="4,10"
+                    value={rateInputStr}
+                    onFocus={() => setIsRateInputFocused(true)}
+                    onBlur={() => setIsRateInputFocused(false)}
                     onChange={e => {
-                      setMonthlyRate(parseFloat(e.target.value) || 0);
+                      setRateInputStr(e.target.value);
+                      const cleanVal = e.target.value.replace(',', '.');
+                      const parsed = parseFloat(cleanVal);
+                      if (!isNaN(parsed)) {
+                        setMonthlyRate(parsed);
+                      } else {
+                        setMonthlyRate(0);
+                      }
                       setIsManualNetMode(false);
                     }}
                   />
