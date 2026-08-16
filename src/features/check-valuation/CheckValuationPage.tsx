@@ -63,6 +63,9 @@ export function CheckValuationPage() {
   const [selectedEbsIds, setSelectedEbsIds] = useState<Set<string>>(new Set());
   const [ebsSearch, setEbsSearch] = useState('');
 
+  const [manualNetInput, setManualNetInput] = useState<string>('');
+  const [isNetInputFocused, setIsNetInputFocused] = useState<boolean>(false);
+
   const handleImportFromEbs = async () => {
     if (!user?.organizationId) return;
     setEbsLoading(true);
@@ -272,6 +275,12 @@ export function CheckValuationPage() {
       remainingAmount,
     };
   }, [checks, baseDate, monthlyRate]);
+
+  useEffect(() => {
+    if (!isNetInputFocused) {
+      setManualNetInput(formatNumberWithDots(Math.round(tab1Calculations.remainingAmount)));
+    }
+  }, [tab1Calculations.remainingAmount, isNetInputFocused]);
 
   // Tab 2 Calculations (From Target Net Amount)
   const tab2Calculations = useMemo(() => {
@@ -506,8 +515,13 @@ export function CheckValuationPage() {
                   type="text"
                   className="input !py-2 font-bold text-emerald-700"
                   placeholder="0"
-                  value={formatNumberWithDots(Math.round(tab1Calculations.remainingAmount))}
-                  onChange={e => handleManualNetChange(e.target.value)}
+                  value={manualNetInput}
+                  onFocus={() => setIsNetInputFocused(true)}
+                  onBlur={() => setIsNetInputFocused(false)}
+                  onChange={e => {
+                    setManualNetInput(e.target.value);
+                    handleManualNetChange(e.target.value);
+                  }}
                 />
               </div>
 
