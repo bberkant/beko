@@ -65,6 +65,8 @@ export function CheckValuationPage() {
 
   const [manualNetInput, setManualNetInput] = useState<string>('');
   const [isNetInputFocused, setIsNetInputFocused] = useState<boolean>(false);
+  const [isManualNetMode, setIsManualNetMode] = useState<boolean>(false);
+  const [targetNetVal, setTargetNetVal] = useState<number>(0);
 
   const handleImportFromEbs = async () => {
     if (!user?.organizationId) return;
@@ -153,6 +155,7 @@ export function CheckValuationPage() {
         });
       }
       setChecks(combined);
+      setIsManualNetMode(false);
     } else {
       const currentFilled = targetDates.filter(d => d.dueDate || d.amount > 0);
       const newRows = selectedChecks.map(x => ({
@@ -261,9 +264,17 @@ export function CheckValuationPage() {
     // Excel formula: average days + 1
     const averageMaturityDaysAdjusted = totalAmount > 0 ? (averageMaturityDays + 1) : 0;
 
-    // Excel formula: (Total Amount * Monthly Rate % / 30) * Average Days
-    const totalCommission = (totalAmount * (monthlyRate / 100) / 30) * averageMaturityDaysAdjusted;
-    const remainingAmount = totalAmount - totalCommission;
+    let totalCommission = 0;
+    let remainingAmount = 0;
+
+    if (isManualNetMode && targetNetVal > 0) {
+      remainingAmount = targetNetVal;
+      totalCommission = Math.max(0, totalAmount - targetNetVal);
+    } else {
+      totalCommission = (totalAmount * (monthlyRate / 100) / 30) * averageMaturityDaysAdjusted;
+      remainingAmount = totalAmount - totalCommission;
+    }
+
     const averageDateStr = totalAmount > 0 ? addDaysToDate(baseDate, averageMaturityDaysAdjusted - 1) : '-';
 
     return {
@@ -274,7 +285,7 @@ export function CheckValuationPage() {
       totalCommission,
       remainingAmount,
     };
-  }, [checks, baseDate, monthlyRate]);
+  }, [checks, baseDate, monthlyRate, isManualNetMode, targetNetVal]);
 
   useEffect(() => {
     if (!isNetInputFocused) {
@@ -331,6 +342,7 @@ export function CheckValuationPage() {
     const nextMonth = new Date(baseDate);
     nextMonth.setMonth(nextMonth.getMonth() + 1);
     setChecks([...checks, { id, dueDate: nextMonth.toISOString().split('T')[0], amount: 0 }]);
+    setIsManualNetMode(false);
   };
 
   const removeCheckRow = (id: string) => {
@@ -339,10 +351,12 @@ export function CheckValuationPage() {
     } else {
       setChecks(checks.map(c => c.id === id ? { ...c, dueDate: '', amount: 0 } : c));
     }
+    setIsManualNetMode(false);
   };
 
   const updateCheckRow = (id: string, field: keyof CheckRow, value: any) => {
     setChecks(checks.map(c => c.id === id ? { ...c, [field]: value } : c));
+    setIsManualNetMode(false);
   };
 
   // Tab 2 CRUD handlers
@@ -374,6 +388,7 @@ export function CheckValuationPage() {
         { id: '4', dueDate: '', amount: 0 },
         { id: '5', dueDate: '', amount: 0 },
       ]);
+      setIsManualNetMode(false);
     }
   };
 
@@ -394,12 +409,16 @@ export function CheckValuationPage() {
     const totalAmount = tab1Calculations.totalAmount;
     const averageMaturityDays = tab1Calculations.averageMaturityDays;
 
-    if (totalAmount > 0 && averageMaturityDays > 0) {
-      // remainingAmount = totalAmount * (1 - (monthlyRate / 100) * (averageMaturityDays / 30))
-      // Solve for monthlyRate:
-      // monthlyRate = 100 * (1 - remainingAmount / totalAmount) * (30 / averageMaturityDays)
-      const calculatedRate = 100 * (1 - newNet / totalAmount) * (30 / averageMaturityDays);
-      setMonthlyRate(calculatedRate >= 0 ? Number(calculatedRate.toFixed(2)) : 0);
+    if (newNet > 0) {
+      setIsManualNetMode(true);
+      setTargetNetVal(newNet);
+      if (totalAmount > 0 && averageMaturityDays > 0) {
+        const calculatedRate = 100 * (1 - newNet / totalAmount) * (30 / averageMaturityDays);
+        setMonthlyRate(calculatedRate >= 0 ? Number(calculatedRate.toFixed(2)) : 0);
+      }
+    } else {
+      setIsManualNetMode(false);
+      setTargetNetVal(0);
     }
   };
 
@@ -463,7 +482,10 @@ export function CheckValuationPage() {
                     className="input pr-12 no-spinner"
                     placeholder="5.94"
                     value={monthlyRate}
-                    onChange={e => setMonthlyRate(parseFloat(e.target.value) || 0)}
+                    onChange={e => {
+                      setMonthlyRate(parseFloat(e.target.value) || 0);
+                      setIsManualNetMode(false);
+                    }}
                   />
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                     <span className="text-xs font-semibold text-gray-400">% / Ay</span>
