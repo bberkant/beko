@@ -33,7 +33,15 @@ export function LoginPage() {
         navigate('/dashboard');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'İşlem tamamlanamadı.');
+      if (err instanceof Error) {
+        if (err.message === '{}' || err.message === '') {
+          setError('Supabase sunucu hatası (500). Lütfen veritabanı durumunu kontrol edin veya birkaç dakika sonra tekrar deneyin.');
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError('İşlem tamamlanamadı.');
+      }
     } finally {
       setLoading(false);
     }
@@ -43,8 +51,10 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex items-center justify-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-600 text-white"><span className="text-base font-bold">O</span></div>
-          <div className="flex flex-col leading-none"><span className="text-lg font-bold tracking-tight text-gray-900">OPS360</span><span className="text-xs font-medium text-gray-500">AI Operations</span></div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-600">
+            <div className="h-[20px] w-[7px] bg-white" />
+          </div>
+          <span className="text-lg font-bold tracking-tight text-gray-900">DARS</span>
         </div>
         <div className="card p-6">
           <h1 className="text-lg font-semibold text-gray-900">{mode === 'login' ? 'Giriş Yap' : 'Güvenli Hesap Oluştur'}</h1>
