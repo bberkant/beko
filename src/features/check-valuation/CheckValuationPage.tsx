@@ -356,7 +356,7 @@ export function CheckValuationPage() {
           <SectionCard title="İşlem Parametreleri" icon={<Percent size={16} className="text-gray-400" />}>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <label className="label">Vade Başlangıç Tarihi</label>
+                <label className="label font-bold text-gray-700">Vade Başlangıç Tarihi</label>
                 <div className="relative">
                   <input
                     type="date"
@@ -368,7 +368,7 @@ export function CheckValuationPage() {
               </div>
 
               <div>
-                <label className="label">Aylık Komisyon Oranı (%)</label>
+                <label className="label font-bold text-gray-700">Komisyon Oranı (%)</label>
                 <div className="relative rounded-md shadow-sm">
                   <input
                     type="number"
@@ -385,7 +385,7 @@ export function CheckValuationPage() {
               </div>
 
               <div>
-                <label className="label">Hesaplanan Yıllık Oran (Referans)</label>
+                <label className="label font-bold text-gray-700">Hesaplanan Yıllık Oran (Referans)</label>
                 <div className="rounded-lg bg-gray-50 px-3.5 py-2 text-sm font-semibold text-gray-600 h-[38px] flex items-center">
                   %{yearlyRate} / Yıl
                 </div>
