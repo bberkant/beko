@@ -382,29 +382,15 @@ export function CheckValuationPage() {
 
   const handleManualNetChange = (valueStr: string) => {
     const newNet = handleNumberChange(valueStr);
-    const currentNet = tab1Calculations.remainingAmount;
+    const totalAmount = tab1Calculations.totalAmount;
+    const averageMaturityDays = tab1Calculations.averageMaturityDays;
 
-    if (currentNet > 0 && newNet > 0) {
-      const k = newNet / currentNet;
-      setChecks(checks.map(c => ({
-        ...c,
-        amount: Math.round(c.amount * k)
-      })));
-    } else if (newNet > 0) {
-      const validRows = checks.filter(c => c.dueDate);
-      if (validRows.length > 0) {
-        const totalDays = validRows.reduce((sum, c) => sum + diffDays(c.dueDate, baseDate), 0);
-        const avgDays = totalDays / validRows.length;
-        const avgDaysAdjusted = avgDays + 1;
-        const discountFactor = 1 - ((monthlyRate / 100) / 30) * avgDaysAdjusted;
-        const requiredGross = discountFactor > 0 ? (newNet / discountFactor) : newNet;
-        const amtPerCheck = Math.round(requiredGross / validRows.length);
-        setChecks(checks.map(c => c.dueDate ? { ...c, amount: amtPerCheck } : c));
-      } else {
-        setChecks(checks.map((c, idx) => idx === 0 ? { ...c, amount: newNet } : c));
-      }
-    } else {
-      setChecks(checks.map(c => ({ ...c, amount: 0 })));
+    if (totalAmount > 0 && averageMaturityDays > 0) {
+      // remainingAmount = totalAmount * (1 - (monthlyRate / 100) * (averageMaturityDays / 30))
+      // Solve for monthlyRate:
+      // monthlyRate = 100 * (1 - remainingAmount / totalAmount) * (30 / averageMaturityDays)
+      const calculatedRate = 100 * (1 - newNet / totalAmount) * (30 / averageMaturityDays);
+      setMonthlyRate(calculatedRate >= 0 ? Number(calculatedRate.toFixed(4)) : 0);
     }
   };
 
