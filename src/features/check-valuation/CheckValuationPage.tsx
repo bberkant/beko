@@ -64,7 +64,14 @@ export function CheckValuationPage() {
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
-  const [monthlyRate, setMonthlyRate] = useState<number>(5.94);
+  const [monthlyRate, setMonthlyRate] = useState<number>(() => {
+    const saved = localStorage.getItem('check-valuation-monthly-rate');
+    return saved ? parseFloat(saved) : 4.10;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('check-valuation-monthly-rate', monthlyRate.toString());
+  }, [monthlyRate]);
 
   // Tab 1: Commission Calculator state
   const [checks, setChecks] = useState<CheckRow[]>(() => {
