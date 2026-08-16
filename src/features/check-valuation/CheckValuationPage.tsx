@@ -66,12 +66,14 @@ export function CheckValuationPage() {
     if (!user?.organizationId) return;
     setEbsLoading(true);
     try {
+      const todayStr = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('ebs_checks')
         .select('*')
         .eq('organization_id', user.organizationId)
         .eq('check_type', 'alinan')
         .eq('document_type', 'cek')
+        .gte('due_date', todayStr)
         .order('due_date', { ascending: true });
 
       if (error) throw error;
@@ -97,7 +99,7 @@ export function CheckValuationPage() {
     const query = ebsSearch.toLowerCase();
     return ebsChecks.filter(x => 
       (x.check_no && x.check_no.toLowerCase().includes(query)) ||
-      (x.bank_name && x.bank_name.toLowerCase().includes(query))
+      (x.debtor && x.debtor.toLowerCase().includes(query))
     );
   }, [ebsChecks, ebsSearch]);
 
@@ -669,7 +671,7 @@ export function CheckValuationPage() {
           <input
             type="text"
             className="input pl-9 text-sm !py-2"
-            placeholder="Çek No veya Banka Adı ile filtreleyin..."
+            placeholder="Çek No veya Keşideci Adı ile filtreleyin..."
             value={ebsSearch}
             onChange={e => setEbsSearch(e.target.value)}
           />
@@ -688,7 +690,7 @@ export function CheckValuationPage() {
                   />
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Çek No</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Banka</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Keşideci (Borçlu)</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Vade Tarihi</th>
                 <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Tutar</th>
               </tr>
@@ -718,8 +720,8 @@ export function CheckValuationPage() {
                         />
                       </td>
                       <td className="px-4 py-3 text-gray-700 font-medium">{x.check_no || '-'}</td>
-                      <td className="px-4 py-3 text-gray-600 max-w-[140px] truncate" title={x.bank_name}>
-                        {x.bank_name || '-'}
+                      <td className="px-4 py-3 text-gray-650 max-w-[150px] truncate font-medium" title={x.debtor}>
+                        {x.debtor || '-'}
                       </td>
                       <td className="px-4 py-3 text-gray-650">
                         {x.due_date ? new Date(x.due_date).toLocaleDateString('tr-TR') : '-'}
