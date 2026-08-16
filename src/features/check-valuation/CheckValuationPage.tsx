@@ -15,6 +15,7 @@ interface CheckRow {
 interface TargetDateRow {
   id: string;
   dueDate: string;
+  amount: number;
 }
 
 export function CheckValuationPage() {
@@ -150,16 +151,18 @@ export function CheckValuationPage() {
       }
       setChecks(combined);
     } else {
-      const currentFilled = targetDates.filter(d => d.dueDate);
+      const currentFilled = targetDates.filter(d => d.dueDate || d.amount > 0);
       const newRows = selectedChecks.map(x => ({
         id: String(x.id),
-        dueDate: x.due_date || ''
+        dueDate: x.due_date || '',
+        amount: Number(x.amount) || 0
       }));
       const combined = [...currentFilled, ...newRows];
       while (combined.length < 5) {
         combined.push({
           id: `empty-${Date.now()}-${Math.random()}`,
-          dueDate: ''
+          dueDate: '',
+          amount: 0
         });
       }
       setTargetDates(combined);
@@ -189,11 +192,11 @@ export function CheckValuationPage() {
       }
     }
     return [
-      { id: '1', dueDate: '' },
-      { id: '2', dueDate: '' },
-      { id: '3', dueDate: '' },
-      { id: '4', dueDate: '' },
-      { id: '5', dueDate: '' },
+      { id: '1', dueDate: '', amount: 0 },
+      { id: '2', dueDate: '', amount: 0 },
+      { id: '3', dueDate: '', amount: 0 },
+      { id: '4', dueDate: '', amount: 0 },
+      { id: '5', dueDate: '', amount: 0 },
     ];
   });
 
@@ -272,16 +275,26 @@ export function CheckValuationPage() {
 
   // Tab 2 Calculations (From Target Net Amount)
   const tab2Calculations = useMemo(() => {
-    let totalDays = 0;
+    let totalAmount = 0;
+    let weightedDaysSum = 0;
     const validDates = targetDates.filter(d => d.dueDate);
 
     const rowsWithDays = validDates.map(d => {
       const days = diffDays(d.dueDate, baseDate);
-      totalDays += days;
+      const amt = Number(d.amount) || 0;
+      totalAmount += amt;
+      weightedDaysSum += days * amt;
       return { ...d, days };
     });
 
-    const averageMaturityDays = validDates.length > 0 ? (totalDays / validDates.length) : 0;
+    let averageMaturityDays = 0;
+    if (totalAmount > 0) {
+      averageMaturityDays = weightedDaysSum / totalAmount;
+    } else {
+      const totalDays = validDates.reduce((sum, d) => sum + diffDays(d.dueDate, baseDate), 0);
+      averageMaturityDays = validDates.length > 0 ? (totalDays / validDates.length) : 0;
+    }
+
     // Adjust by +1 like excel
     const averageMaturityDaysAdjusted = validDates.length > 0 ? (averageMaturityDays + 1) : 0;
 
@@ -299,6 +312,7 @@ export function CheckValuationPage() {
       requiredGrossAmount,
       totalCommission,
       amountPerCheck,
+      totalAmount,
     };
   }, [targetDates, baseDate, monthlyRate, targetNet]);
 
@@ -327,19 +341,19 @@ export function CheckValuationPage() {
     const id = Date.now().toString();
     const nextMonth = new Date(baseDate);
     nextMonth.setMonth(nextMonth.getMonth() + 1);
-    setTargetDates([...targetDates, { id, dueDate: nextMonth.toISOString().split('T')[0] }]);
+    setTargetDates([...targetDates, { id, dueDate: nextMonth.toISOString().split('T')[0], amount: 0 }]);
   };
 
   const removeTargetDateRow = (id: string) => {
     if (targetDates.length > 5) {
       setTargetDates(targetDates.filter(d => d.id !== id));
     } else {
-      setTargetDates(targetDates.map(d => d.id === id ? { ...d, dueDate: '' } : d));
+      setTargetDates(targetDates.map(d => d.id === id ? { ...d, dueDate: '', amount: 0 } : d));
     }
   };
 
-  const updateTargetDateRow = (id: string, value: string) => {
-    setTargetDates(targetDates.map(d => d.id === id ? { ...d, dueDate: value } : d));
+  const updateTargetDateRow = (id: string, field: keyof TargetDateRow, value: any) => {
+    setTargetDates(targetDates.map(d => d.id === id ? { ...d, [field]: value } : d));
   };
 
   const clearAllChecks = () => {
@@ -357,11 +371,11 @@ export function CheckValuationPage() {
   const clearAllTargetDates = () => {
     if (confirm('Tüm tarihler silinsin mi?')) {
       setTargetDates([
-        { id: '1', dueDate: '' },
-        { id: '2', dueDate: '' },
-        { id: '3', dueDate: '' },
-        { id: '4', dueDate: '' },
-        { id: '5', dueDate: '' },
+        { id: '1', dueDate: '', amount: 0 },
+        { id: '2', dueDate: '', amount: 0 },
+        { id: '3', dueDate: '', amount: 0 },
+        { id: '4', dueDate: '', amount: 0 },
+        { id: '5', dueDate: '', amount: 0 },
       ]);
     }
   };
@@ -580,6 +594,7 @@ export function CheckValuationPage() {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Sıra</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Çek Vade Tarihi</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">Çek Tutarı</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500">Vade Gün</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 w-16">İşlem</th>
                     </tr>
@@ -595,7 +610,16 @@ export function CheckValuationPage() {
                               type="date"
                               className="input !py-1.5 !text-sm"
                               value={dateRow.dueDate}
-                              onChange={e => updateTargetDateRow(dateRow.id, e.target.value)}
+                              onChange={e => updateTargetDateRow(dateRow.id, 'dueDate', e.target.value)}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="text"
+                              className="input text-right !py-1.5 !text-sm"
+                              placeholder="0"
+                              value={formatNumberWithDots(dateRow.amount)}
+                              onChange={e => updateTargetDateRow(dateRow.id, 'amount', handleNumberChange(e.target.value))}
                             />
                           </td>
                           <td className={`px-4 py-3 text-center font-semibold ${days < 0 ? 'text-red-500' : 'text-brand-600'}`}>
@@ -616,9 +640,12 @@ export function CheckValuationPage() {
                     {/* Summary row */}
                     <tr className="bg-gray-50/50 font-bold border-t border-gray-200">
                       <td className="px-4 py-3"></td>
-                      <td className="px-4 py-3 text-gray-600 uppercase text-xs">TOPLAM (BRÜT)</td>
-                      <td className="px-4 py-3 text-center text-gray-900 text-sm">
-                        {formatCurrency(tab2Calculations.requiredGrossAmount)} TL
+                      <td className="px-4 py-3 text-gray-600 uppercase text-xs">TOPLAM</td>
+                      <td className="px-4 py-3 text-right text-gray-900 text-sm">
+                        {formatCurrency(tab2Calculations.totalAmount)}
+                      </td>
+                      <td className="px-4 py-3 text-center text-gray-500 text-xs">
+                        BRÜT: {formatCurrency(tab2Calculations.requiredGrossAmount)}
                       </td>
                       <td className="px-4 py-3"></td>
                     </tr>
