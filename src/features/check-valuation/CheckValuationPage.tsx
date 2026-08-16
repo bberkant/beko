@@ -6,6 +6,44 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { Modal } from '../../components/ui/Modal';
 
+const cleanStatus = (status: string | null | undefined): string => {
+  if (!status) return '';
+  
+  let cleaned = status;
+  
+  // Upper case garbled characters (must do before lowercasing)
+  cleaned = cleaned
+    .replace(/Ã–/g, 'Ö')
+    .replace(/Ãœ/g, 'Ü')
+    .replace(/Ä°/g, 'İ')
+    .replace(/Ã‡/g, 'Ç')
+    .replace(/Ãž/g, 'Ş')
+    .replace(/Äž/g, 'Ğ')
+    .replace(/Ä±/g, 'ı');
+    
+  // Lower case / mixed garbled characters
+  cleaned = cleaned
+    .replace(/Ã¶/g, 'ö')
+    .replace(/ã¶/g, 'ö')
+    .replace(/ã–/g, 'ö')
+    .replace(/ãœ/g, 'ü')
+    .replace(/ã¼/g, 'ü')
+    .replace(/ä°/g, 'i')
+    .replace(/ä±/g, 'ı')
+    .replace(/ã§/g, 'ç')
+    .replace(/ãŸ/g, 'ş')
+    .replace(/äÿ/g, 'ğ')
+    .replace(/ã°/g, 'ı');
+    
+  cleaned = cleaned
+    .replace(/İ/g, 'i')
+    .replace(/I/g, 'ı')
+    .toLowerCase()
+    .replace(/\u0307/g, '');
+    
+  return cleaned;
+};
+
 interface CheckRow {
   id: string;
   dueDate: string;
@@ -85,10 +123,21 @@ export function CheckValuationPage() {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        setEbsChecks(data);
-        setSelectedEbsIds(new Set());
-        setEbsSearch('');
-        setIsEbsModalOpen(true);
+        // FILTER: Alınan Çekler > Elimizde olanları getir sadece
+        const filteredData = data.filter(c => {
+          const checkStatus = cleanStatus(c.status);
+          const ciroEdilen = cleanStatus(c.ciro_edilen);
+          return checkStatus.includes('portföyde') && ciroEdilen.includes('elimizde');
+        });
+
+        if (filteredData.length > 0) {
+          setEbsChecks(filteredData);
+          setSelectedEbsIds(new Set());
+          setEbsSearch('');
+          setIsEbsModalOpen(true);
+        } else {
+          alert('EBS tablosunda "Elimizde" durumunda olan alınmış çek bulunamadı. Lütfen önce ofis bilgisayarından senkronizasyon yapın.');
+        }
       } else {
         alert('EBS tablosunda içe aktarılabilecek alınan çek bulunamadı. Lütfen önce ofis bilgisayarından senkronizasyon yapın.');
       }
