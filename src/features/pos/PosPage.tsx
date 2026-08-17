@@ -1035,6 +1035,15 @@ export function PosPage() {
           </button>
 
           <button
+            onClick={() => excelInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-sm font-semibold hover:bg-indigo-100 transition-colors shadow-sm"
+            title="Excel'den Veri Çek"
+          >
+            <FileSpreadsheet size={15} />
+            <span>Excel'den Veri Çek</span>
+          </button>
+
+          <button
             onClick={handleExportToExcel}
             className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm font-semibold hover:bg-emerald-100 transition-colors shadow-sm"
             title="Excel Dışa Aktar"
