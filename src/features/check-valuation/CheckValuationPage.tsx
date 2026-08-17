@@ -165,6 +165,77 @@ export function CheckValuationPage() {
     }
   };
 
+  const handleFetchAllFromEbs = async () => {
+    if (!user?.organizationId) return;
+    if (!confirm('EBS\'teki tüm aktif elinizdeki çekler yüklenecektir. Mevcut tablo sıfırlanacaktır. Devam etmek istiyor musunuz?')) return;
+    setEbsLoading(true);
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('ebs_checks')
+        .select('*')
+        .eq('organization_id', user.organizationId)
+        .eq('check_type', 'alinan')
+        .eq('document_type', 'cek')
+        .gte('due_date', todayStr)
+        .order('due_date', { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const filteredData = data.filter(c => {
+          const checkStatus = cleanStatus(c.status);
+          const ciroEdilen = cleanStatus(c.ciro_edilen);
+          return checkStatus.includes('portföyde') && ciroEdilen.includes('elimizde');
+        });
+
+        if (filteredData.length > 0) {
+          const newRows = filteredData.map(x => ({
+            id: String(x.id),
+            dueDate: x.due_date || '',
+            amount: Number(x.amount) || 0
+          }));
+
+          if (activeTab === 'commission') {
+            const combined = [...newRows];
+            while (combined.length < 5) {
+              combined.push({
+                id: `empty-${Date.now()}-${Math.random()}`,
+                dueDate: '',
+                amount: 0
+              });
+            }
+            setChecks(combined);
+            setIsManualNetMode(false);
+          } else {
+            const combined = [...newRows];
+            while (combined.length < 5) {
+              combined.push({
+                id: `empty-${Date.now()}-${Math.random()}`,
+                dueDate: '',
+                amount: 0
+              });
+            }
+            setTargetDates(combined);
+
+            // Automatically set targetNet to total sum of imported checks
+            const totalSum = filteredData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+            setTargetNet(formatNumberWithDots(Math.round(totalSum)));
+          }
+        } else {
+          alert('EBS tablosunda "Elimizde" durumunda olan alınmış çek bulunamadı.');
+        }
+      } else {
+        alert('EBS tablosunda içe aktarılabilecek alınan çek bulunamadı. Lütfen önce ofis bilgisayarından senkronizasyon yapın.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert('EBS verisi yüklenirken hata oluştu: ' + err.message);
+    } finally {
+      setEbsLoading(false);
+    }
+  };
+
   const filteredEbsChecks = useMemo(() => {
     if (!ebsSearch.trim()) return ebsChecks;
     const query = ebsSearch.toLowerCase();
@@ -583,12 +654,20 @@ export function CheckValuationPage() {
               action={
                 <div className="flex gap-2">
                   <button
+                    onClick={handleFetchAllFromEbs}
+                    disabled={ebsLoading}
+                    className="btn-primary flex items-center gap-1.5 !py-1.5 !px-3 text-xs"
+                  >
+                    <RefreshCw size={14} className={ebsLoading ? 'animate-spin' : ''} />
+                    EBS'ten Veri Çek
+                  </button>
+                  <button
                     onClick={handleImportFromEbs}
                     disabled={ebsLoading}
                     className="btn-secondary flex items-center gap-1.5 !py-1.5 !px-3 text-xs text-brand-600 hover:text-brand-700 hover:bg-brand-50 border-brand-200"
                   >
-                    <RefreshCw size={14} className={ebsLoading ? 'animate-spin' : ''} />
-                    {ebsLoading ? 'EBS\'ten Çekiliyor...' : 'EBS Elimizdeki Çekler'}
+                    <Search size={14} />
+                    EBS Elimizdeki Çekler
                   </button>
                   <button
                     onClick={clearAllChecks}
@@ -690,12 +769,20 @@ export function CheckValuationPage() {
               action={
                 <div className="flex gap-2">
                   <button
+                    onClick={handleFetchAllFromEbs}
+                    disabled={ebsLoading}
+                    className="btn-primary flex items-center gap-1.5 !py-1.5 !px-3 text-xs"
+                  >
+                    <RefreshCw size={14} className={ebsLoading ? 'animate-spin' : ''} />
+                    EBS'ten Veri Çek
+                  </button>
+                  <button
                     onClick={handleImportFromEbs}
                     disabled={ebsLoading}
                     className="btn-secondary flex items-center gap-1.5 !py-1.5 !px-3 text-xs text-brand-600 hover:text-brand-700 hover:bg-brand-50 border-brand-200"
                   >
-                    <RefreshCw size={14} className={ebsLoading ? 'animate-spin' : ''} />
-                    {ebsLoading ? 'EBS\'ten Çekiliyor...' : 'EBS Elimizdeki Çekler'}
+                    <Search size={14} />
+                    EBS Elimizdeki Çekler
                   </button>
                   <button
                     onClick={clearAllTargetDates}
