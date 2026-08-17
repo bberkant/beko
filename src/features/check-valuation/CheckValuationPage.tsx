@@ -220,7 +220,7 @@ export function CheckValuationPage() {
 
             // Automatically set targetNet to total sum of imported checks
             const totalSum = filteredData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-            setTargetNet(formatNumberWithDots(Math.round(totalSum)));
+            setTargetNet(Math.round(totalSum));
           }
         } else {
           alert('EBS tablosunda "Elimizde" durumunda olan alınmış çek bulunamadı.');
