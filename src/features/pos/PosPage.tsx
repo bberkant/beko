@@ -905,7 +905,7 @@ export function PosPage() {
         .main-layout-container td,
         .main-layout-container input,
         .main-layout-container span {
-          font-family: Calibri, Arial, sans-serif !important;
+          font-family: 'Calibri', 'Arial', sans-serif !important;
           font-size: 13pt !important;
           font-weight: bold !important;
           user-drag: none !important;

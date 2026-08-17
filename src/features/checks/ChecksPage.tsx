@@ -2215,6 +2215,15 @@ export function ChecksPage() {
           animation: bounceShort 2s infinite ease-in-out;
         }
 
+        /* Force Calibri font on all table elements in screen view */
+        div.main-checks-layout table,
+        div.main-checks-layout table th,
+        div.main-checks-layout table td,
+        div.main-checks-layout table input,
+        div.main-checks-layout table span {
+          font-family: 'Calibri', 'Arial', sans-serif !important;
+        }
+
         div.main-checks-layout table thead tr th.takas-header-th {
           color: #dc2626 !important;
           font-weight: bold !important;
