@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 import * as XLSX from 'xlsx';
 import { createClient } from '@supabase/supabase-js';
 
@@ -600,7 +601,19 @@ async function processFile(filePath) {
   }
 }
 
+let lastGitPullTime = 0;
+
 async function runSyncCycle() {
+  // 10 dakikada bir arka planda git güncellemelerini çek
+  if (Date.now() - lastGitPullTime > 10 * 60 * 1000) {
+    try {
+      execSync('git pull origin main', { stdio: 'ignore' });
+      lastGitPullTime = Date.now();
+    } catch (e) {
+      // Git hatası oluşursa servisi durdurma
+    }
+  }
+
   const activeDirs = DEFAULT_BASE_DIRS.filter(d => fs.existsSync(d));
   for (const dir of activeDirs) {
     try {
@@ -621,13 +634,13 @@ async function runSyncCycle() {
 
 async function startDaemon() {
   log("🚀 One DARS Kasa Senkronizasyon Servisi Başlatıldı (V5).");
-  log("👀 Klasörler sürekli izleniyor...");
+  log("👀 Klasörler her 60 saniyede bir otomatik taranıp Supabase ile eşitleniyor...");
 
   await runSyncCycle();
 
   setInterval(async () => {
     await runSyncCycle();
-  }, 3 * 60 * 1000);
+  }, 60 * 1000); // 1 dakika
 }
 
 startDaemon();
