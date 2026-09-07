@@ -2148,27 +2148,11 @@ export function MainCashboxPage() {
                           const outTx = stats.outflows[index];
                           const inTx = stats.inflows[index];
 
-                          // Pink highlight check
-                          const outDescLower = (outTx?.description || '').toLowerCase();
-                          const inDescLower = (inTx?.description || '').toLowerCase();
-                          const outIsHighlight = !!outTx && (
-                            outDescLower.includes('çek') || 
-                            outDescLower.includes('çekten') ||
-                            outDescLower.includes('kart')
-                          );
-                          const inIsHighlight = !!inTx && (
-                            inDescLower.includes('çek') || 
-                            inDescLower.includes('çekten') ||
-                            inDescLower.includes('kart')
-                          );
-
                           return (
                             <div key={index} className="grid grid-cols-10 divide-x divide-black h-[34px] items-center">
                               
                               {/* Outflow Half */}
-                              <div className={`col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center ${
-                                outIsHighlight ? 'bg-red-100 text-red-950 font-bold' : ''
-                              }`}>
+                              <div className="col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center">
                                 <div className="col-span-2 h-full flex items-center justify-end">
                                   <input
                                     key={`out-amt-${selectedDate}-${bankName}-${index}-${outTx?.amount ?? ''}`}
@@ -2213,9 +2197,7 @@ export function MainCashboxPage() {
                               </div>
 
                               {/* Inflow Half */}
-                              <div className={`col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center ${
-                                inIsHighlight ? 'bg-red-100 text-red-950 font-bold' : ''
-                              }`}>
+                              <div className="col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center">
                                 <div className="col-span-2 h-full flex items-center justify-end">
                                   <input
                                     key={`in-amt-${selectedDate}-${bankName}-${index}-${inTx?.amount ?? ''}`}
