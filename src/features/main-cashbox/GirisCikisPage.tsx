@@ -401,6 +401,8 @@ export function GirisCikisPage() {
   const [girisTotalRaw, setGirisTotalRaw] = useState<number | null>(null);
   const [cikisTotalRaw, setCikisTotalRaw] = useState<number | null>(null);
   const [netKalanRaw, setNetKalanRaw] = useState<number | null>(null);
+  const [anaKasaTotalRaw, setAnaKasaTotalRaw] = useState<number | null>(null);
+  const [bakiyeFarkiRaw, setBakiyeFarkiRaw] = useState<number | null>(null);
 
   const lastGirisCikisUpdatedAtRef = useRef<string>('');
 
@@ -438,11 +440,13 @@ export function GirisCikisPage() {
               setPosList(data.pos_list);
             }
 
-            // Excel exact totals
+            // Excel exact totals (DİREKT EXCEL VERİSİ)
             setPosTotalRaw(data.pos_total !== undefined && data.pos_total !== null ? Number(data.pos_total) : null);
             setGirisTotalRaw(data.giris_total !== undefined && data.giris_total !== null ? Number(data.giris_total) : null);
             setCikisTotalRaw(data.cikis_total !== undefined && data.cikis_total !== null ? Number(data.cikis_total) : null);
             setNetKalanRaw(data.net_kalan !== undefined && data.net_kalan !== null ? Number(data.net_kalan) : null);
+            setAnaKasaTotalRaw(data.ana_kasa_total !== undefined && data.ana_kasa_total !== null ? Number(data.ana_kasa_total) : null);
+            setBakiyeFarkiRaw(data.bakiye_farki !== undefined && data.bakiye_farki !== null ? Number(data.bakiye_farki) : null);
 
             setLastSyncSource(data.source || 'office_pc_sync');
             setIsSaved(true);
@@ -453,6 +457,8 @@ export function GirisCikisPage() {
             setGirisTotalRaw(null);
             setCikisTotalRaw(null);
             setNetKalanRaw(null);
+            setAnaKasaTotalRaw(null);
+            setBakiyeFarkiRaw(null);
             lastGirisCikisUpdatedAtRef.current = '';
             // Supabase'de veri yok: Bu gün kesinlikle boştur, eski localStorage çöpünü temizle!
             localStorage.removeItem(storageKey);
@@ -741,16 +747,13 @@ export function GirisCikisPage() {
     }, 0);
   }, [anaKasaList]);
 
-  // Exact numbers as requested:
-  // 1. Toplam Kasa Bakiyesi = SONU sütununun toplamı
-  // 2. Giriş-Çıkış Kalanı = Sol taraftaki veri (Giriş Toplamı - Çıkış Toplamı)
-  // 3. Kasa = Toplam Kasa Bakiyesi - Giriş-Çıkış Kalanı
+  // DİREKT EXCEL'DEN ÇEKİLEN VERİLER (KODDA HESAPLAMA YAPILMAZ, EXCEL'DEKİ AYNI VERİLER)
+  const posTotal = posTotalRaw !== null ? posTotalRaw : calcPosTotal;
   const girisTotal = girisTotalRaw !== null ? girisTotalRaw : calcGirisTotal;
   const cikisTotal = cikisTotalRaw !== null ? cikisTotalRaw : calcCikisTotal;
-  const posTotal = posTotalRaw !== null ? posTotalRaw : calcPosTotal;
   const netKalan = netKalanRaw !== null ? netKalanRaw : (girisTotal - cikisTotal);
-  const anaKasaTotal = calcAnaKasaTotal;
-  const bakiyeFarki = Math.round((anaKasaTotal - netKalan) * 100) / 100;
+  const anaKasaTotal = anaKasaTotalRaw !== null ? anaKasaTotalRaw : calcAnaKasaTotal;
+  const bakiyeFarki = bakiyeFarkiRaw !== null ? bakiyeFarkiRaw : (anaKasaTotal - netKalan);
 
   // Auto Save to localStorage and Supabase (Only when user explicitly edits)
   const isUserDirtyRef = useRef(false);
@@ -1742,9 +1745,9 @@ export function GirisCikisPage() {
                 KASA:
               </div>
               <div className={`w-[15%] h-full flex items-center justify-end pr-2 font-black ${
-                Math.abs(bakiyeFarki) > 0.01 ? 'text-rose-600' : 'text-gray-950'
+                bakiyeFarki < 0 ? 'text-rose-600' : 'text-gray-950'
               }`}>
-                {Math.abs(bakiyeFarki) < 0.01 ? '0' : formatAnaKasa(bakiyeFarki)}
+                {bakiyeFarki === 0 ? '0' : formatAnaKasa(bakiyeFarki)}
               </div>
             </div>
           </div>
