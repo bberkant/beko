@@ -1903,7 +1903,7 @@ export function MainCashboxPage() {
                         {rows.map((_, index) => {
                           const cRow = cikisList[index] || { description: '', bankOrType: '', amount: '' };
                           const gRow = girisList[index] || { description: '', amount: '' };
-                          const isInflowKasa = (gRow.description || '').toUpperCase().includes('KASA');
+                          const isInflowKasa = (gRow.description || '').trim().toUpperCase() === 'KASA';
 
                           return (
                             <div key={index} className="grid grid-cols-[57%_14px_41%] h-[32px] items-center text-xs">

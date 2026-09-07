@@ -668,7 +668,7 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                   
                   {/* KASA KALAN in Red Bold (Row 28) */}
                   <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300 bg-white">
-                    <span className="font-black text-red-600 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">KASA KALAN</span>
+                    <span className="font-black text-red-600 uppercase text-[12px] border-r border-black h-full flex items-center justify-center text-center">KASA KALAN</span>
                     <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(depoKasaKalan)}</span>
                   </div>
 
