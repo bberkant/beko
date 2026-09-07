@@ -337,7 +337,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                 </div>
                 {/* Total Box in F10 */}
                 <div className="grid grid-cols-[48%_52%] h-[30px]">
-                  <div></div>
+                  <div className="h-full flex items-center pl-2 font-bold text-gray-900 text-[13px]">
+                    Toplam:
+                  </div>
                   <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-black text-[15.5px] text-black bg-white tracking-tight">
                     {formatTotal(merkezTotal)}
                   </div>
@@ -421,7 +423,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                 </div>
                 {/* Total Box in F19 */}
                 <div className="grid grid-cols-[48%_52%] h-[30px]">
-                  <div></div>
+                  <div className="h-full flex items-center pl-2 font-bold text-gray-900 text-[13px]">
+                    Toplam:
+                  </div>
                   <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-black text-[15.5px] text-black bg-white tracking-tight">
                     {formatTotal(atakumTotal)}
                   </div>
@@ -495,7 +499,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                 </div>
                 {/* Total Box in I10 */}
                 <div className="grid grid-cols-[48%_52%] h-[30px]">
-                  <div></div>
+                  <div className="h-full flex items-center pl-2 font-bold text-gray-900 text-[13px]">
+                    Toplam:
+                  </div>
                   <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-black text-[15.5px] text-black bg-white tracking-tight">
                     {formatTotal(merzifonTotal)}
                   </div>
@@ -562,7 +568,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                 </div>
                 {/* Total Box in I19 */}
                 <div className="grid grid-cols-[48%_52%] h-[30px]">
-                  <div></div>
+                  <div className="h-full flex items-center pl-2 font-bold text-gray-900 text-[13px]">
+                    Toplam:
+                  </div>
                   <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-black text-[15.5px] text-black bg-white tracking-tight">
                     {formatTotal(ilkadimTotal)}
                   </div>
@@ -657,7 +665,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
 
                 {/* Total Box in I31 */}
                 <div className="grid grid-cols-[48%_52%] h-[30px]">
-                  <div></div>
+                  <div className="h-full flex items-center pl-2 font-bold text-gray-900 text-[13px]">
+                    Toplam:
+                  </div>
                   <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-black text-[15.5px] text-black bg-white tracking-tight">
                     {formatTotal(depoTotal)}
                   </div>
@@ -665,8 +675,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
               </div>
 
               {/* Bottom Right Grand Total: 512.422,00 (Row 33 in Excel) */}
-              <div className="flex justify-end items-center pr-1 pt-1 font-black text-[16px] text-black tracking-tight">
-                {formatTotal(grandTotal)}
+              <div className="flex justify-end items-center gap-1.5 pr-1 pt-1 font-black text-[16px] text-black tracking-tight">
+                <span className="text-[14px] text-gray-800">Toplam:</span>
+                <span>{formatTotal(grandTotal)}</span>
               </div>
 
             </div>
