@@ -209,17 +209,17 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
 
         {/* Excel 3-Column Layout: Perfectly fitting 100% width with fr units and NO overflow */}
         <div className="p-2.5 bg-white w-full box-border">
+          {/* Date Header like Excel Cell B2 - Placed ABOVE the 3-column grid so all 3 columns align perfectly at the top */}
+          <div className="font-bold text-[14px] text-gray-950 pb-2 pl-0.5">
+            {formattedDateTitle}
+          </div>
+
           <div className="grid grid-cols-1 xl:grid-cols-[1.25fr_1fr_1fr] gap-2.5 items-start w-full min-w-0">
             
             {/* ========================================================= */}
             {/* SÜTUN 1 (SOL): ŞUBELER ÖZETİ + CARİLER / TAHSİLATLAR      */}
             {/* ========================================================= */}
             <div className="flex flex-col w-full min-w-0">
-              {/* Date Header like Excel Cell B2 */}
-              <div className="h-[26px] flex items-center font-bold text-[14px] text-gray-950 pl-1">
-                {formattedDateTitle}
-              </div>
-
               {/* Tall Box (B3:C25 in Excel) with solid black border */}
               <div className="border-[1.5px] border-black bg-white flex flex-col w-full">
                 
@@ -227,7 +227,7 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                 <div className="flex flex-col text-xs">
                   
                   {/* MERKEZ */}
-                  <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300">
+                  <div className="grid grid-cols-[55%_45%] h-[28px] items-center border-b border-gray-300">
                     <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">MERKEZ</span>
                     <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(merkezTotal)}</span>
                   </div>
@@ -329,14 +329,11 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
             {/* ========================================================= */}
             {/* SÜTUN 2 (ORTA): MERKEZ & ATAKUM KUTULARI                  */}
             {/* ========================================================= */}
-            <div className="flex flex-col gap-5 w-full min-w-0">
-              {/* Spacer matching date header height */}
-              <div className="h-[26px]"></div>
-
+            <div className="flex flex-col gap-4 w-full min-w-0">
               {/* 1. KUTU: MERKEZ (E3:F10) */}
               <div className="border-[1.5px] border-black bg-white flex flex-col w-full">
                 {/* Header */}
-                <div className="border-b-[1.5px] border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
+                <div className="border-b-[1.5px] border-black text-center h-[28px] flex items-center justify-center font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
                   MERKEZ
                 </div>
                 {/* Rows with clean solid single lines */}
@@ -483,14 +480,11 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
             {/* ========================================================= */}
             {/* SÜTUN 3 (SAĞ): MERZİFON, İLKADIM & DEPO KUTULARI          */}
             {/* ========================================================= */}
-            <div className="flex flex-col gap-5 w-full min-w-0">
-              {/* Spacer matching date header height */}
-              <div className="h-[26px]"></div>
-
+            <div className="flex flex-col gap-4 w-full min-w-0">
               {/* 1. KUTU: MERZİFON (H3:I10) */}
               <div className="border-[1.5px] border-black bg-white flex flex-col w-full">
                 {/* Header */}
-                <div className="border-b-[1.5px] border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
+                <div className="border-b-[1.5px] border-black text-center h-[28px] flex items-center justify-center font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
                   MERZİFON
                 </div>
                 {/* Rows with clean solid single lines */}
