@@ -329,13 +329,16 @@ async function processGirisCikisWorkbook(wb, filePath) {
       const upperName = rawName.toUpperCase();
 
       // If this row has a summary keyword or is a note, do NOT treat as an account
-      if (upperName.includes('TOPLAM') || 
-          upperName.includes('KALAN') || 
-          upperName.includes('KASA') || 
-          upperName.includes('GİRİŞ') || 
-          upperName.includes('ÇIKIŞ') ||
-          upperName.includes('FAZLA VERMİŞ') ||
-          upperName.includes('EKSİK VERMİŞ')) {
+      const isSummary = upperName.includes('TOPLAM') || 
+                        upperName.includes('KALAN') || 
+                        upperName.startsWith('KASA:') ||
+                        upperName.startsWith('KASA :') ||
+                        (upperName.includes('KASA') && upperName !== 'KASA') ||
+                        upperName.includes('GİRİŞ') || 
+                        upperName.includes('ÇIKIŞ') ||
+                        upperName.includes('FAZLA VERMİŞ') ||
+                        upperName.includes('EKSİK VERMİŞ');
+      if (isSummary) {
         continue;
       }
 
@@ -343,14 +346,20 @@ async function processGirisCikisWorkbook(wb, filePath) {
       const move = cleanNum(row[12]);      // Col N
       const pos = cleanNum(row[13]);       // Col O
       const duzeltme = cleanNum(row[14]);  // Col P (Banka Düzeltmeleri)
-      const gunSonu = cleanNum(row[16]);   // Col R (Gün Sonu)
+      let gunSonu = cleanNum(row[16]) || cleanNum(row[17]);   // Col R (Gün Sonu)
       
+      const isKasa = upperName === 'KASA';
+      const computedGunSonu = isKasa ? (move + pos + duzeltme) : (devir + move + pos + duzeltme);
+      if (gunSonu === 0 && (devir !== 0 || move !== 0 || pos !== 0 || duzeltme !== 0)) {
+        gunSonu = computedGunSonu;
+      }
+
       if (move !== 0 || pos !== 0 || duzeltme !== 0 || gunSonu !== 0) {
         anaKasaMoveCount++;
       }
 
       const accountName = rawName; // Birebir Excel'de ne yazıyorsa o!
-      const hasFinancialData = (rawName !== '' || devir !== 0 || move !== 0 || pos !== 0 || duzeltme !== 0);
+      const hasFinancialData = (rawName !== '' || devir !== 0 || move !== 0 || pos !== 0 || duzeltme !== 0 || gunSonu !== 0);
 
       anaKasaList[idx] = {
         name: accountName,
@@ -358,8 +367,7 @@ async function processGirisCikisWorkbook(wb, filePath) {
         movement: move !== 0 ? formatInt(move) : '',
         pos: pos !== 0 ? formatInt(pos) : '',
         duzeltme: duzeltme !== 0 ? formatInt(duzeltme) : '',
-        // gunSonu is ONLY assigned if this is an active account row with data!
-        gunSonu: (hasFinancialData && row[16] !== undefined && row[16] !== null && String(row[16]).trim() !== '')
+        gunSonu: (hasFinancialData && (gunSonu !== 0 || computedGunSonu === 0))
           ? formatInt(gunSonu)
           : ''
       };

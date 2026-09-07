@@ -157,6 +157,63 @@ const fitCikisRows = (raw: any[]): CikisItem[] => {
   return result;
 };
 
+// Numbers & Currency Format Helpers
+const parseNum = (val: number | string | '' | undefined | null): number => {
+  if (val === '' || val === undefined || val === null) return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  let s = String(val).trim();
+  if (!s) return 0;
+  
+  // Check negative
+  const isNegative = s.startsWith('-') || s.endsWith('-');
+  s = s.replace(/-/g, '');
+
+  // If string has dots and commas, determine format
+  if (s.includes('.') && s.includes(',')) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (s.includes(',')) {
+    s = s.replace(',', '.');
+  } else if (s.includes('.')) {
+    const parts = s.split('.');
+    if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+      s = s.replace(/\./g, '');
+    }
+  }
+
+  const clean = s.replace(/[^0-9.]/g, '');
+  const res = parseFloat(clean);
+  if (isNaN(res)) return 0;
+  return isNegative ? -res : res;
+};
+
+const formatAnaKasaNumber = (val: number | string | '' | undefined | null): string => {
+  if (val === '' || val === undefined || val === null) return '';
+  const num = typeof val === 'number' ? val : parseNum(val);
+  if (num === 0 && val === '') return '';
+  const hasDecimals = num % 1 !== 0;
+  return new Intl.NumberFormat('tr-TR', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2
+  }).format(num);
+};
+
+const calcRowGunSonu = (name: any, devir: any, movement: any, pos: any, duzeltme: any): string => {
+  const upper = String(name || '').trim().toLocaleUpperCase('tr-TR');
+  const isKasa = upper === 'KASA';
+  const devirNum = parseNum(devir);
+  const moveNum = parseNum(movement);
+  const posNum = parseNum(pos);
+  const duzNum = parseNum(duzeltme);
+  const hasInput = (devir !== '' && devir !== undefined && devir !== null) ||
+                   (movement !== '' && movement !== undefined && movement !== null) ||
+                   (pos !== '' && pos !== undefined && pos !== null) ||
+                   (duzeltme !== '' && duzeltme !== undefined && duzeltme !== null);
+  if (!hasInput && !name) return '';
+  const computed = isKasa ? (moveNum + posNum + duzNum) : (devirNum + moveNum + posNum + duzNum);
+  if (computed === 0 && !hasInput) return '';
+  return formatAnaKasaNumber(computed);
+};
+
 const fitAnaKasaRows = (raw: any[]): AnaKasaItem[] => {
   if (!Array.isArray(raw)) return [];
   const sanitized = raw.map((item) => {
@@ -194,13 +251,31 @@ const fitAnaKasaRows = (raw: any[]): AnaKasaItem[] => {
       };
     }
 
+    const isKasa = upper === 'KASA';
+    const devirNum = parseNum(item.devir);
+    const moveNum = parseNum(item.movement);
+    const posNum = parseNum(item.pos);
+    const duzNum = parseNum(item.duzeltme);
+
+    let gunSonu = item.gunSonu !== undefined && item.gunSonu !== null && String(item.gunSonu).trim() !== ''
+      ? String(item.gunSonu).trim()
+      : '';
+
+    // If gunSonu is empty, calculate it automatically from devir, movement, pos, duzeltme!
+    if (!gunSonu && (item.devir !== '' || item.movement !== '' || item.pos !== '' || item.duzeltme !== '')) {
+      const computed = isKasa ? (moveNum + posNum + duzNum) : (devirNum + moveNum + posNum + duzNum);
+      if (computed !== 0 || item.movement !== '' || item.pos !== '' || item.duzeltme !== '') {
+        gunSonu = formatAnaKasaNumber(computed);
+      }
+    }
+
     return {
       name: rawName,
       devir: item.devir !== undefined && item.devir !== null ? item.devir : '',
       movement: item.movement !== undefined && item.movement !== null ? item.movement : '',
       pos: item.pos !== undefined && item.pos !== null ? item.pos : '',
       duzeltme: item.duzeltme !== undefined && item.duzeltme !== null ? item.duzeltme : '',
-      gunSonu: item.gunSonu !== undefined && item.gunSonu !== null ? item.gunSonu : ''
+      gunSonu
     };
   });
 
@@ -583,7 +658,7 @@ export function GirisCikisPage() {
   }, [searchQuery, isRange, startDate, endDate]);
 
   // Numbers & Currency Format
-  const parseNum = (val: number | string | ''): number => {
+  const parseNum = (val: any): number => {
     if (val === '' || val === undefined || val === null) return 0;
     if (typeof val === 'number') return isNaN(val) ? 0 : val;
     let s = String(val).trim();
@@ -655,8 +730,18 @@ export function GirisCikisPage() {
 
   const calcAnaKasaTotal = useMemo(() => {
     return anaKasaList.reduce((sum, item) => {
-      if (item.name && item.gunSonu !== undefined && item.gunSonu !== '') {
-        return sum + parseNum(item.gunSonu);
+      if (item.name) {
+        if (item.gunSonu !== undefined && item.gunSonu !== '') {
+          return sum + parseNum(item.gunSonu);
+        }
+        const upper = item.name.trim().toLocaleUpperCase('tr-TR');
+        const isKasa = upper === 'KASA';
+        const devirNum = parseNum(item.devir);
+        const moveNum = parseNum(item.movement);
+        const posNum = parseNum(item.pos);
+        const duzNum = parseNum(item.duzeltme);
+        const computed = isKasa ? (moveNum + posNum + duzNum) : (devirNum + moveNum + posNum + duzNum);
+        return sum + computed;
       }
       return sum;
     }, 0);
@@ -1455,7 +1540,11 @@ export function GirisCikisPage() {
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
                           const val = e.target.value;
-                          setAnaKasaList(prev => prev.map((item, i) => i === index ? { ...item, name: val } : item));
+                          setAnaKasaList(prev => prev.map((item, i) => {
+                            if (i !== index) return item;
+                            const nextItem = { ...item, name: val };
+                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                          }));
                         }}
                         onKeyDown={(e) => handleKeyDown(e, 'ak-name', index)}
                         data-col="ak-name"
@@ -1473,12 +1562,21 @@ export function GirisCikisPage() {
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
                           const val = e.target.value;
-                          setAnaKasaList(prev => prev.map((item, i) => i === index ? { ...item, devir: val } : item));
+                          setAnaKasaList(prev => prev.map((item, i) => {
+                            if (i !== index) return item;
+                            const nextItem = { ...item, devir: val };
+                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                          }));
                         }}
                         onBlur={() => {
                           if (ak.devir !== '') {
                             const n = parseNum(ak.devir);
-                            setAnaKasaList(prev => prev.map((item, i) => i === index ? { ...item, devir: n !== 0 ? formatAnaKasa(n) : '' } : item));
+                            const formatted = n !== 0 ? formatAnaKasa(n) : '';
+                            setAnaKasaList(prev => prev.map((item, i) => {
+                              if (i !== index) return item;
+                              const nextItem = { ...item, devir: formatted };
+                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                            }));
                           }
                         }}
                         onKeyDown={(e) => handleKeyDown(e, 'ak-devir', index)}
@@ -1497,12 +1595,21 @@ export function GirisCikisPage() {
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
                           const val = e.target.value;
-                          setAnaKasaList(prev => prev.map((item, i) => i === index ? { ...item, movement: val } : item));
+                          setAnaKasaList(prev => prev.map((item, i) => {
+                            if (i !== index) return item;
+                            const nextItem = { ...item, movement: val };
+                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                          }));
                         }}
                         onBlur={() => {
                           if (ak.movement !== '') {
                             const n = parseNum(ak.movement);
-                            setAnaKasaList(prev => prev.map((item, i) => i === index ? { ...item, movement: n !== 0 ? formatAnaKasa(n) : '' } : item));
+                            const formatted = n !== 0 ? formatAnaKasa(n) : '';
+                            setAnaKasaList(prev => prev.map((item, i) => {
+                              if (i !== index) return item;
+                              const nextItem = { ...item, movement: formatted };
+                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                            }));
                           }
                         }}
                         onKeyDown={(e) => handleKeyDown(e, 'ak-move', index)}
@@ -1519,12 +1626,21 @@ export function GirisCikisPage() {
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
                           const val = e.target.value;
-                          setAnaKasaList(prev => prev.map((item, i) => i === index ? { ...item, pos: val } : item));
+                          setAnaKasaList(prev => prev.map((item, i) => {
+                            if (i !== index) return item;
+                            const nextItem = { ...item, pos: val };
+                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                          }));
                         }}
                         onBlur={() => {
                           if (ak.pos !== '') {
                             const n = parseNum(ak.pos);
-                            setAnaKasaList(prev => prev.map((item, i) => i === index ? { ...item, pos: n !== 0 ? formatAnaKasa(n) : '' } : item));
+                            const formatted = n !== 0 ? formatAnaKasa(n) : '';
+                            setAnaKasaList(prev => prev.map((item, i) => {
+                              if (i !== index) return item;
+                              const nextItem = { ...item, pos: formatted };
+                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                            }));
                           }
                         }}
                         onKeyDown={(e) => handleKeyDown(e, 'ak-pos', index)}
@@ -1543,12 +1659,21 @@ export function GirisCikisPage() {
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
                           const val = e.target.value;
-                          setAnaKasaList(prev => prev.map((item, i) => i === index ? { ...item, duzeltme: val } : item));
+                          setAnaKasaList(prev => prev.map((item, i) => {
+                            if (i !== index) return item;
+                            const nextItem = { ...item, duzeltme: val };
+                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                          }));
                         }}
                         onBlur={() => {
                           if (ak.duzeltme !== '' && ak.duzeltme !== undefined && ak.duzeltme !== null) {
                             const n = parseNum(ak.duzeltme);
-                            setAnaKasaList(prev => prev.map((item, i) => i === index ? { ...item, duzeltme: n !== 0 ? formatAnaKasa(n) : '' } : item));
+                            const formatted = n !== 0 ? formatAnaKasa(n) : '';
+                            setAnaKasaList(prev => prev.map((item, i) => {
+                              if (i !== index) return item;
+                              const nextItem = { ...item, duzeltme: formatted };
+                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                            }));
                           }
                         }}
                         onKeyDown={(e) => handleKeyDown(e, 'ak-duzeltme', index)}
