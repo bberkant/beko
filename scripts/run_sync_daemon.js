@@ -605,11 +605,15 @@ async function processFile(filePath) {
 let lastGitPullTime = 0;
 
 async function runSyncCycle() {
-  // 10 dakikada bir arka planda git güncellemelerini çek
-  if (Date.now() - lastGitPullTime > 10 * 60 * 1000) {
+  // 5 dakikada bir arka planda git güncellemelerini çek
+  if (Date.now() - lastGitPullTime > 5 * 60 * 1000) {
     try {
-      execSync('git pull origin main', { stdio: 'ignore' });
+      const gitOut = execSync('git pull origin main', { encoding: 'utf-8' });
       lastGitPullTime = Date.now();
+      if (gitOut && !gitOut.includes('Already up to date')) {
+        log('🔄 [GÜNCELLEME] Yeni kodlar çekildi, servis en son sürüme geçmek için yeniden başlatılıyor...');
+        process.exit(0); // Launcher (silent_sync_launcher.vbs) otomatik yeniden başlatacaktır
+      }
     } catch (e) {
       // Git hatası oluşursa servisi durdurma
     }

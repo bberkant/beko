@@ -27,7 +27,9 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 import * as XLSX from 'xlsx';
-import { RaporArkaSayfaCard, ArkaSayfaData, defaultArkaSayfaData } from './components/RaporArkaSayfaCard';
+import { RaporArkaSayfaCard } from './components/RaporArkaSayfaCard';
+import type { ArkaSayfaData } from './types/arkaSayfa';
+import { defaultArkaSayfaData } from './types/arkaSayfa';
 import { CashboxDateFilterBar, SearchResultItem } from './components/CashboxDateFilterBar';
 
 export interface AnaKasaCikisItem {
