@@ -395,6 +395,17 @@ async function processGirisCikisWorkbook(wb, filePath) {
       continue;
     }
 
+    const calcAnaKasaTotalSum = anaKasaList.reduce((sum, item) => {
+      if (item && item.name && item.gunSonu) {
+        return sum + cleanNum(item.gunSonu);
+      }
+      return sum;
+    }, 0);
+
+    const actualNetKalan = excelNetKalan !== null ? excelNetKalan : (girisTotal - cikisTotal);
+    const actualAnaKasaTotal = calcAnaKasaTotalSum;
+    const actualBakiyeFarki = Math.round((actualAnaKasaTotal - actualNetKalan) * 100) / 100;
+
     const { error } = await supabase
       .from('cashbox_giris_cikis_reports')
       .upsert({
@@ -406,9 +417,9 @@ async function processGirisCikisWorkbook(wb, filePath) {
         pos_total: excelPosTotal !== null ? excelPosTotal : posTotal,
         giris_total: excelGirisTotal !== null ? excelGirisTotal : girisTotal,
         cikis_total: excelCikisTotal !== null ? excelCikisTotal : cikisTotal,
-        net_kalan: excelNetKalan !== null ? excelNetKalan : (girisTotal - cikisTotal),
-        ana_kasa_total: excelAnaKasaTotal !== null ? excelAnaKasaTotal : null,
-        bakiye_farki: excelKasaFarki !== null ? excelKasaFarki : 0,
+        net_kalan: actualNetKalan,
+        ana_kasa_total: actualAnaKasaTotal,
+        bakiye_farki: actualBakiyeFarki,
         raw_file_name: path.basename(filePath),
         source: 'office_pc_sync',
         updated_at: new Date().toISOString()
