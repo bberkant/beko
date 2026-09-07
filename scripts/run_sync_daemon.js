@@ -157,8 +157,12 @@ function parseDateFromSheetName(sheetName, fileYear = 2026, fileMonth = null) {
 async function backupFileToSupabaseStorage(filePath, category) {
   try {
     const fileName = path.basename(filePath);
+    const safeFileName = fileName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '_');
     const fileContent = fs.readFileSync(filePath);
-    const storagePath = `${category}/${fileName}`;
+    const storagePath = `${category}/${safeFileName}`;
     
     await supabase.storage
       .from('kasa-excel-yedekleri')
@@ -281,36 +285,98 @@ async function processGirisCikisWorkbook(wb, filePath) {
       };
     }
 
-    // 1. DYNAMICALLY DETECT BOTTOM 3 SUMMARY ROWS IN COLUMN 16 (Col R)
-    // In Excel, the bottom-most 3 cells in Col R are always:
-    // [TOPLAM KASA BAKİYESİ, GİRİŞ-ÇIKIŞ KALANI, KASA: 0]
-    // They can slide up or down depending on how many accounts exist.
-    const col16Cells = [];
-    data.forEach((row, r) => {
-      if (row && row[16] !== null && row[16] !== undefined && String(row[16]).trim() !== '') {
-        col16Cells.push({ r, val: cleanNum(row[16]) });
+    // 1. DIRECT EXCEL TOTALS EXTRACTION FROM WORKSHEET
+    // In Excel, POS total is next to TOPLAM in column B/C, Giriş Toplamı is at C20, Çıkış Toplamı is at C21, Giriş-Çıkış Kalanı is at C22.
+    let excelPosTotal = null;
+    for (let r = 15; r <= 20; r++) {
+      const b = ws['B' + r];
+      const c = ws['C' + r];
+      if (b && String(b.v).trim().toUpperCase() === 'TOPLAM' && c && c.v !== undefined && c.v !== '') {
+        excelPosTotal = cleanNum(c.v);
+        break;
       }
-    });
+    }
+
+    let excelGirisTotal = null;
+    if (ws['C20'] && ws['C20'].v !== undefined && ws['C20'].v !== '') {
+      excelGirisTotal = cleanNum(ws['C20'].v);
+    }
+    if (excelGirisTotal === null) {
+      for (let r = 18; r <= 25; r++) {
+        const b = ws['B' + r];
+        const c = ws['C' + r];
+        if (b && String(b.v).toUpperCase().includes('GİRİŞ TOPLAMI') && c && c.v !== undefined && c.v !== '') {
+          excelGirisTotal = cleanNum(c.v);
+          break;
+        }
+      }
+    }
+
+    let excelCikisTotal = null;
+    if (ws['C21'] && ws['C21'].v !== undefined && ws['C21'].v !== '') {
+      excelCikisTotal = cleanNum(ws['C21'].v);
+    }
+    if (excelCikisTotal === null) {
+      for (let r = 19; r <= 25; r++) {
+        const b = ws['B' + r];
+        const c = ws['C' + r];
+        if (b && String(b.v).toUpperCase().includes('ÇIKIŞ TOPLAMI') && c && c.v !== undefined && c.v !== '') {
+          excelCikisTotal = cleanNum(c.v);
+          break;
+        }
+      }
+    }
+
+    let excelNetKalan = null;
+    if (ws['C22'] && ws['C22'].v !== undefined && ws['C22'].v !== '') {
+      excelNetKalan = cleanNum(ws['C22'].v);
+    }
+
+    // 2. DYNAMICALLY DETECT BOTTOM 3 SUMMARY ROWS IN COLUMN R
+    // [TOPLAM KASA BAKİYESİ, GİRİŞ-ÇIKIŞ KALANI, KASA: 0]
+    const rCells = [];
+    for (let r = 20; r <= 65; r++) {
+      const cell = ws['R' + r];
+      if (cell && cell.v !== undefined && cell.v !== '') {
+        rCells.push({ r, v: cleanNum(cell.v), f: (cell.f || '') });
+      }
+    }
+
+    let netKalanIndex = -1;
+    for (let i = rCells.length - 1; i >= 0; i--) {
+      const isFormulaC22 = rCells[i].f.toUpperCase().includes('C22');
+      const isValMatch = excelNetKalan !== null && Math.abs(rCells[i].v - excelNetKalan) < 0.01;
+      if (isFormulaC22 || isValMatch) {
+        netKalanIndex = i;
+        break;
+      }
+    }
 
     let summaryRowMin = 999;
     let excelAnaKasaTotal = null;
-    let excelNetKalan = null;
     let excelKasaFarki = 0;
 
-    if (col16Cells.length >= 3) {
-      const last3 = col16Cells.slice(-3);
+    if (netKalanIndex > 0) {
+      excelAnaKasaTotal = rCells[netKalanIndex - 1].v;
+      summaryRowMin = rCells[netKalanIndex - 1].r;
+      if (excelNetKalan === null) excelNetKalan = rCells[netKalanIndex].v;
+      if (netKalanIndex + 1 < rCells.length) {
+        excelKasaFarki = rCells[netKalanIndex + 1].v;
+      }
+    } else if (rCells.length >= 3) {
+      const last3 = rCells.slice(-3);
+      excelAnaKasaTotal = last3[0].v;
       summaryRowMin = last3[0].r;
-      excelAnaKasaTotal = last3[0].val;
-      excelNetKalan = last3[1].val;
-      excelKasaFarki = last3[2].val;
-    } else if (col16Cells.length === 2) {
-      const last2 = col16Cells.slice(-2);
+      if (excelNetKalan === null) excelNetKalan = last3[1].v;
+      excelKasaFarki = last3[2].v;
+    } else if (rCells.length === 2) {
+      const last2 = rCells.slice(-2);
+      excelAnaKasaTotal = last2[0].v;
       summaryRowMin = last2[0].r;
-      excelAnaKasaTotal = last2[0].val;
-      excelKasaFarki = last2[1].val;
+      excelKasaFarki = last2[1].v;
     }
 
-    // 2. PARSE ANA KASA ACCOUNT ROWS (STRICTLY ABOVE summaryRowMin)
+    // 3. PARSE ANA KASA ACCOUNT ROWS (STRICTLY ABOVE summaryRowMin)
     let anaKasaMoveCount = 0;
     const anaKasaList = Array.from({ length: 42 }, () => ({
       name: '',
@@ -321,14 +387,13 @@ async function processGirisCikisWorkbook(wb, filePath) {
       gunSonu: ''
     }));
 
-    for (let r = 3; r < summaryRowMin && r <= 44; r++) {
-      const idx = r - 3;
+    for (let r = 4; r < summaryRowMin && r <= 44; r++) {
+      const idx = r - 4;
       if (idx >= 42) break;
-      const row = data[r] || [];
-      const rawName = String(row[11] || '').trim();
+
+      const rawName = ws['M' + r] ? String(ws['M' + r].v).trim() : '';
       const upperName = rawName.toUpperCase();
 
-      // If this row has a summary keyword or is a note, do NOT treat as an account
       const isSummary = upperName.includes('TOPLAM') || 
                         upperName.includes('KALAN') || 
                         upperName.startsWith('KASA:') ||
@@ -342,15 +407,17 @@ async function processGirisCikisWorkbook(wb, filePath) {
         continue;
       }
 
-      const devir = cleanNum(row[10]);     // Col L
-      const move = cleanNum(row[12]);      // Col N
-      const pos = cleanNum(row[13]);       // Col O
-      const duzeltme = cleanNum(row[14]);  // Col P (Banka Düzeltmeleri)
-      let gunSonu = cleanNum(row[16]) || cleanNum(row[17]);   // Col R (Gün Sonu)
+      const devir = ws['L' + r] ? cleanNum(ws['L' + r].v) : 0;
+      const move = ws['N' + r] ? cleanNum(ws['N' + r].v) : 0;
+      const pos = ws['O' + r] ? cleanNum(ws['O' + r].v) : 0;
+      const duzeltme = ws['P' + r] ? cleanNum(ws['P' + r].v) : 0;
+      
+      const rCell = ws['R' + r];
+      let gunSonu = (rCell && rCell.v !== undefined && rCell.v !== '') ? cleanNum(rCell.v) : 0;
       
       const isKasa = upperName === 'KASA';
       const computedGunSonu = isKasa ? (move + pos + duzeltme) : (devir + move + pos + duzeltme);
-      if (gunSonu === 0 && (devir !== 0 || move !== 0 || pos !== 0 || duzeltme !== 0)) {
+      if (gunSonu === 0 && (!rCell || rCell.v === undefined || rCell.v === '') && (devir !== 0 || move !== 0 || pos !== 0 || duzeltme !== 0)) {
         gunSonu = computedGunSonu;
       }
 
@@ -358,33 +425,18 @@ async function processGirisCikisWorkbook(wb, filePath) {
         anaKasaMoveCount++;
       }
 
-      const accountName = rawName; // Birebir Excel'de ne yazıyorsa o!
       const hasFinancialData = (rawName !== '' || devir !== 0 || move !== 0 || pos !== 0 || duzeltme !== 0 || gunSonu !== 0);
 
       anaKasaList[idx] = {
-        name: accountName,
+        name: rawName,
         devir: devir !== 0 ? formatInt(devir) : '',
         movement: move !== 0 ? formatInt(move) : '',
         pos: pos !== 0 ? formatInt(pos) : '',
         duzeltme: duzeltme !== 0 ? formatInt(duzeltme) : '',
-        gunSonu: (hasFinancialData && (gunSonu !== 0 || computedGunSonu === 0))
+        gunSonu: (hasFinancialData && (gunSonu !== 0 || rawName !== ''))
           ? formatInt(gunSonu)
           : ''
       };
-    }
-
-    // Direct Excel exact totals (NO formula calculation)
-    let excelPosTotal = null;
-    let excelGirisTotal = null;
-    let excelCikisTotal = null;
-
-    for (let r = 0; r < 30; r++) {
-      const row = data[r] || [];
-      const a = String(row[0] || '').trim().toUpperCase();
-      if (a === 'TOPLAM' && row[1] !== undefined) excelPosTotal = cleanNum(row[1]);
-      if (a.includes('GİRİŞ TOPLAMI') && row[1] !== undefined) excelGirisTotal = cleanNum(row[1]);
-      if (a.includes('ÇIKIŞ TOPLAMI') && row[1] !== undefined) excelCikisTotal = cleanNum(row[1]);
-      if (r === 21 && row[1] !== undefined && excelNetKalan === null) excelNetKalan = cleanNum(row[1]);
     }
 
     const hasDailyActivity = (posTotal > 0 || cikisTotal > 0 || girisItemCount > 0 || cikisItemCount > 0 || anaKasaMoveCount > 0);
@@ -392,16 +444,10 @@ async function processGirisCikisWorkbook(wb, filePath) {
       continue;
     }
 
-    const calcAnaKasaTotalSum = anaKasaList.reduce((sum, item) => {
-      if (item && item.name && item.gunSonu) {
-        return sum + cleanNum(item.gunSonu);
-      }
-      return sum;
-    }, 0);
-
-    const actualNetKalan = excelNetKalan !== null ? excelNetKalan : (girisTotal - cikisTotal);
-    const actualAnaKasaTotal = calcAnaKasaTotalSum;
-    const actualBakiyeFarki = Math.round((actualAnaKasaTotal - actualNetKalan) * 100) / 100;
+    // DIRECT EXCEL VALUES - NO CUSTOM OVERRIDES OR ARTIFICIAL FORMULAS!
+    const actualNetKalan = excelNetKalan !== null ? excelNetKalan : (excelGirisTotal !== null && excelCikisTotal !== null ? (excelGirisTotal - excelCikisTotal) : (girisTotal - cikisTotal));
+    const actualAnaKasaTotal = excelAnaKasaTotal !== null ? excelAnaKasaTotal : actualNetKalan;
+    const actualBakiyeFarki = excelKasaFarki !== null ? excelKasaFarki : 0;
 
     await supabase
       .from('cashbox_giris_cikis_reports')
