@@ -244,14 +244,12 @@ async function processGirisCikisWorkbook(wb, filePath) {
 
       if (col2 && col3) {
         girisList[idx] = {
-          posCari: col2,
-          description: col3,
+          description: col2,
           bankOrType: col3,
           amount: amt !== 0 ? formatMoney(amt) : ''
         };
       } else {
         girisList[idx] = {
-          posCari: col2 || '',
           description: col3 || col2,
           bankOrType: '',
           amount: amt !== 0 ? formatMoney(amt) : ''

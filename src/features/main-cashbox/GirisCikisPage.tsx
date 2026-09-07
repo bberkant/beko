@@ -66,7 +66,7 @@ const DEFAULT_ANA_KASA_ACCOUNTS = [
 
 const ANA_KASA_ROWS = 42; // Ana Kasa sabit 42 satır
 const DEFAULT_GIRIS_ROWS = 65; // Giriş 65 satır
-const DEFAULT_CIKIS_ROWS = 64; // Çıkış 64 satır (Giriş'ten 1 satır eksik, altları tam eşit hizada)
+const DEFAULT_CIKIS_ROWS = 65; // Çıkış 65 satır (Giriş ile tam eşit hizada)
 
 // Check if description is a special red branch / transfer label
 const isRedLabel = (desc: string) => {
@@ -103,18 +103,19 @@ const isRedLabel = (desc: string) => {
 const normalizeGirisList = (list: any[]): GirisItem[] => {
   if (!Array.isArray(list)) return [];
   return list.map(item => {
-    const posCari = item.posCari !== undefined
-      ? (item.posCari || '')
-      : (item.bankOrType ? (item.description || '') : '');
-
-    const description = item.posCari !== undefined
-      ? (item.description || '')
-      : (item.bankOrType ? item.bankOrType : (item.description || ''));
+    let description = item.description || '';
+    let bankOrType = item.bankOrType || '';
+    
+    // If an older record had posCari set, ensure description reflects the actual cari name
+    if (item.posCari) {
+      if (!description || description === item.bankOrType) {
+        description = item.posCari;
+      }
+    }
 
     return {
-      posCari,
       description,
-      bankOrType: item.bankOrType || '',
+      bankOrType,
       amount: item.amount !== undefined && item.amount !== null ? item.amount : ''
     };
   });
@@ -124,7 +125,7 @@ const fitGirisRows = (raw: any[]): GirisItem[] => {
   const list = normalizeGirisList(raw);
   let lastNonEmpty = -1;
   list.forEach((it, i) => {
-    if (it.amount !== '' || it.posCari || (it.description && !isRedLabel(it.description))) {
+    if (it.amount !== '' || (it.description && !isRedLabel(it.description)) || it.bankOrType) {
       lastNonEmpty = i;
     }
   });
@@ -752,7 +753,7 @@ export function GirisCikisPage() {
       data.push([
         'ÇIKIŞ (Açıklama / Cari)', 'Banka / Tür', 'ÇIKIŞ Tutar',
         'POS Bankası', 'POS Tutarı',
-        'GİRİŞ - POS Cari (D)', 'GİRİŞ - Açıklama/Banka (E)', 'GİRİŞ Tutar (F)',
+        'GİRİŞ (Açıklama / Cari)', 'GİRİŞ Banka / Tür', 'GİRİŞ Tutar',
         'ANA KASA (Hesap / Kişi)', 'Devir (L)', 'Hareket (N)', 'POS (O)', 'Banka Düzeltmeleri (P)', 'Gün Sonu (R)'
       ]);
 
@@ -760,14 +761,14 @@ export function GirisCikisPage() {
       for (let i = 0; i < maxRows; i++) {
         const c = cikisList[i] || { description: '', bankOrType: '', amount: '' };
         const p = posList[i] || { bank: '', amount: '' };
-        const g = girisList[i] || { posCari: '', description: '', bankOrType: '', amount: '' };
+        const g = girisList[i] || { description: '', bankOrType: '', amount: '' };
         const ak = anaKasaList[i] || { name: '', devir: '', movement: '', pos: '', duzeltme: '', gunSonu: '' };
         const gunSonu = ak.gunSonu !== undefined && ak.gunSonu !== '' ? parseNum(ak.gunSonu) : '';
 
         data.push([
           c.description, c.bankOrType, c.amount !== '' ? parseNum(c.amount) : '',
           p.bank, p.amount !== '' ? parseNum(p.amount) : '',
-          g.posCari || '', g.description, g.amount !== '' ? parseNum(g.amount) : '',
+          g.description, g.bankOrType || '', g.amount !== '' ? parseNum(g.amount) : '',
           ak.name, ak.devir !== '' ? parseNum(ak.devir) : '', ak.movement !== '' ? parseNum(ak.movement) : '', ak.pos !== '' ? parseNum(ak.pos) : '',
           ak.duzeltme !== undefined && ak.duzeltme !== '' ? parseNum(ak.duzeltme) : '',
           gunSonu !== '' ? Number(gunSonu) : ''
@@ -1143,17 +1144,17 @@ export function GirisCikisPage() {
             </div>
 
             {/* Body: Split into Sol (POSLAR + Özet) and Sağ (GİRİŞ HAREKETLERİ) with subtle gap */}
-            <div className="grid grid-cols-[42%_calc(58%-8px)] gap-2 items-start">
+            <div className="grid grid-cols-[38%_calc(62%-8px)] gap-2 items-start">
               
               {/* --- SOL ALT SÜTUN: POSLAR TABLOSU VE GİRİŞ/ÇIKIŞ ÖZETLERİ --- */}
               <div className="border-2 border-black bg-white shadow-sm flex flex-col min-w-0">
                 
-                {/* POSLAR Header */}
+                {/* POSLAR Header (Height 34px matching all subheaders across the page) */}
                 <div className="border-b-2 border-black text-center h-[34px] flex items-center justify-center text-xs font-black text-rose-600 tracking-wider uppercase bg-gray-50">
                   POSLAR
                 </div>
 
-                {/* POSLAR 12 Banka Satırı (32px) */}
+                {/* POSLAR 12 Banka Satırı (32px each) */}
                 {posList.map((p, pIdx) => (
                   <div key={p.bank} className="flex divide-x divide-black h-[32px] items-center text-xs border-b border-black">
                     <div className="w-[50%] pl-2 font-bold text-gray-900 text-[11px] text-left truncate">
@@ -1181,29 +1182,35 @@ export function GirisCikisPage() {
                   </div>
                 ))}
 
-                {/* 13) TOPLAM ÜSTÜNE BOŞLUK SATIRI */}
+                {/* 13) TOPLAM ÜSTÜNE BOŞLUK SATIRI 1 */}
                 <div className="h-[32px] border-b border-black bg-white"></div>
 
-                {/* 14) POS TOPLAM */}
+                {/* 14) TOPLAM ÜSTÜNE BOŞLUK SATIRI 2 */}
+                <div className="h-[32px] border-b border-black bg-white"></div>
+
+                {/* 15) POS TOPLAM */}
                 <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-black text-rose-600 bg-rose-50/40">
                   <span className="uppercase">TOPLAM</span>
                   <span className="font-mono text-xs">{formatExcel(posTotal)}</span>
                 </div>
 
-                {/* 15) GİRİŞ TOPLAMI (1 Satır Yukarı Taşındı) */}
+                {/* 16) BOŞLUK SATIRI 3 */}
+                <div className="h-[32px] border-b border-black bg-white"></div>
+
+                {/* 17) GİRİŞ TOPLAMI */}
                 <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-black text-gray-900 bg-white">
                   <span className="uppercase text-[11px]">GİRİŞ TOPLAMI</span>
                   <span className="font-mono text-xs text-gray-950">{formatExcel(girisTotal)}</span>
                 </div>
 
-                {/* 16) ÇIKIŞ TOPLAMI */}
+                {/* 18) ÇIKIŞ TOPLAMI */}
                 <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-black text-gray-900 bg-white">
                   <span className="uppercase text-[11px]">ÇIKIŞ TOPLAMI</span>
                   <span className="font-mono text-xs text-gray-950">{formatExcel(cikisTotal)}</span>
                 </div>
 
-                {/* 17) GİRİŞ-ÇIKIŞ KALANI (Tam DEPO hizasında) */}
-                <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-black bg-white">
+                {/* 19) GİRİŞ-ÇIKIŞ KALANI (Tam DEPO hizasında, index 18) */}
+                <div className="flex items-center justify-between px-2.5 h-[32px] text-xs font-black bg-white">
                   <span className="uppercase text-[11px] text-gray-900">GİRİŞ-ÇIKIŞ KALANI</span>
                   <span className={`font-mono text-xs font-black ${
                     netKalan < 0 ? 'text-rose-600' : 'text-gray-950'
@@ -1212,63 +1219,63 @@ export function GirisCikisPage() {
                   </span>
                 </div>
 
-                {/* 18 - 72+) DEPO'NUN ALTINDAKİ SATIRDAN İTİBAREN SOL TARAF: D23+ POS'U ÇEKEN CARİLER */}
-                {Array.from({ length: Math.max(0, girisList.length - 18) }).map((_, fIdx) => {
-                  const targetIdx = 18 + fIdx;
-                  const g = girisList[targetIdx] || { posCari: '', description: '', bankOrType: '', amount: '' };
-
-                  return (
-                    <div key={fIdx} className="h-[32px] border-b border-black bg-white flex items-center px-1">
-                      <input
-                        type="text"
-                        placeholder=""
-                        value={g.posCari || ''}
-                        onChange={(e) => {
-                          isUserDirtyRef.current = true;
-                          const val = e.target.value;
-                          setGirisList(prev => prev.map((item, i) => i === targetIdx ? { ...item, posCari: val } : item));
-                        }}
-                        onKeyDown={(e) => handleKeyDown(e, 'pos-cari', targetIdx)}
-                        data-col="pos-cari"
-                        data-row={targetIdx}
-                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pr-2 text-right text-xs font-bold uppercase text-gray-900 truncate"
-                        title={g.posCari || ''}
-                      />
-                    </div>
-                  );
-                })}
-
               </div>
 
               {/* --- SAĞ ALT SÜTUN: GİRİŞ HAREKETLERİ LİSTESİ --- */}
               <div className="border-2 border-black bg-white shadow-sm flex flex-col">
                 
+                {/* GİRİŞ HAREKETLERİ Subheaders (Exact 34px to align with POSLAR, ÇIKIŞ and ANA KASA) */}
+                <div className="flex divide-x divide-black border-b-2 border-black bg-gray-50 h-[34px] items-center text-xs font-black uppercase text-gray-800 tracking-wider">
+                  <div className="w-[48%] pl-2 text-left">AÇIKLAMA / CARİ</div>
+                  <div className="w-[24%] pl-2 text-left">BANKA / TÜR</div>
+                  <div className="w-[28%] pr-2 text-right">TUTAR</div>
+                </div>
+
+                {/* Data Rows */}
                 {girisList.map((g, index) => {
                   const isRed = isRedLabel(g.description);
                   const isDevir = index === 0;
 
                   return (
                     <div key={index} className="flex divide-x divide-black h-[32px] items-center text-xs border-b border-black last:border-b-0">
-                      {/* Açıklama / Şube / Cari / Banka (E Sütunu) */}
-                      <div className="w-[60%] h-full flex items-center">
+                      {/* Açıklama / Şube / Cari */}
+                      <div className="w-[48%] h-full flex items-center">
                         <input
                           type="text"
-                          className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-xs uppercase font-black ${
-                            isRed ? 'text-rose-600 font-black' : 'text-gray-900'
+                          className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-xs uppercase ${
+                            isRed ? 'text-rose-600 font-black' : 'text-gray-900 font-bold'
                           }`}
                           value={g.description}
                           onChange={(e) => {
                             isUserDirtyRef.current = true;
                             const val = e.target.value;
-                            setGirisList(prev => prev.map((item, i) => i === index ? { ...item, description: val, bankOrType: '' } : item));
+                            setGirisList(prev => prev.map((item, i) => i === index ? { ...item, description: val } : item));
                           }}
                           onKeyDown={(e) => handleKeyDown(e, 'giris-desc', index)}
                           data-col="giris-desc"
                           data-row={index}
                         />
                       </div>
-                      {/* Tutar (F Sütunu) */}
-                      <div className="w-[40%] h-full flex items-center justify-end pr-1">
+
+                      {/* Banka / Tür */}
+                      <div className="w-[24%] h-full flex items-center">
+                        <input
+                          type="text"
+                          className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-xs uppercase font-bold text-gray-800"
+                          value={g.bankOrType || ''}
+                          onChange={(e) => {
+                            isUserDirtyRef.current = true;
+                            const val = e.target.value;
+                            setGirisList(prev => prev.map((item, i) => i === index ? { ...item, bankOrType: val } : item));
+                          }}
+                          onKeyDown={(e) => handleKeyDown(e, 'giris-bank', index)}
+                          data-col="giris-bank"
+                          data-row={index}
+                        />
+                      </div>
+
+                      {/* Tutar */}
+                      <div className="w-[28%] h-full flex items-center justify-end pr-1">
                         <input
                           type="text"
                           className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-xs font-black font-mono ${
@@ -1298,7 +1305,7 @@ export function GirisCikisPage() {
                 {/* Footer Total & Add Row */}
                 <div className="border-t-2 border-black bg-emerald-50/80 p-2.5 flex items-center justify-between text-emerald-950 font-black text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold">GİRİŞ TOPLAMI (F66):</span>
+                    <span className="font-bold">GİRİŞ TOPLAMI:</span>
                     <button
                       type="button"
                       onClick={addTenRows}
