@@ -335,48 +335,56 @@ async function processGirisCikisWorkbook(wb, filePath) {
       excelNetKalan = cleanNum(ws['C22'].v);
     }
 
-    // 2. DYNAMICALLY DETECT BOTTOM 3 SUMMARY ROWS IN COLUMN R
-    // [TOPLAM KASA BAKİYESİ, GİRİŞ-ÇIKIŞ KALANI, KASA: 0]
-    const rCells = [];
-    for (let r = 20; r <= 65; r++) {
-      const cell = ws['R' + r];
-      if (cell && cell.v !== undefined && cell.v !== '') {
-        rCells.push({ r, v: cleanNum(cell.v), f: (cell.f || '') });
-      }
-    }
-
-    let netKalanIndex = -1;
-    for (let i = rCells.length - 1; i >= 0; i--) {
-      const isFormulaC22 = rCells[i].f.toUpperCase().includes('C22');
-      const isValMatch = excelNetKalan !== null && Math.abs(rCells[i].v - excelNetKalan) < 0.01;
-      if (isFormulaC22 || isValMatch) {
-        netKalanIndex = i;
-        break;
-      }
-    }
-
-    let summaryRowMin = 999;
+    // 2. DIRECT EXCEL R41, R42, R43 EXTRACTION
+    // In the user's Excel sheet, R41 = TOPLAM KASA BAKİYESİ, R42 = GİRİŞ-ÇIKIŞ KALANI, R43 = KASA
+    let summaryRowMin = 41;
     let excelAnaKasaTotal = null;
     let excelKasaFarki = 0;
 
-    if (netKalanIndex > 0) {
-      excelAnaKasaTotal = rCells[netKalanIndex - 1].v;
-      summaryRowMin = rCells[netKalanIndex - 1].r;
-      if (excelNetKalan === null) excelNetKalan = rCells[netKalanIndex].v;
-      if (netKalanIndex + 1 < rCells.length) {
-        excelKasaFarki = rCells[netKalanIndex + 1].v;
+    if (ws['R41'] && ws['R41'].v !== undefined && ws['R41'].v !== '' &&
+        ws['R42'] && ws['R42'].v !== undefined && ws['R42'].v !== '') {
+      excelAnaKasaTotal = cleanNum(ws['R41'].v);
+      excelNetKalan = cleanNum(ws['R42'].v);
+      excelKasaFarki = (ws['R43'] && ws['R43'].v !== undefined && ws['R43'].v !== '') ? cleanNum(ws['R43'].v) : 0;
+      summaryRowMin = 41;
+    } else {
+      const rCells = [];
+      for (let r = 20; r <= 65; r++) {
+        const cell = ws['R' + r];
+        if (cell && cell.v !== undefined && cell.v !== '') {
+          rCells.push({ r, v: cleanNum(cell.v), f: (cell.f || '') });
+        }
       }
-    } else if (rCells.length >= 3) {
-      const last3 = rCells.slice(-3);
-      excelAnaKasaTotal = last3[0].v;
-      summaryRowMin = last3[0].r;
-      if (excelNetKalan === null) excelNetKalan = last3[1].v;
-      excelKasaFarki = last3[2].v;
-    } else if (rCells.length === 2) {
-      const last2 = rCells.slice(-2);
-      excelAnaKasaTotal = last2[0].v;
-      summaryRowMin = last2[0].r;
-      excelKasaFarki = last2[1].v;
+
+      let netKalanIndex = -1;
+      for (let i = rCells.length - 1; i >= 0; i--) {
+        const isFormulaC22 = rCells[i].f.toUpperCase().includes('C22');
+        const isValMatch = excelNetKalan !== null && Math.abs(rCells[i].v - excelNetKalan) < 0.01;
+        if (isFormulaC22 || isValMatch) {
+          netKalanIndex = i;
+          break;
+        }
+      }
+
+      if (netKalanIndex > 0) {
+        excelAnaKasaTotal = rCells[netKalanIndex - 1].v;
+        summaryRowMin = rCells[netKalanIndex - 1].r;
+        if (excelNetKalan === null) excelNetKalan = rCells[netKalanIndex].v;
+        if (netKalanIndex + 1 < rCells.length) {
+          excelKasaFarki = rCells[netKalanIndex + 1].v;
+        }
+      } else if (rCells.length >= 3) {
+        const last3 = rCells.slice(-3);
+        excelAnaKasaTotal = last3[0].v;
+        summaryRowMin = last3[0].r;
+        if (excelNetKalan === null) excelNetKalan = last3[1].v;
+        excelKasaFarki = last3[2].v;
+      } else if (rCells.length === 2) {
+        const last2 = rCells.slice(-2);
+        excelAnaKasaTotal = last2[0].v;
+        summaryRowMin = last2[0].r;
+        excelKasaFarki = last2[1].v;
+      }
     }
 
     // 3. PARSE ANA KASA ACCOUNT ROWS (STRICTLY ABOVE summaryRowMin)
