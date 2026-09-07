@@ -183,31 +183,31 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                   {/* MERKEZ */}
                   <div className="grid grid-cols-[55%_45%] h-[28px] items-center border-b border-gray-300">
                     <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">MERKEZ</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(merkezTotal)}</span>
+                    <span className="font-black text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(merkezTotal)}</span>
                   </div>
 
                   {/* MERZİFON */}
                   <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300">
                     <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">MERZİFON</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(merzifonTotal)}</span>
+                    <span className="font-black text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(merzifonTotal)}</span>
                   </div>
 
                   {/* ATAKUM */}
                   <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300">
                     <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">ATAKUM</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(atakumTotal)}</span>
+                    <span className="font-black text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(atakumTotal)}</span>
                   </div>
 
                   {/* İLKADIM */}
                   <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300">
                     <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">İLKADIM</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(ilkadimTotal)}</span>
+                    <span className="font-black text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(ilkadimTotal)}</span>
                   </div>
 
                   {/* DEPO */}
                   <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-black">
                     <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">DEPO</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(depoTotal)}</span>
+                    <span className="font-black text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(depoTotal)}</span>
                   </div>
                 </div>
 
@@ -336,9 +336,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                   </div>
                 </div>
                 {/* Total Box in F10 */}
-                <div className="grid grid-cols-[48%_52%] h-[28px]">
+                <div className="grid grid-cols-[48%_52%] h-[30px]">
                   <div></div>
-                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
+                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-black text-[15.5px] text-black bg-white tracking-tight">
                     {formatTotal(merkezTotal)}
                   </div>
                 </div>
@@ -420,9 +420,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                   </div>
                 </div>
                 {/* Total Box in F19 */}
-                <div className="grid grid-cols-[48%_52%] h-[28px]">
+                <div className="grid grid-cols-[48%_52%] h-[30px]">
                   <div></div>
-                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
+                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-black text-[15.5px] text-black bg-white tracking-tight">
                     {formatTotal(atakumTotal)}
                   </div>
                 </div>
@@ -494,9 +494,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                   </div>
                 </div>
                 {/* Total Box in I10 */}
-                <div className="grid grid-cols-[48%_52%] h-[28px]">
+                <div className="grid grid-cols-[48%_52%] h-[30px]">
                   <div></div>
-                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
+                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-black text-[15.5px] text-black bg-white tracking-tight">
                     {formatTotal(merzifonTotal)}
                   </div>
                 </div>
@@ -561,9 +561,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                   </div>
                 </div>
                 {/* Total Box in I19 */}
-                <div className="grid grid-cols-[48%_52%] h-[28px]">
+                <div className="grid grid-cols-[48%_52%] h-[30px]">
                   <div></div>
-                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
+                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-black text-[15.5px] text-black bg-white tracking-tight">
                     {formatTotal(ilkadimTotal)}
                   </div>
                 </div>
@@ -621,9 +621,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                   </div>
                   
                   {/* KASA KALAN in Red Bold (Row 28) */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300 bg-white">
-                    <span className="font-black text-red-600 uppercase text-[12px] border-r border-black h-full flex items-center justify-center text-center">KASA KALAN</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(depoKasaKalan)}</span>
+                  <div className="grid grid-cols-[48%_52%] h-[30px] items-center border-b border-gray-300 bg-white">
+                    <span className="font-black text-red-600 uppercase text-[13px] border-r border-black h-full flex items-center justify-center text-center tracking-wide">KASA KALAN</span>
+                    <span className="font-black text-black pr-2 text-right text-[15.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(depoKasaKalan)}</span>
                   </div>
 
                   {/* MERZİFON ŞUBE DEVİR (Row 29) */}
@@ -656,16 +656,16 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                 </div>
 
                 {/* Total Box in I31 */}
-                <div className="grid grid-cols-[48%_52%] h-[28px]">
+                <div className="grid grid-cols-[48%_52%] h-[30px]">
                   <div></div>
-                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
+                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-black text-[15.5px] text-black bg-white tracking-tight">
                     {formatTotal(depoTotal)}
                   </div>
                 </div>
               </div>
 
               {/* Bottom Right Grand Total: 512.422,00 (Row 33 in Excel) */}
-              <div className="flex justify-end items-center pr-1 pt-1 font-bold text-[13.5px] text-gray-950 tracking-tight">
+              <div className="flex justify-end items-center pr-1 pt-1 font-black text-[16px] text-black tracking-tight">
                 {formatTotal(grandTotal)}
               </div>
 
