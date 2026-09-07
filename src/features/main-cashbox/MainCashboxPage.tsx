@@ -2019,6 +2019,7 @@ export function MainCashboxPage() {
                 {/* ========================================================= */}
                 <div className="print-page-2 w-full">
                   <RaporArkaSayfaCard
+                    key={`${selectedDate}_${JSON.stringify(arkaSayfaData)}`}
                     data={arkaSayfaData}
                     onChange={(newArka) => {
                       setArkaSayfaData(newArka);

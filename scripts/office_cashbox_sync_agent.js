@@ -478,7 +478,8 @@ function parseArkaSayfa(sheet) {
       cikis: val(rValCol + '23'),
       devir: val(rValCol + '24'),
       merzifonSubeDevir: val(rValCol + '29'),
-      anaKasaDevir: val(rValCol + '30')
+      anaKasaDevir: val(rValCol + '30'),
+      toplam: val(rValCol + '31')
     },
     cariler
   };
