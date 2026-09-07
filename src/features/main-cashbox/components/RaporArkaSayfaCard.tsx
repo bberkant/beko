@@ -181,9 +181,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
   const emptyCariCount = Math.max(0, minCariRows - carilerList.length);
 
   return (
-    <div className="flex flex-col text-gray-900 print-card animate-fadeIn" style={{ fontFamily: 'Calibri, "Segoe UI", Arial, sans-serif' }}>
+    <div className="flex flex-col text-gray-900 print-card animate-fadeIn w-full max-w-full" style={{ fontFamily: 'Calibri, "Segoe UI", Arial, sans-serif' }}>
       {/* Outer Container with solid 2px black border matching Ön Yüz */}
-      <div className="border-2 border-black bg-white shadow-sm overflow-hidden flex flex-col">
+      <div className="border-2 border-black bg-white shadow-sm overflow-hidden flex flex-col w-full">
         
         {/* Main Header Banner matching Ön Yüz */}
         <div className="border-b-2 border-black bg-[#cfd5dd] h-[40px] flex items-center justify-between px-3 text-black font-black text-[18px] tracking-widest uppercase mb-[-2px] z-10">
@@ -207,70 +207,70 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
           </div>
         </div>
 
-        {/* Excel 3-Column Layout: Column 1 (Left Tall Card) | Column 2 (Middle 2 Cards) | Column 3 (Right 3 Cards) */}
-        <div className="p-3 bg-white">
-          <div className="grid grid-cols-1 lg:grid-cols-[38%_31%_31%] gap-3.5 items-start">
+        {/* Excel 3-Column Layout: Perfectly fitting 100% width with fr units and NO overflow */}
+        <div className="p-2.5 bg-white w-full box-border">
+          <div className="grid grid-cols-1 xl:grid-cols-[1.25fr_1fr_1fr] gap-2.5 items-start w-full min-w-0">
             
             {/* ========================================================= */}
             {/* SÜTUN 1 (SOL): ŞUBELER ÖZETİ + CARİLER / TAHSİLATLAR      */}
             {/* ========================================================= */}
-            <div className="flex flex-col">
+            <div className="flex flex-col w-full min-w-0">
               {/* Date Header like Excel Cell B2 */}
               <div className="h-[26px] flex items-center font-bold text-[14px] text-gray-950 pl-1">
                 {formattedDateTitle}
               </div>
 
-              {/* Tall Box (B3:C25 in Excel) */}
-              <div className="border-2 border-black bg-white flex flex-col">
+              {/* Tall Box (B3:C25 in Excel) with solid black border */}
+              <div className="border-[1.5px] border-black bg-white flex flex-col w-full">
                 
-                {/* 1. ŞUBE ÖZETİ (Rows 3-7) */}
-                <div className="divide-y divide-dotted divide-gray-400 text-xs">
+                {/* 1. ŞUBE ÖZETİ (Rows 3-7) - Clean solid lines */}
+                <div className="flex flex-col text-xs">
                   
                   {/* MERKEZ */}
-                  <div className="grid grid-cols-[55%_45%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px]">MERKEZ</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px]">{formatTotal(merkezTotal)}</span>
+                  <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">MERKEZ</span>
+                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(merkezTotal)}</span>
                   </div>
 
                   {/* MERZİFON */}
-                  <div className="grid grid-cols-[55%_45%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px]">MERZİFON</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px]">{formatTotal(merzifonTotal)}</span>
+                  <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">MERZİFON</span>
+                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(merzifonTotal)}</span>
                   </div>
 
                   {/* ATAKUM */}
-                  <div className="grid grid-cols-[55%_45%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px]">ATAKUM</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px]">{formatTotal(atakumTotal)}</span>
+                  <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">ATAKUM</span>
+                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(atakumTotal)}</span>
                   </div>
 
                   {/* İLKADIM */}
-                  <div className="grid grid-cols-[55%_45%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px]">İLKADIM</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px]">{formatTotal(ilkadimTotal)}</span>
+                  <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">İLKADIM</span>
+                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(ilkadimTotal)}</span>
                   </div>
 
                   {/* DEPO */}
-                  <div className="grid grid-cols-[55%_45%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px]">DEPO</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px]">{formatTotal(depoTotal)}</span>
+                  <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-black">
+                    <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">DEPO</span>
+                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(depoTotal)}</span>
                   </div>
                 </div>
 
-                {/* Empty Divider Row (Row 8 in Excel) */}
-                <div className="grid grid-cols-[55%_45%] h-[24px] border-t-2 border-b-2 border-black divide-x-2 divide-black bg-gray-50/40">
-                  <div></div>
-                  <div></div>
+                {/* Empty Divider Row (Row 8 in Excel) - Solid clean lines */}
+                <div className="grid grid-cols-[55%_45%] h-[22px] border-b border-black bg-white">
+                  <div className="border-r border-black h-full"></div>
+                  <div className="h-full"></div>
                 </div>
 
-                {/* 2. CARİLER / TAHSİLATLAR (Rows 9-25) */}
-                <div className="divide-y divide-dotted divide-gray-400 text-xs flex-1">
+                {/* 2. CARİLER / TAHSİLATLAR (Rows 9-25) - Clean single solid lines */}
+                <div className="flex flex-col text-xs flex-1">
                   {carilerList.map((cari, idx) => (
-                    <div key={idx} className="grid grid-cols-[55%_45%] h-[26px] items-center divide-x-2 divide-black group relative">
-                      <div className="h-full flex items-center pl-2 overflow-hidden">
+                    <div key={idx} className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300 group relative">
+                      <div className="h-full flex items-center pl-2 border-r border-black overflow-hidden">
                         <input
                           type="text"
-                          className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-left text-[12.5px] uppercase font-bold text-gray-900 tracking-tight"
+                          className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-blue-50/40 text-left text-[12.5px] uppercase font-bold text-gray-900 tracking-tight"
                           defaultValue={cari.name}
                           placeholder=""
                           disabled={!isStaff}
@@ -280,7 +280,7 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                       <div className="h-full flex items-center justify-end pr-2 relative">
                         <input
                           type="text"
-                          className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-right text-[13px] font-bold text-gray-950 pr-1"
+                          className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-blue-50/40 text-right text-[13px] font-bold text-gray-950 pr-1"
                           defaultValue={formatNumber(cari.amount)}
                           placeholder=""
                           disabled={!isStaff}
@@ -300,10 +300,10 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                     </div>
                   ))}
 
-                  {/* Empty rows to fill card height matching Excel */}
+                  {/* Empty rows with clean single solid lines to fill card height matching Excel */}
                   {Array.from({ length: emptyCariCount }).map((_, i) => (
-                    <div key={`empty-cari-${i}`} className="grid grid-cols-[55%_45%] h-[26px] items-center divide-x-2 divide-black">
-                      <div className="h-full"></div>
+                    <div key={`empty-cari-${i}`} className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300 last:border-b-0">
+                      <div className="h-full border-r border-black"></div>
                       <div className="h-full"></div>
                     </div>
                   ))}
@@ -329,133 +329,139 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
             {/* ========================================================= */}
             {/* SÜTUN 2 (ORTA): MERKEZ & ATAKUM KUTULARI                  */}
             {/* ========================================================= */}
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-5 w-full min-w-0">
               {/* Spacer matching date header height */}
               <div className="h-[26px]"></div>
 
               {/* 1. KUTU: MERKEZ (E3:F10) */}
-              <div className="border-2 border-black bg-white flex flex-col">
+              <div className="border-[1.5px] border-black bg-white flex flex-col w-full">
                 {/* Header */}
-                <div className="border-b-2 border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
+                <div className="border-b-[1.5px] border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
                   MERKEZ
                 </div>
-                {/* Rows */}
-                <div className="divide-y divide-dotted divide-gray-400 text-xs">
+                {/* Rows with clean solid single lines */}
+                <div className="flex flex-col text-xs">
                   {/* NAKİT */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">NAKİT</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">NAKİT</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.merkez?.nakit)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('merkez', 'nakit', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* ÇIKIŞ */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">ÇIKIŞ</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">ÇIKIŞ</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.merkez?.cikis)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('merkez', 'cikis', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* POS */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">POS</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">POS</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.merkez?.pos)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('merkez', 'pos', parseNumber(e.target.value))}
                     />
                   </div>
-                  {/* Empty dotted rows matching Excel */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] divide-x-2 divide-black"><div></div><div></div></div>
-                  <div className="grid grid-cols-[48%_52%] h-[26px] divide-x-2 divide-black"><div></div><div></div></div>
+                  {/* Empty rows matching Excel with single solid lines */}
+                  <div className="grid grid-cols-[48%_52%] h-[26px] border-b border-gray-300">
+                    <div className="border-r border-black h-full"></div>
+                    <div className="h-full"></div>
+                  </div>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] border-b border-black">
+                    <div className="border-r border-black h-full"></div>
+                    <div className="h-full"></div>
+                  </div>
                 </div>
                 {/* Total Box in F10 */}
-                <div className="grid grid-cols-[48%_52%] h-[28px] border-t-2 border-black">
+                <div className="grid grid-cols-[48%_52%] h-[28px]">
                   <div></div>
-                  <div className="border-l-2 border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
+                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
                     {formatTotal(merkezTotal)}
                   </div>
                 </div>
               </div>
 
               {/* 2. KUTU: ATAKUM (E12:F19) */}
-              <div className="border-2 border-black bg-white flex flex-col">
+              <div className="border-[1.5px] border-black bg-white flex flex-col w-full">
                 {/* Header */}
-                <div className="border-b-2 border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
+                <div className="border-b-[1.5px] border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
                   ATAKUM
                 </div>
-                {/* Rows */}
-                <div className="divide-y divide-dotted divide-gray-400 text-xs">
+                {/* Rows with clean solid single lines */}
+                <div className="flex flex-col text-xs">
                   {/* ATAKUM */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">ATAKUM</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">ATAKUM</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.atakum?.nakit)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('atakum', 'nakit', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* KUVEYT */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">KUVEYT</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">KUVEYT</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.atakum?.kuveyt)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('atakum', 'kuveyt', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* HALK */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">HALK</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">HALK</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.atakum?.halk)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('atakum', 'halk', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* GARANTİ */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">GARANTİ</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">GARANTİ</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.atakum?.garanti)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('atakum', 'garanti', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* ALBARAKA */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">ALBARAKA</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">ALBARAKA</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.atakum?.albaraka)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('atakum', 'albaraka', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* ZİRAAT */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">ZİRAAT</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-black">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">ZİRAAT</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.atakum?.ziraat)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('atakum', 'ziraat', parseNumber(e.target.value))}
@@ -463,9 +469,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                   </div>
                 </div>
                 {/* Total Box in F19 */}
-                <div className="grid grid-cols-[48%_52%] h-[28px] border-t-2 border-black">
+                <div className="grid grid-cols-[48%_52%] h-[28px]">
                   <div></div>
-                  <div className="border-l-2 border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
+                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
                     {formatTotal(atakumTotal)}
                   </div>
                 </div>
@@ -477,197 +483,209 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
             {/* ========================================================= */}
             {/* SÜTUN 3 (SAĞ): MERZİFON, İLKADIM & DEPO KUTULARI          */}
             {/* ========================================================= */}
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-5 w-full min-w-0">
               {/* Spacer matching date header height */}
               <div className="h-[26px]"></div>
 
               {/* 1. KUTU: MERZİFON (H3:I10) */}
-              <div className="border-2 border-black bg-white flex flex-col">
+              <div className="border-[1.5px] border-black bg-white flex flex-col w-full">
                 {/* Header */}
-                <div className="border-b-2 border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
+                <div className="border-b-[1.5px] border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
                   MERZİFON
                 </div>
-                {/* Rows */}
-                <div className="divide-y divide-dotted divide-gray-400 text-xs">
+                {/* Rows with clean solid single lines */}
+                <div className="flex flex-col text-xs">
                   {/* MERZİFON */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">MERZİFON</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">MERZİFON</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.merzifon?.nakit)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('merzifon', 'nakit', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* GARANTİ */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">GARANTİ</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">GARANTİ</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.merzifon?.garanti)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('merzifon', 'garanti', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* ZİRAAT */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">ZİRAAT</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">ZİRAAT</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.merzifon?.ziraat)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('merzifon', 'ziraat', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* AKBANK */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">AKBANK</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">AKBANK</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.merzifon?.akbank)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('merzifon', 'akbank', parseNumber(e.target.value))}
                     />
                   </div>
-                  {/* Empty dotted row */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] divide-x-2 divide-black"><div></div><div></div></div>
+                  {/* Empty row */}
+                  <div className="grid grid-cols-[48%_52%] h-[26px] border-b border-black">
+                    <div className="border-r border-black h-full"></div>
+                    <div className="h-full"></div>
+                  </div>
                 </div>
                 {/* Total Box in I10 */}
-                <div className="grid grid-cols-[48%_52%] h-[28px] border-t-2 border-black">
+                <div className="grid grid-cols-[48%_52%] h-[28px]">
                   <div></div>
-                  <div className="border-l-2 border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
+                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
                     {formatTotal(merzifonTotal)}
                   </div>
                 </div>
               </div>
 
               {/* 2. KUTU: İLKADIM (H12:I19) */}
-              <div className="border-2 border-black bg-white flex flex-col">
+              <div className="border-[1.5px] border-black bg-white flex flex-col w-full">
                 {/* Header */}
-                <div className="border-b-2 border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
+                <div className="border-b-[1.5px] border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
                   İLKADIM
                 </div>
-                {/* Rows */}
-                <div className="divide-y divide-dotted divide-gray-400 text-xs">
+                {/* Rows with clean solid single lines */}
+                <div className="flex flex-col text-xs">
                   {/* İLKADIM */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">İLKADIM</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">İLKADIM</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.ilkadim?.nakit)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('ilkadim', 'nakit', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* ZİRAAT */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">ZİRAAT</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">ZİRAAT</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.ilkadim?.ziraat)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('ilkadim', 'ziraat', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* DENİZ */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">DENİZ</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">DENİZ</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.ilkadim?.deniz)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('ilkadim', 'deniz', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* KUVEYT */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">KUVEYT</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">KUVEYT</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.ilkadim?.kuveyt)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('ilkadim', 'kuveyt', parseNumber(e.target.value))}
                     />
                   </div>
-                  {/* Empty dotted row */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] divide-x-2 divide-black"><div></div><div></div></div>
+                  {/* Empty row */}
+                  <div className="grid grid-cols-[48%_52%] h-[26px] border-b border-black">
+                    <div className="border-r border-black h-full"></div>
+                    <div className="h-full"></div>
+                  </div>
                 </div>
                 {/* Total Box in I19 */}
-                <div className="grid grid-cols-[48%_52%] h-[28px] border-t-2 border-black">
+                <div className="grid grid-cols-[48%_52%] h-[28px]">
                   <div></div>
-                  <div className="border-l-2 border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
+                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
                     {formatTotal(ilkadimTotal)}
                   </div>
                 </div>
               </div>
 
               {/* 3. KUTU: DEPO (H21:I31) */}
-              <div className="border-2 border-black bg-white flex flex-col">
+              <div className="border-[1.5px] border-black bg-white flex flex-col w-full">
                 {/* Header */}
-                <div className="border-b-2 border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
+                <div className="border-b-[1.5px] border-black text-center py-1 font-black text-[13px] uppercase tracking-wider text-gray-950 bg-white">
                   DEPO
                 </div>
-                {/* Rows */}
-                <div className="divide-y divide-dotted divide-gray-400 text-xs">
+                {/* Rows with clean solid single lines */}
+                <div className="flex flex-col text-xs">
                   {/* GİRİŞ */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">GİRİŞ</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">GİRİŞ</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.depo?.giris)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('depo', 'giris', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* ÇIKIŞ */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">ÇIKIŞ</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">ÇIKIŞ</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.depo?.cikis)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('depo', 'cikis', parseNumber(e.target.value))}
                     />
                   </div>
                   {/* DEVİR */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px]">DEVİR</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">DEVİR</span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.depo?.devir)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('depo', 'devir', parseNumber(e.target.value))}
                     />
                   </div>
-                  {/* 2 Empty dotted rows */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] divide-x-2 divide-black"><div></div><div></div></div>
-                  <div className="grid grid-cols-[48%_52%] h-[26px] divide-x-2 divide-black"><div></div><div></div></div>
+                  {/* 2 Empty rows */}
+                  <div className="grid grid-cols-[48%_52%] h-[26px] border-b border-gray-300">
+                    <div className="border-r border-black h-full"></div>
+                    <div className="h-full"></div>
+                  </div>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] border-b border-black">
+                    <div className="border-r border-black h-full"></div>
+                    <div className="h-full"></div>
+                  </div>
                   
                   {/* KASA KALAN in Red Bold (Row 28) */}
-                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center divide-x-2 divide-black bg-white">
-                    <span className="font-black text-red-600 pl-2 uppercase text-[12px]">KASA KALAN</span>
-                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px]">{formatTotal(depoKasaKalan)}</span>
+                  <div className="grid grid-cols-[48%_52%] h-[26px] items-center border-b border-gray-300 bg-white">
+                    <span className="font-black text-red-600 pl-2 uppercase text-[12px] border-r border-black h-full flex items-center">KASA KALAN</span>
+                    <span className="font-bold text-gray-950 pr-2 text-right text-[13px] h-full flex items-center justify-end">{formatTotal(depoKasaKalan)}</span>
                   </div>
 
                   {/* MERZİFON ŞUBE DEVİR (Row 29) */}
-                  <div className="grid grid-cols-[48%_52%] h-[28px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 text-center uppercase text-[11px] leading-tight px-1">
+                  <div className="grid grid-cols-[48%_52%] h-[28px] items-center border-b border-gray-300">
+                    <span className="font-bold text-gray-900 text-center uppercase text-[11px] leading-tight px-1 border-r border-black h-full flex items-center justify-center">
                       MERZİFON<br/>ŞUBE DEVİR
                     </span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.depo?.merzifonSubeDevir)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('depo', 'merzifonSubeDevir', parseNumber(e.target.value))}
@@ -675,13 +693,13 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                   </div>
 
                   {/* ANA KASA DEVİR (Row 30) */}
-                  <div className="grid grid-cols-[48%_52%] h-[28px] items-center divide-x-2 divide-black">
-                    <span className="font-bold text-gray-900 text-center uppercase text-[11px] leading-tight px-1">
+                  <div className="grid grid-cols-[48%_52%] h-[28px] items-center border-b border-black">
+                    <span className="font-bold text-gray-900 text-center uppercase text-[11px] leading-tight px-1 border-r border-black h-full flex items-center justify-center">
                       ANA KASA<br/>DEVİR
                     </span>
                     <input
                       type="text"
-                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-950"
+                      className="w-full h-full bg-transparent text-right pr-2 font-bold text-[13px] border-0 focus:outline-none focus:bg-blue-50/40 text-gray-950"
                       defaultValue={formatNumber(localData.depo?.anaKasaDevir)}
                       disabled={!isStaff}
                       onBlur={(e) => updateField('depo', 'anaKasaDevir', parseNumber(e.target.value))}
@@ -690,9 +708,9 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                 </div>
 
                 {/* Total Box in I31 */}
-                <div className="grid grid-cols-[48%_52%] h-[28px] border-t-2 border-black">
+                <div className="grid grid-cols-[48%_52%] h-[28px]">
                   <div></div>
-                  <div className="border-l-2 border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
+                  <div className="border-l-[1.5px] border-black h-full flex items-center justify-end pr-2 font-bold text-[13px] text-gray-950 bg-white">
                     {formatTotal(depoTotal)}
                   </div>
                 </div>
