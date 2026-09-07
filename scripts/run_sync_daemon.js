@@ -528,6 +528,113 @@ async function processAnaKasaWorkbook(wb, filePath) {
   }
 }
 
+function parseDynamicBank(ws, bankName, startSearchRow, isRight) {
+  if (!ws) return null;
+  const colAmtOut = isRight ? 'F' : 'A';
+  const colDescOut = isRight ? 'G' : 'B';
+  const colAmtIn = isRight ? 'H' : 'C';
+  const colDescIn = isRight ? 'I' : 'D';
+
+  let headerRow = -1;
+  for (let r = startSearchRow; r <= startSearchRow + 40; r++) {
+    const cellVal = String(ws[colAmtOut + r]?.v || '').trim().toUpperCase();
+    if (cellVal.includes(bankName.toUpperCase())) {
+      headerRow = r;
+      break;
+    }
+  }
+  if (headerRow === -1) return null;
+
+  let diffRow = -1;
+  for (let r = headerRow + 1; r <= headerRow + 80; r++) {
+    const c1 = String(ws[colDescOut + r]?.v || '').trim().toUpperCase();
+    const c2 = String(ws[colAmtIn + r]?.v || '').trim().toUpperCase();
+    const c3 = String(ws[colDescIn + r]?.v || '').trim().toUpperCase();
+    if (c1.includes('ALDIK') || c1.includes('YATAN') || 
+        c2.includes('ALDIK') || c2.includes('YATAN') || 
+        c3.includes('ALDIK') || c3.includes('YATAN')) {
+      diffRow = r;
+      break;
+    }
+  }
+  if (diffRow === -1) return null;
+
+  const totalRow = diffRow - 1;
+  const outflows = {};
+  const inflows = {};
+  let maxRowIndex = -1;
+
+  let rowIndex = 0;
+  for (let r = headerRow + 1; r < totalRow; r++) {
+    const outAmt = cleanNum(ws[colAmtOut + r]?.v);
+    const outDesc = String(ws[colDescOut + r]?.v || '').trim();
+    const inAmt = cleanNum(ws[colAmtIn + r]?.v);
+    const inDesc = String(ws[colDescIn + r]?.v || '').trim();
+
+    if (outAmt !== null || outDesc !== '' || inAmt !== null || inDesc !== '') {
+      maxRowIndex = Math.max(maxRowIndex, rowIndex);
+      if (outAmt !== null || outDesc !== '') {
+        outflows[rowIndex] = { amount: outAmt, description: outDesc };
+      }
+      if (inAmt !== null || inDesc !== '') {
+        inflows[rowIndex] = { amount: inAmt, description: inDesc };
+      }
+    }
+    rowIndex++;
+  }
+
+  const calcTotalOut = Object.values(outflows).reduce((s, x) => s + (x.amount || 0), 0);
+  const calcTotalIn = Object.values(inflows).reduce((s, x) => s + (x.amount || 0), 0);
+
+  const totalOut = cleanNum(ws[colAmtOut + totalRow]?.v) ?? calcTotalOut;
+  const totalIn = cleanNum(ws[colAmtIn + totalRow]?.v) ?? calcTotalIn;
+
+  const diffValRaw = cleanNum(ws[colDescOut + diffRow]?.v) ?? cleanNum(ws[colAmtIn + diffRow]?.v);
+  const diffVal = diffValRaw !== null ? diffValRaw : (totalIn - totalOut);
+
+  const statusText = [
+    String(ws[colDescOut + diffRow]?.v || ''),
+    String(ws[colAmtIn + diffRow]?.v || ''),
+    String(ws[colDescIn + diffRow]?.v || '')
+  ].join(' ').toUpperCase();
+
+  let diffType = 'ALDIK';
+  if (statusText.includes('YATAN')) diffType = 'YATAN';
+  else if (statusText.includes('ALDIK')) diffType = 'ALDIK';
+  else if (diffVal > 0) diffType = 'YATAN';
+
+  return {
+    bankName,
+    outflows,
+    inflows,
+    totalOut,
+    totalIn,
+    diff: diffVal,
+    diffType,
+    maxRowIndex
+  };
+}
+
+function parseGunlukHesapWorkbook(wb) {
+  const s1 = wb.Sheets['Sayfa1'] || wb.Sheets[wb.SheetNames[0]];
+  const s2 = wb.Sheets['Sayfa1 (2)'] || wb.Sheets[wb.SheetNames[1]];
+  const s3 = wb.Sheets['Sayfa1 (3)'] || wb.Sheets[wb.SheetNames[2]];
+
+  return {
+    'HALKBANK': parseDynamicBank(s1, 'HALKBANK', 1, false) || { bankName: 'HALKBANK', outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, diffType: 'ALDIK', maxRowIndex: -1 },
+    'ZİRAAT': parseDynamicBank(s1, 'ZİRAAT', 1, true) || { bankName: 'ZİRAAT', outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, diffType: 'ALDIK', maxRowIndex: -1 },
+    'GARANTİ': parseDynamicBank(s1, 'GARANTİ', 15, false) || { bankName: 'GARANTİ', outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, diffType: 'ALDIK', maxRowIndex: -1 },
+    'AKBANK': parseDynamicBank(s1, 'AKBANK', 15, true) || { bankName: 'AKBANK', outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, diffType: 'ALDIK', maxRowIndex: -1 },
+    'İŞBANK': parseDynamicBank(s2, 'İŞBANK', 1, false) || { bankName: 'İŞBANK', outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, diffType: 'ALDIK', maxRowIndex: -1 },
+    'DENİZ': parseDynamicBank(s2, 'DENİZ', 1, true) || { bankName: 'DENİZ', outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, diffType: 'ALDIK', maxRowIndex: -1 },
+    'ŞEKER/TEB': parseDynamicBank(s2, 'ŞEKER', 10, false) || { bankName: 'ŞEKER/TEB', outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, diffType: 'ALDIK', maxRowIndex: -1 },
+    'YAPI': parseDynamicBank(s2, 'YAPI', 12, true) || { bankName: 'YAPI', outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, diffType: 'ALDIK', maxRowIndex: -1 },
+    'ALBARAKA': parseDynamicBank(s2, 'ALBARAKA', 20, false) || { bankName: 'ALBARAKA', outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, diffType: 'ALDIK', maxRowIndex: -1 },
+    'VAKIF': parseDynamicBank(s2, 'VAKIF', 20, true) || { bankName: 'VAKIF', outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, diffType: 'ALDIK', maxRowIndex: -1 },
+    'KUVEYT': parseDynamicBank(s3, 'KUVEYT', 1, false) || { bankName: 'KUVEYT', outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, diffType: 'ALDIK', maxRowIndex: -1 },
+  };
+}
+
 async function processGunlukHesapWorkbook(wb, filePath) {
   const fileName = path.basename(filePath);
   let reportDate = parseDateFromSheetName(fileName);
@@ -543,18 +650,25 @@ async function processGunlukHesapWorkbook(wb, filePath) {
 
   const ws = wb.Sheets[wb.SheetNames[0]];
   const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+  const banks = parseGunlukHesapWorkbook(wb);
 
-  await supabase
+  const { error } = await supabase
     .from('cashbox_gunluk_hesap_reports')
     .upsert({
       report_date: reportDate,
-      data: { rows: data },
+      data: { rows: data, banks },
       raw_file_name: fileName,
       source: 'office_pc_sync',
       updated_at: new Date().toISOString()
     }, { onConflict: 'report_date' });
 
-  return 1;
+  if (!error) {
+    log(`✔️ [GÜNLÜK HESAP] ${reportDate} raporu (${fileName}) 11 banka verisiyle Supabase'e yüklendi.`);
+    return 1;
+  } else {
+    log(`❌ [HATA] ${reportDate} Günlük Hesap: ${error.message}`);
+    return 0;
+  }
 }
 
 async function processFile(filePath) {

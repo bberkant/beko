@@ -30,6 +30,8 @@ import * as XLSX from 'xlsx';
 import { RaporArkaSayfaCard } from './components/RaporArkaSayfaCard';
 import type { ArkaSayfaData } from './types/arkaSayfa';
 import { defaultArkaSayfaData } from './types/arkaSayfa';
+import type { GunlukHesapBanks, BankAccountData } from './types/gunlukHesap';
+import { DEFAULT_BANK_ORDER, emptyBankData } from './types/gunlukHesap';
 import { CashboxDateFilterBar, SearchResultItem } from './components/CashboxDateFilterBar';
 
 export interface AnaKasaCikisItem {
@@ -73,16 +75,7 @@ interface BankAccount {
   currency: string;
 }
 
-interface BankTransaction {
-  id: string;
-  account_id: string;
-  transaction_date: string;
-  transaction_type: 'giris' | 'cikis';
-  amount: number;
-  counterparty: string;
-  description: string;
-  created_at: string;
-}
+
 
 interface CashboxFormState {
   transaction_date: string;
@@ -97,13 +90,6 @@ interface CashboxFormState {
   exclude_from_report: boolean;
 }
 
-interface BankFormState {
-  transaction_type: 'giris' | 'cikis';
-  amount: string;
-  counterparty: string;
-  description: string;
-}
-
 const emptyCashboxForm = (): CashboxFormState => ({
   transaction_date: new Date().toISOString().split('T')[0],
   transaction_type: 'gelir',
@@ -115,13 +101,6 @@ const emptyCashboxForm = (): CashboxFormState => ({
   bank_account_id: '',
   company: 'Etik Et',
   exclude_from_report: false
-});
-
-const emptyBankForm = (): BankFormState => ({
-  transaction_type: 'giris',
-  amount: '',
-  counterparty: '',
-  description: ''
 });
 
 const defaultCategories = {
@@ -156,7 +135,6 @@ export function MainCashboxPage() {
   // Data States
   const [transactions, setTransactions] = useState<CashboxTransaction[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([]);
   const [loading, setLoading] = useState(false);
   
   // Modals & Forms (Cashbox)
@@ -166,12 +144,6 @@ export function MainCashboxPage() {
   const [savingCashbox, setSavingCashbox] = useState(false);
   const [manualFile, setManualFile] = useState<File | undefined>(undefined);
 
-  // Modals & Forms (Bank Transaction)
-  const [bankOpen, setBankOpen] = useState(false);
-  const [targetAccount, setTargetAccount] = useState<BankAccount | null>(null);
-  const [editingBankTx, setEditingBankTx] = useState<BankTransaction | null>(null);
-  const [bankForm, setBankForm] = useState<BankFormState>(emptyBankForm());
-  const [savingBank, setSavingBank] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
 
   // Filters for Cash Report & Universal Search
@@ -194,6 +166,13 @@ export function MainCashboxPage() {
   const [isReportSaved, setIsReportSaved] = useState<boolean>(true);
   const [lastSyncSource, setLastSyncSource] = useState<string>('office_pc_sync');
   const [arkaSayfaData, setArkaSayfaData] = useState<ArkaSayfaData>(defaultArkaSayfaData());
+
+  // Günlük Hesap (Bank Defterleri Excel Senkronu) States
+  const [gunlukHesapBanks, setGunlukHesapBanks] = useState<GunlukHesapBanks | null>(null);
+  const [isLoadingGunlukHesap, setIsLoadingGunlukHesap] = useState<boolean>(false);
+  const [hasGunlukHesapData, setHasGunlukHesapData] = useState<boolean>(false);
+  const [isGunlukHesapSaved, setIsGunlukHesapSaved] = useState<boolean>(true);
+  const lastGunlukHesapUpdatedAtRef = useRef<string>('');
 
   const parseSheet1Rows = (rows: any[]) => {
     if (!rows || !Array.isArray(rows) || rows.length < 3) {
@@ -407,6 +386,284 @@ export function MainCashboxPage() {
     }
   };
 
+  const loadGunlukHesapReport = useCallback(async (date: string, isSilent = false) => {
+    if (!isSilent) setIsLoadingGunlukHesap(true);
+    try {
+      const { data: record, error } = await supabase
+        .from('cashbox_gunluk_hesap_reports')
+        .select('*')
+        .eq('report_date', date)
+        .maybeSingle();
+
+      if (!error && record?.data) {
+        if (isSilent && record.updated_at && record.updated_at === lastGunlukHesapUpdatedAtRef.current) {
+          return;
+        }
+        lastGunlukHesapUpdatedAtRef.current = record.updated_at || '';
+        setHasGunlukHesapData(true);
+        if (record.data.banks) {
+          setGunlukHesapBanks(record.data.banks);
+        } else {
+          const fallback: GunlukHesapBanks = {};
+          DEFAULT_BANK_ORDER.forEach(b => { fallback[b] = emptyBankData(b); });
+          setGunlukHesapBanks(fallback);
+        }
+      } else {
+        lastGunlukHesapUpdatedAtRef.current = '';
+        setHasGunlukHesapData(false);
+        const fallback: GunlukHesapBanks = {};
+        DEFAULT_BANK_ORDER.forEach(b => { fallback[b] = emptyBankData(b); });
+        setGunlukHesapBanks(fallback);
+      }
+    } catch (err) {
+      console.error('Günlük hesap raporu yüklenemedi:', err);
+    } finally {
+      if (!isSilent) setIsLoadingGunlukHesap(false);
+    }
+  }, []);
+
+  // Realtime subscription, initial load & continuous auto-poll for gunluk_hesap
+  useEffect(() => {
+    if (activeSection !== 'gunluk_hesap') return;
+
+    void loadGunlukHesapReport(selectedDate, false);
+
+    const pollTimer = setInterval(() => {
+      void loadGunlukHesapReport(selectedDate, true);
+    }, 5000);
+
+    const channel = supabase
+      .channel(`gunluk_hesap_sync_${selectedDate}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'cashbox_gunluk_hesap_reports',
+        filter: `report_date=eq.${selectedDate}`
+      }, (payload: any) => {
+        if (payload.new) {
+          void loadGunlukHesapReport(selectedDate, true);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(pollTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [selectedDate, activeSection, loadGunlukHesapReport]);
+
+  const saveGunlukHesapReport = async (newBanks: GunlukHesapBanks) => {
+    setIsGunlukHesapSaved(false);
+    try {
+      const { data: existing } = await supabase
+        .from('cashbox_gunluk_hesap_reports')
+        .select('data, raw_file_name')
+        .eq('report_date', selectedDate)
+        .maybeSingle();
+
+      const updatedData = {
+        ...(existing?.data || {}),
+        banks: newBanks
+      };
+
+      await supabase
+        .from('cashbox_gunluk_hesap_reports')
+        .upsert({
+          report_date: selectedDate,
+          data: updatedData,
+          raw_file_name: existing?.raw_file_name || `${selectedDate}-GUNLUK HESAP.xlsx`,
+          source: 'web_editor',
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'report_date' });
+
+      setGunlukHesapBanks(newBanks);
+      setIsGunlukHesapSaved(true);
+    } catch (err) {
+      console.error('Günlük hesap kaydedilemedi:', err);
+    }
+  };
+
+  const handleGunlukHesapCellBlur = (
+    bankName: string,
+    field: 'out-amt' | 'out-desc' | 'in-amt' | 'in-desc',
+    value: string,
+    rowIndex: number
+  ) => {
+    if (!isStaff) return;
+    const currentBanks = { ...(gunlukHesapBanks || {}) };
+    const currentBank = currentBanks[bankName] || emptyBankData(bankName);
+    const outflows = { ...currentBank.outflows };
+    const inflows = { ...currentBank.inflows };
+
+    const parsedVal = value.trim();
+    const cleanStr = parsedVal.replace(/\./g, '').replace(',', '.');
+    const numVal = parseFloat(cleanStr);
+    const validNum = !isNaN(numVal) && numVal !== 0 ? numVal : null;
+
+    if (field === 'out-amt') {
+      outflows[rowIndex] = { ...outflows[rowIndex], amount: validNum, description: outflows[rowIndex]?.description || '' };
+    } else if (field === 'out-desc') {
+      outflows[rowIndex] = { ...outflows[rowIndex], amount: outflows[rowIndex]?.amount ?? null, description: parsedVal };
+    } else if (field === 'in-amt') {
+      inflows[rowIndex] = { ...inflows[rowIndex], amount: validNum, description: inflows[rowIndex]?.description || '' };
+    } else if (field === 'in-desc') {
+      inflows[rowIndex] = { ...inflows[rowIndex], amount: inflows[rowIndex]?.amount ?? null, description: parsedVal };
+    }
+
+    const totalOut = Object.values(outflows).reduce((s, x) => s + (x.amount || 0), 0);
+    const totalIn = Object.values(inflows).reduce((s, x) => s + (x.amount || 0), 0);
+    const diff = totalIn - totalOut;
+    const diffType: 'ALDIK' | 'YATAN' = diff > 0 ? 'YATAN' : 'ALDIK';
+    const maxRowIndex = Math.max(
+      currentBank.maxRowIndex ?? -1,
+      ...Object.keys(outflows).map(Number),
+      ...Object.keys(inflows).map(Number)
+    );
+
+    const updatedBank: BankAccountData = {
+      ...currentBank,
+      outflows,
+      inflows,
+      totalOut,
+      totalIn,
+      diff,
+      diffType,
+      maxRowIndex
+    };
+
+    const updatedBanks: GunlukHesapBanks = {
+      ...currentBanks,
+      [bankName]: updatedBank
+    };
+
+    setGunlukHesapBanks(updatedBanks);
+    void saveGunlukHesapReport(updatedBanks);
+  };
+
+  const removeGunlukHesapRow = (bankName: string, type: 'cikis' | 'giris', rowIndex: number) => {
+    if (!isStaff) return;
+    const currentBanks = { ...(gunlukHesapBanks || {}) };
+    const currentBank = currentBanks[bankName] || emptyBankData(bankName);
+    const outflows = { ...currentBank.outflows };
+    const inflows = { ...currentBank.inflows };
+
+    if (type === 'cikis') {
+      delete outflows[rowIndex];
+    } else {
+      delete inflows[rowIndex];
+    }
+
+    const totalOut = Object.values(outflows).reduce((s, x) => s + (x.amount || 0), 0);
+    const totalIn = Object.values(inflows).reduce((s, x) => s + (x.amount || 0), 0);
+    const diff = totalIn - totalOut;
+    const diffType: 'ALDIK' | 'YATAN' = diff > 0 ? 'YATAN' : 'ALDIK';
+
+    const updatedBank: BankAccountData = {
+      ...currentBank,
+      outflows,
+      inflows,
+      totalOut,
+      totalIn,
+      diff,
+      diffType
+    };
+
+    const updatedBanks: GunlukHesapBanks = {
+      ...currentBanks,
+      [bankName]: updatedBank
+    };
+
+    setGunlukHesapBanks(updatedBanks);
+    void saveGunlukHesapReport(updatedBanks);
+  };
+
+  const handleAddBankRow = (bankName: string) => {
+    const currentBanks = { ...(gunlukHesapBanks || {}) };
+    const currentBank = currentBanks[bankName] || emptyBankData(bankName);
+    const nextIdx = (currentBank.maxRowIndex ?? -1) + 1;
+    const updatedBank = {
+      ...currentBank,
+      maxRowIndex: nextIdx + 2
+    };
+    setGunlukHesapBanks({
+      ...currentBanks,
+      [bankName]: updatedBank
+    });
+    setTimeout(() => {
+      const el = document.querySelector(`input[data-bank-name="${bankName}"][data-type="cikis-amount"][data-row-index="${nextIdx}"]`) as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }, 50);
+  };
+
+  const handleGunlukHesapKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    bankName: string,
+    type: 'cikis-amount' | 'cikis-desc' | 'giris-amount' | 'giris-desc',
+    rowIndex: number
+  ) => {
+    const cols = ['cikis-amount', 'cikis-desc', 'giris-amount', 'giris-desc'] as const;
+    const colIndex = cols.indexOf(type);
+
+    let targetRow = rowIndex;
+    let targetColIndex = colIndex;
+    let shouldNavigate = false;
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.currentTarget.blur();
+      targetRow = rowIndex + 1;
+      shouldNavigate = true;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      e.currentTarget.blur();
+      targetRow = rowIndex - 1;
+      shouldNavigate = true;
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      e.currentTarget.blur();
+      targetRow = rowIndex + 1;
+      shouldNavigate = true;
+    } else if (e.key === 'ArrowLeft') {
+      const input = e.currentTarget;
+      if (input.selectionStart === 0 && input.selectionEnd === 0) {
+        if (colIndex > 0) {
+          e.preventDefault();
+          e.currentTarget.blur();
+          targetColIndex = colIndex - 1;
+          shouldNavigate = true;
+        }
+      }
+    } else if (e.key === 'ArrowRight') {
+      const input = e.currentTarget;
+      const len = input.value.length;
+      if (input.selectionStart === len && input.selectionEnd === len) {
+        if (colIndex < cols.length - 1) {
+          e.preventDefault();
+          e.currentTarget.blur();
+          targetColIndex = colIndex + 1;
+          shouldNavigate = true;
+        }
+      }
+    }
+
+    if (shouldNavigate) {
+      const targetType = cols[targetColIndex];
+      const nextInput = document.querySelector(
+        `input[data-bank-name="${bankName}"][data-type="${targetType}"][data-row-index="${targetRow}"]`
+      ) as HTMLInputElement | null;
+      
+      if (nextInput) {
+        setTimeout(() => {
+          nextInput.focus();
+          nextInput.select();
+        }, 100);
+      }
+    }
+  };
+
   const handlePrevDay = () => {
     const [y, m, d] = selectedDate.split('-').map(Number);
     const date = new Date(y, m - 1, d);
@@ -464,32 +721,15 @@ export function MainCashboxPage() {
       if (bankError) throw bankError;
       setBankAccounts((bankData || []) as BankAccount[]);
 
-      // 3. Fetch bank transactions for selected date, range, or all
-      let bankQuery = supabase
-        .from('bank_transactions')
-        .select('*')
-        .eq('organization_id', user.organizationId);
-
-      if (isAllDates) {
-        // No date filters
-      } else if (isRange) {
-        bankQuery = bankQuery
-          .gte('transaction_date', startDate)
-          .lte('transaction_date', endDate);
-      } else {
-        bankQuery = bankQuery.eq('transaction_date', selectedDate);
+      if (activeSection === 'gunluk_hesap') {
+        void loadGunlukHesapReport(selectedDate);
       }
-
-      const { data: bankTxData, error: bankTxError } = await bankQuery;
-
-      if (bankTxError) throw bankTxError;
-      setBankTransactions((bankTxData || []) as BankTransaction[]);
     } catch (err: any) {
       notify(err.message || 'Veriler çekilirken hata oluştu.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [user?.organizationId, selectedDate, isRange, startDate, endDate, isAllDates, notify]);
+  }, [user?.organizationId, selectedDate, activeSection, loadGunlukHesapReport, notify]);
 
   useEffect(() => {
     void refresh();
@@ -571,36 +811,45 @@ export function MainCashboxPage() {
           }
         }
 
-        // 2. Search in bank_transactions (for Günlük Hesap)
-        if (user?.organizationId) {
-          let bTxQuery = supabase
-            .from('bank_transactions')
-            .select('transaction_date, transaction_type, description, recipient_payer, category, amount')
-            .eq('organization_id', user.organizationId)
-            .order('transaction_date', { ascending: false });
+        // 2. Search in cashbox_gunluk_hesap_reports (Günlük Hesap 11 Banka)
+        let gHesapQuery = supabase
+          .from('cashbox_gunluk_hesap_reports')
+          .select('report_date, data')
+          .order('report_date', { ascending: false });
 
-          if (isRange && startDate && endDate) {
-            bTxQuery = bTxQuery.gte('transaction_date', startDate).lte('transaction_date', endDate);
-          }
+        if (isRange && startDate && endDate) {
+          gHesapQuery = gHesapQuery.gte('report_date', startDate).lte('report_date', endDate);
+        }
 
-          const { data: bTxData } = await bTxQuery;
-          if (bTxData) {
-            for (const b of bTxData) {
-              const desc = String(b.description || '').trim();
-              const payer = String(b.recipient_payer || '').trim();
-              const cat = String(b.category || '').trim();
-              if (
-                desc.toLocaleLowerCase('tr-TR').includes(q) ||
-                payer.toLocaleLowerCase('tr-TR').includes(q) ||
-                cat.toLocaleLowerCase('tr-TR').includes(q)
-              ) {
-                results.push({
-                  date: b.transaction_date,
-                  category: b.transaction_type === 'gelir' ? 'BANKA GİRİŞ' : 'BANKA ÇIKIŞ',
-                  description: payer || desc,
-                  bankOrType: cat || desc,
-                  amount: b.amount || ''
-                });
+        const { data: gHesapData } = await gHesapQuery;
+        if (gHesapData) {
+          for (const row of gHesapData) {
+            const rDate = row.report_date;
+            const banks = row.data?.banks || {};
+            for (const [bName, bData] of Object.entries<any>(banks)) {
+              for (const outTx of Object.values<any>(bData.outflows || {})) {
+                const desc = String(outTx.description || '').trim();
+                if (desc.toLocaleLowerCase('tr-TR').includes(q)) {
+                  results.push({
+                    date: rDate,
+                    category: 'BANKA ÇIKIŞ',
+                    description: desc,
+                    bankOrType: bName,
+                    amount: outTx.amount || ''
+                  });
+                }
+              }
+              for (const inTx of Object.values<any>(bData.inflows || {})) {
+                const desc = String(inTx.description || '').trim();
+                if (desc.toLocaleLowerCase('tr-TR').includes(q)) {
+                  results.push({
+                    date: rDate,
+                    category: 'BANKA GİRİŞ',
+                    description: desc,
+                    bankOrType: bName,
+                    amount: inTx.amount || ''
+                  });
+                }
               }
             }
           }
@@ -703,54 +952,7 @@ export function MainCashboxPage() {
   // MATH & FILTERING FOR DAILY BANK ACCOUNT SHEETS
   // -------------------------------------------------------------
   
-  // Group bank transactions by bank account ID
-  const groupedBankTx = useMemo(() => {
-    const groups: Record<string, { outflows: Record<number, BankTransaction>, inflows: Record<number, BankTransaction>, totalOut: number, totalIn: number, diff: number, maxIndex: number }> = {};
-    
-    // Initialize groups for each active bank account
-    bankAccounts.forEach(acc => {
-      groups[acc.id] = { outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, maxIndex: -1 };
-    });
 
-    bankTransactions.forEach(t => {
-      if (!groups[t.account_id]) return; // Skip deleted or inactive accounts
-      
-      const amt = t.amount === 0.01 ? 0 : (Number(t.amount) || 0);
-      const parsedIndex = parseInt(t.description, 10);
-      const rowIndex = isNaN(parsedIndex) ? -1 : parsedIndex;
-
-      if (t.transaction_type === 'cikis') {
-        if (rowIndex !== -1) {
-          groups[t.account_id].outflows[rowIndex] = t;
-          groups[t.account_id].maxIndex = Math.max(groups[t.account_id].maxIndex, rowIndex);
-        } else {
-          let idx = 0;
-          while (groups[t.account_id].outflows[idx]) idx++;
-          groups[t.account_id].outflows[idx] = t;
-          groups[t.account_id].maxIndex = Math.max(groups[t.account_id].maxIndex, idx);
-        }
-        groups[t.account_id].totalOut += amt;
-      } else {
-        if (rowIndex !== -1) {
-          groups[t.account_id].inflows[rowIndex] = t;
-          groups[t.account_id].maxIndex = Math.max(groups[t.account_id].maxIndex, rowIndex);
-        } else {
-          let idx = 0;
-          while (groups[t.account_id].inflows[idx]) idx++;
-          groups[t.account_id].inflows[idx] = t;
-          groups[t.account_id].maxIndex = Math.max(groups[t.account_id].maxIndex, idx);
-        }
-        groups[t.account_id].totalIn += amt;
-      }
-    });
-
-    // Calculate differences
-    Object.keys(groups).forEach(id => {
-      groups[id].diff = groups[id].totalIn - groups[id].totalOut;
-    });
-
-    return groups;
-  }, [bankAccounts, bankTransactions]);
 
   // -------------------------------------------------------------
   // CASHBOX CRUD ACTIONS
@@ -859,212 +1061,7 @@ export function MainCashboxPage() {
     }
   };
 
-  // -------------------------------------------------------------
-  // BANK TRANSACTION CRUD ACTIONS (GÜNLÜK HESAP)
-  // -------------------------------------------------------------
-  
-  const openBankForm = (account: BankAccount, item?: BankTransaction) => {
-    setTargetAccount(account);
-    setEditingBankTx(item || null);
-    if (item) {
-      setBankForm({
-        transaction_type: item.transaction_type,
-        amount: String(item.amount),
-        counterparty: item.counterparty,
-        description: item.description
-      });
-    } else {
-      setBankForm(emptyBankForm());
-    }
-    setBankOpen(true);
-  };
 
-  const saveBankTransaction = async () => {
-    if (!user?.organizationId || !targetAccount) return;
-    if (!bankForm.amount || Number(bankForm.amount) <= 0) {
-      notify('Geçerli bir tutar giriniz.', 'error');
-      return;
-    }
-
-    setSavingBank(true);
-    const payload = {
-      organization_id: user.organizationId,
-      account_id: targetAccount.id,
-      transaction_date: selectedDate,
-      transaction_type: bankForm.transaction_type,
-      amount: Number(bankForm.amount),
-      counterparty: bankForm.counterparty.trim(),
-      description: bankForm.description.trim(),
-      category: 'diger',
-      created_by: user.id
-    };
-
-    try {
-      const q = editingBankTx 
-        ? supabase.from('bank_transactions').update(payload).eq('id', editingBankTx.id).eq('organization_id', user.organizationId)
-        : supabase.from('bank_transactions').insert(payload);
-
-      const { error } = await q;
-      if (error) throw error;
-
-      notify(editingBankTx ? 'Banka işlemi güncellendi.' : 'Banka işlemi eklendi.', 'success');
-      setBankOpen(false);
-      await refresh();
-    } catch (err: any) {
-      notify(err.message || 'Banka işlemi kaydedilemedi.', 'error');
-    } finally {
-      setSavingBank(false);
-    }
-  };
-
-  const removeBankTransaction = async (item: BankTransaction) => {
-    if (!confirm('Bu banka işlemini silmek istediğinize emin misiniz?')) return;
-    try {
-      const { error } = await supabase
-        .from('bank_transactions')
-        .delete()
-        .eq('id', item.id)
-        .eq('organization_id', user?.organizationId);
-
-      if (error) throw error;
-      notify('Banka işlemi silindi.', 'success');
-      await refresh();
-    } catch (err: any) {
-      notify(err.message || 'Banka işlemi silinemedi.', 'error');
-    }
-  };
-
-  const handleCellBlur = async (
-    tx: BankTransaction | undefined, 
-    field: 'amount' | 'counterparty', 
-    newValue: string, 
-    accountId: string, 
-    type: 'giris' | 'cikis',
-    rowIndex: number
-  ) => {
-    if (!user?.organizationId) return;
-
-    const parsedValue = field === 'amount'
-      ? newValue.replace(/\./g, '').replace(/,/g, '.')
-      : newValue.trim();
-
-    // If transaction exists
-    if (tx) {
-      const originalValue = field === 'amount' ? String(tx.amount) : tx.counterparty;
-      if (parsedValue === String(originalValue).trim()) return; // No change
-
-      // If both amount and counterparty become empty, delete it
-      if (field === 'amount' && (Number(parsedValue) === 0 || !parsedValue || Number(parsedValue) === 0.01) && !tx.counterparty.trim()) {
-        await supabase.from('bank_transactions').delete().eq('id', tx.id);
-        await refresh();
-        return;
-      }
-      if (field === 'counterparty' && !parsedValue && (tx.amount === 0 || tx.amount === 0.01)) {
-        await supabase.from('bank_transactions').delete().eq('id', tx.id);
-        await refresh();
-        return;
-      }
-
-      // Update
-      const amtVal = field === 'amount' ? (Number(parsedValue) || 0.01) : tx.amount;
-      const descVal = field === 'counterparty' ? parsedValue : tx.counterparty;
-      const updateData = {
-        amount: amtVal,
-        counterparty: descVal
-      };
-      await supabase
-        .from('bank_transactions')
-        .update(updateData)
-        .eq('id', tx.id)
-        .eq('organization_id', user.organizationId);
-      
-      await refresh();
-    } else {
-      // If transaction doesn't exist, create a new one
-      if (!parsedValue || (field === 'amount' && Number(parsedValue) === 0)) return;
-
-      const insertData = {
-        organization_id: user.organizationId,
-        account_id: accountId,
-        transaction_date: selectedDate,
-        transaction_type: type,
-        amount: field === 'amount' ? Number(parsedValue) || 0.01 : 0.01,
-        counterparty: field === 'counterparty' ? parsedValue : '',
-        category: 'diger',
-        description: String(rowIndex),
-        created_by: user.id
-      };
-
-      await supabase.from('bank_transactions').insert(insertData);
-      await refresh();
-    }
-  };
-
-  const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
-    accountId: string,
-    type: 'cikis-amount' | 'cikis-desc' | 'giris-amount' | 'giris-desc',
-    rowIndex: number
-  ) => {
-    const cols = ['cikis-amount', 'cikis-desc', 'giris-amount', 'giris-desc'] as const;
-    const colIndex = cols.indexOf(type);
-
-    let targetRow = rowIndex;
-    let targetColIndex = colIndex;
-    let shouldNavigate = false;
-
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      e.currentTarget.blur();
-      targetRow = rowIndex + 1;
-      shouldNavigate = true;
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      e.currentTarget.blur();
-      targetRow = rowIndex - 1;
-      shouldNavigate = true;
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      e.currentTarget.blur();
-      targetRow = rowIndex + 1;
-      shouldNavigate = true;
-    } else if (e.key === 'ArrowLeft') {
-      const input = e.currentTarget;
-      if (input.selectionStart === 0 && input.selectionEnd === 0) {
-        if (colIndex > 0) {
-          e.preventDefault();
-          e.currentTarget.blur();
-          targetColIndex = colIndex - 1;
-          shouldNavigate = true;
-        }
-      }
-    } else if (e.key === 'ArrowRight') {
-      const input = e.currentTarget;
-      const len = input.value.length;
-      if (input.selectionStart === len && input.selectionEnd === len) {
-        if (colIndex < cols.length - 1) {
-          e.preventDefault();
-          e.currentTarget.blur();
-          targetColIndex = colIndex + 1;
-          shouldNavigate = true;
-        }
-      }
-    }
-
-    if (shouldNavigate) {
-      const targetType = cols[targetColIndex];
-      const nextInput = document.querySelector(
-        `input[data-account-id="${accountId}"][data-type="${targetType}"][data-row-index="${targetRow}"]`
-      ) as HTMLInputElement | null;
-      
-      if (nextInput) {
-        setTimeout(() => {
-          nextInput.focus();
-          nextInput.select();
-        }, 100);
-      }
-    }
-  };
 
 
   // -------------------------------------------------------------
@@ -1208,15 +1205,15 @@ export function MainCashboxPage() {
   const exportBankExcel = () => {
     const wb = XLSX.utils.book_new();
     
-    bankAccounts.forEach(acc => {
-      const stats = groupedBankTx[acc.id] || { outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, maxIndex: -1 };
-      const minRows = acc.bank.toUpperCase().trim() === 'KUVEYT' ? 10 : 5;
-      const maxRows = Math.max(minRows, stats.maxIndex + 1);
+    DEFAULT_BANK_ORDER.forEach(bankName => {
+      const stats = gunlukHesapBanks?.[bankName] || emptyBankData(bankName);
+      const minRows = bankName === 'KUVEYT' ? 10 : 5;
+      const maxRows = Math.max(minRows, (stats.maxRowIndex ?? -1) + 1);
       
       const sheetData: any[] = [];
-      sheetData.push({ 'Tutar (Çıkış)': '', 'Açıklama (Çıkış)': acc.bank, 'Tutar (Giriş)': '', 'Açıklama (Giriş)': selectedDate });
+      sheetData.push({ 'Tutar (Çıkış)': '', 'Açıklama (Çıkış)': bankName, 'Tutar (Giriş)': '', 'Açıklama (Giriş)': selectedDate });
       sheetData.push({ 'Tutar (Çıkış)': 'ÇIKIŞLAR TOPLAMI:', 'Açıklama (Çıkış)': stats.totalOut, 'Tutar (Giriş)': 'GİRİŞLER TOPLAMI:', 'Açıklama (Giriş)': stats.totalIn });
-      sheetData.push({ 'Tutar (Çıkış)': 'MUTABAKAT FARKI:', 'Açıklama (Çıkış)': `${stats.diff} ${stats.diff < 0 ? 'ALDIK' : 'YATAN'}`, 'Tutar (Giriş)': '', 'Açıklama (Giriş)': '' });
+      sheetData.push({ 'Tutar (Çıkış)': 'MUTABAKAT FARKI:', 'Açıklama (Çıkış)': `${stats.diff} ${stats.diffType}`, 'Tutar (Giriş)': '', 'Açıklama (Giriş)': '' });
       sheetData.push({});
       sheetData.push({
         'Tutar (Çıkış)': 'Tutar (Çıkış)',
@@ -1229,15 +1226,15 @@ export function MainCashboxPage() {
         const outTx = stats.outflows[i];
         const inTx = stats.inflows[i];
         sheetData.push({
-          'Tutar (Çıkış)': outTx ? outTx.amount : '',
-          'Açıklama (Çıkış)': outTx ? outTx.counterparty : '',
-          'Tutar (Giriş)': inTx ? inTx.amount : '',
-          'Açıklama (Giriş)': inTx ? inTx.counterparty : ''
+          'Tutar (Çıkış)': outTx?.amount ? outTx.amount : '',
+          'Açıklama (Çıkış)': outTx ? outTx.description : '',
+          'Tutar (Giriş)': inTx?.amount ? inTx.amount : '',
+          'Açıklama (Giriş)': inTx ? inTx.description : ''
         });
       }
       
       const ws = XLSX.utils.json_to_sheet(sheetData, { skipHeader: true });
-      XLSX.utils.book_append_sheet(wb, ws, acc.bank.substring(0, 31));
+      XLSX.utils.book_append_sheet(wb, ws, bankName.substring(0, 31));
     });
     
     XLSX.writeFile(wb, `Banka_Defterleri_${selectedDate}.xlsx`);
@@ -1365,6 +1362,36 @@ export function MainCashboxPage() {
               <button
                 type="button"
                 onClick={exportCashboxExcel}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors shadow-xs cursor-pointer"
+                title="Excel İndir"
+              >
+                <FileSpreadsheet size={15} />
+                <span>Excel</span>
+              </button>
+            </>
+          ) : activeSection === 'gunluk_hesap' ? (
+            <>
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full shadow-xs">
+                <span className={`w-2 h-2 rounded-full ${isLoadingGunlukHesap ? 'bg-blue-500 animate-spin' : (isGunlukHesapSaved ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-ping')}`}></span>
+                {isLoadingGunlukHesap 
+                  ? 'Rapor Yükleniyor...' 
+                  : (hasGunlukHesapData 
+                      ? 'Ofis Senkronu: Güncel' 
+                      : 'Veri Bulunamadı (Boş Şablon)')
+                }
+              </span>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="btn btn-secondary flex items-center gap-1.5 text-xs font-bold py-1 px-2.5 cursor-pointer"
+                title="Yazdır"
+              >
+                <Printer size={15} />
+                <span>Yazdır</span>
+              </button>
+              <button
+                type="button"
+                onClick={exportBankExcel}
                 className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors shadow-xs cursor-pointer"
                 title="Excel İndir"
               >
@@ -2040,7 +2067,7 @@ export function MainCashboxPage() {
       })()}
 
       {/* -------------------------------------------------------------
-          TAB 2: GÜNLÜK HESAP (BANK DEFTELERİ GRID OF CARDS)
+          TAB 2: GÜNLÜK HESAP (BANK DEFTERLERİ GRID OF CARDS)
           ------------------------------------------------------------- */}
       {activeSection === 'gunluk_hesap' && (
         <div className="space-y-6">
@@ -2049,13 +2076,17 @@ export function MainCashboxPage() {
               <Briefcase size={16} className="shrink-0" />
               <span>
                 Bu alanda banka hesaplarınıza ait günlük hareketleri teker teker girerek mutabakat yapabilirsiniz.
-                Banka kartlarının altında hesaplanan <strong>ALDIK / YATAN</strong> bakiye farkları, banka hesap özetlerinize birebir uyum sağlar.
+                Banka kartlarının altında hesaplanan <strong>ALDIK / YATAN</strong> bakiye farkları, ofis bilgisayarının Excel hesap özetleriyle birebir senkronizedir.
               </span>
             </div>
             <div className="shrink-0 flex items-center no-print">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl shadow-sm">
-                <span className={`w-2 h-2 rounded-full ${loading ? 'bg-amber-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`}></span>
-                {loading ? 'Değişiklikler Kaydediliyor...' : 'Otomatik Kaydedildi'}
+                <span className={`w-2 h-2 rounded-full ${isLoadingGunlukHesap ? 'bg-blue-500 animate-spin' : (isGunlukHesapSaved ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-ping')}`}></span>
+                {isLoadingGunlukHesap 
+                  ? 'Veriler Yükleniyor...' 
+                  : (isGunlukHesapSaved 
+                      ? (hasGunlukHesapData ? 'Ofis Senkronu: Otomatik Kaydedildi' : 'Otomatik Kaydedildi') 
+                      : 'Değişiklikler Kaydediliyor...')}
               </span>
             </div>
           </div>
@@ -2068,230 +2099,209 @@ export function MainCashboxPage() {
 
           {/* Cards Grid */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 print-grid">
-            {(() => {
-              const sortOrder = [
-                'HALKBANK',
-                'ZİRAAT',
-                'GARANTİ',
-                'AKBANK',
-                'İŞBANK',
-                'DENİZ',
-                'ŞEKER/TEB',
-                'YAPI',
-                'ALBARAKA',
-                'VAKIF',
-                'KUVEYT'
-              ];
-              const sortedAccounts = [...bankAccounts].sort((a, b) => {
-                const idxA = sortOrder.indexOf(a.bank.toUpperCase().trim());
-                const idxB = sortOrder.indexOf(b.bank.toUpperCase().trim());
-                const posA = idxA === -1 ? 999 : idxA;
-                const posB = idxB === -1 ? 999 : idxB;
-                return posA - posB;
-              });
-              return sortedAccounts.map((acc, idx) => {
-                const stats = groupedBankTx[acc.id] || { outflows: {}, inflows: {}, totalOut: 0, totalIn: 0, diff: 0, maxIndex: -1 };
+            {DEFAULT_BANK_ORDER.map((bankName, idx) => {
+              const stats = gunlukHesapBanks?.[bankName] || emptyBankData(bankName);
               
-              // Determine row count (minimum 5 rows, but always ensure at least 2 empty rows at the bottom; Kuveyt requires minimum 10 rows)
-              const minRows = acc.bank.toUpperCase().trim() === 'KUVEYT' ? 10 : 5;
-              const maxRows = Math.max(minRows, stats.maxIndex + 2);
+              // Determine row count (minimum 5 rows, Kuveyt minimum 10 rows, plus 2 empty rows at the bottom)
+              const minRows = bankName === 'KUVEYT' ? 10 : 5;
+              const maxRows = Math.max(minRows, (stats.maxRowIndex ?? -1) + 2);
               const rows = Array.from({ length: maxRows });
 
               return (
-                <Fragment key={acc.id}>
+                <Fragment key={`${selectedDate}_${bankName}`}>
                   <div className="flex flex-col text-gray-955 print-card animate-fadeIn" style={{ fontFamily: 'Calibri, sans-serif' }}>
-                  {/* Excel Table Wrapper with thick black border */}
-                  <div className="border-2 border-black bg-white shadow-sm overflow-hidden flex flex-col">
-                    
-                    {/* Centered Bank Header with border at the bottom */}
-                    <div className="relative border-b-2 border-black bg-white py-3 text-center flex items-center justify-center">
-                      <h4 className="font-black text-gray-955 tracking-widest text-lg sm:text-xl uppercase" style={{ fontFamily: 'Calibri, sans-serif' }}>{acc.bank}</h4>
-                      {isStaff && (
-                        <button 
-                          onClick={() => openBankForm(acc)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded border border-brand-200"
-                        >
-                          + Ekle
-                        </button>
-                      )}
-                    </div>
-
-                    {/* 4-Column Grid Table Headers */}
-                    <div className="grid grid-cols-10 divide-x divide-black text-[13px] font-extrabold text-gray-955 border-b border-gray-300">
-                      {/* Outflow Table Header (Columns 1-5: w-[50%]) */}
-                      <div className="col-span-5 grid grid-cols-5 divide-x divide-gray-300">
-                        <div className="col-span-2 px-1 py-1.5 text-center bg-gray-150">Tutar</div>
-                        <div className="col-span-3 px-1 py-1.5 text-center bg-gray-150">Açıklama</div>
+                    {/* Excel Table Wrapper with thick black border */}
+                    <div className="border-2 border-black bg-white shadow-sm overflow-hidden flex flex-col">
+                      
+                      {/* Centered Bank Header with border at the bottom */}
+                      <div className="relative border-b-2 border-black bg-white py-3 text-center flex items-center justify-center">
+                        <h4 className="font-black text-gray-955 tracking-widest text-lg sm:text-xl uppercase" style={{ fontFamily: 'Calibri, sans-serif' }}>{bankName}</h4>
+                        {isStaff && (
+                          <button 
+                            onClick={() => handleAddBankRow(bankName)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded border border-brand-200"
+                            title="Satır Ekle"
+                          >
+                            + Ekle
+                          </button>
+                        )}
                       </div>
 
-                      {/* Inflow Table Header (Columns 6-10: w-[50%]) */}
-                      <div className="col-span-5 grid grid-cols-5 divide-x divide-gray-300">
-                        <div className="col-span-2 px-1 py-1.5 text-center bg-gray-150">Tutar</div>
-                        <div className="col-span-3 px-1 py-1.5 text-center bg-gray-150">Açıklama</div>
+                      {/* 4-Column Grid Table Headers */}
+                      <div className="grid grid-cols-10 divide-x divide-black text-[13px] font-extrabold text-gray-955 border-b border-gray-300">
+                        {/* Outflow Table Header (Columns 1-5: w-[50%]) */}
+                        <div className="col-span-5 grid grid-cols-5 divide-x divide-gray-300">
+                          <div className="col-span-2 px-1 py-1.5 text-center bg-gray-150">Tutar</div>
+                          <div className="col-span-3 px-1 py-1.5 text-center bg-gray-150">Açıklama</div>
+                        </div>
+
+                        {/* Inflow Table Header (Columns 6-10: w-[50%]) */}
+                        <div className="col-span-5 grid grid-cols-5 divide-x divide-gray-300">
+                          <div className="col-span-2 px-1 py-1.5 text-center bg-gray-150">Tutar</div>
+                          <div className="col-span-3 px-1 py-1.5 text-center bg-gray-150">Açıklama</div>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Rows Grid */}
-                    <div className="divide-y divide-gray-300">
-                      {rows.map((_, index) => {
-                        const outTx = stats.outflows[index];
-                        const inTx = stats.inflows[index];
+                      {/* Rows Grid */}
+                      <div className="divide-y divide-gray-300">
+                        {rows.map((_, index) => {
+                          const outTx = stats.outflows[index];
+                          const inTx = stats.inflows[index];
 
-                        // Pink highlight check
-                        const outIsHighlight = outTx && (
-                          outTx.counterparty.toLowerCase().includes('çek') || 
-                          outTx.counterparty.toLowerCase().includes('çekten') ||
-                          outTx.counterparty.toLowerCase().includes('kart') ||
-                          outTx.description.toLowerCase().includes('çek') ||
-                          outTx.description.toLowerCase().includes('kart')
-                        );
-                        const inIsHighlight = inTx && (
-                          inTx.counterparty.toLowerCase().includes('çek') || 
-                          inTx.counterparty.toLowerCase().includes('çekten') ||
-                          inTx.counterparty.toLowerCase().includes('kart') ||
-                          inTx.description.toLowerCase().includes('çek') ||
-                          inTx.description.toLowerCase().includes('kart')
-                        );
+                          // Pink highlight check
+                          const outDescLower = (outTx?.description || '').toLowerCase();
+                          const inDescLower = (inTx?.description || '').toLowerCase();
+                          const outIsHighlight = !!outTx && (
+                            outDescLower.includes('çek') || 
+                            outDescLower.includes('çekten') ||
+                            outDescLower.includes('kart')
+                          );
+                          const inIsHighlight = !!inTx && (
+                            inDescLower.includes('çek') || 
+                            inDescLower.includes('çekten') ||
+                            inDescLower.includes('kart')
+                          );
 
-                        return (
-                          <div key={index} className="grid grid-cols-10 divide-x divide-black h-[34px] items-center">
-                            
-                            {/* Outflow Half */}
-                            <div className={`col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center ${
-                              outIsHighlight ? 'bg-red-100 text-red-950 font-bold' : ''
-                            }`}>
-                              <div className="col-span-2 h-full flex items-center justify-end">
-                                <input
-                                  key={outTx ? `out-amt-${outTx.id}-${formatExcelNumber(outTx.amount)}` : `out-amt-empty-${index}`}
-                                  type="text"
-                                  className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-right pr-2 font-bold text-gray-955 text-[15px] sm:text-[16px]"
-                                  style={{ fontFamily: 'Calibri, sans-serif' }}
-                                  defaultValue={outTx ? formatExcelNumber(outTx.amount) : ''}
-                                  onKeyDown={e => handleKeyDown(e, acc.id, 'cikis-amount', index)}
-                                  onBlur={e => handleCellBlur(outTx, 'amount', e.target.value, acc.id, 'cikis', index)}
-                                  placeholder=""
-                                  disabled={!isStaff}
-                                  data-account-id={acc.id}
-                                  data-type="cikis-amount"
-                                  data-row-index={index}
-                                />
+                          return (
+                            <div key={index} className="grid grid-cols-10 divide-x divide-black h-[34px] items-center">
+                              
+                              {/* Outflow Half */}
+                              <div className={`col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center ${
+                                outIsHighlight ? 'bg-red-100 text-red-950 font-bold' : ''
+                              }`}>
+                                <div className="col-span-2 h-full flex items-center justify-end">
+                                  <input
+                                    key={`out-amt-${selectedDate}-${bankName}-${index}-${outTx?.amount ?? ''}`}
+                                    type="text"
+                                    className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-right pr-2 font-bold text-gray-955 text-[15px] sm:text-[16px]"
+                                    style={{ fontFamily: 'Calibri, sans-serif' }}
+                                    defaultValue={outTx?.amount ? formatExcelNumber(outTx.amount) : ''}
+                                    onKeyDown={e => handleGunlukHesapKeyDown(e, bankName, 'cikis-amount', index)}
+                                    onBlur={e => handleGunlukHesapCellBlur(bankName, 'out-amt', e.target.value, index)}
+                                    placeholder=""
+                                    disabled={!isStaff}
+                                    data-bank-name={bankName}
+                                    data-type="cikis-amount"
+                                    data-row-index={index}
+                                  />
+                                </div>
+                                <div className="col-span-3 h-full flex items-center justify-between group/tx">
+                                  <input
+                                    key={`out-desc-${selectedDate}-${bankName}-${index}-${outTx?.description ?? ''}`}
+                                    type="text"
+                                    className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-left pl-2 text-gray-955 text-[15px] sm:text-[16px] truncate uppercase font-bold"
+                                    style={{ fontFamily: 'Calibri, sans-serif', textTransform: 'uppercase' }}
+                                    defaultValue={outTx?.description || ''}
+                                    onKeyDown={e => handleGunlukHesapKeyDown(e, bankName, 'cikis-desc', index)}
+                                    onBlur={e => handleGunlukHesapCellBlur(bankName, 'out-desc', e.target.value, index)}
+                                    placeholder=""
+                                    disabled={!isStaff}
+                                    data-bank-name={bankName}
+                                    data-type="cikis-desc"
+                                    data-row-index={index}
+                                  />
+                                  {outTx && (outTx.amount || outTx.description) && isStaff && (
+                                    <button 
+                                      onClick={() => removeGunlukHesapRow(bankName, 'cikis', index)} 
+                                      className="opacity-0 group-hover/tx:opacity-100 text-rose-500 hover:text-rose-700 shrink-0 p-0.5 mr-1"
+                                      title="Satırı Temizle"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                              <div className="col-span-3 h-full flex items-center justify-between group/tx">
-                                <input
-                                  key={outTx ? `out-desc-${outTx.id}` : `out-desc-empty-${index}`}
-                                  type="text"
-                                  className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-left pl-2 text-gray-955 text-[15px] sm:text-[16px] truncate uppercase font-bold"
-                                  style={{ fontFamily: 'Calibri, sans-serif', textTransform: 'uppercase' }}
-                                  defaultValue={outTx ? outTx.counterparty : ''}
-                                  onKeyDown={e => handleKeyDown(e, acc.id, 'cikis-desc', index)}
-                                  onBlur={e => handleCellBlur(outTx, 'counterparty', e.target.value, acc.id, 'cikis', index)}
-                                  placeholder=""
-                                  disabled={!isStaff}
-                                  data-account-id={acc.id}
-                                  data-type="cikis-desc"
-                                  data-row-index={index}
-                                />
-                                {outTx && isStaff && (
-                                  <button 
-                                    onClick={() => removeBankTransaction(outTx)} 
-                                    className="opacity-0 group-hover/tx:opacity-100 text-rose-500 hover:text-rose-700 shrink-0 p-0.5 mr-1"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                )}
+
+                              {/* Inflow Half */}
+                              <div className={`col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center ${
+                                inIsHighlight ? 'bg-red-100 text-red-950 font-bold' : ''
+                              }`}>
+                                <div className="col-span-2 h-full flex items-center justify-end">
+                                  <input
+                                    key={`in-amt-${selectedDate}-${bankName}-${index}-${inTx?.amount ?? ''}`}
+                                    type="text"
+                                    className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-right pr-2 font-bold text-gray-955 text-[15px] sm:text-[16px]"
+                                    style={{ fontFamily: 'Calibri, sans-serif' }}
+                                    defaultValue={inTx?.amount ? formatExcelNumber(inTx.amount) : ''}
+                                    onKeyDown={e => handleGunlukHesapKeyDown(e, bankName, 'giris-amount', index)}
+                                    onBlur={e => handleGunlukHesapCellBlur(bankName, 'in-amt', e.target.value, index)}
+                                    placeholder=""
+                                    disabled={!isStaff}
+                                    data-bank-name={bankName}
+                                    data-type="giris-amount"
+                                    data-row-index={index}
+                                  />
+                                </div>
+                                <div className="col-span-3 h-full flex items-center justify-between group/tx">
+                                  <input
+                                    key={`in-desc-${selectedDate}-${bankName}-${index}-${inTx?.description ?? ''}`}
+                                    type="text"
+                                    className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-left pl-2 text-gray-955 text-[15px] sm:text-[16px] truncate uppercase font-bold"
+                                    style={{ fontFamily: 'Calibri, sans-serif', textTransform: 'uppercase' }}
+                                    defaultValue={inTx?.description || ''}
+                                    onKeyDown={e => handleGunlukHesapKeyDown(e, bankName, 'giris-desc', index)}
+                                    onBlur={e => handleGunlukHesapCellBlur(bankName, 'in-desc', e.target.value, index)}
+                                    placeholder=""
+                                    disabled={!isStaff}
+                                    data-bank-name={bankName}
+                                    data-type="giris-desc"
+                                    data-row-index={index}
+                                  />
+                                  {inTx && (inTx.amount || inTx.description) && isStaff && (
+                                    <button 
+                                      onClick={() => removeGunlukHesapRow(bankName, 'giris', index)} 
+                                      className="opacity-0 group-hover/tx:opacity-100 text-rose-500 hover:text-rose-700 shrink-0 p-0.5 mr-1"
+                                      title="Satırı Temizle"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
+
                             </div>
+                          );
+                        })}
+                      </div>
 
-                            {/* Inflow Half */}
-                            <div className={`col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center ${
-                              inIsHighlight ? 'bg-red-100 text-red-950 font-bold' : ''
-                            }`}>
-                              <div className="col-span-2 h-full flex items-center justify-end">
-                                <input
-                                  key={inTx ? `in-amt-${inTx.id}-${formatExcelNumber(inTx.amount)}` : `in-amt-empty-${index}`}
-                                  type="text"
-                                  className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-right pr-2 font-bold text-gray-955 text-[15px] sm:text-[16px]"
-                                  style={{ fontFamily: 'Calibri, sans-serif' }}
-                                  defaultValue={inTx ? formatExcelNumber(inTx.amount) : ''}
-                                  onKeyDown={e => handleKeyDown(e, acc.id, 'giris-amount', index)}
-                                  onBlur={e => handleCellBlur(inTx, 'amount', e.target.value, acc.id, 'giris', index)}
-                                  placeholder=""
-                                  disabled={!isStaff}
-                                  data-account-id={acc.id}
-                                  data-type="giris-amount"
-                                  data-row-index={index}
-                                />
-                              </div>
-                              <div className="col-span-3 h-full flex items-center justify-between group/tx">
-                                <input
-                                  key={inTx ? `in-desc-${inTx.id}` : `in-desc-empty-${index}`}
-                                  type="text"
-                                  className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-left pl-2 text-gray-955 text-[15px] sm:text-[16px] truncate uppercase font-bold"
-                                  style={{ fontFamily: 'Calibri, sans-serif', textTransform: 'uppercase' }}
-                                  defaultValue={inTx ? inTx.counterparty : ''}
-                                  onKeyDown={e => handleKeyDown(e, acc.id, 'giris-desc', index)}
-                                  onBlur={e => handleCellBlur(inTx, 'counterparty', e.target.value, acc.id, 'giris', index)}
-                                  placeholder=""
-                                  disabled={!isStaff}
-                                  data-account-id={acc.id}
-                                  data-type="giris-desc"
-                                  data-row-index={index}
-                                />
-                                {inTx && isStaff && (
-                                  <button 
-                                    onClick={() => removeBankTransaction(inTx)} 
-                                    className="opacity-0 group-hover/tx:opacity-100 text-rose-500 hover:text-rose-700 shrink-0 p-0.5 mr-1"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-
+                      {/* Sum Footer Row */}
+                      <div className="grid grid-cols-10 divide-x divide-black border-t-2 border-black text-base font-black text-gray-955 bg-white h-[34px] items-center">
+                        <div className="col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center">
+                          <div className="col-span-2 px-3 text-right flex items-center justify-end h-full">
+                            {formatExcelNumber(stats.totalOut) || '0'}
                           </div>
-                        );
-                      })}
+                          <div className="col-span-3 h-full bg-gray-50/50"></div>
+                        </div>
+                        <div className="col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center">
+                          <div className="col-span-2 px-3 text-right flex items-center justify-end h-full">
+                            {formatExcelNumber(stats.totalIn) || '0'}
+                          </div>
+                          <div className="col-span-3 h-full bg-gray-50/50"></div>
+                        </div>
+                      </div>
+
                     </div>
 
-                    {/* Sum Footer Row */}
-                    <div className="grid grid-cols-10 divide-x divide-black border-t-2 border-black text-base font-black text-gray-955 bg-white h-[34px] items-center">
-                      <div className="col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center">
-                        <div className="col-span-2 px-3 text-right flex items-center justify-end h-full">
-                          {formatExcelNumber(stats.totalOut) || '0'}
-                        </div>
-                        <div className="col-span-3 h-full bg-gray-50/50"></div>
-                      </div>
-                      <div className="col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center">
-                        <div className="col-span-2 px-3 text-right flex items-center justify-end h-full">
-                          {formatExcelNumber(stats.totalIn) || '0'}
-                        </div>
-                        <div className="col-span-3 h-full bg-gray-50/50"></div>
-                      </div>
+                    {/* Centered difference badge under the black card box */}
+                    <div className="mt-2 text-center">
+                      <span className={`inline-block px-8 py-2 text-lg font-black tracking-tight border-2 rounded-lg shadow-sm ${
+                        stats.diff < 0 
+                          ? 'bg-red-100 text-red-750 border-red-300' 
+                          : stats.diff > 0 
+                          ? 'bg-blue-100 text-blue-750 border-blue-300'
+                          : 'bg-red-100 text-red-750 border-red-300'
+                      }`}>
+                        {new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(stats.diff)} {stats.diffType}
+                      </span>
                     </div>
-
-                  </div>
-
-                  {/* Centered difference badge under the black card box */}
-                  <div className="mt-2 text-center">
-                    <span className={`inline-block px-8 py-2 text-lg font-black tracking-tight border-2 rounded-lg shadow-sm ${
-                      stats.diff < 0 
-                        ? 'bg-red-100 text-red-750 border-red-300' 
-                        : stats.diff > 0 
-                        ? 'bg-blue-100 text-blue-750 border-blue-300'
-                        : 'bg-red-100 text-red-750 border-red-300'
-                    }`}>
-                      {new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(stats.diff)} {stats.diff < 0 ? 'ALDIK' : stats.diff > 0 ? 'YATAN' : 'ALDIK'}
-                    </span>
-                  </div>
                   </div>
                   {(idx === 3 || idx === 9) && (
                     <div className="hidden print:block page-break col-span-2" />
                   )}
                 </Fragment>
               );
-            });
-          })()}
-        </div>
+            })}
+          </div>
         </div>
       )}
 
@@ -2471,73 +2481,7 @@ export function MainCashboxPage() {
         </form>
       </Modal>
 
-      {/* -------------------------------------------------------------
-          BANK TRANSACTION MODAL (GÜNLÜK HESAP)
-          ------------------------------------------------------------- */}
-      <Modal
-        open={bankOpen}
-        onClose={() => setBankOpen(false)}
-        title={targetAccount ? `${targetAccount.bank.toUpperCase()} - Günlük Hareket Ekle` : 'Banka İşlemi'}
-      >
-        <form onSubmit={e => { e.preventDefault(); void saveBankTransaction(); }} className="space-y-4">
-          <div>
-            <label className="label">İşlem Tipi</label>
-            <select
-              className="input w-full"
-              value={bankForm.transaction_type}
-              onChange={e => setBankForm(prev => ({ ...prev, transaction_type: e.target.value as 'giris' | 'cikis' }))}
-            >
-              <option value="giris">Hesaba Giriş (Giriş)</option>
-              <option value="cikis">Hesaptan Çıkış (Çıkış)</option>
-            </select>
-          </div>
 
-          <div>
-            <label className="label">Tutar ({targetAccount?.currency})</label>
-            <input
-              type="number"
-              step="0.01"
-              required
-              className="input w-full font-bold text-sm"
-              placeholder="0.00"
-              value={bankForm.amount}
-              onChange={e => setBankForm(prev => ({ ...prev, amount: e.target.value }))}
-            />
-          </div>
-
-          <div>
-            <label className="label">Alıcı / Ödeyen / Çek No</label>
-            <input
-              type="text"
-              required
-              className="input w-full"
-              placeholder="Örn: ÖNDER ZİRAAT veya EMİNE YILMAZ veya ÇEK"
-              value={bankForm.counterparty}
-              onChange={e => setBankForm(prev => ({ ...prev, counterparty: e.target.value }))}
-            />
-          </div>
-
-          <div>
-            <label className="label">Açıklama / Özel Not</label>
-            <input
-              type="text"
-              className="input w-full"
-              placeholder="Örn: Nakit çekim veya fatura ödemesi"
-              value={bankForm.description}
-              onChange={e => setBankForm(prev => ({ ...prev, description: e.target.value }))}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
-            <button type="button" className="btn btn-secondary" onClick={() => setBankOpen(false)} disabled={savingBank}>
-              İptal
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={savingBank}>
-              {savingBank ? 'Kaydediliyor...' : 'Kaydet'}
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }
