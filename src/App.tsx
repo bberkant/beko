@@ -23,6 +23,7 @@ import { TendersPage } from './features/tenders/TendersPage';
 import { DogrudanTeminPage } from './features/tenders/DogrudanTeminPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { HgsPassagesPage } from './features/vehicles/HgsPassagesPage';
+import { SanayiGiderleriPage } from './features/vehicles/SanayiGiderleriPage';
 import { CheckValuationPage } from './features/check-valuation/CheckValuationPage';
 import { PosDifferencesPage } from './features/pos-valuation/PosDifferencesPage';
 import { ChecksPage } from './features/checks/ChecksPage';
@@ -129,6 +130,7 @@ export default function App() {
                 <Route path="/arac-yonetimi/trafik-cezalari" element={<TrafficFinesPage />} />
                 <Route path="/arac-yonetimi/hgs-gecis" element={<HgsPassagesPage />} />
                 <Route path="/arac-yonetimi/soforler" element={<DriversPage />} />
+                <Route path="/arac-yonetimi/sanayi-giderleri" element={<SanayiGiderleriPage />} />
                 <Route path="/arac-yonetimi/:id" element={<VehicleDetailPage />} />
                 <Route path="/arac-yonetimi/:id/duzenle" element={<VehicleFormPage />} />
                 <Route path="/ihaleler" element={<TendersPage />} />

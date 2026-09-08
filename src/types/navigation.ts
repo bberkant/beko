@@ -86,6 +86,7 @@ export const navItems: NavItem[] = [
       { label: 'Trafik Cezaları', to: '/arac-yonetimi/trafik-cezalari' },
       { label: 'HGS - Geçiş', to: '/arac-yonetimi/hgs-gecis' },
       { label: 'Şoförler', to: '/arac-yonetimi/soforler' },
+      { label: 'Sanayi Giderleri', to: '/arac-yonetimi/sanayi-giderleri' },
     ],
   },
   {
