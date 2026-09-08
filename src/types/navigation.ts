@@ -78,13 +78,13 @@ export const navItems: NavItem[] = [
   },
   {
     label: 'Araç Yönetimi',
-    to: '/arac-yonetimi',
+    to: '/arac-yonetimi/arac-listesi',
     icon: Car,
     children: [
+      { label: 'Araç Listesi', to: '/arac-yonetimi/arac-listesi' },
       { label: 'Araç Sigorta - Muayene', to: '/arac-yonetimi' },
-      { label: 'Araç Fiyat Listesi', to: '/arac-yonetimi/guncel-fiyat' },
-      { label: 'Trafik Cezaları', to: '/arac-yonetimi/trafik-cezalari' },
-      { label: 'HGS - Geçiş', to: '/arac-yonetimi/hgs-gecis' },
+      { label: 'HGS - Geçiş & Trafik Cezaları', to: '/arac-yonetimi/hgs-ve-cezalari' },
+      { label: 'Yakıt Takip', to: '/arac-yonetimi/yakit-takip' },
       { label: 'Şoförler', to: '/arac-yonetimi/soforler' },
       { label: 'Sanayi Giderleri', to: '/arac-yonetimi/sanayi-giderleri' },
     ],

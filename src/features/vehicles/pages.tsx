@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Car,
@@ -13,6 +13,8 @@ import {
   Pencil,
   ChevronDown,
   Coins,
+  Droplet,
+  Receipt,
 } from "lucide-react";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Modal } from "../../components/ui/Modal";
@@ -21,6 +23,7 @@ import { useToast } from "../../lib/toast";
 import { useVehicles } from "./store";
 import { VehicleRowMenu } from "./components/VehicleRowMenu";
 import { BulkInspectionModalBody } from "./components/BulkInspectionModalBody";
+import { supabase } from "../../lib/supabase";
 import type { VehicleInput, VehicleExpenseInput } from "./types";
 const money = (n: number) =>
   new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(
@@ -856,11 +859,14 @@ export function VehicleDetailPage() {
   const { getVehicle, getExpenses, addExpense } = useVehicles();
   const { notify } = useToast();
   const v = id ? getVehicle(id) : undefined;
+  const [activeTab, setActiveTab] = useState<'fuel' | 'expenses'>('fuel');
   const [open, setOpen] = useState(false);
+  const [fuelEntries, setFuelEntries] = useState<any[]>([]);
+  const [fuelLoading, setFuelLoading] = useState(false);
   const [e, setE] = useState<VehicleExpenseInput>({
     vehicleId: id ?? "",
     date: new Date().toISOString().slice(0, 10),
-    type: "yakit",
+    type: "bakim",
     amount: 0,
     supplier: "",
     description: "",
@@ -869,6 +875,30 @@ export function VehicleDetailPage() {
     () => (id ? getExpenses(id) : []),
     [id, getExpenses],
   );
+
+  useEffect(() => {
+    if (!v) return;
+    const fetchFuel = async () => {
+      setFuelLoading(true);
+      const cleanP = (v.plate || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      const { data, error } = await supabase
+        .from('vehicle_fuel_entries')
+        .select('*')
+        .or(`vehicle_id.eq.${v.id},plate.ilike.%${cleanP}%`)
+        .order('date', { ascending: false });
+
+      if (!error && data) {
+        setFuelEntries(data);
+      }
+      setFuelLoading(false);
+    };
+    void fetchFuel();
+  }, [v]);
+
+  const totalFuelAmount = useMemo(() => fuelEntries.reduce((s, x) => s + (Number(x.total_amount) || 0), 0), [fuelEntries]);
+  const totalFuelLiters = useMemo(() => fuelEntries.reduce((s, x) => s + (Number(x.quantity) || 0), 0), [fuelEntries]);
+  const totalGeneralExpenses = useMemo(() => expenses.reduce((s, x) => s + x.amount, 0), [expenses]);
+
   if (!v) return <p>Araç yükleniyor...</p>;
   return (
     <div className="mx-auto max-w-6xl">
@@ -877,18 +907,25 @@ export function VehicleDetailPage() {
         description={`${v.brand} ${v.model} · ${v.modelYear}`}
         backTo="/arac-yonetimi"
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <button
               className="btn-secondary"
               onClick={() => nav(`/arac-yonetimi/${v.id}/duzenle`)}
             >
               Düzenle
             </button>
-            <button className="btn-primary" onClick={() => setOpen(true)}>
-              <Plus size={16} />
-              Gider Ekle
-            </button>
-          </>
+            {activeTab === 'expenses' ? (
+              <button className="btn-primary" onClick={() => setOpen(true)}>
+                <Plus size={16} />
+                Gider Ekle
+              </button>
+            ) : (
+              <button className="btn-primary" onClick={() => nav('/arac-yonetimi/yakit-takip')}>
+                <Fuel size={16} />
+                Yakıt Modülüne Git
+              </button>
+            )}
+          </div>
         }
       />
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
@@ -897,48 +934,138 @@ export function VehicleDetailPage() {
           v={`${v.currentKm.toLocaleString("tr-TR")} km`}
           l="Kilometre"
         />
-        <K i={<Fuel size={16} />} v={v.fuelType} l="Yakıt" />
+        <K i={<Fuel size={16} />} v={v.fuelType} l="Yakıt Tipi" />
         <K
-          i={<CalendarDays size={16} />}
-          v={v.inspectionDate || "—"}
-          l="Muayene"
+          i={<Droplet size={16} />}
+          v={`${totalFuelLiters.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} Lt`}
+          l="Toplam Yakıt Tüketimi"
         />
         <K
           i={<Car size={16} />}
-          v={money(expenses.reduce((s, x) => s + x.amount, 0))}
-          l="Toplam Gider"
+          v={money(totalFuelAmount + totalGeneralExpenses)}
+          l="Toplam Harcama"
         />
       </div>
-      <div className="card overflow-x-auto">
-        <table className="min-w-full">
-          <thead>
-            <tr>
-              <th className="table-th">Tarih</th>
-              <th className="table-th">Tür</th>
-              <th className="table-th">Tedarikçi</th>
-              <th className="table-th">KM</th>
-              <th className="table-th">Açıklama</th>
-              <th className="table-th">Tutar</th>
-              <th className="table-th">Belge</th>
-            </tr>
-          </thead>
-          <tbody>
-            {expenses.map((x) => (
-              <tr key={x.id} className="border-t">
-                <td className="table-td">{x.date}</td>
-                <td className="table-td capitalize">{x.type}</td>
-                <td className="table-td">{x.supplier}</td>
-                <td className="table-td">
-                  {x.km?.toLocaleString("tr-TR") || "—"}
-                </td>
-                <td className="table-td">{x.description}</td>
-                <td className="table-td font-semibold">{money(x.amount)}</td>
-                <td className="table-td">{x.hasDocument ? "Var" : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      {/* Detail Tabs */}
+      <div className="mb-6 flex border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('fuel')}
+          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'fuel'
+              ? 'border-brand-600 text-brand-600'
+              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+          }`}
+        >
+          <Fuel size={16} />
+          Yakıt Tüketimi ({fuelEntries.length} Dolum · {money(totalFuelAmount)})
+        </button>
+        <button
+          onClick={() => setActiveTab('expenses')}
+          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'expenses'
+              ? 'border-brand-600 text-brand-600'
+              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+          }`}
+        >
+          <Receipt size={16} />
+          Genel Giderler ({expenses.length} Kayıt · {money(totalGeneralExpenses)})
+        </button>
       </div>
+
+      {activeTab === 'fuel' ? (
+        <div className="card overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr>
+                <th className="table-th">Tarih</th>
+                <th className="table-th">Yakıt Tipi</th>
+                <th className="table-th text-right">Miktar (Litre)</th>
+                <th className="table-th text-right">Litre Fiyatı</th>
+                <th className="table-th text-right">Toplam Tutar</th>
+                <th className="table-th">İstasyon</th>
+                <th className="table-th">Sürücü / Kart</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fuelLoading ? (
+                <tr>
+                  <td colSpan={7} className="table-td py-12 text-center text-gray-400">
+                    Yakıt hareketleri yükleniyor...
+                  </td>
+                </tr>
+              ) : fuelEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="table-td py-12 text-center text-gray-400">
+                    Bu araca ait kayıtlı yakıt hareketi bulunamadı.
+                  </td>
+                </tr>
+              ) : (
+                fuelEntries.map((fe) => (
+                  <tr key={fe.id} className="border-t hover:bg-gray-50/50">
+                    <td className="table-td whitespace-nowrap">
+                      {new Date(fe.date).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" })}
+                    </td>
+                    <td className="table-td">
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700 font-medium">
+                        {fe.fuel_type || 'Motorin'}
+                      </span>
+                    </td>
+                    <td className="table-td text-right font-bold text-gray-900">
+                      {(Number(fe.quantity) || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} Lt
+                    </td>
+                    <td className="table-td text-right text-gray-600">
+                      {money(Number(fe.unit_price) || 0)}
+                    </td>
+                    <td className="table-td text-right font-bold text-emerald-700">
+                      {money(Number(fe.total_amount) || 0)}
+                    </td>
+                    <td className="table-td text-gray-800">
+                      <span className="font-medium">{fe.station || '—'}</span>
+                      {fe.city && <span className="block text-xs text-gray-400">{fe.city}</span>}
+                    </td>
+                    <td className="table-td text-gray-700">
+                      <div>{fe.driver_name || '—'}</div>
+                      {fe.fuel_card_no && <div className="text-xs text-gray-400">Kart: {fe.fuel_card_no}</div>}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="card overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr>
+                <th className="table-th">Tarih</th>
+                <th className="table-th">Tür</th>
+                <th className="table-th">Tedarikçi</th>
+                <th className="table-th">KM</th>
+                <th className="table-th">Açıklama</th>
+                <th className="table-th">Tutar</th>
+                <th className="table-th">Belge</th>
+              </tr>
+            </thead>
+            <tbody>
+              {expenses.map((x) => (
+                <tr key={x.id} className="border-t">
+                  <td className="table-td">{x.date}</td>
+                  <td className="table-td capitalize">{x.type}</td>
+                  <td className="table-td">{x.supplier}</td>
+                  <td className="table-td">
+                    {x.km?.toLocaleString("tr-TR") || "—"}
+                  </td>
+                  <td className="table-td">{x.description}</td>
+                  <td className="table-td font-semibold">{money(x.amount)}</td>
+                  <td className="table-td">{x.hasDocument ? "Var" : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <Modal
         open={open}
         onClose={() => setOpen(false)}
@@ -1206,8 +1333,8 @@ export function VehiclePricesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Araç Fiyat Listesi"
-        description="Araçların alış fiyatlarını ve güncel piyasa değerlerini takip edin."
+        title="Araç Listesi"
+        description="Araçların marka, model, kilometre, alış ve güncel piyasa değerlerini listeleyin ve yönetin."
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-4">

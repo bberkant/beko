@@ -14,7 +14,7 @@ import { StatementsPage } from './features/credit-cards/pages/StatementsPage';
 import { StatementDetailPage } from './features/credit-cards/pages/StatementDetailPage';
 import { VehiclesProvider } from './features/vehicles/store';
 import { VehicleListPage, VehicleFormPage, VehicleDetailPage, VehiclePricesPage } from './features/vehicles/pages';
-import { TrafficFinesPage, DriversPage } from './features/vehicles/subpages';
+import { DriversPage } from './features/vehicles/subpages';
 import { UsersPage } from './features/users/UsersPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { BackupsPage } from './features/settings/BackupsPage';
@@ -22,7 +22,8 @@ import { ReportingPage } from './features/reporting/ReportingPage';
 import { TendersPage } from './features/tenders/TendersPage';
 import { DogrudanTeminPage } from './features/tenders/DogrudanTeminPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
-import { HgsPassagesPage } from './features/vehicles/HgsPassagesPage';
+import { HgsAndFinesPage } from './features/vehicles/HgsAndFinesPage';
+import { FuelTrackingPage } from './features/vehicles/FuelTrackingPage';
 import { SanayiGiderleriPage } from './features/vehicles/SanayiGiderleriPage';
 import { CheckValuationPage } from './features/check-valuation/CheckValuationPage';
 import { PosDifferencesPage } from './features/pos-valuation/PosDifferencesPage';
@@ -124,11 +125,14 @@ export default function App() {
                 <Route path="/ana-kasa/rapor" element={<MainCashboxPage />} />
                 <Route path="/ana-kasa/giris-cikis" element={<GirisCikisPage />} />
                 <Route path="/ana-kasa/gunluk-hesap" element={<MainCashboxPage />} />
+                <Route path="/arac-yonetimi/arac-listesi" element={<VehiclePricesPage />} />
                 <Route path="/arac-yonetimi" element={<VehicleListPage />} />
                 <Route path="/arac-yonetimi/yeni" element={<VehicleFormPage />} />
                 <Route path="/arac-yonetimi/guncel-fiyat" element={<VehiclePricesPage />} />
-                <Route path="/arac-yonetimi/trafik-cezalari" element={<TrafficFinesPage />} />
-                <Route path="/arac-yonetimi/hgs-gecis" element={<HgsPassagesPage />} />
+                <Route path="/arac-yonetimi/hgs-ve-cezalari" element={<HgsAndFinesPage />} />
+                <Route path="/arac-yonetimi/trafik-cezalari" element={<HgsAndFinesPage />} />
+                <Route path="/arac-yonetimi/hgs-gecis" element={<HgsAndFinesPage />} />
+                <Route path="/arac-yonetimi/yakit-takip" element={<FuelTrackingPage />} />
                 <Route path="/arac-yonetimi/soforler" element={<DriversPage />} />
                 <Route path="/arac-yonetimi/sanayi-giderleri" element={<SanayiGiderleriPage />} />
                 <Route path="/arac-yonetimi/:id" element={<VehicleDetailPage />} />
