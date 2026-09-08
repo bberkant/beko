@@ -170,18 +170,97 @@ const handleXmlRequest = async (req, res) => {
       'D:\\Arctos'
     ];
     for (const d of localDirs) {
-      const p = path.join(d, `${invoiceNo}.xml`);
-      if (fs.existsSync(p)) {
+      const pXml = path.join(d, `${invoiceNo}.xml`);
+      if (fs.existsSync(pXml)) {
         res.setHeader('Content-Type', 'application/xml');
         res.setHeader('Content-Disposition', `attachment; filename="${invoiceNo}.xml"`);
-        return res.sendFile(p);
+        return res.sendFile(pXml);
+      }
+      const pZip = path.join(d, `${invoiceNo}.zip`);
+      if (fs.existsSync(pZip)) {
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${invoiceNo}.zip"`);
+        return res.sendFile(pZip);
       }
     }
 
-    // 2. Bulunamadıysa SOAP ile çek
-    const { sessionId, securityKey, ipNumber } = await getVegaSession(config);
+    // 2. VEGADB SQL Veritabanından Orijinal XMLDATA'yı sorgula
+    try {
+      const pool = await sql.connect(dbConfig);
+      const tablesToQuery = [
+        `${config.db}TBLEARSIVXML`,
+        `${config.db}TBLEFATURAXML`,
+        `F0101TBLEARSIVXML`,
+        `F0101TBLEFATURAXML`,
+        `F0102TBLEARSIVXML`,
+        `F0102TBLEFATURAXML`,
+        `TBLEARSIVXML`,
+        `TBLEFATURAXML`,
+        `TBLARSIVXML`,
+        `TBLFATURAXML`
+      ];
 
-    const getInvoiceXml = `<?xml version="1.0" encoding="utf-8"?>
+      for (const tbl of tablesToQuery) {
+        try {
+          const qRes = await pool.request()
+            .input('invNo', sql.NVarChar, invoiceNo)
+            .query(`SELECT TOP 1 XMLDATA FROM ${tbl} WHERE EVRAKNO = @invNo OR FATURANO = @invNo OR ETTN = @invNo`);
+          if (qRes.recordset && qRes.recordset.length > 0 && qRes.recordset[0].XMLDATA) {
+            const xmlText = qRes.recordset[0].XMLDATA;
+            res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="${invoiceNo}.xml"`);
+            return res.send(xmlText);
+          }
+        } catch (tblErr) {
+          // Tablo yoksa devam et
+        }
+      }
+    } catch (dbErr) {
+      console.warn('VEGADB XML tablosu okuma uyarısı:', dbErr.message);
+    }
+
+    // 3. Bulunamadıysa SOAP Entegratörden çek
+    try {
+      const { sessionId, securityKey, ipNumber } = await getVegaSession(config);
+
+      // A) e-Arşiv ise veya ETS ile başlıyorsa GetEArchive dene
+      let contentMatch = null;
+      try {
+        const getArchiveXml = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetEArchive xmlns="http://tempuri.org/">
+      <GetEArchiveRequest>
+        <Login_Request_Header>
+          <Session_ID>${sessionId}</Session_ID>
+          <IP_Number>${ipNumber}</IP_Number>
+          <Security_Key>${securityKey}</Security_Key>
+        </Login_Request_Header>
+        <EArchive_SEARCH_KEY>
+          <LIMIT>1</LIMIT>
+          <LIMITSpecified>true</LIMITSpecified>
+          <ID>${invoiceNo}</ID>
+          <READ_INCLUDED>true</READ_INCLUDED>
+          <READ_INCLUDEDSpecified>true</READ_INCLUDEDSpecified>
+          <PROCESSED_INCLUDED>true</PROCESSED_INCLUDED>
+          <PROCESSED_INCLUDEDSpecified>true</PROCESSED_INCLUDEDSpecified>
+        </EArchive_SEARCH_KEY>
+        <HEADER_ONLY>false</HEADER_ONLY>
+      </GetEArchiveRequest>
+    </GetEArchive>
+  </soap:Body>
+</soap:Envelope>`;
+
+        const arcRes = await soapRequest('GetEArchive', getArchiveXml);
+        contentMatch = arcRes.data.match(/<CONTENT>(.*?)<\/CONTENT>/) || arcRes.data.match(/<EDocumentData>(.*?)<\/EDocumentData>/);
+      } catch (arcErr) {
+        console.warn('GetEArchive denemesi:', arcErr.message);
+      }
+
+      // B) e-Fatura GetInvoice dene
+      if (!contentMatch) {
+        for (const dir of ['OUT', 'IN']) {
+          const getInvoiceXml = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <GetInvoice xmlns="http://tempuri.org/">
@@ -199,6 +278,7 @@ const handleXmlRequest = async (req, res) => {
           <READ_INCLUDEDSpecified>true</READ_INCLUDEDSpecified>
           <PROCESSED_INCLUDED>true</PROCESSED_INCLUDED>
           <PROCESSED_INCLUDEDSpecified>true</PROCESSED_INCLUDEDSpecified>
+          <DIRECTION>${dir}</DIRECTION>
         </INVOICE_SEARCH_KEY>
         <HEADER_ONLY>false</HEADER_ONLY>
       </GetInvoiceRequest>
@@ -206,27 +286,32 @@ const handleXmlRequest = async (req, res) => {
   </soap:Body>
 </soap:Envelope>`;
 
-    const invoiceResObj = await soapRequest('GetInvoice', getInvoiceXml);
-    const invoiceResponse = invoiceResObj.data;
-    const contentMatch = invoiceResponse.match(/<CONTENT>(.*?)<\/CONTENT>/);
+          const invoiceResObj = await soapRequest('GetInvoice', getInvoiceXml);
+          contentMatch = invoiceResObj.data.match(/<CONTENT>(.*?)<\/CONTENT>/) || invoiceResObj.data.match(/<EDocumentData>(.*?)<\/EDocumentData>/);
+          if (contentMatch) break;
+        }
+      }
 
-    if (!contentMatch) {
-      return res.status(404).json({ error: 'Faturanın XML içeriği entegratörde bulunamadı.' });
+      if (contentMatch && contentMatch[1]) {
+        const base64Content = contentMatch[1];
+        const xmlBuffer = Buffer.from(base64Content, 'base64');
+
+        // Zip kontrolü (PK başlığı varsa)
+        if (xmlBuffer[0] === 0x50 && xmlBuffer[1] === 0x4B && xmlBuffer[2] === 0x03 && xmlBuffer[3] === 0x04) {
+          res.setHeader('Content-Type', 'application/zip');
+          res.setHeader('Content-Disposition', `attachment; filename="${invoiceNo}.zip"`);
+          return res.send(xmlBuffer);
+        } else {
+          res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+          res.setHeader('Content-Disposition', `attachment; filename="${invoiceNo}.xml"`);
+          return res.send(xmlBuffer);
+        }
+      }
+    } catch (soapErr) {
+      console.warn('SOAP entegratörden XML çekme uyarısı:', soapErr.message);
     }
 
-    const base64Content = contentMatch[1];
-    const xmlBuffer = Buffer.from(base64Content, 'base64');
-
-    // Zip kontrolü (PK başlığı varsa)
-    if (xmlBuffer[0] === 0x50 && xmlBuffer[1] === 0x4B && xmlBuffer[2] === 0x03 && xmlBuffer[3] === 0x04) {
-      res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename="${invoiceNo}.zip"`);
-      return res.send(xmlBuffer);
-    } else {
-      res.setHeader('Content-Type', 'application/xml');
-      res.setHeader('Content-Disposition', `attachment; filename="${invoiceNo}.xml"`);
-      return res.send(xmlBuffer);
-    }
+    return res.status(404).json({ error: 'Faturanın XML içeriği yerel sunucuda veya entegratörde bulunamadı.' });
   } catch (err) {
     console.error('XML indirme hatası:', err.message);
     res.status(500).json({ error: 'XML indirme hatası', details: err.message });
