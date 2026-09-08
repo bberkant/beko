@@ -61,16 +61,24 @@ export function TendersPage(){
     if(!user?.organizationId)return;
     setLoading(true);
     
-    // Auto-delete expired tenders in 'hazirlaniyor' status
+    // Auto-delete expired 4734 tenders in 'hazirlaniyor' status
     const nowIso = new Date().toISOString();
     await supabase
       .from('tenders')
       .delete()
       .eq('organization_id', user.organizationId)
+      .neq('method', 'dogrudan')
+      .not('tender_number', 'ilike', '%DT%')
       .eq('status', 'hazirlaniyor')
       .lt('deadline_at', nowIso);
 
-    const{data,error}=await supabase.from('tenders').select('*').eq('organization_id',user.organizationId).order('deadline_at',{ascending:true});
+    const{data,error}=await supabase
+      .from('tenders')
+      .select('*')
+      .eq('organization_id',user.organizationId)
+      .neq('method', 'dogrudan')
+      .not('tender_number', 'ilike', '%DT%')
+      .order('deadline_at',{ascending:true});
     if(error) notify(error.message,'error');
     else setItems((data??[]).map(r=>({...r,estimated_amount:Number(r.estimated_amount),bid_amount:r.bid_amount==null?null:Number(r.bid_amount)})) as Tender[]);
     setLoading(false)

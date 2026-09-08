@@ -85,16 +85,16 @@ export function DogrudanTeminPage(){
       .from('tenders')
       .delete()
       .eq('organization_id', user.organizationId)
-      .eq('method', 'dogrudan')
+      .or('method.eq.dogrudan,tender_number.ilike.%DT%')
       .eq('status', 'hazirlaniyor')
       .lt('deadline_at', nowIso);
 
-    // Filter by method = 'dogrudan'
+    // Filter by method = 'dogrudan' or tender_number containing 'DT'
     const{data,error}=await supabase
       .from('tenders')
       .select('*')
       .eq('organization_id',user.organizationId)
-      .eq('method', 'dogrudan')
+      .or('method.eq.dogrudan,tender_number.ilike.%DT%')
       .order('deadline_at',{ascending:true});
       
     if(error) notify(error.message,'error');

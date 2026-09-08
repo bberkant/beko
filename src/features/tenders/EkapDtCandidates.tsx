@@ -37,7 +37,7 @@ export function EkapDtCandidates({ canWrite, onAccepted }: { canWrite: boolean; 
       .select('id,ikn,title,institution,city,deadline_at,matched_keyword')
       .eq('organization_id', user.organizationId)
       .eq('status', 'bekliyor')
-      .eq('scope', 'dogrudan_temin')
+      .or('scope.eq.dogrudan_temin,ikn.ilike.%DT%')
       .gte('deadline_at', now.toISOString())
       .lte('deadline_at', scanEndsAt.toISOString())
       .order('deadline_at');

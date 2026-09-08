@@ -51,6 +51,8 @@ export function EkapCandidates({ canWrite, onAccepted }: { canWrite: boolean; on
       .select('id,ikn,title,institution,city,deadline_at,matched_keyword')
       .eq('organization_id', user.organizationId)
       .eq('status', 'bekliyor')
+      .or('scope.is.null,scope.eq.4734,scope.eq.ihale')
+      .not('ikn', 'ilike', '%DT%')
       .gte('deadline_at', now.toISOString())
       .lte('deadline_at', scanEndsAt.toISOString())
       .order('deadline_at');
@@ -65,6 +67,7 @@ export function EkapCandidates({ canWrite, onAccepted }: { canWrite: boolean; on
       .from('ekap_scan_requests')
       .select('*')
       .eq('organization_id', user.organizationId)
+      .or('scope.is.null,scope.eq.4734,scope.eq.ihale')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -74,7 +77,7 @@ export function EkapCandidates({ canWrite, onAccepted }: { canWrite: boolean; on
       setActiveRequest((prev: any) => {
         if (prev && ['pending', 'running'].includes(prev.status) && !['pending', 'running'].includes(data.status)) {
           if (data.status === 'completed') {
-            notify('EKAP taraması başarıyla tamamlandı!', 'success');
+            notify('EKAP 4734 İhale taraması başarıyla tamamlandı!', 'success');
             void refresh();
           } else if (data.status === 'failed') {
             notify(`EKAP taraması başarısız oldu: ${data.error_message || 'Bilinmeyen hata'}`, 'error');
@@ -114,6 +117,7 @@ export function EkapCandidates({ canWrite, onAccepted }: { canWrite: boolean; on
       organization_id: user.organizationId,
       start_date: startDateInput,
       end_date: endDateInput,
+      scope: '4734',
       status: 'pending',
       requested_by: user.id
     });
@@ -121,8 +125,8 @@ export function EkapCandidates({ canWrite, onAccepted }: { canWrite: boolean; on
     if (error) {
       notify(error.message, 'error');
     } else {
-      notify('Tarama talebi sıraya alındı.', 'success');
-      setActiveRequest({ status: 'pending', start_date: startDateInput, end_date: endDateInput });
+      notify('4734 İhale tarama talebi sıraya alındı.', 'success');
+      setActiveRequest({ status: 'pending', start_date: startDateInput, end_date: endDateInput, scope: '4734' });
       void fetchActiveRequest();
     }
     setScanSubmitting(false);
