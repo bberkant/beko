@@ -744,6 +744,118 @@ async function processGunlukHesapWorkbook(wb, filePath) {
   }
 }
 
+async function processKesimWorkbook(wb, filePath) {
+  const fileName = path.basename(filePath);
+  await backupFileToSupabaseStorage(filePath, 'KESIM-LISTESI');
+  const orgId = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    if (!rows || rows.length < 2) continue;
+
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(rows.length, 15); i++) {
+      const r = rows[i];
+      if (r && r.some(cell => {
+        const strCell = String(cell || '').trim().toUpperCase();
+        return strCell.includes('TARİH') || strCell.includes('TARIH') || strCell.includes('CİNS') || strCell.includes('CINS');
+      })) {
+        headerIdx = i;
+        break;
+      }
+    }
+    if (headerIdx === -1) continue;
+
+    const headers = rows[headerIdx].map(h => String(h || '').trim().toUpperCase());
+    const colMap = {
+      tarih: headers.findIndex(h => h.includes('TARİH') || h.includes('TARIH')),
+      el: headers.findIndex(h => h === 'EL' || h.includes('CARİ') || h.includes('CARI') || h.includes('TEDARİKÇİ') || h.includes('ADI SOYADI') || h.includes('AD SOYAD')),
+      adet: headers.findIndex(h => h === 'AD.' || h === 'ADET' || h === 'AD'),
+      cinsi: headers.findIndex(h => h.includes('CİNSİ') || h.includes('CINSI') || h.includes('CİNS') || h.includes('CINS')),
+      kg: headers.findIndex(h => h === 'KG' || h.includes('KARKAS') || h.includes('KİLO') || h.includes('KILO')),
+      fiyat: headers.findIndex(h => h.includes('FİYAT') || h.includes('FIYAT')),
+      pesinat: headers.findIndex(h => h.includes('PEŞİNAT') || h.includes('PESINAT') || h.includes('KESİNTİ') || h.includes('KESINTI') || h === 'TUTAR' || h.includes('ÖDENEN') || h.includes('ODENEN')),
+      aciklama: headers.findIndex(h => h.includes('AÇIKLAMA') || h.includes('ACIKLAMA') || h.includes('NOT')),
+      odeme: headers.findIndex(h => h.includes('ÖDEME') || h.includes('ODEME') || h.includes('TARİHİ') || h.includes('TARIHI'))
+    };
+
+    if (colMap.tarih === -1 || colMap.el === -1 || colMap.kg === -1) continue;
+
+    const payload = [];
+    let lastParsedDate = null;
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length === 0) continue;
+
+      const rawTarih = row[colMap.tarih];
+      const rawEl = row[colMap.el];
+      const rawKg = row[colMap.kg];
+
+      if (!rawEl || !rawKg) continue;
+
+      let parsedDate = null;
+      if (typeof rawTarih === 'number') {
+        parsedDate = excelDateToIso(rawTarih);
+      } else if (rawTarih) {
+        parsedDate = parseDateFromSheetName(String(rawTarih));
+      }
+
+      if (parsedDate) {
+        lastParsedDate = parsedDate;
+      } else {
+        parsedDate = lastParsedDate;
+      }
+
+      if (!parsedDate) continue;
+
+      const parsedSupplier = String(rawEl).trim();
+      const parsedCarcassWeight = cleanNum(rawKg);
+      if (!parsedSupplier || parsedCarcassWeight <= 0) continue;
+
+      const parsedPricePerKg = colMap.fiyat !== -1 ? cleanNum(row[colMap.fiyat]) : 0;
+      const parsedAnimalType = colMap.cinsi !== -1 ? String(row[colMap.cinsi] || 'Dana').trim() : 'Dana';
+      const parsedHeadCount = colMap.adet !== -1 ? (parseInt(String(row[colMap.adet])) || 1) : 1;
+      const parsedPesinat = colMap.pesinat !== -1 ? cleanNum(row[colMap.pesinat]) : 0;
+      const parsedNotes = colMap.aciklama !== -1 ? String(row[colMap.aciklama] || '').trim() : '';
+      let parsedPayment = 'CARİ';
+      if (colMap.odeme !== -1 && row[colMap.odeme]) {
+        const rawO = row[colMap.odeme];
+        if (typeof rawO === 'number') {
+          parsedPayment = excelDateToIso(rawO) || String(rawO);
+        } else {
+          parsedPayment = String(rawO).trim();
+        }
+      }
+
+      const total = parsedCarcassWeight * parsedPricePerKg;
+
+      payload.push({
+        organization_id: orgId,
+        slaughter_date: parsedDate,
+        supplier: parsedSupplier,
+        head_count: parsedHeadCount,
+        animal_type: parsedAnimalType,
+        carcass_weight: parsedCarcassWeight,
+        price_per_kg: parsedPricePerKg,
+        total_amount: total,
+        pesinat: parsedPesinat,
+        kalan_tutar: total - parsedPesinat,
+        notes: parsedNotes || null,
+        payment_date: parsedPayment || null
+      });
+    }
+
+    if (payload.length > 0) {
+      log(`✔️ [KESİM LİSTESİ] "${sheetName}" sekmesinde ${payload.length} kayıt işleniyor...`);
+      for (let i = 0; i < payload.length; i += 100) {
+        const chunk = payload.slice(i, i + 100);
+        await supabase.from('kesim_listesi').insert(chunk);
+      }
+    }
+  }
+}
+
 async function processFile(filePath) {
   const fileName = path.basename(filePath);
   const upperFileName = fileName.toUpperCase();
@@ -759,19 +871,23 @@ async function processFile(filePath) {
     const buf = fs.readFileSync(filePath);
     const wb = XLSX.read(buf, { type: 'buffer' });
 
-    // 1. ÖNCELİK: Dosya adında ANA KASA varsa
-    if (upperFileName.includes('ANA KASA')) {
+    // 1. ÖNCELİK: Dosya adında KESİM varsa
+    if (upperFileName.includes('KESİM') || upperFileName.includes('KESIM')) {
+      await processKesimWorkbook(wb, filePath);
+    }
+    // 2. ÖNCELİK: Dosya adında ANA KASA varsa
+    else if (upperFileName.includes('ANA KASA')) {
       await processAnaKasaWorkbook(wb, filePath);
     } 
-    // 2. ÖNCELİK: Dosya adında GÜNLÜK HESAP varsa
+    // 3. ÖNCELİK: Dosya adında GÜNLÜK HESAP varsa
     else if (upperFileName.includes('GÜNLÜK HESAP') || upperFileName.includes('GUNLUK HESAP')) {
       await processGunlukHesapWorkbook(wb, filePath);
     } 
-    // 3. ÖNCELİK: Dosya adında GİRİŞ, ÇIKIŞ veya AYLIK varsa
+    // 4. ÖNCELİK: Dosya adında GİRİŞ, ÇIKIŞ veya AYLIK varsa
     else if (upperFileName.includes('GİRİŞ') || upperFileName.includes('GIRIS') || upperFileName.includes('AYLIK')) {
       await processGirisCikisWorkbook(wb, filePath);
     }
-    // 4. ÖNCELİK: Sekme adlarına göre belirleme
+    // 5. ÖNCELİK: Sekme adlarına göre belirleme
     else if (wb.SheetNames.some(s => s.toUpperCase().includes('ANA KASA') || s.toUpperCase().includes('ARKA SAYFA') || s.toUpperCase().includes('RAPOR ARKA'))) {
       await processAnaKasaWorkbook(wb, filePath);
     }
