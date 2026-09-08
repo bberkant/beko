@@ -224,7 +224,7 @@ export function EkapDtCandidates({ canWrite, onAccepted }: { canWrite: boolean; 
       
       <Modal open={open} onClose={() => setOpen(false)} title="EKAP Doğrudan Temin Adayları" size="lg">
         <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-          Önümüzdeki 15 gün içinde EKAP doğrudan teminlerinde mal/gıda branşıyla yayınlanan tüm kayıtlar. Onaylananlar Doğrudan Temin listesine eklenir.
+          Önümüzdeki 15 gün içinde EKAP doğrudan teminlerinde OKAS Kodu 15100000 (Hayvansal mezbaha ürünleri, et ve et ürünleri) branşıyla yayınlanan tüm kayıtlar. Onaylananlar Doğrudan Temin listesine eklenir.
         </div>
 
         {canWrite && (

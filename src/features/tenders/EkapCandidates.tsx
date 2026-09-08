@@ -231,7 +231,7 @@ export function EkapCandidates({ canWrite, onAccepted }: { canWrite: boolean; on
       
       <Modal open={open} onClose={() => setOpen(false)} title="EKAP’tan Bulunanlar" size="lg">
         <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-          Önümüzdeki 15 gün içinde, 4734 kapsamında kırmızı et ve et ürünleriyle eşleşen kayıtlar. Onaylanan ihale İhaleler listesine ve Takvim’e eklenir.
+          Önümüzdeki 15 gün içinde, EKAP'ta OKAS Kodu 15100000 (Hayvansal mezbaha ürünleri, et ve et ürünleri) kapsamında yayınlanan tüm ihaleler. Onaylanan ihale İhaleler listesine ve Takvim’e eklenir.
         </div>
 
         {canWrite && (
