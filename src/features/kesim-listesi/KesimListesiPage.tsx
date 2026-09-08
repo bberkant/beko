@@ -982,9 +982,9 @@ export function KesimListesiPage() {
     }
   };
 
-  // Filter Logic
+  // Filter & Sort Logic
   const filteredItems = useMemo(() => {
-    return records.filter((item) => {
+    const list = records.filter((item) => {
       // General Search (Supplier)
       if (search) {
         const query = search.toLocaleLowerCase('tr-TR');
@@ -1016,7 +1016,29 @@ export function KesimListesiPage() {
 
       return true;
     });
+
+    // Bugünden geriye doğru (en yeni tarih en üstte)
+    return list.sort((a, b) => {
+      const timeA = parseDateString(a.slaughter_date);
+      const timeB = parseDateString(b.slaughter_date);
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id || '').localeCompare(a.id || '');
+    });
   }, [records, search, animalTypeFilter, startDate, endDate, columnFilters]);
+
+  // Sayfalama (Pagination - 30 kayıt)
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 30;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, animalTypeFilter, startDate, endDate, columnFilters, selectedMonth, selectedYear]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  const paginatedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredItems.slice(startIndex, startIndex + pageSize);
+  }, [filteredItems, currentPage]);
 
   // Excel Export matching KESİM LİSTESİ 2026 columns
   const handleExport = () => {
@@ -1561,7 +1583,7 @@ export function KesimListesiPage() {
                   </td>
                 </tr>
               ) : (
-                filteredItems.map((item) => (
+                paginatedItems.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50/50 transition-colors text-[13px]">
                     <td className="px-3 py-1.5 text-center font-medium text-gray-700">
                       <InlineEdit
@@ -1769,6 +1791,66 @@ export function KesimListesiPage() {
             )}
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {filteredItems.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 px-6 py-3.5 bg-gray-50/70">
+            <div className="text-sm text-gray-600">
+              Toplam <span className="font-semibold text-gray-900">{filteredItems.length}</span> kesim kaydından{' '}
+              <span className="font-semibold text-gray-900">{(currentPage - 1) * pageSize + 1}</span> -{' '}
+              <span className="font-semibold text-gray-900">{Math.min(currentPage * pageSize, filteredItems.length)}</span> arası gösteriliyor
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Önceki
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum = i + 1;
+                  if (totalPages > 5 && currentPage > 3) {
+                    pageNum = currentPage - 3 + i;
+                    if (pageNum + (4 - i) > totalPages) {
+                      pageNum = totalPages - 4 + i;
+                    }
+                  }
+                  if (pageNum < 1) pageNum = 1;
+                  if (pageNum > totalPages) return null;
+
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`min-w-[32px] h-8 px-2 text-xs font-semibold rounded-md transition-colors ${
+                        currentPage === pageNum
+                          ? 'bg-brand-600 text-white shadow-sm'
+                          : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Sonraki
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add/Edit Modal */}
