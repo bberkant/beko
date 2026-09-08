@@ -184,6 +184,42 @@ export function TendersPage(){
     if(error)notify(error.message,'error');
     else{notify('İhale silindi.','success');await refresh()}
   };
+
+  const removeAll = async () => {
+    if (!user?.organizationId) return;
+    const targetItems = filtered;
+    if (targetItems.length === 0) {
+      notify('Silinecek ihale bulunamadı.', 'info');
+      return;
+    }
+    const count = targetItems.length;
+    const msg = count === items.length
+      ? `Tüm ihaleleri (${count} adet) silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`
+      : `Filtrelenen ${count} adet ihaleyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`;
+
+    if (!confirm(msg)) return;
+
+    const ids = targetItems.map(x => x.id);
+    const batchSize = 100;
+    let hasError = false;
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const batchIds = ids.slice(i, i + batchSize);
+      const { error } = await supabase
+        .from('tenders')
+        .delete()
+        .in('id', batchIds)
+        .eq('organization_id', user.organizationId);
+      if (error) {
+        notify(error.message, 'error');
+        hasError = true;
+        break;
+      }
+    }
+    if (!hasError) {
+      notify(`${count} adet ihale başarıyla silindi.`, 'success');
+      await refresh();
+    }
+  };
   
   return (
     <div className="mx-auto max-w-7xl">
@@ -276,7 +312,18 @@ export function TendersPage(){
               <SortHeader label="Teklif Tutarı" field="bid_amount" />
               <th className="table-th text-left">Teminat Mektubu</th>
               <th className="table-th text-left">Durum</th>
-              <th className="table-th"></th>
+              <th className="table-th text-right">
+                {canWrite && filtered.length > 0 && (
+                  <button
+                    onClick={() => void removeAll()}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                    title="Tümünü Sil"
+                  >
+                    <Trash2 size={13} />
+                    <span>Tümünü Sil</span>
+                  </button>
+                )}
+              </th>
             </tr>
           </thead>
           <tbody>
