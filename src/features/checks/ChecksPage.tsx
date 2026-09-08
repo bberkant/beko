@@ -1951,8 +1951,8 @@ export function ChecksPage() {
       ...Object.keys(dashboardData.columns).map(k => dashboardData.columns[k].length)
     );
 
-    const screenNonTakasRows = Math.max(7, dashboardData.nonTakasChecks.length + 1);
-    const printNonTakasRows = Math.max(11, dashboardData.nonTakasChecks.length + 1);
+    const screenNonTakasRows = Math.max(7, dashboardData.nonTakasChecks.length + 2);
+    const printNonTakasRows = Math.max(11, dashboardData.nonTakasChecks.length + 2);
 
     return (
       <div className="space-y-6">
