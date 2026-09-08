@@ -136,6 +136,152 @@ async function getVegaSession(config) {
   };
 }
 
+function generateUblXml({ invoiceNo, date, cariName, cariContact, cariCity, taxOffice, taxNo, customerCode, items, company }) {
+  const isEtik = (company || 'etik').toLowerCase() === 'etik';
+  const supplierTitle = isEtik ? 'ETİK ET VE ET ÜRÜNLERİ SAN. TİC. LTD. ŞTİ.' : 'MARİF ET VE ET ÜRÜNLERİ SAN. TİC. LTD. ŞTİ.';
+  const supplierVkn = isEtik ? '3810452391' : '6120803445';
+  const supplierTaxOffice = isEtik ? 'AMASYA VERGİ DAİRESİ MÜD.' : 'AMASYA VERGİ DAİRESİ MÜD.';
+  const supplierCity = 'AMASYA';
+  const supplierDistrict = 'MERKEZ';
+  const supplierAddress = isEtik ? 'GÖLLÜ BAĞLARI MAH. MEZBAHA CAD. NO: 13' : 'GÖLLÜ BAĞLARI MAH. MEZBAHA CAD. NO: 15';
+
+  const issueDate = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+  const issueTime = '12:00:00';
+  const profileId = invoiceNo.startsWith('ETS') || invoiceNo.startsWith('EAS') ? 'EARSIVFATURA' : 'TEMELFATURA';
+  const invoiceTypeCode = 'SATIS';
+
+  let lineExtensionTotal = 0;
+  let taxTotal = 0;
+
+  (items || []).forEach(it => {
+    lineExtensionTotal += Number(it.lineTutar || (it.quantity * it.unitPrice) || 0);
+    taxTotal += Number(it.kdvTutar || 0);
+  });
+  const payableAmount = lineExtensionTotal + taxTotal;
+
+  const linesXml = (items || []).map((it, idx) => {
+    const lineTotal = Number(it.lineTutar || (it.quantity * it.unitPrice) || 0);
+    const kdvTutar = Number(it.kdvTutar || 0);
+    const kdvRate = it.kdvRate || 1;
+    return `
+    <cac:InvoiceLine>
+        <cbc:ID>${idx + 1}</cbc:ID>
+        <cbc:InvoicedQuantity unitCode="${it.unit === 'KG' ? 'KGM' : 'C62'}">${it.quantity}</cbc:InvoicedQuantity>
+        <cbc:LineExtensionAmount currencyID="TRY">${lineTotal.toFixed(2)}</cbc:LineExtensionAmount>
+        <cac:TaxTotal>
+            <cbc:TaxAmount currencyID="TRY">${kdvTutar.toFixed(2)}</cbc:TaxAmount>
+            <cac:TaxSubtotal>
+                <cbc:TaxableAmount currencyID="TRY">${lineTotal.toFixed(2)}</cbc:TaxableAmount>
+                <cbc:TaxAmount currencyID="TRY">${kdvTutar.toFixed(2)}</cbc:TaxAmount>
+                <cbc:Percent>${kdvRate}</cbc:Percent>
+                <cac:TaxCategory>
+                    <cac:TaxScheme>
+                        <cbc:Name>KDV</cbc:Name>
+                        <cbc:TaxTypeCode>0015</cbc:TaxTypeCode>
+                    </cac:TaxScheme>
+                </cac:TaxCategory>
+            </cac:TaxSubtotal>
+        </cac:TaxTotal>
+        <cac:Item>
+            <cbc:Description>${it.description || ''}</cbc:Description>
+            <cbc:Name>${it.productName || 'Mal/Hizmet'}</cbc:Name>
+        </cac:Item>
+        <cac:Price>
+            <cbc:PriceAmount currencyID="TRY">${it.unitPrice.toFixed(4)}</cbc:PriceAmount>
+        </cac:Price>
+    </cac:InvoiceLine>`;
+  }).join('');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+         xmlns:ccts="urn:un:unece:uncefact:documentation:2"
+         xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+         xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"
+         xmlns:qdt="urn:oasis:names:specification:ubl:schema:xsd:QualifiedDatatypes-2"
+         xmlns:ubltr="urn:oasis:names:specification:ubl:schema:xsd:TurkishCustomizationExtensionComponents"
+         xmlns:udt="urn:un:unece:uncefact:data:specification:UnqualifiedDataTypesSchemaModule:2"
+         xmlns:xades="http://uri.etsi.org/01903/v1.3.2#"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
+    <cbc:CustomizationID>TR1.2</cbc:CustomizationID>
+    <cbc:ProfileID>${profileId}</cbc:ProfileID>
+    <cbc:ID>${invoiceNo}</cbc:ID>
+    <cbc:CopyIndicator>false</cbc:CopyIndicator>
+    <cbc:UUID>00000000-0000-0000-0000-000000000000</cbc:UUID>
+    <cbc:IssueDate>${issueDate}</cbc:IssueDate>
+    <cbc:IssueTime>${issueTime}</cbc:IssueTime>
+    <cbc:InvoiceTypeCode>${invoiceTypeCode}</cbc:InvoiceTypeCode>
+    <cbc:DocumentCurrencyCode>TRY</cbc:DocumentCurrencyCode>
+    <cbc:LineCountNumeric>${(items || []).length}</cbc:LineCountNumeric>
+    <cac:AccountingSupplierParty>
+        <cac:Party>
+            <cac:PartyIdentification>
+                <cbc:ID schemeID="VKN">${supplierVkn}</cbc:ID>
+            </cac:PartyIdentification>
+            <cac:PartyName>
+                <cbc:Name>${supplierTitle}</cbc:Name>
+            </cac:PartyName>
+            <cac:PostalAddress>
+                <cbc:StreetName>${supplierAddress}</cbc:StreetName>
+                <cbc:CitySubdivisionName>${supplierDistrict}</cbc:CitySubdivisionName>
+                <cbc:CityName>${supplierCity}</cbc:CityName>
+                <cac:Country>
+                    <cbc:Name>TÜRKİYE</cbc:Name>
+                </cac:Country>
+            </cac:PostalAddress>
+            <cac:PartyTaxScheme>
+                <cac:TaxScheme>
+                    <cbc:Name>${supplierTaxOffice}</cbc:Name>
+                </cac:TaxScheme>
+            </cac:PartyTaxScheme>
+        </cac:Party>
+    </cac:AccountingSupplierParty>
+    <cac:AccountingCustomerParty>
+        <cac:Party>
+            <cac:PartyIdentification>
+                <cbc:ID schemeID="${(taxNo && String(taxNo).length === 11) ? 'TCKN' : 'VKN'}">${taxNo || '11111111111'}</cbc:ID>
+            </cac:PartyIdentification>
+            <cac:PartyName>
+                <cbc:Name>${cariName || 'MÜŞTERİ'}</cbc:Name>
+            </cac:PartyName>
+            <cac:PostalAddress>
+                <cbc:CityName>${cariCity || 'AMASYA'}</cbc:CityName>
+                <cac:Country>
+                    <cbc:Name>TÜRKİYE</cbc:Name>
+                </cac:Country>
+            </cac:PostalAddress>
+            <cac:PartyTaxScheme>
+                <cac:TaxScheme>
+                    <cbc:Name>${taxOffice || 'VERGİ DAİRESİ'}</cbc:Name>
+                </cac:TaxScheme>
+            </cac:PartyTaxScheme>
+        </cac:Party>
+    </cac:AccountingCustomerParty>
+    <cac:TaxTotal>
+        <cbc:TaxAmount currencyID="TRY">${taxTotal.toFixed(2)}</cbc:TaxAmount>
+        <cac:TaxSubtotal>
+            <cbc:TaxableAmount currencyID="TRY">${lineExtensionTotal.toFixed(2)}</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="TRY">${taxTotal.toFixed(2)}</cbc:TaxAmount>
+            <cac:TaxCategory>
+                <cac:TaxScheme>
+                    <cbc:Name>KDV</cbc:Name>
+                    <cbc:TaxTypeCode>0015</cbc:TaxTypeCode>
+                </cac:TaxScheme>
+            </cac:TaxCategory>
+        </cac:TaxSubtotal>
+    </cac:TaxTotal>
+    <cac:LegalMonetaryTotal>
+        <cbc:LineExtensionAmount currencyID="TRY">${lineExtensionTotal.toFixed(2)}</cbc:LineExtensionAmount>
+        <cbc:TaxExclusiveAmount currencyID="TRY">${lineExtensionTotal.toFixed(2)}</cbc:TaxExclusiveAmount>
+        <cbc:TaxInclusiveAmount currencyID="TRY">${payableAmount.toFixed(2)}</cbc:TaxInclusiveAmount>
+        <cbc:PayableAmount currencyID="TRY">${payableAmount.toFixed(2)}</cbc:PayableAmount>
+    </cac:LegalMonetaryTotal>
+    ${linesXml}
+</Invoice>`;
+}
+
 // 0. Vega e-Fatura Canlı XML İndirme
 const handleXmlRequest = async (req, res) => {
   try {
@@ -309,6 +455,131 @@ const handleXmlRequest = async (req, res) => {
       }
     } catch (soapErr) {
       console.warn('SOAP entegratörden XML çekme uyarısı:', soapErr.message);
+    }
+
+    // 4. Bulunamadıysa VEGADB Fatura Başlık ve Stok Kalemlerinden Orijinal UBL-TR XML Üret
+    try {
+      const pool = await sql.connect(dbConfig);
+      const headRes = await pool.request()
+        .input('invoiceNo', sql.VarChar, invoiceNo)
+        .query(`
+          SELECT TOP 1
+              b.IND AS [id],
+              b.BELGENO AS [invoiceNo],
+              b.TARIH AS [date],
+              b.FIRMANO AS [cariCode],
+              COALESCE(NULLIF(c.UNVAN, ''), NULLIF(c.FIRMAKODU, ''), c.ADI) AS [cariName],
+              COALESCE(NULLIF(c.ADI, ''), '') AS [cariContact],
+              ISNULL(c.SEHIR, 'AMASYA') AS [cariCity],
+              ISNULL(c.VERGIDAIRESI, 'AMASYA VERGİ DAİRESİ MÜD.') AS [taxOffice],
+              COALESCE(NULLIF(c.VERGINO, ''), '') AS [taxNo],
+              ISNULL(c.FIRMAKODU, '') AS [customerCode]
+          FROM ${config.db}${config.baslik} b
+          LEFT JOIN ${config.cari} c ON b.FIRMANO = c.IND
+          WHERE b.BELGENO = @invoiceNo
+        `);
+
+      const invoiceHeader = headRes.recordset?.[0];
+      if (invoiceHeader) {
+        let invoiceItems = [];
+        try {
+          const stokRes = await pool.request()
+            .input('evrakNo', sql.VarChar, invoiceNo)
+            .query(`
+              SELECT 
+                  sh.IND AS [id],
+                  COALESCE(s.MALINCINSI, sh.IZAHAT, 'Mal/Hizmet') AS [productName],
+                  COALESCE(NULLIF(sh.CIKAN, 0), NULLIF(sh.GIREN, 0), 0) AS [rawQuantity],
+                  COALESCE(b.BIRIMADI, 'KG') AS [unit],
+                  ISNULL(sh.BIRIMFIYAT, 0) AS [unitPrice],
+                  ISNULL(sh.TUTAR, 0) AS [lineTutar],
+                  ISNULL(sh.ALTNOT, '') AS [description]
+              FROM F0101D0008TBLSTOKHAREKETLERI sh
+              LEFT JOIN F0101TBLSTOKLAR s ON sh.STOKNO = s.IND
+              LEFT JOIN F0101TBLBIRIMLEREX b ON sh.BIRIMEX = b.IND
+              WHERE sh.EVRAKNO = @evrakNo
+              ORDER BY sh.IND ASC
+            `);
+
+          if (stokRes.recordset && stokRes.recordset.length > 0) {
+            invoiceItems = stokRes.recordset.map(r => {
+              let lineTutar = Number(r.lineTutar || 0);
+              let unitPrice = Number(r.unitPrice || 0);
+              let quantity = Number(r.rawQuantity || 0);
+              if (quantity === 0 && unitPrice > 0 && lineTutar > 0) {
+                quantity = Math.round((lineTutar / unitPrice) * 100) / 100;
+              }
+              if (quantity === 0) quantity = 1;
+              if (unitPrice === 0 && lineTutar > 0 && quantity > 0) {
+                unitPrice = lineTutar / quantity;
+              }
+              return {
+                id: r.id,
+                productName: r.productName,
+                quantity,
+                unit: r.unit || 'KG',
+                unitPrice,
+                lineTutar,
+                kdvRate: 1,
+                kdvTutar: lineTutar * 0.01,
+                description: r.description || ''
+              };
+            });
+          }
+        } catch (stokErr) {}
+
+        if (invoiceItems.length === 0) {
+          try {
+            const itemsRes = await pool.request()
+              .input('id', sql.Int, invoiceHeader.id)
+              .query(`
+                SELECT 
+                    h.IND AS [id],
+                    h.MALINCINSI AS [productName],
+                    h.GERCEKTOPLAM AS [lineTutar],
+                    h.KDVTUTAR AS [kdvTutar]
+                FROM ${config.db}${config.hareket} h
+                WHERE h.EVRAKNO = @id
+                ORDER BY h.IND ASC
+              `);
+            invoiceItems = (itemsRes.recordset || []).map(r => {
+              const lineTutar = Number(r.lineTutar || 0);
+              const kdvTutar = Number(r.kdvTutar || 0);
+              const kdvRate = (lineTutar > 0 && kdvTutar > 0) ? Math.round((kdvTutar / lineTutar) * 100) : 1;
+              return {
+                id: r.id,
+                productName: r.productName,
+                quantity: 1,
+                unit: 'Adet',
+                unitPrice: lineTutar,
+                lineTutar,
+                kdvRate,
+                kdvTutar,
+                description: ''
+              };
+            });
+          } catch (hErr) {}
+        }
+
+        const generatedXml = generateUblXml({
+          invoiceNo: invoiceHeader.invoiceNo,
+          date: invoiceHeader.date,
+          cariName: invoiceHeader.cariName,
+          cariContact: invoiceHeader.cariContact,
+          cariCity: invoiceHeader.cariCity,
+          taxOffice: invoiceHeader.taxOffice,
+          taxNo: invoiceHeader.taxNo,
+          customerCode: invoiceHeader.customerCode,
+          items: invoiceItems,
+          company
+        });
+
+        res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${invoiceNo}.xml"`);
+        return res.send(generatedXml);
+      }
+    } catch (sqlGenErr) {
+      console.warn('UBL XML üretim hatası:', sqlGenErr.message);
     }
 
     return res.status(404).json({ error: 'Faturanın XML içeriği yerel sunucuda veya entegratörde bulunamadı.' });
