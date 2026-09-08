@@ -450,10 +450,16 @@ interface AggregatedCari {
   last_slaughter_date: string;
 }
 
-let globalKesimRecordsCache: KesimRecord[] = [];
+let globalKesimRecordsCache: KesimRecord[] = (() => {
+  try {
+    const saved = localStorage.getItem('dars_kesim_records_cache');
+    if (saved) return JSON.parse(saved);
+  } catch (e) {}
+  return [];
+})();
 
 export function KesimListesiCariPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const { notify } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
@@ -572,77 +578,78 @@ export function KesimListesiCariPage() {
 
   // Fetch records
   const fetchRecords = useCallback(async () => {
-    if (globalKesimRecordsCache.length === 0) {
-      setLoading(true);
-    }
+    setLoading(true);
     try {
       let fetchedData: KesimRecord[] | null = null;
 
-      // 1. Önce doğrudan yüksek hızlı ve indeksli Supabase veritabanından çek (anında <100ms)
-      let query = supabase
-        .from('kesim_listesi')
-        .select('*')
-        .order('slaughter_date', { ascending: false });
+      // 1. Mezbaha Canlı API'sinden çek (anında hafıza önbelleği ile döner)
+      try {
+        let apiUrl = `https://vega-api.amasyaetas.com/api/kesim/records`;
+        const params = new URLSearchParams();
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+        const queryStr = params.toString();
+        if (queryStr) apiUrl += `?${queryStr}`;
 
-      if (user?.organizationId) {
-        query = query.eq('organization_id', user.organizationId);
-      }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const res = await fetch(apiUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
 
-      if (startDate) {
-        query = query.gte('slaughter_date', startDate);
-      }
-      if (endDate) {
-        query = query.lte('slaughter_date', endDate);
-      }
-
-      const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        fetchedData = data;
-      }
-
-      // 2. Eğer Supabase henüz veri dönmediyse Mezbaha API'den çekmeyi dene (2.5 sn zaman aşımı ile)
-      if (!fetchedData || fetchedData.length === 0) {
-        try {
-          let apiUrl = `https://vega-api.amasyaetas.com/api/kesim/records`;
-          const params = new URLSearchParams();
-          if (startDate) params.append('startDate', startDate);
-          if (endDate) params.append('endDate', endDate);
-          const queryStr = params.toString();
-          if (queryStr) apiUrl += `?${queryStr}`;
-
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2500);
-          const res = await fetch(apiUrl, { signal: controller.signal });
-          clearTimeout(timeoutId);
-
-          if (res.ok) {
-            const liveData = await res.json();
-            if (Array.isArray(liveData) && liveData.length > 0) {
-              fetchedData = liveData;
-            }
+        if (res.ok) {
+          const liveData = await res.json();
+          if (Array.isArray(liveData)) {
+            fetchedData = liveData;
           }
-        } catch (liveErr) {
-          console.warn('Mezbaha API canli veri çekilemedi:', liveErr);
+        }
+      } catch (liveErr) {
+        console.warn('Mezbaha API canli veri çekilemedi, Supabase deneniyor:', liveErr);
+      }
+
+      // 2. Fallback: Supabase Veritabanı
+      if (!fetchedData) {
+        try {
+          let query = supabase
+            .from('kesim_listesi')
+            .select('*')
+            .order('slaughter_date', { ascending: false });
+
+          if (user?.organizationId) {
+            query = query.eq('organization_id', user.organizationId);
+          }
+          if (startDate) {
+            query = query.gte('slaughter_date', startDate);
+          }
+          if (endDate) {
+            query = query.lte('slaughter_date', endDate);
+          }
+
+          const { data, error } = await query;
+          if (!error && Array.isArray(data)) {
+            fetchedData = data;
+          }
+        } catch (supErr) {
+          console.warn('Supabase kesim listesi query error:', supErr);
         }
       }
 
-      if (fetchedData && fetchedData.length > 0) {
+      if (fetchedData) {
         globalKesimRecordsCache = fetchedData;
+        try {
+          localStorage.setItem('dars_kesim_records_cache', JSON.stringify(fetchedData));
+        } catch (e) {}
         setRecords(fetchedData);
-      } else if (records.length === 0) {
-        setRecords(fetchedData || []);
       }
     } catch (error: any) {
       notify('Kesim kayıtları yüklenirken bir hata oluştu: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [user?.organizationId, startDate, endDate, notify, records.length]);
+  }, [user?.organizationId, startDate, endDate, notify]);
 
   useEffect(() => {
-    if (authLoading) return;
     void fetchRecords();
-  }, [authLoading, user?.organizationId, fetchRecords]);
+  }, [fetchRecords]);
 
   const handleSyncVegaPrices = async () => {
     setActionLoading(true);
