@@ -523,27 +523,55 @@ export function KesimListesiPage() {
 
   // Fetch records
   const fetchRecords = useCallback(async () => {
-    if (!user?.organizationId) return;
     setLoading(true);
     try {
-      let query = supabase
-        .from('kesim_listesi')
-        .select('*')
-        .eq('organization_id', user.organizationId)
-        .order('slaughter_date', { ascending: true })
-        .limit(5000);
+      let fetchedData: KesimRecord[] | null = null;
 
-      if (startDate) {
-        query = query.gte('slaughter_date', startDate);
+      // 1. Önce Mezbaha Server API'sinden canlı güncel Excel verilerini çekmeyi dene
+      try {
+        let apiUrl = `https://vega-api.amasyaetas.com/api/kesim/records`;
+        const params = new URLSearchParams();
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+        const queryStr = params.toString();
+        if (queryStr) apiUrl += `?${queryStr}`;
+
+        const res = await fetch(apiUrl);
+        if (res.ok) {
+          const liveData = await res.json();
+          if (Array.isArray(liveData) && liveData.length > 0) {
+            fetchedData = liveData;
+          }
+        }
+      } catch (liveErr) {
+        console.warn('Mezbaha API canli veri çekilemedi, Supabase deneniyor:', liveErr);
       }
-      if (endDate) {
-        query = query.lte('slaughter_date', endDate);
+
+      // 2. Fallback: Supabase
+      if (!fetchedData && user?.organizationId) {
+        let query = supabase
+          .from('kesim_listesi')
+          .select('*')
+          .eq('organization_id', user.organizationId)
+          .order('slaughter_date', { ascending: true })
+          .limit(10000);
+
+        if (startDate) {
+          query = query.gte('slaughter_date', startDate);
+        }
+        if (endDate) {
+          query = query.lte('slaughter_date', endDate);
+        }
+
+        const { data, error } = await query;
+        if (error) {
+          console.warn('Supabase kesim listesi query error:', error);
+        } else if (data) {
+          fetchedData = data;
+        }
       }
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setRecords(data || []);
+      setRecords(fetchedData || []);
     } catch (error: any) {
       notify('Kesim kayıtları yüklenirken bir hata oluştu: ' + error.message, 'error');
     } finally {

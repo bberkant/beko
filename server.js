@@ -2029,6 +2029,192 @@ async function syncKesimListesi(force = false) {
   }
 }
 
+let cachedKesimRecords = [];
+let lastKesimCacheTime = 0;
+
+async function getParsedKesimRecords(force = false) {
+  if (!force && cachedKesimRecords.length > 0 && Date.now() - lastKesimCacheTime < 30000) {
+    return cachedKesimRecords;
+  }
+
+  if (!xlsx) {
+    try { xlsx = require('xlsx'); } catch (e) { return cachedKesimRecords; }
+  }
+
+  let targetPath = null;
+  for (const p of KESIM_EXCEL_PATHS) {
+    if (fs.existsSync(p)) {
+      targetPath = p;
+      break;
+    }
+  }
+
+  if (!targetPath) {
+    const dir = String.raw`D:\yedekler\E D E 2023\EDE - 2021\GÜNLÜK KESİM 2022`;
+    if (fs.existsSync(dir)) {
+      const files = fs.readdirSync(dir);
+      const xlsxFile = files.find(f => (f.endsWith('.xlsx') || f.endsWith('.xls')) && !f.startsWith('~$'));
+      if (xlsxFile) {
+        targetPath = path.join(dir, xlsxFile);
+      }
+    }
+  }
+
+  if (!targetPath) return cachedKesimRecords;
+
+  try {
+    const buf = fs.readFileSync(targetPath);
+    const wb = xlsx.read(buf, { type: 'buffer' });
+    const records = [];
+
+    for (const sheetName of wb.SheetNames) {
+      const ws = wb.Sheets[sheetName];
+      const rows = xlsx.utils.sheet_to_json(ws, { header: 1 });
+      if (!rows || rows.length < 2) continue;
+
+      let headerIdx = -1;
+      for (let i = 0; i < Math.min(rows.length, 25); i++) {
+        const r = rows[i];
+        if (r && r.some(cell => {
+          const strCell = String(cell || '').trim().toUpperCase();
+          return strCell.includes('TARİH') || strCell.includes('TARIH') || strCell.includes('CİNS') || strCell.includes('CINS');
+        })) {
+          headerIdx = i;
+          break;
+        }
+      }
+      if (headerIdx === -1) continue;
+
+      const headers = rows[headerIdx].map(h => String(h || '').trim().toUpperCase());
+      const colMap = {
+        tarih: headers.findIndex(h => h.includes('TARİH') || h.includes('TARIH')),
+        el: headers.findIndex(h => h === 'EL' || h.includes('CARİ') || h.includes('CARI') || h.includes('TEDARİKÇİ') || h.includes('ADI SOYADI') || h.includes('AD SOYAD') || h.includes('ALICI')),
+        adet: headers.findIndex(h => h === 'AD.' || h === 'ADET' || h === 'AD'),
+        cinsi: headers.findIndex(h => h.includes('CİNSİ') || h.includes('CINSI') || h.includes('CİNS') || h.includes('CINS')),
+        kg: headers.findIndex(h => h === 'KG' || h.includes('KARKAS') || h.includes('KİLO') || h.includes('KILO')),
+        fiyat: headers.findIndex(h => h.includes('FİYAT') || h.includes('FIYAT')),
+        pesinat: headers.findIndex(h => h.includes('PEŞİNAT') || h.includes('PESINAT') || h.includes('KESİNTİ') || h.includes('KESINTI') || h === 'TUTAR' || h.includes('ÖDENEN') || h.includes('ODENEN')),
+        aciklama: headers.findIndex(h => h.includes('AÇIKLAMA') || h.includes('ACIKLAMA') || h.includes('NOT')),
+        odeme: headers.findIndex(h => h.includes('ÖDEME') || h.includes('ODEME') || h.includes('TARİHİ') || h.includes('TARIHI'))
+      };
+
+      if (colMap.tarih === -1 || colMap.el === -1 || colMap.kg === -1) continue;
+
+      let lastParsedDate = null;
+      for (let i = headerIdx + 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0) continue;
+
+        const rawTarih = row[colMap.tarih];
+        const rawEl = row[colMap.el];
+        const rawKg = row[colMap.kg];
+
+        if (!rawEl || !rawKg) continue;
+
+        let parsedDate = null;
+        if (typeof rawTarih === 'number') {
+          if (rawTarih > 35000 && rawTarih < 60000) {
+            const utcDays = Math.floor(rawTarih - 25569);
+            const d = new Date(utcDays * 86400 * 1000);
+            const y = d.getUTCFullYear();
+            const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(d.getUTCDate()).padStart(2, '0');
+            parsedDate = `${y}-${m}-${day}`;
+          }
+        } else if (rawTarih) {
+          const s = String(rawTarih).trim();
+          const mTr = s.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+          if (mTr) {
+            parsedDate = `${mTr[3]}-${String(mTr[2]).padStart(2, '0')}-${String(mTr[1]).padStart(2, '0')}`;
+          } else {
+            const mIso = s.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+            if (mIso) {
+              parsedDate = `${mIso[1]}-${String(mIso[2]).padStart(2, '0')}-${String(mIso[3]).padStart(2, '0')}`;
+            }
+          }
+        }
+
+        if (parsedDate) {
+          lastParsedDate = parsedDate;
+        } else {
+          parsedDate = lastParsedDate;
+        }
+
+        if (!parsedDate) continue;
+
+        const parsedSupplier = String(rawEl).trim();
+        let kgStr = String(rawKg).replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '').trim();
+        const parsedCarcassWeight = parseFloat(kgStr) || 0;
+        if (!parsedSupplier || parsedCarcassWeight <= 0) continue;
+
+        let fiyatStr = colMap.fiyat !== -1 ? String(row[colMap.fiyat] || 0).replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '').trim() : '0';
+        const parsedPricePerKg = parseFloat(fiyatStr) || 0;
+
+        const parsedAnimalType = colMap.cinsi !== -1 ? String(row[colMap.cinsi] || 'Dana').trim() : 'Dana';
+        const parsedHeadCount = colMap.adet !== -1 ? (parseInt(String(row[colMap.adet])) || 1) : 1;
+
+        let pesinatStr = colMap.pesinat !== -1 ? String(row[colMap.pesinat] || 0).replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '').trim() : '0';
+        const parsedPesinat = parseFloat(pesinatStr) || 0;
+
+        const parsedNotes = colMap.aciklama !== -1 ? String(row[colMap.aciklama] || '').trim() : '';
+        let parsedPayment = 'CARİ';
+        if (colMap.odeme !== -1 && row[colMap.odeme]) {
+          const rawO = row[colMap.odeme];
+          if (typeof rawO === 'number' && rawO > 35000 && rawO < 60000) {
+            const utcDays = Math.floor(rawO - 25569);
+            const d = new Date(utcDays * 86400 * 1000);
+            parsedPayment = `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}.${d.getUTCFullYear()}`;
+          } else {
+            parsedPayment = String(rawO).trim();
+          }
+        }
+
+        const total = parsedCarcassWeight * parsedPricePerKg;
+
+        records.push({
+          id: `kesim-${parsedDate}-${parsedSupplier}-${parsedCarcassWeight}-${i}`,
+          organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
+          slaughter_date: parsedDate,
+          supplier: parsedSupplier,
+          head_count: parsedHeadCount,
+          animal_type: parsedAnimalType,
+          carcass_weight: parsedCarcassWeight,
+          price_per_kg: parsedPricePerKg,
+          total_amount: total,
+          pesinat: parsedPesinat,
+          kalan_tutar: total - parsedPesinat,
+          notes: parsedNotes || null,
+          payment_date: parsedPayment || null
+        });
+      }
+    }
+
+    cachedKesimRecords = records;
+    lastKesimCacheTime = Date.now();
+    return records;
+  } catch (err) {
+    console.error('[KESİM HATA]', err.message);
+    return cachedKesimRecords;
+  }
+}
+
+app.get('/api/kesim/records', async (req, res) => {
+  try {
+    const { startDate, endDate, force } = req.query;
+    const records = await getParsedKesimRecords(force === 'true');
+    let filtered = records;
+    if (startDate) {
+      filtered = filtered.filter(r => r.slaughter_date >= startDate);
+    }
+    if (endDate) {
+      filtered = filtered.filter(r => r.slaughter_date <= endDate);
+    }
+    res.json(filtered);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/kesim/sync', async (req, res) => {
   const result = await syncKesimListesi(true);
   res.json(result);
