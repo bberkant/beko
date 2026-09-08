@@ -527,34 +527,13 @@ export function KesimListesiPage() {
     try {
       let fetchedData: KesimRecord[] | null = null;
 
-      // 1. Önce Mezbaha Server API'sinden canlı güncel Excel verilerini çekmeyi dene
-      try {
-        let apiUrl = `https://vega-api.amasyaetas.com/api/kesim/records`;
-        const params = new URLSearchParams();
-        if (startDate) params.append('startDate', startDate);
-        if (endDate) params.append('endDate', endDate);
-        const queryStr = params.toString();
-        if (queryStr) apiUrl += `?${queryStr}`;
-
-        const res = await fetch(apiUrl);
-        if (res.ok) {
-          const liveData = await res.json();
-          if (Array.isArray(liveData) && liveData.length > 0) {
-            fetchedData = liveData;
-          }
-        }
-      } catch (liveErr) {
-        console.warn('Mezbaha API canli veri çekilemedi, Supabase deneniyor:', liveErr);
-      }
-
-      // 2. Fallback: Supabase
-      if (!fetchedData && user?.organizationId) {
+      // 1. Önce doğrudan yüksek hızlı ve indeksli Supabase veritabanından çek (anında <100ms)
+      if (user?.organizationId) {
         let query = supabase
           .from('kesim_listesi')
           .select('*')
           .eq('organization_id', user.organizationId)
-          .order('slaughter_date', { ascending: true })
-          .limit(10000);
+          .order('slaughter_date', { ascending: false });
 
         if (startDate) {
           query = query.gte('slaughter_date', startDate);
@@ -564,10 +543,34 @@ export function KesimListesiPage() {
         }
 
         const { data, error } = await query;
-        if (error) {
-          console.warn('Supabase kesim listesi query error:', error);
-        } else if (data) {
+        if (!error && data && data.length > 0) {
           fetchedData = data;
+        }
+      }
+
+      // 2. Eğer Supabase'de henüz yoksa veya boşsa Mezbaha API'den çekmeyi dene (2.5 sn zaman aşımı ile)
+      if (!fetchedData || fetchedData.length === 0) {
+        try {
+          let apiUrl = `https://vega-api.amasyaetas.com/api/kesim/records`;
+          const params = new URLSearchParams();
+          if (startDate) params.append('startDate', startDate);
+          if (endDate) params.append('endDate', endDate);
+          const queryStr = params.toString();
+          if (queryStr) apiUrl += `?${queryStr}`;
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
+          const res = await fetch(apiUrl, { signal: controller.signal });
+          clearTimeout(timeoutId);
+
+          if (res.ok) {
+            const liveData = await res.json();
+            if (Array.isArray(liveData) && liveData.length > 0) {
+              fetchedData = liveData;
+            }
+          }
+        } catch (liveErr) {
+          console.warn('Mezbaha API canli veri çekilemedi:', liveErr);
         }
       }
 
