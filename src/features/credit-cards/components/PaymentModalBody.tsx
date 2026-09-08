@@ -3,12 +3,14 @@ import { FileText, X } from 'lucide-react';
 import type { Payment } from '../types';
 
 interface PaymentModalBodyProps {
+  initialAmount?: number;
   onSubmit: (data: { date: string; amount: number; type: Payment['type']; bankAccount: string; description: string }) => void;
 }
 
-export function PaymentModalBody({ onSubmit }: PaymentModalBodyProps) {
-  const [date, setDate] = useState('2026-07-17');
-  const [amount, setAmount] = useState('');
+export function PaymentModalBody({ initialAmount, onSubmit }: PaymentModalBodyProps) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(todayStr);
+  const [amount, setAmount] = useState(initialAmount && initialAmount > 0 ? String(initialAmount) : '');
   const [type, setType] = useState<Payment['type']>('tam-odeme');
   const [bankAccount, setBankAccount] = useState('Garanti TL - 3214');
   const [description, setDescription] = useState('');

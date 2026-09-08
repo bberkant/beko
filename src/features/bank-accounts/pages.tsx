@@ -8,6 +8,10 @@ import {
   ArrowUpRight,
   Trash2,
   Upload,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Pencil,
 } from "lucide-react";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Badge } from "../../components/ui/Badge";
@@ -22,6 +26,11 @@ const money = (n: number, c = "TRY") =>
     currency: c,
     maximumFractionDigits: 2,
   }).format(n);
+const formatIban = (iban?: string) => {
+  if (!iban) return "-";
+  const clean = iban.replace(/\s+/g, "");
+  return clean.replace(/(.{4})/g, "$1 ").trim();
+};
 const statusCls: any = {
   aktif: "bg-emerald-50 text-emerald-700",
   pasif: "bg-gray-100 text-gray-600",
@@ -29,14 +38,96 @@ const statusCls: any = {
 };
 export function BankAccountListPage() {
   const nav = useNavigate();
-  const { accounts, deleteAccount } = useBankAccounts();
+  const { accounts, deleteAccount, saveAccount } = useBankAccounts();
   const { notify } = useToast();
   const [q, setQ] = useState("");
-  const list = accounts.filter((a) =>
-    `${a.bank} ${a.accountName} ${a.iban}`
-      .toLowerCase()
-      .includes(q.toLowerCase()),
-  );
+  const [sortKey, setSortKey] = useState<string>("bank");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [quickEditAccount, setQuickEditAccount] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState<BankAccountInput | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openQuickEdit = (a: any) => {
+    setQuickEditAccount(a);
+    setEditForm({
+      bank: a.bank || "",
+      accountName: a.accountName || "",
+      accountType: a.accountType || "vadesiz",
+      iban: a.iban || "",
+      accountNumber: a.accountNumber || "",
+      branchName: a.branchName || "",
+      currency: a.currency || "TRY",
+      balance: a.balance || 0,
+      availableBalance: a.availableBalance || 0,
+      status: a.status || "aktif",
+      description: a.description,
+    });
+  };
+
+  const handleSaveQuickEdit = async () => {
+    if (!editForm || !quickEditAccount) return;
+    setSavingEdit(true);
+    try {
+      await saveAccount(editForm, quickEditAccount.id);
+      notify("Hesap başarıyla güncellendi.", "success");
+      setQuickEditAccount(null);
+    } catch (e: any) {
+      notify(e.message || "Güncellenemedi", "error");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "balance" ? "desc" : "asc");
+    }
+  };
+
+  const list = useMemo(() => {
+    const filtered = accounts.filter((a) =>
+      `${a.bank} ${a.accountName} ${a.iban}`
+        .toLowerCase()
+        .includes(q.toLowerCase()),
+    );
+
+    return [...filtered].sort((a, b) => {
+      let valA: any = (a as any)[sortKey] ?? "";
+      let valB: any = (b as any)[sortKey] ?? "";
+
+      if (sortKey === "balance") {
+        valA = Number(a.balance) || 0;
+        valB = Number(b.balance) || 0;
+        return sortDir === "asc" ? valA - valB : valB - valA;
+      }
+
+      const strA = String(valA).toLocaleLowerCase("tr-TR");
+      const strB = String(valB).toLocaleLowerCase("tr-TR");
+      return sortDir === "asc"
+        ? strA.localeCompare(strB, "tr-TR")
+        : strB.localeCompare(strA, "tr-TR");
+    });
+  }, [accounts, q, sortKey, sortDir]);
+
+  const renderSortIcon = (key: string) => {
+    if (sortKey !== key) {
+      return (
+        <ArrowUpDown
+          size={13}
+          className="text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity shrink-0"
+        />
+      );
+    }
+    return sortDir === "asc" ? (
+      <ArrowUp size={13} className="text-blue-600 font-bold shrink-0" />
+    ) : (
+      <ArrowDown size={13} className="text-blue-600 font-bold shrink-0" />
+    );
+  };
+
   const total = accounts
     .filter((a) => a.currency === "TRY")
     .reduce((s, a) => s + a.balance, 0);
@@ -74,58 +165,127 @@ export function BankAccountListPage() {
         />
       </div>
       <div className="card overflow-x-auto">
-        <table className="min-w-full">
-          <thead className="bg-gray-50">
+        <table className="w-full table-fixed">
+          <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="table-th">Banka / Hesap</th>
-              <th className="table-th">IBAN</th>
-              <th className="table-th">Tür</th>
-              <th className="table-th">Bakiye</th>
-              <th className="table-th">Durum</th>
-              <th className="table-th"></th>
+              <th
+                onClick={() => handleSort("bank")}
+                className="table-th cursor-pointer select-none group hover:bg-gray-100 transition-colors w-[28%]"
+                title="Banka Adına Göre Sırala"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={sortKey === "bank" ? "text-blue-600 font-bold" : ""}>
+                    BANKA / HESAP
+                  </span>
+                  {renderSortIcon("bank")}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("iban")}
+                className="table-th cursor-pointer select-none group hover:bg-gray-100 transition-colors w-[25%]"
+                title="IBAN'a Göre Sırala"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={sortKey === "iban" ? "text-blue-600 font-bold" : ""}>
+                    IBAN
+                  </span>
+                  {renderSortIcon("iban")}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("accountType")}
+                className="table-th cursor-pointer select-none group hover:bg-gray-100 transition-colors w-[12%]"
+                title="Hesap Türüne Göre Sırala"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={sortKey === "accountType" ? "text-blue-600 font-bold" : ""}>
+                    TÜR
+                  </span>
+                  {renderSortIcon("accountType")}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("balance")}
+                className="table-th cursor-pointer select-none group hover:bg-gray-100 transition-colors w-[15%]"
+                title="Bakiyeye Göre Sırala"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={sortKey === "balance" ? "text-blue-600 font-bold" : ""}>
+                    BAKİYE
+                  </span>
+                  {renderSortIcon("balance")}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("status")}
+                className="table-th cursor-pointer select-none group hover:bg-gray-100 transition-colors w-[8%]"
+                title="Duruma Göre Sırala"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={sortKey === "status" ? "text-blue-600 font-bold" : ""}>
+                    DURUM
+                  </span>
+                  {renderSortIcon("status")}
+                </div>
+              </th>
+              <th className="table-th w-[12%] text-right pr-4"></th>
             </tr>
           </thead>
           <tbody>
             {list.map((a) => (
-              <tr key={a.id} className="border-t">
-                <td className="table-td">
+              <tr key={a.id} className="border-t hover:bg-gray-50/70 transition-colors">
+                <td className="table-td text-left w-[28%]">
                   <button
-                    className="font-semibold text-brand-600"
+                    className="text-left font-semibold text-blue-600 hover:text-blue-700 no-underline hover:no-underline transition-colors block w-full"
                     onClick={() => nav(`/finans/banka-hesaplari/${a.id}`)}
                   >
-                    {a.bank}
-                    <span className="block text-xs font-normal text-gray-500">
+                    <span className="text-sm font-bold text-blue-600 hover:text-blue-700 block text-left no-underline">
+                      {a.bank}
+                    </span>
+                    <span className="block text-xs font-normal text-gray-500 mt-0.5 text-left no-underline truncate">
                       {a.accountName}
                     </span>
                   </button>
                 </td>
-                <td className="table-td font-mono text-xs">{a.iban}</td>
-                <td className="table-td capitalize">{a.accountType}</td>
-                <td className="table-td font-semibold">
+                <td className="table-td text-left font-segoe text-sm sm:text-[15px] font-bold text-gray-900 tracking-wide select-all w-[25%] whitespace-nowrap">
+                  {formatIban(a.iban)}
+                </td>
+                <td className="table-td capitalize text-gray-700 w-[12%]">{a.accountType}</td>
+                <td className="table-td font-bold text-base sm:text-[17px] text-gray-900 tracking-tight w-[15%]">
                   {money(a.balance, a.currency)}
                 </td>
-                <td className="table-td">
+                <td className="table-td w-[8%]">
                   <Badge className={statusCls[a.status]}>{a.status}</Badge>
                 </td>
-                <td className="table-td text-right">
-                  <button
-                    className="text-red-500"
-                    onClick={async () => {
-                      if (confirm("Hesap silinsin mi?")) {
-                        try {
-                          await deleteAccount(a.id);
-                          notify("Hesap silindi.", "success");
-                        } catch (e) {
-                          notify(
-                            e instanceof Error ? e.message : "Silinemedi",
-                            "error",
-                          );
+                <td className="table-td text-right w-[12%] pr-4">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                      title="Hızlı Düzenle"
+                      onClick={() => openQuickEdit(a)}
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      title="Hesabı Sil"
+                      onClick={async () => {
+                        if (confirm(`"${a.bank}" hesabı silinsin mi?`)) {
+                          try {
+                            await deleteAccount(a.id);
+                            notify("Hesap silindi.", "success");
+                          } catch (e) {
+                            notify(
+                              e instanceof Error ? e.message : "Silinemedi",
+                              "error",
+                            );
+                          }
                         }
-                      }
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                      }}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -137,6 +297,119 @@ export function BankAccountListPage() {
           </p>
         )}
       </div>
+
+      {/* Hızlı Düzenleme Modalı */}
+      <Modal
+        open={quickEditAccount !== null}
+        onClose={() => setQuickEditAccount(null)}
+        title={quickEditAccount ? `${quickEditAccount.bank} - Hesabı Düzenle` : "Hesabı Düzenle"}
+        size="lg"
+      >
+        {editForm && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Banka Adı / Başlık</label>
+                <input
+                  className="input font-semibold text-blue-600"
+                  value={editForm.bank}
+                  onChange={(e) => setEditForm({ ...editForm, bank: e.target.value })}
+                  placeholder="Örn: ETİK GARANTİ"
+                />
+              </div>
+              <div>
+                <label className="label">Hesap Sahibi / Ünvan</label>
+                <input
+                  className="input text-xs"
+                  value={editForm.accountName}
+                  onChange={(e) => setEditForm({ ...editForm, accountName: e.target.value })}
+                  placeholder="Firma ünvanı"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="label">IBAN Numarası</label>
+                <input
+                  className="input font-segoe font-bold text-gray-900 tracking-wide text-sm"
+                  value={editForm.iban}
+                  onChange={(e) => setEditForm({ ...editForm, iban: e.target.value })}
+                  placeholder="TR..."
+                />
+              </div>
+              <div>
+                <label className="label">Hesap Türü</label>
+                <select
+                  className="input capitalize"
+                  value={editForm.accountType}
+                  onChange={(e) => setEditForm({ ...editForm, accountType: e.target.value as any })}
+                >
+                  <option value="vadesiz">Vadesiz</option>
+                  <option value="vadeli">Vadeli</option>
+                  <option value="kredi">Kredi</option>
+                  <option value="pos">POS</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Para Birimi</label>
+                <select
+                  className="input font-medium"
+                  value={editForm.currency}
+                  onChange={(e) => setEditForm({ ...editForm, currency: e.target.value as any })}
+                >
+                  <option value="TRY">TRY (₺)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Bakiye</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="input font-bold text-gray-900 text-base"
+                  value={editForm.balance}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      balance: parseFloat(e.target.value) || 0,
+                      availableBalance: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className="label">Hesap Durumu</label>
+                <select
+                  className="input font-medium"
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                >
+                  <option value="aktif">Aktif</option>
+                  <option value="pasif">Pasif</option>
+                  <option value="bloke">Bloke</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                onClick={() => setQuickEditAccount(null)}
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                disabled={savingEdit}
+                className="btn-primary text-xs font-semibold px-5"
+                onClick={handleSaveQuickEdit}
+              >
+                {savingEdit ? "Kaydediliyor..." : "Kaydet"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -305,7 +578,7 @@ export function BankAccountDetailPage() {
     <div className="mx-auto max-w-6xl">
       <PageHeader
         title={a.accountName}
-        description={`${a.bank} · ${a.iban}`}
+        description={`${a.bank} · ${formatIban(a.iban)}`}
         backTo="/finans/banka-hesaplari"
         actions={
           <>
@@ -424,7 +697,7 @@ export function BankAccountDetailPage() {
             <input
               hidden
               type="file"
-              accept=".pdf,image/*"
+              accept=".pdf,.xls,.xlsx,image/*"
               onChange={(e) => setT({ ...t, file: e.target.files?.[0] })}
             />
           </label>

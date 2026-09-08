@@ -35,12 +35,25 @@ function estimatedCycles(card: CreditCard, reference: Date) {
 }
 
 export function resolveCardDueDate(card: CreditCard, statements: Statement[], reference = new Date()): ResolvedBillingDate {
+  const today = new Date(reference); today.setHours(0, 0, 0, 0);
+
   const openStatement = statements
     .filter((statement) => statement.cardId === card.id && statement.paymentStatus !== 'odendi' && statement.dueDate)
     .sort((a, b) => b.statementDate.localeCompare(a.statementDate))[0];
-  if (openStatement) return { date: openStatement.dueDate.slice(0, 10), source: 'statement', adjusted: false };
 
-  const today = new Date(reference); today.setHours(0, 0, 0, 0);
+  if (openStatement) {
+    const stmtDue = parseDate(openStatement.dueDate);
+    stmtDue.setHours(0, 0, 0, 0);
+    const debt = Number(card.currentDebt) || 0;
+    // Eğer ekstre vadesi geçmişte kaldıysa VE kartın güncel borcu sıfırsa,
+    // kartı eski ayda takılı bırakma, yeni dönemin tahmini vadesine geç
+    if (stmtDue < today && debt <= 0) {
+      // Bir sonraki periyoda geç
+    } else {
+      return { date: openStatement.dueDate.slice(0, 10), source: 'statement', adjusted: false };
+    }
+  }
+
   const cycles = estimatedCycles(card, today);
   const cycle = cycles.find((item) => item.dueDate >= today) ?? cycles[cycles.length - 1];
   return { date: dateKey(cycle.dueDate), source: 'estimated', adjusted: cycle.adjusted };

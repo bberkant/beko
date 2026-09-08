@@ -71,9 +71,11 @@ export const reviewStatusCls: Record<TransactionReviewStatus, string> = {
 };
 export const categoryLabel: Record<SpendingCategory, string> = {
   yakit: 'Yakıt', market: 'Market', seyahat: 'Seyahat', konaklama: 'Konaklama',
-  malzeme: 'Malzeme', bakim: 'Bakım', diger: 'Diğer',
+  malzeme: 'Malzeme', bakim: 'Bakım', diger: 'Diğer', yemek: 'Yemek',
+  fatura: 'Fatura', telefon: 'Telefon Faturası', odeme: 'Kredi Kartı Ödemesi',
 };
 export const categoryColor: Record<SpendingCategory, string> = {
   yakit: '#3b82f6', market: '#10b981', seyahat: '#8b5cf6', konaklama: '#f59e0b',
-  malzeme: '#ef4444', bakim: '#06b6d4', diger: '#6b7280',
+  malzeme: '#ef4444', bakim: '#06b6d4', diger: '#6b7280', yemek: '#ec4899',
+  fatura: '#14b8a6', telefon: '#f43f5e', odeme: '#64748b',
 };

@@ -5,7 +5,6 @@ import {
   RefreshCw, 
   FileSpreadsheet, 
   TrendingUp, 
-  CheckCircle2, 
   AlertCircle,
   HelpCircle,
   ChevronLeft,
@@ -16,6 +15,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 import * as XLSX from 'xlsx';
+import { CashboxDateFilterBar, SearchResultItem } from '../main-cashbox/components/CashboxDateFilterBar';
 
 interface LeftRow {
   bank: string;
@@ -120,17 +120,7 @@ const matchPOSName = (leftBank: string, rightName: string): boolean => {
   return normLeft === normRight;
 };
 
-const matchLeftBankName = (name: string): string | null => {
-  const norm = name.replace(/\s+/g, '').toLocaleUpperCase('tr-TR');
-  if (norm.includes('ZİRAAT') && !norm.includes('Ö')) return 'ZİRAAT';
-  if (norm.includes('Ö.ZİRAAT') || norm.includes('ÖZELZİRAAT')) return 'Ö. ZİRAAT';
-  if (norm.includes('GARANTİ')) return 'GARANTİ';
-  if (norm.includes('DENİZ')) return 'DENİZBANK';
-  if (norm.includes('KUVEYT')) return 'KUVEYT';
-  if (norm.includes('ALBARAKA')) return 'ALBARAKA';
-  if (norm.includes('AKBANK')) return 'AKBANK';
-  return null;
-};
+
 
 export function PosPage() {
   const { user } = useAuth();
@@ -177,6 +167,87 @@ export function PosPage() {
   const [saving, setSaving] = useState<boolean>(false);
   const [leftRows, setLeftRows] = useState<LeftRow[]>([]);
   const [rightRows, setRightRows] = useState<RightRow[]>([]);
+
+  // Search & Range States for CashboxDateFilterBar
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isRange, setIsRange] = useState<boolean>(false);
+  const [startDate, setStartDate] = useState<string>(selectedDate);
+  const [endDate, setEndDate] = useState<string>(selectedDate);
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+
+  // Live Multi-Date Search across POS Reports
+  useEffect(() => {
+    const q = searchQuery.trim().toLocaleLowerCase('tr-TR');
+    if (q.length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsSearching(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        let qb = supabase
+          .from('pos_reports')
+          .select('date, left_table, right_table')
+          .order('date', { ascending: false });
+
+        if (isRange && startDate && endDate) {
+          qb = qb.gte('date', startDate).lte('date', endDate);
+        }
+
+        const { data, error } = await qb;
+        if (isCancelled || error || !data) {
+          if (!isCancelled) setIsSearching(false);
+          return;
+        }
+
+        const res: SearchResultItem[] = [];
+        for (const row of data) {
+          const rDate = row.date;
+          for (const l of row.left_table || []) {
+            const bName = String(l.bank || '').trim();
+            if (bName.toLocaleLowerCase('tr-TR').includes(q)) {
+              res.push({
+                date: rDate,
+                category: 'POS BANKA',
+                description: bName,
+                bankOrType: l.komisyon ? `%${l.komisyon}` : 'Banka Hesaba Geçen',
+                amount: l.banka_gecen || l.colB || ''
+              });
+            }
+          }
+          for (const r of row.right_table || []) {
+            const sName = String(r.name || '').trim();
+            if (sName.toLocaleLowerCase('tr-TR').includes(q)) {
+              res.push({
+                date: rDate,
+                category: 'ŞUBE CİRO',
+                description: sName,
+                bankOrType: 'Şube POS',
+                amount: r.amount || ''
+              });
+            }
+          }
+        }
+
+        if (!isCancelled) {
+          setSearchResults(res);
+          setIsSearching(false);
+        }
+      } catch {
+        if (!isCancelled) setIsSearching(false);
+      }
+    }, 250);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, isRange, startDate, endDate]);
   
   // Undo/redo history stack for Excel-like control
   const [, setHistory] = useState<{ left: LeftRow[], right: RightRow[] }[]>([]);
@@ -273,179 +344,26 @@ export function PosPage() {
       }
     });
 
-    return [...result, ...extraRows];
+    const combined = [...result, ...extraRows];
+
+    // Filter out rows below DEPO if they are 0 or empty
+    const depoIdx = combined.findIndex(r => r.name.trim().toUpperCase() === 'DEPO');
+    if (depoIdx !== -1) {
+      return combined.filter((row, idx) => {
+        if (idx > depoIdx) {
+          const val = parseFormattedNumber(row.amount);
+          return val !== 0;
+        }
+        return true;
+      });
+    }
+
+    return combined;
   };
 
-  const excelInputRef = useRef<HTMLInputElement>(null);
 
-  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const data = evt.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        
-        // Find day sheet, e.g. for "2026-08-12" day is "12"
-        const dayStr = selectedDate.split('-')[2];
-        const dayInt = parseInt(dayStr, 10).toString();
-        
-        let sheetName = '';
-        if (workbook.SheetNames.includes(dayStr)) {
-          sheetName = dayStr;
-        } else if (workbook.SheetNames.includes(dayInt)) {
-          sheetName = dayInt;
-        } else if (workbook.SheetNames.includes('RAPOR ARKA SAYFA')) {
-          sheetName = 'RAPOR ARKA SAYFA';
-        } else {
-          sheetName = workbook.SheetNames[0];
-        }
 
-        const worksheet = workbook.Sheets[sheetName];
-        if (!worksheet) {
-          notify(`Hata: Sayfa bulunamadı.`, 'error');
-          return;
-        }
-
-        // Detect layout offset (Daily layout starts at B, c=1; Monthly starts at A, c=0)
-        let colOffset = 0;
-        
-        // Read Row 3 and Row 4 to check if Column A contains 'POS' or 'POSLAR'
-        const cellRow3Col0 = worksheet[XLSX.utils.encode_cell({ r: 3, c: 0 })];
-        const cellRow4Col0 = worksheet[XLSX.utils.encode_cell({ r: 4, c: 0 })];
-        const val3_0 = cellRow3Col0 && cellRow3Col0.v ? String(cellRow3Col0.v).trim().toLocaleUpperCase('tr-TR') : '';
-        const val4_0 = cellRow4Col0 && cellRow4Col0.v ? String(cellRow4Col0.v).trim().toLocaleUpperCase('tr-TR') : '';
-
-        if (val3_0 === 'POSLAR' || val3_0 === 'POS' || val4_0 === 'POS' || val4_0 === 'POSLAR') {
-          colOffset = -1;
-        }
-
-        const allowedRightBanks = [
-          'KUVEYT', 'Ö.ZİRAAT', 'Ö. ZİRAAT', 'DENİZ', 'DENIZ', 'YAPI', 'GARANTİ', 'GARANTI', 
-          'ZİRAAT', 'ZIRAAT', 'AKBANK', 'ALBARAKA', 'HALK', 'VAKIF', 'TEB', 'İŞBANK', 'İŞ', 'ISBANK'
-        ];
-
-        const parsedRight: RightRow[] = [];
-        // Loop Row 5 (index 4) to Row 40 (index 39)
-        for (let r = 4; r < 40; r++) {
-          const cellRefE = XLSX.utils.encode_cell({ r, c: 4 + colOffset }); // Col E
-          const cellRefF = XLSX.utils.encode_cell({ r, c: 5 + colOffset }); // Col F
-          const cellE = worksheet[cellRefE];
-          const cellF = worksheet[cellRefF];
-
-          if (cellE && cellE.v !== undefined && String(cellE.v).trim() !== '') {
-            const name = String(cellE.v).trim().toLocaleUpperCase('tr-TR');
-            const rawAmt = cellF ? cellF.v : 0;
-            
-            let formattedAmount = '0,00';
-            if (rawAmt !== null && rawAmt !== undefined && rawAmt !== '') {
-              if (typeof rawAmt === 'number') {
-                formattedAmount = new Intl.NumberFormat('tr-TR', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-                }).format(rawAmt);
-              } else {
-                formattedAmount = String(rawAmt).trim();
-              }
-            }
-
-            if (r >= 21) {
-              if (allowedRightBanks.includes(name)) {
-                parsedRight.push({ name, amount: formattedAmount });
-              }
-            } else {
-              parsedRight.push({ name, amount: formattedAmount });
-            }
-          }
-        }
-
-        setRightRows(parsedRight);
-        
-        // Also parse Left Table POS amounts if available
-        const leftTableMapping: Record<string, { banka_gecen: string; komisyon: string; kesinti: string }> = {};
-        for (let r = 4; r < 20; r++) {
-          const cellRefB = XLSX.utils.encode_cell({ r, c: 1 + colOffset }); // Col B
-          const cellRefC = XLSX.utils.encode_cell({ r, c: 2 + colOffset }); // Col C
-          const cellRefD = XLSX.utils.encode_cell({ r, c: 3 + colOffset }); // Col D
-          const cellRefE = XLSX.utils.encode_cell({ r, c: 4 + colOffset }); // Col E
-
-          const cellB = worksheet[cellRefB];
-          const cellC = worksheet[cellRefC];
-          const cellD = worksheet[cellRefD];
-          const cellE = worksheet[cellRefE];
-
-          if (cellB && cellB.v !== undefined && String(cellB.v).trim() !== '') {
-            const bankName = String(cellB.v).trim();
-            const mappedName = matchLeftBankName(bankName);
-            if (mappedName) {
-              const rawAmt = cellC ? cellC.v : 0;
-              let formattedAmount = '0,00';
-              if (rawAmt !== null && rawAmt !== undefined && rawAmt !== '') {
-                if (typeof rawAmt === 'number') {
-                  formattedAmount = new Intl.NumberFormat('tr-TR', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                  }).format(rawAmt);
-                } else {
-                  formattedAmount = String(rawAmt).trim();
-                }
-              }
-
-              let komVal = cellD ? cellD.v : 0;
-              if (typeof komVal === 'number' && komVal > 0 && komVal < 1) {
-                komVal = komVal * 100;
-              }
-              let formattedKom = '';
-              if (typeof komVal === 'number' && komVal > 0) {
-                formattedKom = new Intl.NumberFormat('tr-TR', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-                }).format(komVal);
-              }
-
-              const rawKes = cellE ? cellE.v : 0;
-              let formattedKes = '';
-              if (typeof rawKes === 'number' && rawKes > 0) {
-                formattedKes = new Intl.NumberFormat('tr-TR', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-                }).format(rawKes);
-              }
-
-              leftTableMapping[mappedName] = {
-                banka_gecen: formattedAmount,
-                komisyon: komVal > 0 ? formattedKom : '',
-                kesinti: rawKes > 0 ? formattedKes : ''
-              };
-            }
-          }
-        }
-
-        setLeftRows(prevLeft => {
-          return prevLeft.map(row => {
-            const mapping = leftTableMapping[row.bank];
-            if (mapping !== undefined) {
-              return {
-                ...row,
-                banka_gecen: mapping.banka_gecen,
-                komisyon: mapping.komisyon,
-                kesinti: mapping.kesinti
-              };
-            }
-            return row;
-          });
-        });
-
-        notify(`"${sheetName}" sekmesindeki şube ve POS tutarları başarıyla yüklendi! Lütfen Kaydedin.`, 'success');
-      } catch (err: any) {
-        notify(`Excel okunamadı: ${err.message || err}`, 'error');
-      }
-    };
-    reader.readAsBinaryString(file);
-    e.target.value = '';
-  };
 
   // Fetch report data from Supabase
   const loadReport = useCallback(async () => {
@@ -573,12 +491,9 @@ export function PosPage() {
       const nextLeft = prevLeft.map(row => {
         // 1. Calculate colB (sum of rightRows tutar)
         let sumB = 0;
-        rightRows.forEach((r, idx) => {
+        rightRows.forEach((r) => {
           if (matchPOSName(row.bank, r.name)) {
-            const templateRow = TEMPLATE_RIGHT_ROWS[idx];
-            if (templateRow && matchPOSName(templateRow.name, r.name)) {
-              sumB += parseFormattedNumber(r.amount);
-            }
+            sumB += parseFormattedNumber(r.amount);
           }
         });
         const formattedB = sumB > 0 ? formatTRNum(sumB) : '';
@@ -861,7 +776,7 @@ export function PosPage() {
     const excelLeft = leftRows.filter(r => r.bank).map(row => ({
       'POS': row.bank,
       'KOLON B': parseFormattedNumber(row.colB),
-      'BANKA GEÇEN': parseFormattedNumber(row.banka_gecen),
+      'HESABA GEÇEN': parseFormattedNumber(row.banka_gecen),
       'KOMİSYON': parseFormattedNumber(row.komisyon),
       'KESİNTİ': parseFormattedNumber(row.kesinti)
     }));
@@ -874,7 +789,7 @@ export function PosPage() {
     excelLeft.push({
       'POS': 'TOPLAM',
       'KOLON B': totals.totalColB,
-      'BANKA GEÇEN': totals.totalBankaGecen,
+      'HESABA GEÇEN': totals.totalBankaGecen,
       'KOMİSYON': totals.avgKomisyon,
       'KESİNTİ': totals.totalKesinti
     });
@@ -1015,7 +930,7 @@ export function PosPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
             <HandCoins className="text-brand-600" size={26} />
-            POS Günlük Takip
+            Günlük POS Takip
           </h1>
           <p className="text-sm text-gray-500">
             Günlük POS ciro dökümü ve banka netleşme takibi
@@ -1034,14 +949,6 @@ export function PosPage() {
             <span>Yazdır</span>
           </button>
 
-          <button
-            onClick={() => excelInputRef.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-sm font-semibold hover:bg-indigo-100 transition-colors shadow-sm"
-            title="Excel'den Veri Çek"
-          >
-            <FileSpreadsheet size={15} />
-            <span>Excel'den Veri Çek</span>
-          </button>
 
           <button
             onClick={handleExportToExcel}
@@ -1066,25 +973,33 @@ export function PosPage() {
         </div>
       </div>
 
-      {/* Sync Status / Saving Indicator */}
-      <div className="flex items-center justify-between text-xs text-gray-500 bg-white border border-gray-150 px-4 py-2 rounded-lg print:hidden shadow-sm">
-        <div className="flex items-center gap-1.5">
-          {saving ? (
-            <>
-              <RefreshCw size={13} className="text-brand-500 animate-spin" />
-              <span>Veritabanına kaydediliyor...</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 size={13} className="text-emerald-500" />
-              <span>Tüm değişiklikler kaydedildi</span>
-            </>
-          )}
-        </div>
-        <div className="font-mono text-gray-400">
-          Tarih: {formatDate(selectedDate)}
-        </div>
-      </div>
+      {/* Universal Top Filter Bar matching GirisCikisPage */}
+      <CashboxDateFilterBar
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        isRange={isRange}
+        setIsRange={setIsRange}
+        startDate={startDate}
+        setStartDate={setStartDate}
+        endDate={endDate}
+        setEndDate={setEndDate}
+        onPrevDay={handlePrevDay}
+        onNextDay={handleNextDay}
+        searchResults={searchResults}
+        isSearching={isSearching}
+        onSelectResult={(d) => {
+          setSelectedDate(d);
+          setIsRange(false);
+        }}
+        extraActions={
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full shadow-xs">
+            <span className={`w-2 h-2 rounded-full ${saving ? 'bg-amber-500 animate-spin' : 'bg-emerald-500 animate-pulse'}`}></span>
+            {saving ? 'Kaydediliyor...' : 'Bulutla Eşitlendi'}
+          </span>
+        }
+      />
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 print:hidden">
@@ -1098,7 +1013,7 @@ export function PosPage() {
 
         <div className="card bg-white p-5 flex items-center justify-between border-l-4 border-brand-500">
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">BANKA GEÇEN TOPLAM</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">HESABA GEÇEN TOPLAM</p>
             <h3 className="text-2xl font-black text-gray-900 mt-1">{formatTRNum(totals.totalBankaGecen)} <span className="text-sm font-bold text-gray-500">TRY</span></h3>
           </div>
           <HandCoins className="text-brand-500" size={32} />
@@ -1123,7 +1038,7 @@ export function PosPage() {
         {/* Table Title block */}
         <div className="flex flex-wrap items-center gap-4 mb-4 border-b border-gray-200 pb-2">
           <div className="text-[17px] font-bold text-brand-800 uppercase tracking-wider shrink-0">
-            POS GÜNLÜK TAKİP
+            GÜNLÜK POS TAKİP
           </div>
           <div className="flex items-center gap-3">
             {/* Tarih Seçici Kontrolleri (Daha büyük ve belirgin) */}
@@ -1180,7 +1095,7 @@ export function PosPage() {
                 <tr className="bg-gray-50 font-bold border-b border-gray-300">
                   <th className="w-28 border border-gray-300 px-2 py-2.5 text-center text-red-650 font-black uppercase text-[13.5px] pos-header-red">POS</th>
                   <th className="w-24 border border-gray-300 px-2 py-2.5 text-center text-gray-700 font-extrabold uppercase text-[12.5px]">ŞUBELER</th>
-                  <th className="w-32 border border-gray-300 px-2 py-2.5 text-center text-red-650 font-black uppercase text-[13.5px]">BANKA GEÇEN</th>
+                  <th className="w-32 border border-gray-300 px-2 py-2.5 text-center text-red-650 font-black uppercase text-[13.5px]">HESABA GEÇEN</th>
                   <th className="w-24 border border-gray-300 px-2 py-2.5 text-center text-gray-700 font-extrabold uppercase text-[12.5px]">KOMİSYON (%)</th>
                   <th className="w-24 border border-gray-300 px-2 py-2.5 text-center text-gray-700 font-extrabold uppercase text-[12.5px]">KESİNTİ</th>
                 </tr>
@@ -1286,13 +1201,7 @@ export function PosPage() {
             <div className="flex items-center justify-between mb-2 print:hidden">
               <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">ŞUBE DAĞILIMI</span>
             </div>
-            <input
-              ref={excelInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleExcelImport}
-            />
+
             <table className="w-full text-sm border-collapse border border-gray-300 table-fixed excel-table-font">
               <thead>
                 <tr className="bg-gray-50 font-bold border-b border-gray-300">

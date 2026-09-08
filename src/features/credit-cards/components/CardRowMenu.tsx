@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { MoreHorizontal, Eye, Pencil, Upload, CreditCard, Pause, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Eye, Pencil, Upload, CreditCard, Pause, Trash2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { useToast } from '../../../lib/toast';
 import { useStore } from '../data/store';
 import type { CreditCard as CreditCardType } from '../types';
@@ -20,7 +20,7 @@ export function CardRowMenu({ card, onUploadStatement, onAddPayment }: CardRowMe
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const navigate = useNavigate();
   const { notify } = useToast();
-  const { updateCard, deleteCard } = useStore();
+  const { updateCard, deleteCard, addPayment, revertCardPayment } = useStore();
 
   useEffect(() => {
     if (!open) return;
@@ -32,8 +32,8 @@ export function CardRowMenu({ card, onUploadStatement, onAddPayment }: CardRowMe
     const place = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const menuWidth = 192;
-      const menuHeight = 250;
+      const menuWidth = 208;
+      const menuHeight = 310;
       setPosition({
         left: Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth)),
         top: rect.bottom + menuHeight > window.innerHeight - 8 ? rect.top - menuHeight - 4 : rect.bottom + 4,
@@ -63,11 +63,11 @@ export function CardRowMenu({ card, onUploadStatement, onAddPayment }: CardRowMe
         <MoreHorizontal size={18} />
       </button>
       {open && createPortal(
-        <div ref={menuRef} className="fixed z-[100] w-48 rounded-xl border border-gray-200 bg-white p-1.5 shadow-card" style={{top:position.top,left:position.left}}>
-          <button className={itemCls} onClick={() => { setOpen(false); navigate(`/finance/credit-cards/${card.id}`); }}>
+        <div ref={menuRef} className="fixed z-[100] w-52 rounded-xl border border-gray-200 bg-white p-1.5 shadow-card" style={{top:position.top,left:position.left}}>
+          <button className={itemCls} onClick={() => { setOpen(false); navigate(`/finans/kredi-kartlari/${card.id}`); }}>
             <Eye size={15} className="text-gray-400" /> Görüntüle
           </button>
-          <button className={itemCls} onClick={() => { setOpen(false); navigate(`/finance/credit-cards/${card.id}/edit`); }}>
+          <button className={itemCls} onClick={() => { setOpen(false); navigate(`/finans/kredi-kartlari/${card.id}/duzenle`); }}>
             <Pencil size={15} className="text-gray-400" /> Düzenle
           </button>
           <button className={itemCls} onClick={() => { setOpen(false); onUploadStatement(); }}>
@@ -75,6 +75,46 @@ export function CardRowMenu({ card, onUploadStatement, onAddPayment }: CardRowMe
           </button>
           <button className={itemCls} onClick={() => { setOpen(false); onAddPayment(); }}>
             <CreditCard size={15} className="text-gray-400" /> Ödeme Kaydı Ekle
+          </button>
+          <button
+            className={`${itemCls} text-emerald-700 hover:bg-emerald-50 font-medium`}
+            onClick={async () => {
+              setOpen(false);
+              const currentDebt = Number(card.currentDebt) || 0;
+              if (currentDebt <= 0) {
+                notify(`${card.bank} •••• ${card.last4} kartının zaten ödenecek borcu bulunmuyor (0 ₺).`, 'info');
+                return;
+              }
+              try {
+                await addPayment({
+                  cardId: card.id,
+                  date: new Date().toISOString().slice(0, 10),
+                  amount: currentDebt,
+                  type: 'tam-odeme',
+                  bankAccount: `${card.bank} Hesabı`,
+                  description: 'Ödendi: Otomatik tüm borç kapatıldı',
+                });
+                notify(`✅ ${card.bank} •••• ${card.last4} için ₺${currentDebt.toLocaleString('tr-TR')} tam ödeme girildi ve borç kapatıldı.`, 'success');
+              } catch (e: any) {
+                notify(`Ödeme kaydedilemedi: ${e.message}`, 'error');
+              }
+            }}
+          >
+            <CheckCircle2 size={15} className="text-emerald-600" /> Ödendi
+          </button>
+          <button
+            className={`${itemCls} text-amber-700 hover:bg-amber-50 font-medium`}
+            onClick={async () => {
+              setOpen(false);
+              try {
+                const restoredAmount = await revertCardPayment(card.id);
+                notify(`↩️ ${card.bank} •••• ${card.last4} ödemesi kaldırıldı, ₺${restoredAmount.toLocaleString('tr-TR')} borç geri yüklendi.`, 'info');
+              } catch (e: any) {
+                notify(`Ödeme kaldırılamadı: ${e.message}`, 'error');
+              }
+            }}
+          >
+            <RotateCcw size={15} className="text-amber-600" /> Ödemeyi Kaldır
           </button>
           <button
             className={`${itemCls} text-amber-600 hover:bg-amber-50`}

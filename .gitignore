@@ -21,3 +21,8 @@ dist-ssr
 *.sln
 *.sw?
 .env
+*.zip
+*.rar
+dosyalar/
+scratch/
+marif_incoming_cache.json

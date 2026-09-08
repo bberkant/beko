@@ -7,7 +7,7 @@ export type Currency = 'TRY' | 'USD' | 'EUR';
 export type PaymentType = 'tam-odeme' | 'asgari-odeme' | 'kismi-odeme' | 'duzeltme';
 export type TransactionReviewStatus = 'normal' | 'incelenecek' | 'aciklama-bekliyor' | 'onaylandi';
 export type SpendingCategory =
-  | 'yakit' | 'market' | 'seyahat' | 'konaklama' | 'malzeme' | 'bakim' | 'diger';
+  | 'yakit' | 'market' | 'seyahat' | 'konaklama' | 'malzeme' | 'bakim' | 'diger' | 'yemek' | 'fatura' | 'telefon' | 'odeme';
 
 export interface CreditCard {
   id: string;
@@ -43,6 +43,7 @@ export interface Statement {
   transactionCount: number;
   hasFile: boolean;
   fileName?: string;
+  filePath?: string;
   aiStatus: AIAnalysisStatus;
   paymentStatus: PaymentStatus;
   note?: string;

@@ -16,6 +16,9 @@ import {
   History,
   Landmark,
   Receipt,
+  Store,
+  TrendingUp,
+  BarChart3,
 } from 'lucide-react';
 
 export interface NavChild {
@@ -47,11 +50,10 @@ export const navItems: NavItem[] = [
     icon: Landmark,
     children: [
       { label: 'Kredi Kartları', to: '/finans/kredi-kartlari' },
-      { label: 'POS Günlük Takip', to: '/pos' },
+      { label: 'ÇEKTEN Hesabı', to: '/finans/cekten-hesabi' },
       { label: 'Çek Vade Hesaplama', to: '/finans/cek-vade-hesaplama' },
       { label: 'POS Fark Hesaplama', to: '/finans/pos-fark-hesaplama' },
       { label: 'Banka Hesapları', to: '/finans/banka-hesaplari' },
-      { label: 'Banka Hesap Hareketleri', to: '/finans/banka-hesap-hareketleri' },
     ],
   },
   {
@@ -66,18 +68,26 @@ export const navItems: NavItem[] = [
     ],
   },
   {
+    label: 'E-Faturalar',
+    to: '/e-fatura/etik',
+    icon: FileText,
+    children: [
+      { label: 'Etik E-Fatura', to: '/e-fatura/etik' },
+      { label: 'Marif E-Fatura', to: '/e-fatura/marif' },
+    ],
+  },
+  {
     label: 'Araç Yönetimi',
     to: '/arac-yonetimi',
     icon: Car,
     children: [
-      { label: 'Araç Listesi - Muayene', to: '/arac-yonetimi' },
+      { label: 'Araç Sigorta - Muayene', to: '/arac-yonetimi' },
       { label: 'Araç Fiyat Listesi', to: '/arac-yonetimi/guncel-fiyat' },
       { label: 'Trafik Cezaları', to: '/arac-yonetimi/trafik-cezalari' },
       { label: 'HGS - Geçiş', to: '/arac-yonetimi/hgs-gecis' },
       { label: 'Şoförler', to: '/arac-yonetimi/soforler' },
     ],
   },
-  { label: 'İhaleler', to: '/ihaleler', icon: Gavel },
   {
     label: 'Kesim Listesi',
     to: '/kesim-listesi',
@@ -85,23 +95,81 @@ export const navItems: NavItem[] = [
     children: [
       { label: 'Kesim Listesi', to: '/kesim-listesi' },
       { label: 'Açık Mal Ödemeleri', to: '/kesim-listesi/acik-mal-odemeleri' },
+      { label: 'Kesim Listesi Cari', to: '/kesim-listesi/cari' },
+    ],
+  },
+  {
+    label: 'İhaleler',
+    to: '/ihaleler',
+    icon: Gavel,
+    children: [
+      { label: 'İhaleler', to: '/ihaleler' },
+      { label: 'Doğrudan Temin', to: '/ihaleler/dogrudan-teminler' },
+    ],
+  },
+  {
+    label: 'Şubelerimiz',
+    to: '/subeler/merkez',
+    icon: Store,
+    children: [
+      { label: 'Merkez Şube', to: '/subeler/merkez' },
+      { label: 'Merzifon Şube', to: '/subeler/merzifon' },
+      { label: 'İlkadım Şube', to: '/subeler/ilkadim' },
+      { label: 'Atakum Şube', to: '/subeler/atakum' },
+      { label: 'Sucukhane Şube', to: '/subeler/sucukhane' },
+      { label: 'Depo Şube', to: '/subeler/depo' },
     ],
   },
   { label: 'Gayrimenkul Listesi', to: '/gayrimenkul-listesi', icon: Building2 },
+  {
+    label: 'Dış Muhasebe',
+    to: '/dis-muhasebe/veri-gonderimi',
+    icon: Building2,
+    children: [
+      { label: 'Veri Gönderim Portalı', to: '/dis-muhasebe/veri-gonderimi' },
+      { label: 'Beyanname & Tahakkuk Deposu', to: '/dis-muhasebe/beyannameler' },
+      { label: 'Cari Mutabakat & BA/BS', to: '/dis-muhasebe/mutabakatlar' },
+      { label: 'Mizan Eşitleme', to: '/dis-muhasebe/mizan' }
+    ]
+  },
+  {
+    label: 'Hukuki İşlemler',
+    to: '/hukuk/dosyalar',
+    icon: Gavel,
+    children: [
+      { label: 'Dava & İcra Takibi', to: '/hukuk/dosyalar' },
+      { label: 'Duruşma & İş Takvimi', to: '/hukuk/takvim' },
+      { label: 'UYAP Entegrasyon Merkezi', to: '/hukuk/uyap' },
+      { label: 'Avukat Portalı', to: '/hukuk/avukatlar' }
+    ]
+  },
+  { label: 'Raporlama', to: '/raporlama', icon: BarChart3 },
   { 
     label: 'Ana Kasa', 
     to: '/ana-kasa', 
     icon: Wallet,
     children: [
-      { label: 'Ana Kasa Raporu', to: '/ana-kasa/rapor' },
+      { label: 'Ana Kasa Günlük Rapor', to: '/ana-kasa/rapor' },
+      { label: 'Giriş Çıkış', to: '/ana-kasa/giris-cikis' },
       { label: 'Günlük Hesap', to: '/ana-kasa/gunluk-hesap' },
+      { label: 'Günlük POS Takip', to: '/pos' },
+      { label: 'Banka Hesap Hareketleri', to: '/finans/banka-hesap-hareketleri' },
     ]
   },
+  { label: 'Ay Sonu', to: '/ay-sonu', icon: TrendingUp },
   { label: 'Bildirimler', to: '/bildirimler', icon: Bell },
   { label: 'Takvim', to: '/takvim', icon: CalendarDays },
   { label: 'Belgeler', to: '/belgeler', icon: FileText },
   { label: 'AI Asistan', to: '/ai-asistan', icon: Sparkles },
   { label: 'Kullanıcılar', to: '/kullanicilar', icon: Users },
   { label: 'Aktivite Günlüğü', to: '/aktivite-gunlugu', icon: History },
-  { label: 'Ayarlar', to: '/ayarlar', icon: Settings },
+  { 
+    label: 'Ayarlar', 
+    to: '/ayarlar', 
+    icon: Settings,
+    children: [
+      { label: 'Genel Ayarlar', to: '/ayarlar' },
+      { label: 'Sistem Yedekleri', to: '/ayarlar/yedekler' },
+    ]
+  },
 ];

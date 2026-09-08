@@ -20,7 +20,7 @@ export function HgsPassagesPage(){
   const {user}=useAuth();const{notify}=useToast();const{vehicles}=useVehicles();
   const [items,setItems]=useState<Passage[]>([]);const[loading,setLoading]=useState(true);const[query,setQuery]=useState('');
   const[open,setOpen]=useState(false);const[editing,setEditing]=useState<Passage>();const[form,setForm]=useState<FormState>(emptyForm());const[saving,setSaving]=useState(false);
-  const canWrite=['Yönetici','Muhasebe','Finans'].includes(user?.role??'');
+  const canWrite=['Süper Admin','Admin','Developer','Yönetici','Muhasebe','Finans'].includes(user?.role??'');
   const refresh=useCallback(async()=>{if(!user?.organizationId)return;setLoading(true);const{data,error}=await supabase.from('hgs_passages').select('*').eq('organization_id',user.organizationId).order('passage_date',{ascending:false});if(error)notify(error.message,'error');else setItems((data??[]).map(x=>({...x,amount:Number(x.amount)})) as Passage[]);setLoading(false)},[user?.organizationId,notify]);
   useEffect(()=>{void refresh()},[refresh]);
   const filtered=useMemo(()=>items.filter(x=>{const vehicle=vehicles.find(v=>v.id===x.vehicle_id);return`${vehicle?.plate??''} ${x.entry_point} ${x.exit_point} ${x.hgs_account}`.toLocaleLowerCase('tr-TR').includes(query.toLocaleLowerCase('tr-TR'))}),[items,vehicles,query]);

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { CreditCard, Payment, Statement } from '../types';
 import { formatTRY } from '../data/labels';
-import { isCardPaymentOverdue } from '../lib/billingDateEngine';
+import { isCardPaymentOverdue, resolveCardDueDate } from '../lib/billingDateEngine';
 
 export interface BulkPaymentData {
   date: string;
@@ -18,6 +18,12 @@ interface BulkPaymentModalBodyProps {
   onSubmit: (data: BulkPaymentData) => void;
 }
 
+const formatNumberString = (str: string) => {
+  const clean = str.replace(/\D/g, '');
+  if (!clean) return '';
+  return Number(clean).toLocaleString('tr-TR');
+};
+
 export function BulkPaymentModalBody({ cards, statements, submitting, onSubmit }: BulkPaymentModalBodyProps) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [type, setType] = useState<Payment['type']>('tam-odeme');
@@ -29,33 +35,53 @@ export function BulkPaymentModalBody({ cards, statements, submitting, onSubmit }
 
   const selectedCount = useMemo(() => Object.values(selected).filter(Boolean).length, [selected]);
   const visibleCards = useMemo(() => {
-    if (!showOverdueOnly) return cards;
-    return cards.filter((card) => isCardPaymentOverdue(card, statements));
+    const list = !showOverdueOnly
+      ? cards
+      : cards.filter((card) => isCardPaymentOverdue(card, statements));
+    
+    return [...list].sort((a, b) => {
+      const dateA = resolveCardDueDate(a, statements).date;
+      const dateB = resolveCardDueDate(b, statements).date;
+      const cmp = dateA.localeCompare(dateB);
+      if (cmp !== 0) return cmp;
+      return a.bank.localeCompare(b.bank, 'tr');
+    });
   }, [cards, statements, showOverdueOnly]);
   const allSelected = visibleCards.length > 0 && visibleCards.every((card) => selected[card.id]);
 
   const toggleCard = (card: CreditCard) => {
     const outstandingDebt = Number(card.currentDebt) || 0;
-    setSelected((current) => ({ ...current, [card.id]: !current[card.id] }));
+    const isNowSelected = !selected[card.id];
+    setSelected((current) => ({ ...current, [card.id]: isNowSelected }));
     setAmounts((current) => ({
       ...current,
-      [card.id]: current[card.id] ?? String(outstandingDebt),
+      [card.id]: isNowSelected ? formatNumberString(String(outstandingDebt)) : '',
     }));
   };
 
   const toggleAll = () => {
     if (allSelected) {
       setSelected({});
+      setAmounts({});
       return;
     }
-    setSelected((current) => ({ ...current, ...Object.fromEntries(visibleCards.map((card) => [card.id, true])) }));
-    setAmounts((current) => ({ ...current, ...Object.fromEntries(visibleCards.map((card) => [card.id, String(Number(card.currentDebt) || 0)])) }));
+    const newSelected = { ...selected };
+    const newAmounts = { ...amounts };
+    visibleCards.forEach((card) => {
+      newSelected[card.id] = true;
+      newAmounts[card.id] = formatNumberString(String(Number(card.currentDebt) || 0));
+    });
+    setSelected(newSelected);
+    setAmounts(newAmounts);
   };
 
   const submit = () => {
     const payments = cards
       .filter((card) => selected[card.id])
-      .map((card) => ({ cardId: card.id, amount: Number(amounts[card.id]) || 0 }))
+      .map((card) => {
+        const cleanStr = (amounts[card.id] || '').replace(/\./g, '');
+        return { cardId: card.id, amount: Number(cleanStr) || 0 };
+      })
       .filter((payment) => payment.amount > 0);
     onSubmit({ date, type, bankAccount, description, payments });
   };
@@ -107,11 +133,10 @@ export function BulkPaymentModalBody({ cards, statements, submitting, onSubmit }
                 <span className="block text-xs text-gray-500">Güncel borç: {formatTRY(Number(card.currentDebt) || 0)}</span>
               </button>
               <input
-                type="number"
-                min="0"
+                type="text"
                 className="input !py-2 text-right"
                 value={amounts[card.id] ?? ''}
-                onChange={(e) => setAmounts((current) => ({ ...current, [card.id]: e.target.value }))}
+                onChange={(e) => setAmounts((current) => ({ ...current, [card.id]: formatNumberString(e.target.value) }))}
                 disabled={!selected[card.id]}
                 placeholder="Tutar"
               />

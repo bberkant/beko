@@ -16,13 +16,13 @@ export function CashFlowChart() {
         <div>
           <p className="text-xs text-gray-500">Gelir</p>
           <p className="text-base font-semibold text-gray-900">
-            ₺{totalIncome.toLocaleString('tr-TR')}K
+            {totalIncome.toLocaleString('tr-TR')}K ₺
           </p>
         </div>
         <div>
           <p className="text-xs text-gray-500">Gider</p>
           <p className="text-base font-semibold text-gray-900">
-            ₺{totalExpense.toLocaleString('tr-TR')}K
+            {totalExpense.toLocaleString('tr-TR')}K ₺
           </p>
         </div>
         <div>
@@ -32,7 +32,7 @@ export function CashFlowChart() {
               net >= 0 ? 'text-emerald-600' : 'text-red-500'
             }`}
           >
-            {net >= 0 ? '+' : '-'}₺{Math.abs(net).toLocaleString('tr-TR')}K
+            {net >= 0 ? '+' : '-'}{Math.abs(net).toLocaleString('tr-TR')}K ₺
           </p>
         </div>
       </div>
@@ -44,12 +44,12 @@ export function CashFlowChart() {
               <div
                 className="w-2.5 rounded-t bg-brand-500 transition-all"
                 style={{ height: `${(d.income / max) * 100}%` }}
-                title={`Gelir: ₺${d.income}K`}
+                title={`Gelir: ${d.income}K ₺`}
               />
               <div
                 className="w-2.5 rounded-t bg-gray-200 transition-all"
                 style={{ height: `${(d.expense / max) * 100}%` }}
-                title={`Gider: ₺${d.expense}K`}
+                title={`Gider: ${d.expense}K ₺`}
               />
             </div>
             <span className="text-[11px] text-gray-400">{d.label}</span>

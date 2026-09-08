@@ -34,6 +34,7 @@ interface StoreContextValue {
   addStatement: (input: NewStatementInput) => Promise<Statement>;
   deleteStatement: (id: string) => Promise<void>;
   addPayment: (input: NewPaymentInput) => Promise<Payment>;
+  revertCardPayment: (cardId: string) => Promise<number>;
   getCard: (id: string) => CreditCard | undefined;
   getStatementsByCard: (cardId: string) => Statement[];
   getStatement: (id: string) => Statement | undefined;
@@ -55,6 +56,7 @@ const statementFromRow = (r: Row): Statement => ({
   id: r.id, cardId: r.card_id, period: r.period, statementDate: r.statement_date,
   dueDate: r.due_date, totalDebt: Number(r.total_debt), minPayment: Number(r.min_payment),
   transactionCount: r.transaction_count, hasFile: Boolean(r.file_path), fileName: r.file_name ?? undefined,
+  filePath: r.file_path ?? undefined,
   aiStatus: r.ai_status, paymentStatus: r.payment_status, note: r.note ?? undefined,
 });
 const transactionFromRow = (r: Row): Transaction => ({
@@ -159,11 +161,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }).select().single();
     if (statementError) { if (filePath) await supabase.storage.from('credit-card-statements').remove([filePath]); throw statementError; }
     if (parsed.length) {
+      const uniqueMerchants = [...new Set(parsed.map(t => t.merchant))];
+      const { data: history } = await supabase
+        .from('transactions')
+        .select('merchant, category')
+        .eq('organization_id', organizationId)
+        .in('merchant', uniqueMerchants);
+
+      const historyMap = new Map<string, string>();
+      if (history) {
+        for (const row of history) {
+          if (row.category && row.category !== 'diger') {
+            historyMap.set(row.merchant, row.category);
+          } else if (!historyMap.has(row.merchant)) {
+            historyMap.set(row.merchant, row.category || 'diger');
+          }
+        }
+      }
+
       const holder = cards.find((card) => card.id === input.cardId)?.holder ?? 'Bilinmiyor';
       const { error: transactionError } = await supabase.from('transactions').insert(parsed.map((t) => ({
         organization_id: organizationId, card_id: input.cardId, statement_id: data.id,
         transaction_date: t.date, merchant: t.merchant, description: t.description,
-        category: t.category, amount: t.amount, installments: t.installments,
+        category: historyMap.get(t.merchant) || t.category, amount: t.amount, installments: t.installments,
         spender: holder, review_status: t.reviewStatus, unusual: false,
       })));
       if (transactionError) { await supabase.from('statements').delete().eq('id', data.id); throw transactionError; }
@@ -175,6 +195,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteStatement = useCallback(async (id: string) => {
     const organizationId = requireOrg();
+    
+    // Explicitly delete transactions first to avoid orphan transactions
+    const { error: txDeleteError } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('statement_id', id)
+      .eq('organization_id', organizationId);
+    if (txDeleteError) throw txDeleteError;
+
     const { data } = await supabase.from('statements').select('file_path').eq('id', id).eq('organization_id', organizationId).maybeSingle();
     const { error: dbError } = await supabase.from('statements').delete().eq('id', id).eq('organization_id', organizationId);
     if (dbError) throw dbError;
@@ -184,14 +213,92 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addPayment = useCallback(async (input: NewPaymentInput) => {
     const organizationId = requireOrg();
+    
+    // Find the target card to read current debt
+    const card = cards.find(c => c.id === input.cardId);
+    if (!card) throw new Error('Kart bulunamadı.');
+
     const { data, error: dbError } = await supabase.from('payments').insert({
       organization_id: organizationId, card_id: input.cardId, payment_date: input.date,
       amount: input.amount, payment_type: input.type, bank_account: input.bankAccount,
       description: input.description,
     }).select().single();
     if (dbError) throw dbError;
-    const payment = paymentFromRow(data); setPayments((prev) => [payment, ...prev]); return payment;
-  }, [requireOrg]);
+
+    // Update credit card's current debt in the database
+    const newDebt = Math.max(0, (Number(card.currentDebt) || 0) - input.amount);
+    const { error: cardUpdateError } = await supabase
+      .from('credit_cards')
+      .update({ current_debt: newDebt })
+      .eq('id', input.cardId);
+    if (cardUpdateError) throw cardUpdateError;
+
+    const payment = paymentFromRow(data); 
+    setPayments((prev) => [payment, ...prev]); 
+    await refresh();
+    return payment;
+  }, [requireOrg, cards, refresh]);
+
+  const revertCardPayment = useCallback(async (cardId: string) => {
+    const organizationId = requireOrg();
+    const card = cards.find(c => c.id === cardId);
+    if (!card) throw new Error('Kart bulunamadı.');
+
+    // 1. Doğrudan Supabase'den en son ödemeyi sorgula
+    const { data: dbPayments } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .eq('card_id', cardId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const latestPayment = dbPayments && dbPayments.length > 0 ? dbPayments[0] : null;
+
+    if (latestPayment) {
+      const { error: delError } = await supabase
+        .from('payments')
+        .delete()
+        .eq('id', latestPayment.id);
+      if (delError) throw delError;
+
+      const restoredDebt = (Number(card.currentDebt) || 0) + (Number(latestPayment.amount) || 0);
+      const { error: cardUpError } = await supabase
+        .from('credit_cards')
+        .update({ current_debt: restoredDebt })
+        .eq('id', cardId);
+      if (cardUpError) throw cardUpError;
+
+      await refresh();
+      return Number(latestPayment.amount) || 0;
+    }
+
+    // 2. Eğer kayıtlı ödeme yoksa kullanıcıdan geri yüklenecek borç tutarını iste
+    const defaultVal = card.limit > 0 ? String(card.limit) : "50000";
+    const promptVal = window.prompt(
+      `${card.bank} •••• ${card.last4} kartı için sistemde kayıtlı geçmiş ödeme bulunamadı.\n\nKarta geri yüklemek istediğiniz güncel borç tutarını girin (₺):`,
+      defaultVal
+    );
+
+    if (promptVal === null) {
+      throw new Error('İşlem iptal edildi.');
+    }
+
+    const cleanVal = promptVal.replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    const manualAmount = parseFloat(cleanVal);
+    if (isNaN(manualAmount) || manualAmount <= 0) {
+      throw new Error('Geçersiz bir borç tutarı girildi.');
+    }
+
+    const { error: cardUpError } = await supabase
+      .from('credit_cards')
+      .update({ current_debt: manualAmount })
+      .eq('id', cardId);
+    if (cardUpError) throw cardUpError;
+
+    await refresh();
+    return manualAmount;
+  }, [requireOrg, cards, refresh]);
 
   const getCard = useCallback((id: string) => cards.find((c) => c.id === id), [cards]);
   const getStatementsByCard = useCallback((cardId: string) => statements.filter((s) => s.cardId === cardId), [statements]);
@@ -201,9 +308,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const getPaymentsByCard = useCallback((cardId: string) => payments.filter((p) => p.cardId === cardId), [payments]);
 
   const value = useMemo<StoreContextValue>(() => ({ cards, statements, payments, transactions, loading, error, refresh,
-    addCard, updateCard, deleteCard, addStatement, deleteStatement, addPayment, getCard, getStatementsByCard,
+    addCard, updateCard, deleteCard, addStatement, deleteStatement, addPayment, revertCardPayment, getCard, getStatementsByCard,
     getStatement, getTransactionsByCard, getTransactionsByStatement, getPaymentsByCard,
-  }), [cards, statements, payments, transactions, loading, error, refresh, addCard, updateCard, deleteCard, addStatement, deleteStatement, addPayment, getCard, getStatementsByCard, getStatement, getTransactionsByCard, getTransactionsByStatement, getPaymentsByCard]);
+  }), [cards, statements, payments, transactions, loading, error, refresh, addCard, updateCard, deleteCard, addStatement, deleteStatement, addPayment, revertCardPayment, getCard, getStatementsByCard, getStatement, getTransactionsByCard, getTransactionsByStatement, getPaymentsByCard]);
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 

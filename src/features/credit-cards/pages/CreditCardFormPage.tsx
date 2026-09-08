@@ -44,7 +44,7 @@ export function CreditCardFormPage() {
     try {
       await deleteCard(existing.id);
       notify('Kart ve bağlı kayıtları silindi.', 'success');
-      navigate('/finance/credit-cards');
+      navigate('/finans/kredi-kartlari');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Kart silinemedi.';
       notify(`Kart silinemedi: ${message}`, 'error');
@@ -87,7 +87,7 @@ export function CreditCardFormPage() {
         await addCard(input);
         notify('Yeni kart eklendi.', 'success');
       }
-      navigate('/finance/credit-cards');
+      navigate('/finans/kredi-kartlari');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Kart kaydedilemedi.';
       notify(`Kart kaydedilemedi: ${message}`, 'error');
@@ -101,7 +101,7 @@ export function CreditCardFormPage() {
       <PageHeader
         title={existing ? 'Kart Düzenle' : 'Yeni Kart Ekle'}
         description={existing ? `${existing.bank} ${existing.cardName} •••• ${existing.last4}` : 'Şirket kredi kartı bilgilerini girin.'}
-        backTo="/finance/credit-cards"
+        backTo="/finans/kredi-kartlari"
         backLabel="Kart Listesi"
       />
       <div className="card p-6">
@@ -196,7 +196,7 @@ export function CreditCardFormPage() {
               </button>
             )}
             <div className="flex items-center gap-2.5">
-              <button className="btn-ghost" onClick={() => navigate('/finance/credit-cards')} disabled={saving || deleting}>İptal</button>
+              <button className="btn-ghost" onClick={() => navigate('/finans/kredi-kartlari')} disabled={saving || deleting}>İptal</button>
               <button className="btn-primary" onClick={handleSubmit} disabled={saving || deleting}>{saving ? 'Kaydediliyor...' : existing ? 'Güncelle' : 'Kaydet'}</button>
             </div>
           </div>

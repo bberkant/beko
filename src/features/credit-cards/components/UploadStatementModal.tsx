@@ -26,16 +26,58 @@ interface UploadStatementModalBodyProps {
   onSubmit: (data: StatementUploadData) => void;
 }
 
+const turkishMonths: Record<string, number> = {
+  'Ocak': 0, 'Şubat': 1, 'Mart': 2, 'Nisan': 3, 'Mayıs': 4, 'Haziran': 5,
+  'Temmuz': 6, 'Ağustos': 7, 'Eylül': 8, 'Ekim': 9, 'Kasım': 10, 'Aralık': 11
+};
+
 export function UploadStatementModalBody({ card, progress, onSubmit }: UploadStatementModalBodyProps) {
   const [period, setPeriod] = useState('Temmuz 2026');
-  const [statementDate, setStatementDate] = useState('2026-07-15');
-  const [dueDate, setDueDate] = useState('2026-08-05');
+  
+  const [statementDate, setStatementDate] = useState(() => {
+    const stmtDate = new Date(2026, 6, card.statementDay || 15);
+    return stmtDate.toISOString().slice(0, 10);
+  });
+  
+  const [dueDate, setDueDate] = useState(() => {
+    const isNextMonth = (card.dueDay || 5) < (card.statementDay || 15);
+    const dDate = new Date(2026, isNextMonth ? 7 : 6, card.dueDay || 5);
+    return dDate.toISOString().slice(0, 10);
+  });
+
   const [totalDebt, setTotalDebt] = useState(String(card.currentDebt));
   const [minPayment, setMinPayment] = useState('');
   const [note, setNote] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [parsing, setParsing] = useState(false);
+
+  const handlePeriodChange = (selectedPeriod: string) => {
+    setPeriod(selectedPeriod);
+    const parts = selectedPeriod.split(' ');
+    if (parts.length === 2) {
+      const monthName = parts[0];
+      const year = parseInt(parts[1], 10);
+      const monthIndex = turkishMonths[monthName];
+      if (monthIndex !== undefined && !isNaN(year)) {
+        const stmtDate = new Date(year, monthIndex, card.statementDay || 15);
+        setStatementDate(stmtDate.toISOString().slice(0, 10));
+
+        const isNextMonth = (card.dueDay || 5) < (card.statementDay || 15);
+        let dueMonthIndex = monthIndex;
+        let dueYear = year;
+        if (isNextMonth) {
+          dueMonthIndex = monthIndex + 1;
+          if (dueMonthIndex > 11) {
+            dueMonthIndex = 0;
+            dueYear += 1;
+          }
+        }
+        const dDate = new Date(dueYear, dueMonthIndex, card.dueDay || 5);
+        setDueDate(dDate.toISOString().slice(0, 10));
+      }
+    }
+  };
 
   if (progress) {
     return (
@@ -113,7 +155,7 @@ export function UploadStatementModalBody({ card, progress, onSubmit }: UploadSta
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Ekstre Dönemi</label>
-          <select className="input" value={period} onChange={(e) => setPeriod(e.target.value)}>
+          <select className="input" value={period} onChange={(e) => handlePeriodChange(e.target.value)}>
             <option>Temmuz 2026</option>
             <option>Haziran 2026</option>
             <option>Mayıs 2026</option>

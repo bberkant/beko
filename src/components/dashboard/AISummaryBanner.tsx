@@ -20,7 +20,7 @@ export function AISummaryBanner() {
             Bugün <span className="font-medium text-gray-900">2 ödeme</span> ve{' '}
             <span className="font-medium text-gray-900">1 ihale teklifi</span>{' '}
             acil. Nakit akışında hafta sonuna doğru{' '}
-            <span className="font-medium text-gray-900">₺180.000 açık</span>{' '}
+            <span className="font-medium text-gray-900">180.000 ₺ açık</span>{' '}
             bekleniyor. Filo kapasitesi %92 —{' '}
             <span className="font-medium text-gray-900">2 araç müsait</span>.
             Detaylar için AI Asistan'a geçin.

@@ -119,8 +119,19 @@ export function CheckValuationPage() {
 
   const [manualNetInput, setManualNetInput] = useState<string>('');
   const [isNetInputFocused, setIsNetInputFocused] = useState<boolean>(false);
-  const [isManualNetMode, setIsManualNetMode] = useState<boolean>(false);
-  const [targetNetVal, setTargetNetVal] = useState<number>(0);
+  const [isManualNetMode, setIsManualNetMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('check-valuation-manual-mode');
+    return saved === 'true';
+  });
+  const [targetNetVal, setTargetNetVal] = useState<number>(() => {
+    const saved = localStorage.getItem('check-valuation-target-net-val');
+    return saved ? parseInt(saved, 10) : 0;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('check-valuation-manual-mode', isManualNetMode.toString());
+    localStorage.setItem('check-valuation-target-net-val', targetNetVal.toString());
+  }, [isManualNetMode, targetNetVal]);
 
   const handleImportFromEbs = async () => {
     if (!user?.organizationId) return;
@@ -329,16 +340,8 @@ export function CheckValuationPage() {
     // Excel formula: average days + 1
     const averageMaturityDaysAdjusted = totalAmount > 0 ? (averageMaturityDays + 1) : 0;
 
-    let totalCommission = 0;
-    let remainingAmount = 0;
-
-    if (isManualNetMode && targetNetVal > 0) {
-      remainingAmount = targetNetVal;
-      totalCommission = Math.max(0, totalAmount - targetNetVal);
-    } else {
-      totalCommission = (totalAmount * (monthlyRate / 100) / 30) * averageMaturityDaysAdjusted;
-      remainingAmount = totalAmount - totalCommission;
-    }
+    const totalCommission = (totalAmount * (monthlyRate / 100) / 30) * averageMaturityDaysAdjusted;
+    const remainingAmount = totalAmount - totalCommission;
 
     const averageDateStr = totalAmount > 0 ? addDaysToDate(baseDate, averageMaturityDaysAdjusted - 1) : '-';
 
@@ -350,13 +353,17 @@ export function CheckValuationPage() {
       totalCommission,
       remainingAmount,
     };
-  }, [checks, baseDate, monthlyRate, isManualNetMode, targetNetVal]);
+  }, [checks, baseDate, monthlyRate]);
 
   useEffect(() => {
     if (!isNetInputFocused) {
-      setManualNetInput(formatNumberWithDots(Math.round(tab1Calculations.remainingAmount)));
+      if (isManualNetMode && targetNetVal > 0) {
+        setManualNetInput(formatNumberWithDots(targetNetVal));
+      } else {
+        setManualNetInput(formatNumberWithDots(Math.round(tab1Calculations.remainingAmount)));
+      }
     }
-  }, [tab1Calculations.remainingAmount, isNetInputFocused]);
+  }, [tab1Calculations.remainingAmount, isNetInputFocused, isManualNetMode, targetNetVal]);
 
   // Tab 2 Calculations (From Target Net Amount)
   const tab2Calculations = useMemo(() => {
@@ -479,7 +486,9 @@ export function CheckValuationPage() {
       setTargetNetVal(newNet);
       if (totalAmount > 0 && averageMaturityDays > 0) {
         const calculatedRate = 100 * (1 - newNet / totalAmount) * (30 / averageMaturityDays);
-        setMonthlyRate(calculatedRate >= 0 ? Number(calculatedRate.toFixed(2)) : 0);
+        const roundedRate = Math.max(0, Number(calculatedRate.toFixed(2)));
+        setMonthlyRate(roundedRate);
+        setRateInputStr(roundedRate.toFixed(2).replace('.', ','));
       }
     } else {
       setIsManualNetMode(false);
@@ -604,31 +613,46 @@ export function CheckValuationPage() {
                 </div>
               }
             >
-              <div className="mb-4">
-                <label className="label text-emerald-700 font-semibold">Net Alınacak Tutar</label>
-                <input
-                  type="text"
-                  className="input !py-2 font-bold text-emerald-700"
-                  placeholder="0"
-                  value={manualNetInput}
-                  onFocus={() => setIsNetInputFocused(true)}
-                  onBlur={() => setIsNetInputFocused(false)}
-                  onChange={e => {
-                    setManualNetInput(e.target.value);
-                    handleManualNetChange(e.target.value);
-                  }}
-                />
+              <div className="mb-4 bg-emerald-50/40 p-3 rounded-xl border border-emerald-100">
+                <label className="label text-emerald-800 font-bold text-sm mb-1 block">Net Alınacak Tutar</label>
+                <div className="relative rounded-lg shadow-sm">
+                  <input
+                    type="text"
+                    className="input !py-2.5 !text-xl font-black text-emerald-700 bg-white border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500"
+                    placeholder="0"
+                    value={manualNetInput}
+                    onFocus={() => setIsNetInputFocused(true)}
+                    onBlur={() => setIsNetInputFocused(false)}
+                    onChange={e => {
+                      setManualNetInput(e.target.value);
+                      handleManualNetChange(e.target.value);
+                    }}
+                  />
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                    <span className="text-sm font-bold text-emerald-600">₺ TRY</span>
+                  </div>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Sıra</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Çek Vade Tarihi</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">Çek Tutarı</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500">Vade Gün</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 w-16">İşlem</th>
+                      <th className="px-4 py-2.5 text-left">
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>Sıra</span>
+                      </th>
+                      <th className="px-4 py-2.5 text-left">
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>Çek Vade Tarihi</span>
+                      </th>
+                      <th className="px-4 py-2.5 text-center">
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>Çek Tutarı</span>
+                      </th>
+                      <th className="px-4 py-2.5 text-center">
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>Vade Gün</span>
+                      </th>
+                      <th className="px-4 py-2.5 text-center w-16">
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>İşlem</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -636,44 +660,44 @@ export function CheckValuationPage() {
                       const days = diffDays(check.dueDate, baseDate);
                       return (
                         <tr key={check.id} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-4 py-3 text-gray-400 font-medium">{index + 1}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-2.5 text-gray-500 font-semibold !text-[11pt]">{index + 1}</td>
+                          <td className="px-4 py-1.5">
                             <input
                               type="date"
-                              className="input !py-1.5 !text-sm"
+                              className="input !py-1.5 !text-[11pt] font-medium text-gray-800"
                               value={check.dueDate}
                               onChange={e => updateCheckRow(check.id, 'dueDate', e.target.value)}
                             />
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-1.5">
                             <input
                               type="text"
-                              className="input text-right !py-1.5 !text-sm"
+                              className="input text-center !py-1.5 !text-[11pt] font-normal text-gray-800"
                               placeholder="0"
                               value={formatNumberWithDots(check.amount)}
                               onChange={e => updateCheckRow(check.id, 'amount', handleNumberChange(e.target.value))}
                             />
                           </td>
-                          <td className={`px-4 py-3 text-center font-semibold ${days < 0 ? 'text-red-500' : 'text-brand-600'}`}>
+                          <td className={`px-4 py-2.5 text-center font-bold !text-[11pt] ${days < 0 ? 'text-red-500' : 'text-brand-600'}`}>
                             {check.dueDate ? `${days} Gün` : '-'}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-4 py-2.5 text-center">
                             <button
                               onClick={() => removeCheckRow(check.id)}
                               className="text-gray-400 hover:text-red-500 transition-colors p-1"
                               title="Sil"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={17} />
                             </button>
                           </td>
                         </tr>
                       );
                     })}
                     {/* Excel-style summary row */}
-                    <tr className="bg-gray-50/50 font-bold border-t border-gray-200">
+                    <tr className="bg-gray-50/80 font-bold border-t-2 border-gray-200">
                       <td className="px-4 py-3"></td>
-                      <td className="px-4 py-3 text-gray-600 uppercase text-xs">TOPLAM</td>
-                      <td className="px-4 py-3 text-right text-gray-900 text-sm">
+                      <td className="px-4 py-3 text-gray-800 uppercase text-sm font-black tracking-wider">TOPLAM</td>
+                      <td className="px-4 py-3 text-right text-gray-950 text-lg font-black tracking-tight">
                         {formatCurrency(tab1Calculations.totalAmount)}
                       </td>
                       <td className="px-4 py-3"></td>
@@ -711,26 +735,41 @@ export function CheckValuationPage() {
                 </div>
               }
             >
-              <div className="mb-4">
-                <label className="label text-emerald-700 font-semibold">Hedef Net Alınacak Tutar</label>
-                <input
-                  type="text"
-                  className="input !py-2"
-                  placeholder="3.000.000"
-                  value={formatNumberWithDots(targetNet)}
-                  onChange={e => setTargetNet(handleNumberChange(e.target.value))}
-                />
+              <div className="mb-4 bg-emerald-50/40 p-3 rounded-xl border border-emerald-100">
+                <label className="label text-emerald-800 font-bold text-sm mb-1 block">Hedef Net Alınacak Tutar</label>
+                <div className="relative rounded-lg shadow-sm">
+                  <input
+                    type="text"
+                    className="input !py-2.5 !text-xl font-black text-emerald-700 bg-white border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500"
+                    placeholder="3.000.000"
+                    value={formatNumberWithDots(targetNet)}
+                    onChange={e => setTargetNet(handleNumberChange(e.target.value))}
+                  />
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                    <span className="text-sm font-bold text-emerald-600">₺ TRY</span>
+                  </div>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Sıra</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Çek Vade Tarihi</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">Çek Tutarı</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500">Vade Gün</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 w-16">İşlem</th>
+                      <th className="px-4 py-2.5 text-left">
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>Sıra</span>
+                      </th>
+                      <th className="px-4 py-2.5 text-left">
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>Çek Vade Tarihi</span>
+                      </th>
+                      <th className="px-4 py-2.5 text-center">
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>Çek Tutarı</span>
+                      </th>
+                      <th className="px-4 py-2.5 text-center">
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>Vade Gün</span>
+                      </th>
+                      <th className="px-4 py-2.5 text-center w-16">
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>İşlem</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -738,47 +777,47 @@ export function CheckValuationPage() {
                       const days = diffDays(dateRow.dueDate, baseDate);
                       return (
                         <tr key={dateRow.id} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-4 py-3 text-gray-400 font-medium">{index + 1}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-2.5 text-gray-500 font-semibold !text-[11pt]">{index + 1}</td>
+                          <td className="px-4 py-1.5">
                             <input
                               type="date"
-                              className="input !py-1.5 !text-sm"
+                              className="input !py-1.5 !text-[11pt] font-medium text-gray-800"
                               value={dateRow.dueDate}
                               onChange={e => updateTargetDateRow(dateRow.id, 'dueDate', e.target.value)}
                             />
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-1.5">
                             <input
                               type="text"
-                              className="input text-right !py-1.5 !text-sm"
+                              className="input text-center !py-1.5 !text-[11pt] font-normal text-gray-800"
                               placeholder="0"
                               value={formatNumberWithDots(dateRow.amount)}
                               onChange={e => updateTargetDateRow(dateRow.id, 'amount', handleNumberChange(e.target.value))}
                             />
                           </td>
-                          <td className={`px-4 py-3 text-center font-semibold ${days < 0 ? 'text-red-500' : 'text-brand-600'}`}>
+                          <td className={`px-4 py-2.5 text-center font-bold !text-[11pt] ${days < 0 ? 'text-red-500' : 'text-brand-600'}`}>
                             {dateRow.dueDate ? `${days} Gün` : '-'}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-4 py-2.5 text-center">
                             <button
                               onClick={() => removeTargetDateRow(dateRow.id)}
                               className="text-gray-400 hover:text-red-500 transition-colors p-1"
                               title="Sil"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={17} />
                             </button>
                           </td>
                         </tr>
                       );
                     })}
                     {/* Summary row */}
-                    <tr className="bg-gray-50/50 font-bold border-t border-gray-200">
+                    <tr className="bg-gray-50/80 font-bold border-t-2 border-gray-200">
                       <td className="px-4 py-3"></td>
-                      <td className="px-4 py-3 text-gray-600 uppercase text-xs">TOPLAM</td>
-                      <td className="px-4 py-3 text-right text-gray-900 text-sm">
+                      <td className="px-4 py-3 text-gray-800 uppercase text-sm font-black tracking-wider">TOPLAM</td>
+                      <td className="px-4 py-3 text-right text-gray-950 text-lg font-black tracking-tight">
                         {formatCurrency(tab2Calculations.totalAmount)}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-center text-gray-700 text-sm font-bold">
                         BRÜT: {formatCurrency(tab2Calculations.requiredGrossAmount)}
                       </td>
                       <td className="px-4 py-3"></td>
@@ -816,9 +855,9 @@ export function CheckValuationPage() {
                   <span className="text-xs font-medium text-gray-500">Ortalama Tarih:</span>
                   <span className="text-sm font-semibold text-gray-800">{tab1Calculations.averageDate}</span>
                 </div>
-                <div className="flex justify-between border-b border-gray-100 pb-2">
-                  <span className="text-xs font-medium text-gray-500">Komisyon Oranı:</span>
-                  <span className="text-sm font-semibold text-red-500">%{monthlyRate.toFixed(2)}</span>
+                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                  <span className="text-sm font-semibold text-gray-700">Komisyon Oranı:</span>
+                  <span className="text-xl font-black text-red-600 tracking-tight">%{monthlyRate.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-b border-gray-100 pb-2 text-red-600">
                   <span className="text-xs font-semibold">Toplam Komisyon:</span>
@@ -844,6 +883,10 @@ export function CheckValuationPage() {
                 <div className="flex justify-between border-b border-gray-100 pb-2">
                   <span className="text-xs font-medium text-gray-500">Ortalama Tarih:</span>
                   <span className="text-sm font-semibold text-gray-800">{tab2Calculations.averageDate}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                  <span className="text-sm font-semibold text-gray-700">Komisyon Oranı:</span>
+                  <span className="text-xl font-black text-red-600 tracking-tight">%{monthlyRate.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-b border-gray-100 pb-2 text-red-600">
                   <span className="text-xs font-semibold">Toplam Komisyon:</span>

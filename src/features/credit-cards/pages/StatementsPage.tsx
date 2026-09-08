@@ -7,6 +7,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { useToast } from '../../../lib/toast';
 import { useStore } from '../data/store';
 import type { CreditCard as CreditCardType } from '../types';
+import * as XLSX from 'xlsx';
 import { UploadStatementModalBody, type UploadProgress } from '../components/UploadStatementModal';
 import {
   formatTRY, formatDate,
@@ -24,6 +25,18 @@ export function StatementsPage() {
   const [cardPickerOpen, setCardPickerOpen] = useState(false);
   const [uploadCard, setUploadCard] = useState<CreditCardType | null>(null);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
+
+  const pickerFilteredCards = useMemo(() => {
+    if (!pickerSearch) return cards;
+    const q = pickerSearch.toLowerCase();
+    return cards.filter(card => 
+      card.bank.toLowerCase().includes(q) ||
+      card.cardName.toLowerCase().includes(q) ||
+      card.last4.includes(q) ||
+      (card.holder || '').toLowerCase().includes(q)
+    );
+  }, [cards, pickerSearch]);
 
   const handleUploadSubmit = (data: { period: string; statementDate: string; dueDate: string; totalDebt: number; minPayment: number; note: string }) => {
     if (!uploadCard) return;
@@ -52,6 +65,94 @@ export function StatementsPage() {
     });
   }, [statements, search, cardMap]);
 
+  const exportStatementsToExcel = () => {
+    if (!filtered.length) { notify('Dışa aktarılacak kayıt bulunamadı.', 'error'); return; }
+    try {
+      const data = filtered.map(s => {
+        const cardName = cardMap.get(s.cardId) || 'Bilinmeyen Kart';
+        return {
+          'Kart': cardName,
+          'Dönem': s.period,
+          'Toplam Borç': s.totalDebt,
+          'Asgari Ödeme': s.minPayment,
+          'Son Ödeme Tarihi': formatDate(s.dueDate),
+          'Yükleme Tarihi': formatDate(s.statementDate),
+          'Durum': s.aiStatus
+        };
+      });
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Ekstreler");
+      XLSX.writeFile(workbook, `Ekstreler-${new Date().toISOString().slice(0,10)}.xlsx`);
+      notify('Excel başarıyla indirildi.', 'success');
+    } catch (err) {
+      notify('Excel dışa aktarma başarısız oldu.', 'error');
+    }
+  };
+
+  const exportStatementsToPdf = () => {
+    if (!filtered.length) { notify('Dışa aktarılacak kayıt bulunamadı.', 'error'); return; }
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      notify('Açılır pencere engelleyiciyi devre dışı bırakın.', 'error');
+      return;
+    }
+    const html = `
+      <html>
+        <head>
+          <title>Ekstreler Listesi</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; }
+            h1 { font-size: 18px; margin-bottom: 15px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; font-size: 11px; }
+            th { background-color: #f8fafc; color: #475569; font-weight: 600; }
+            tr:nth-child(even) { background-color: #f8fafc; }
+          </style>
+        </head>
+        <body>
+          <h1>Ekstreler Listesi</h1>
+          <table>
+            <thead>
+              <tr>
+                <th>Kart</th>
+                <th>Dönem</th>
+                <th>Toplam Borç</th>
+                <th>Asgari Ödeme</th>
+                <th>Son Ödeme Tarihi</th>
+                <th>Durum</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.map(s => {
+                const cardName = cardMap.get(s.cardId) || 'Bilinmeyen Kart';
+                return `
+                  <tr>
+                    <td>${cardName}</td>
+                    <td>${s.period}</td>
+                    <td>${formatTRY(s.totalDebt)}</td>
+                    <td>${formatTRY(s.minPayment)}</td>
+                    <td>${formatDate(s.dueDate)}</td>
+                    <td>${s.aiStatus}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+    notify('PDF baskı penceresi açıldı.', 'success');
+  };
+
   const handleDelete = () => {
     if (!deleteTarget) return;
     deleteStatement(deleteTarget);
@@ -69,8 +170,11 @@ export function StatementsPage() {
             <button className="btn-secondary" onClick={() => setCardPickerOpen(true)}>
               <Upload size={16} /> Ekstre Yükle
             </button>
-            <button className="btn-secondary" onClick={() => notify('Ekstre listesi dışa aktarıldı (mock).', 'success')}>
-              <Download size={16} /> Dışa Aktar
+            <button className="btn-secondary" onClick={exportStatementsToExcel}>
+              <Download size={16} /> Excel Dışa Aktar
+            </button>
+            <button className="btn-secondary" onClick={exportStatementsToPdf}>
+              <Download size={16} /> PDF Dışa Aktar
             </button>
           </>
         }
@@ -107,7 +211,7 @@ export function StatementsPage() {
                   <td className="table-td">
                     <button className="font-medium text-brand-600 hover:text-brand-700" onClick={() => {
                       const card = cards.find((c) => c.id === s.cardId);
-                      if (card) navigate(`/finance/credit-cards/${card.id}/statements/${s.id}`);
+                      if (card) navigate(`/finans/kredi-kartlari/${card.id}/ekstreler/${s.id}`);
                     }}>
                       {s.period}
                     </button>
@@ -123,7 +227,7 @@ export function StatementsPage() {
                     <div className="flex items-center justify-end gap-1">
                       <button className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => {
                         const card = cards.find((c) => c.id === s.cardId);
-                        if (card) navigate(`/finance/credit-cards/${card.id}/statements/${s.id}`);
+                        if (card) navigate(`/finans/kredi-kartlari/${card.id}/ekstreler/${s.id}`);
                       }}>
                         <Eye size={16} />
                       </button>
@@ -171,7 +275,7 @@ export function StatementsPage() {
             <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
               <button className="btn-secondary !px-3 !py-1.5 !text-xs" onClick={() => {
                 const card = cards.find((c) => c.id === s.cardId);
-                if (card) navigate(`/finance/credit-cards/${card.id}/statements/${s.id}`);
+                if (card) navigate(`/finans/kredi-kartlari/${card.id}/ekstreler/${s.id}`);
               }}>
                 <Eye size={14} /> Görüntüle
               </button>
@@ -186,22 +290,38 @@ export function StatementsPage() {
 
       <Modal
         open={cardPickerOpen}
-        onClose={() => setCardPickerOpen(false)}
+        onClose={() => { setCardPickerOpen(false); setPickerSearch(''); }}
         title="Ekstre Yüklenecek Kartı Seçin"
         size="md"
       >
-        <div className="max-h-80 space-y-2 overflow-y-auto">
-          {cards.map((card) => (
-            <button key={card.id} className="flex w-full items-center gap-3 rounded-lg border border-gray-200 p-3 text-left hover:border-brand-300 hover:bg-brand-50/40"
-              onClick={() => { setCardPickerOpen(false); setUploadCard(card); setProgress(null); }}>
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-600">{card.bankShort}</span>
-              <span>
-                <span className="block text-sm font-medium text-gray-900">{card.bank} {card.cardName}</span>
-                <span className="block text-xs text-gray-500">•••• {card.last4} · {card.holder}</span>
-              </span>
-            </button>
-          ))}
-          {cards.length === 0 && <p className="py-6 text-center text-sm text-gray-500">Önce bir kredi kartı eklemelisiniz.</p>}
+        <div className="space-y-3">
+          <div className="relative">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input 
+              type="text" 
+              value={pickerSearch} 
+              onChange={(e) => setPickerSearch(e.target.value)}
+              placeholder="Banka, kart adı, son 4 hane veya personel ara..."
+              className="input pl-9 !py-1.5 !text-sm" 
+            />
+          </div>
+          <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+            {pickerFilteredCards.map((card) => (
+              <button key={card.id} className="flex w-full items-center gap-3 rounded-lg border border-gray-200 p-3 text-left hover:border-brand-300 hover:bg-brand-50/40"
+                onClick={() => { setCardPickerOpen(false); setUploadCard(card); setProgress(null); setPickerSearch(''); }}>
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-600">{card.bankShort}</span>
+                <span>
+                  <span className="block text-sm font-medium text-gray-900">{card.bank} {card.cardName}</span>
+                  <span className="block text-xs text-gray-500">•••• {card.last4} · {card.holder}</span>
+                </span>
+              </button>
+            ))}
+            {pickerFilteredCards.length === 0 && (
+              <p className="py-6 text-center text-sm text-gray-500">
+                {cards.length === 0 ? "Önce bir kredi kartı eklemelisiniz." : "Aranan kriterlere uygun kart bulunamadı."}
+              </p>
+            )}
+          </div>
         </div>
       </Modal>
 

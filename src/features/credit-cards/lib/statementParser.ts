@@ -33,21 +33,121 @@ const MONTHS: Record<string, number> = {
   Temmuz: 7, Ağustos: 8, Eylül: 9, Ekim: 10, Kasım: 11, Aralık: 12,
 };
 
-const DATE_PATTERN = '(\\d{1,2})\\s+(Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık)\\s+(\\d{4})';
-const MONEY_PATTERN = /[+-]?\d{1,3}(?:\.\d{3})*,\d{2}/g;
+const DATE_PATTERN = '(?:(\\d{1,2})\\s+(Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık)\\s+(\\d{4})|(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4}))';
+const MONEY_PATTERN = /-?\b\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\b/g;
 
-function parseMoney(value: string): number {
-  const sign = value.startsWith('+') ? -1 : 1;
-  return sign * Number(value.replace(/[+-]/g, '').replace(/\./g, '').replace(',', '.'));
+function decodeGarbledLine(text: string): string {
+  // Replace control characters (like unrenderable \u0003 boxes) with space first
+  const cleanText = text.replace(/[\x00-\x1F\x7F-\x9F]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // Clean common word formatting issues first
+  const cleanedText = cleanText
+    .replace(/gGHPH/g, 'ÖDEME')
+    .replace(/%RUo/g, 'BORÇ')
+    .replace(/\.UHGL/g, 'KREDİ')
+    .replace(/\.DUWÕ/g, 'KARTI')
+    .replace(/B\/DUMLU/g, 'DUMLU')
+    .replace(/B\/YENİYIL/g, 'YENİYIL')
+    .replace(/g=\//g, 'ÖZ')
+    .replace(/g=$/g, 'ÖZ');
+
+  // Check if the entire line has any signs of being garbled
+  const hasGarbledSignatures = /ø|ù|Õ|5\(0=|&ø7|3\(752\//.test(cleanedText) || 
+                               /[A-Z]{2}L[A-Z]{2}L[A-Z]{4}/.test(cleanedText) ||
+                               /[\$%&'\(\)\*\+:=<>øùÕ]/.test(cleanedText);
+
+  if (!hasGarbledSignatures) {
+    return cleanedText.replace(/MARKEL/g, 'MARKET');
+  }
+
+  // Split into words and decode each word individually to protect clean dates and amounts
+  const words = cleanedText.split(' ');
+  const decodedWords = words.map(word => {
+    const isDate = /^\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4}$/.test(word);
+    const isCurrency = /^-?(?:\d{1,3}(?:[.,]\d{3})+|\d+)[.,]\d{2}$/.test(word);
+    
+    // If it's a clean date or currency amount, protect it from shifting
+    if (isDate || isCurrency) {
+      return word;
+    }
+
+    let result = '';
+    for (let i = 0; i < word.length; i++) {
+      const char = word[i];
+      const code = char.charCodeAt(0);
+      if (code >= 36 && code <= 61) {
+        result += String.fromCharCode(code + 29);
+      } else {
+        switch (char) {
+          case 'ø': result += 'İ'; break;
+          case 'ù': result += 'Ş'; break;
+          case 'Õ': result += 'I'; break;
+          case 'o': result += 'Ç'; break;
+          case 'g': result += 'Ö'; break;
+          case 'd': result += 'Ç'; break;
+          case 'h': result += 'Ü'; break;
+          case 'ö': result += 'Ğ'; break;
+          default: result += char; break;
+        }
+      }
+    }
+    return result;
+  });
+
+  return decodedWords.join(' ').replace(/MARKEL/g, 'MARKET');
 }
 
-function parseDate(day: string, month: string, year: string): string {
-  return `${year}-${String(MONTHS[month]).padStart(2, '0')}-${String(Number(day)).padStart(2, '0')}`;
+function parseMoney(value: string): number {
+  const isNegative = value.startsWith('-');
+  let clean = value.replace(/[+-]/g, '').replace(/TL/g, '').trim();
+  
+  const hasComma = clean.includes(',');
+  const hasDot = clean.includes('.');
+  
+  if (hasComma && hasDot) {
+    if (clean.indexOf(',') < clean.indexOf('.')) {
+      clean = clean.replace(/,/g, '');
+    } else {
+      clean = clean.replace(/\./g, '').replace(',', '.');
+    }
+  } else if (hasComma) {
+    const parts = clean.split(',');
+    if (parts[1] && parts[1].length === 3) {
+      clean = clean.replace(/,/g, '');
+    } else {
+      clean = clean.replace(',', '.');
+    }
+  } else if (hasDot) {
+    const parts = clean.split('.');
+    if (parts[1] && parts[1].length === 3 && parts.length === 2) {
+      clean = clean.replace(/\./g, '');
+    }
+  }
+  
+  const amount = Number(clean);
+  return isNegative ? -amount : amount;
+}
+
+function parseMatchedDate(
+  day1: string | undefined, monthWord: string | undefined, year1: string | undefined,
+  day2: string | undefined, monthNum: string | undefined, year2: string | undefined
+): string {
+  if (day1 && monthWord && year1) {
+    return `${year1}-${String(MONTHS[monthWord]).padStart(2, '0')}-${String(Number(day1)).padStart(2, '0')}`;
+  }
+  if (day2 && monthNum && year2) {
+    return `${year2}-${String(Number(monthNum)).padStart(2, '0')}-${String(Number(day2)).padStart(2, '0')}`;
+  }
+  return '';
 }
 
 function categoryFor(text: string): SpendingCategory {
   const normalized = text.toLocaleUpperCase('tr-TR');
-  if (/AKARYAKIT|OPET|SHELL|PETROL/.test(normalized)) return 'yakit';
+  if (/ÖDEME|ODEME/.test(normalized)) return 'odeme';
+  if (/AKARYAKIT|OPET|SHELL|PETROL|TOTAL|BP|POAS|PINAR OKSUZ|REMZİ TEMEL|T\s*O\s*T\s*A\s*L/.test(normalized)) return 'yakit';
+  if (/RESTORAN|CAFE|KAFE|YEMEK|DÖNER|DONER|KEBAP|LOKANTA|PİZZA|PIZZA|MUTFAK/.test(normalized)) return 'yemek';
+  if (/TURKCELL|VODAFONE|TELEKOMUNIKASYON|GSM/.test(normalized)) return 'telefon';
+  if (/FATURA|ELEKTRİK|ELEKTRIK|SU KANAL|ASKI|ISKI|BUSKI|DOGALGAZ|DOĞALGAZ|DIGITURK|D-SMART|TELEKOM/.test(normalized)) return 'fatura';
   if (/MARKET|MİGROS|MIGROS|ŞOK|SOK /.test(normalized)) return 'market';
   if (/OTEL|HOTEL|KONAK/.test(normalized)) return 'konaklama';
   if (/UÇAK|HAVAYOL|SEYAHAT|BİLET/.test(normalized)) return 'seyahat';
@@ -72,7 +172,13 @@ function lineText(items: PdfTextItem[]): string {
 
 async function extractLines(file: File): Promise<string[]> {
   const data = new Uint8Array(await file.arrayBuffer());
-  const pdf = await getDocument({ data }).promise;
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const pdf = await getDocument({
+    data,
+    cMapUrl: baseUrl ? `${baseUrl}/cmaps/` : '/cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: baseUrl ? `${baseUrl}/standard_fonts/` : '/standard_fonts/',
+  }).promise;
   const lines: string[] = [];
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
@@ -94,16 +200,17 @@ async function extractLines(file: File): Promise<string[]> {
         if (line) lines.push(line);
       });
   }
-  return lines;
+  return lines.map(decodeGarbledLine);
 }
 
 function headerDate(text: string, label: string): string | undefined {
-  const match = text.match(new RegExp(`${label}\\s*:?\\s*${DATE_PATTERN}`, 'i'));
-  return match ? parseDate(match[1], match[2], match[3]) : undefined;
+  const match = text.match(new RegExp(`${label}[^\\d]*?${DATE_PATTERN}`, 'i'));
+  if (!match) return undefined;
+  return parseMatchedDate(match[1], match[2], match[3], match[4], match[5], match[6]);
 }
 
 function headerMoney(text: string, label: string): number | undefined {
-  const match = text.match(new RegExp(`${label}\\s*:?\\s*([\\d.]+,\\d{2})\\s*TL`, 'i'));
+  const match = text.match(new RegExp(`${label}[^\\d]*?([-+]?\\d{1,3}(?:[.,]\\d{3})*[.,]\\d{2})\\s*(?:TL)?`, 'i'));
   return match ? parseMoney(match[1]) : undefined;
 }
 
@@ -121,16 +228,16 @@ export async function parseStatementPdf(file: File): Promise<ParsedStatement> {
   for (const line of lines) {
     const match = line.match(transactionRegex);
     if (match) {
-      const remainder = match[4];
+      const remainder = match[7];
       const moneyMatches = [...remainder.matchAll(MONEY_PATTERN)];
       if (moneyMatches.length === 0) continue;
       const amountMatch = moneyMatches[0];
       const rawDescription = remainder.slice(0, amountMatch.index).trim();
       if (!rawDescription || /ÖNCEKİ DÖNEM HESAP ÖZETİ BORCU/i.test(rawDescription)) continue;
 
-      const isPayment = /^ÖDEME[- ]/i.test(rawDescription);
+      const isPayment = /ÖDEME|ODEME/i.test(rawDescription);
       current = {
-        date: parseDate(match[1], match[2], match[3]),
+        date: parseMatchedDate(match[1], match[2], match[3], match[4], match[5], match[6]),
         merchant: rawDescription,
         description: isPayment ? 'Kredi kartı ödemesi' : rawDescription,
         category: 'diger',
@@ -138,7 +245,7 @@ export async function parseStatementPdf(file: File): Promise<ParsedStatement> {
         installments: 1,
         reviewStatus: 'normal',
       };
-      current.category = categoryFor(rawDescription);
+      current.category = isPayment ? 'odeme' : categoryFor(rawDescription);
       const installmentMatch = remainder.match(/\/\s*(\d+)\s*$/);
       if (installmentMatch) current.installments = Number(installmentMatch[1]);
       transactions.push(current);
@@ -152,15 +259,13 @@ export async function parseStatementPdf(file: File): Promise<ParsedStatement> {
     }
   }
 
-  if (transactions.length === 0) {
-    throw new Error('PDF içinde okunabilir ekstre hareketi bulunamadı.');
-  }
+  // Allow empty transactions array for statements with no transactions (e.g. zero debt statements)
 
   return {
     statementDate: headerDate(fullText, 'Hesap Kesim Tarihi'),
     dueDate: headerDate(fullText, 'Son Ödeme Tarihi'),
     totalDebt: headerMoney(fullText, 'Dönem Borcu'),
-    minPayment: headerMoney(fullText, 'Ödenmesi Gereken Asgari Tutar(?:/Oran)?'),
+    minPayment: headerMoney(fullText, 'Ödenmesi Gereken Asgari Tutar(?:/Oran)?') ?? headerMoney(fullText, 'Asgari Ödeme Tutarı'),
     transactions,
   };
 }

@@ -371,7 +371,7 @@ export function TrafficFinesPage() {
             <input
               hidden
               type="file"
-              accept=".pdf,image/*"
+              accept=".pdf,.xls,.xlsx,image/*"
               onChange={(e) => setX({ ...x, file: e.target.files?.[0] })}
             />
           </label>

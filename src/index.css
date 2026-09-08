@@ -3,9 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  body, button, input, select, textarea, span, p, h1, h2, h3, h4, h5, h6, div, td, th {
+    font-family: 'Calibri', 'Inter', system-ui, sans-serif !important;
+  }
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
 
@@ -33,5 +35,256 @@
   }
   .table-td {
     @apply px-4 py-3 text-sm whitespace-nowrap;
+  }
+  .font-calibri {
+    font-family: 'Calibri', 'Inter', sans-serif !important;
+  }
+  .font-inter {
+    font-family: 'Inter', system-ui, sans-serif !important;
+  }
+  .font-segoe {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+  }
+  .font-tahoma {
+    font-family: 'Tahoma', 'Segoe UI', sans-serif !important;
+  }
+}
+
+/* Hide number inputs spin buttons */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spinner {
+  -moz-appearance: textfield;
+}
+
+/* Global Left-Alignment & Width Upgrades */
+.mx-auto {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+.max-w-7xl, .max-w-6xl {
+  max-width: 1600px !important;
+}
+
+/* Print Styles */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 3mm 5mm !important;
+  }
+
+  aside,
+  header,
+  nav,
+  button,
+  .no-print,
+  .btn,
+  .bg-amber-50 {
+    display: none !important;
+  }
+
+  div.lg\:pl-\[72px\],
+  div.lg\:pl-\[240px\],
+  .lg\:pl-\[72px\],
+  .lg\:pl-\[240px\],
+  [class*="lg:pl-"] {
+    padding-left: 0 !important;
+  }
+
+  body, html, main, #root, .min-h-screen {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+  }
+
+  /* Force 2-column Landscape layout for bank cards */
+  .print-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 20px !important;
+    width: 100% !important;
+  }
+
+  .print-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 0px !important;
+    border: 2px solid #000 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Clean up inputs during printing to make them look like simple texts */
+  input {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    color: black !important;
+    font-weight: bold !important;
+  }
+
+  input::placeholder {
+    color: transparent !important;
+  }
+
+  /* Clean up background colors for print */
+  .bg-white {
+    background-color: white !important;
+  }
+
+  /* Page break utility */
+  .page-break {
+    page-break-after: always !important;
+    break-after: page !important;
+    width: 100% !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  /* Ay Sonu A4 Tek Sayfa Sığdırma Kuralları */
+  .ay-sonu-print {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    zoom: 0.63 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .ay-sonu-print .ay-sonu-columns {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    align-items: start !important;
+  }
+
+  .ay-sonu-print .space-y-4 {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  
+  .ay-sonu-print .space-y-4 > * + * {
+    margin-top: 2px !important;
+  }
+
+  .ay-sonu-print .card {
+    box-shadow: none !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 4px !important;
+    margin-bottom: 2px !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .ay-sonu-print .card .border-b {
+    padding: 2px 6px !important;
+  }
+
+  .ay-sonu-print .card .border-b * {
+    font-size: 9.5px !important;
+    line-height: 1.2 !important;
+    color: #000000 !important;
+  }
+
+  .ay-sonu-print .card .divide-y > div {
+    padding-top: 0.7px !important;
+    padding-bottom: 0.7px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    min-height: unset !important;
+  }
+
+  .ay-sonu-print .card .divide-y > div * {
+    font-size: 8.2px !important;
+    font-weight: 600 !important;
+    line-height: 1.18 !important;
+    color: #000000 !important;
+  }
+
+  .ay-sonu-print .card .divide-y > div span.font-bold,
+  .ay-sonu-print .card .divide-y > div span.font-semibold,
+  .ay-sonu-print .card .divide-y > div .font-black {
+    font-weight: 800 !important;
+    color: #000000 !important;
+  }
+
+  /* Çekler ve ara açıklamalar */
+  .ay-sonu-print .card .p-3,
+  .ay-sonu-print .card .p-3 * {
+    padding: 1px 6px !important;
+    font-size: 7.8px !important;
+    line-height: 1.15 !important;
+    color: #000000 !important;
+  }
+
+  /* SONUÇ Kartı Yazdırmada Ultra Kompakt (Sadece Baskıda Küçülür) */
+  .ay-sonu-print .net-denge-card {
+    padding: 2px 6px !important;
+    margin-bottom: 2px !important;
+    border-width: 1px !important;
+    border-radius: 4px !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .ay-sonu-print .net-denge-card .border-b {
+    padding-bottom: 1px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .ay-sonu-print .net-denge-card h4 {
+    font-size: 8.5px !important;
+    line-height: 1 !important;
+    color: #000000 !important;
+  }
+
+  .ay-sonu-print .net-denge-card span {
+    font-size: 8px !important;
+    line-height: 1.12 !important;
+    color: #000000 !important;
+  }
+
+  .ay-sonu-print .net-denge-card .space-y-2 {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .ay-sonu-print .net-denge-card .space-y-2 > * + * {
+    margin-top: 1px !important;
+  }
+
+  .ay-sonu-print .net-denge-card .pt-2 {
+    padding-top: 1.5px !important;
+  }
+
+  .ay-sonu-print .net-denge-card .text-\[18px\] {
+    font-size: 10.5px !important;
+    line-height: 1.12 !important;
+  }
+
+  .ay-sonu-print .header-card {
+    padding: 2.5px 6px !important;
+    margin-bottom: 2px !important;
+    border-radius: 4px !important;
+  }
+
+  .ay-sonu-print .header-card * {
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+    color: #000000 !important;
   }
 }

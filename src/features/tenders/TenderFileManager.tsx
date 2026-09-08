@@ -13,7 +13,28 @@ const MAX_ARCHIVE=50*1024*1024,MAX_FILE=50*1024*1024,MAX_TOTAL=250*1024*1024,MAX
 const allowed=new Set(['pdf','doc','docx','xls','xlsx','csv','txt','jpg','jpeg','png']);
 const blocked=new Set(['exe','msi','bat','cmd','com','scr','ps1','js','vbs','jar','sh','dll']);
 const mimeByExt:Record<string,string>={pdf:'application/pdf',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xls:'application/vnd.ms-excel',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',csv:'text/csv',txt:'text/plain',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png'};
-const safePath=(path:string)=>path.replace(/\\/g,'/').split('/').filter(x=>x&&x!=='.'&&x!=='..').map(x=>x.replace(/[<>:"|?*\x00-\x1f]/g,'_')).join('/');
+const safePath = (path: string) => {
+  const turkishMap: Record<string, string> = {
+    'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'İ': 'I',
+    'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U'
+  };
+  return path.replace(/\\/g, '/')
+    .split('/')
+    .filter(x => x && x !== '.' && x !== '..')
+    .map(x => {
+      const dotIndex = x.lastIndexOf('.');
+      const name = dotIndex !== -1 ? x.slice(0, dotIndex) : x;
+      const ext = dotIndex !== -1 ? x.slice(dotIndex) : '';
+      
+      let normalized = name.replace(/[çÇğĞıİöÖşŞüÜ]/g, match => turkishMap[match] || match);
+      normalized = normalized.replace(/[^a-zA-Z0-9-_]/g, '_');
+      normalized = normalized.replace(/_+/g, '_').trim().replace(/^_+|_+$/g, '');
+      if (!normalized) normalized = 'file';
+      
+      return `${normalized}${ext.toLowerCase()}`;
+    })
+    .join('/');
+};
 const ext=(name:string)=>(name.split('.').pop()??'').toLowerCase();
 const formatSize=(n:number)=>n<1024*1024?`${Math.ceil(n/1024)} KB`:`${(n/1024/1024).toFixed(1)} MB`;
 
