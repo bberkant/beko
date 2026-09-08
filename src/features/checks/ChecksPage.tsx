@@ -1396,7 +1396,16 @@ export function ChecksPage() {
           const val = isHatirAlinan(c) ? (c.kesideci || '') : (c.creditor || '');
           return val.trim().toUpperCase();
         };
+        const isToggledNonTakas = (c: EbsCheck) => {
+          const note = (c.ozel_alan || '').toUpperCase();
+          return note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN');
+        };
+        const isCard = (c: EbsCheck) => {
+          const desc = getDesc(c);
+          return desc.includes('KART');
+        };
         const isSystem = (c: EbsCheck) => {
+          if (isCard(c) || isToggledNonTakas(c)) return false;
           const desc = getDesc(c);
           return desc.includes('ALBARAKA') || 
                  desc.includes('KUVEYT') || 
@@ -1405,17 +1414,15 @@ export function ChecksPage() {
                  desc.includes('MARİF') || 
                  desc.includes('MARIF');
         };
-        const isToggledNonTakas = (c: EbsCheck) => {
-          const note = (c.ozel_alan || '').toUpperCase();
-          return note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN');
-        };
         
+        const systemChecks = columns[colName].filter(c => isSystem(c));
+        const cardChecks = columns[colName].filter(c => isCard(c) && !isToggledNonTakas(c));
+        const regularManualChecks = columns[colName].filter(c => !isSystem(c) && !isCard(c) && !isToggledNonTakas(c));
         const toggledNonTakasChecks = columns[colName].filter(c => isToggledNonTakas(c));
-        const systemChecks = columns[colName].filter(c => isSystem(c) && !isToggledNonTakas(c));
-        const regularManualChecks = columns[colName].filter(c => !isSystem(c) && !isToggledNonTakas(c));
         
-        // Sort lists: system checks alphabetically, manual checks chronologically by creation date to prevent jumping while editing
+        // Sort lists: system checks alphabetically, card checks alphabetically, manual checks chronologically by creation date to prevent jumping while editing
         systemChecks.sort((a, b) => getDesc(a).localeCompare(getDesc(b), 'tr'));
+        cardChecks.sort((a, b) => getDesc(a).localeCompare(getDesc(b), 'tr'));
         regularManualChecks.sort((a, b) => {
           const timeDiff = (a.created_at || '').localeCompare(b.created_at || '');
           if (timeDiff !== 0) return timeDiff;
@@ -1427,7 +1434,8 @@ export function ChecksPage() {
           return (a.id || '').localeCompare(b.id || '');
         });
         
-        columns[colName] = [...systemChecks, ...regularManualChecks, ...toggledNonTakasChecks];
+        // Sıralama: 1. Banka Taksitleri -> 2. Kart Girişleri -> 3. Diğer Elle Girilenler (örn. ANKARA SEMİH) -> 4. Takasa Taşınanlar
+        columns[colName] = [...systemChecks, ...cardChecks, ...regularManualChecks, ...toggledNonTakasChecks];
       } else {
         columns[colName].sort((a, b) => {
           const aIc = isIcTakasCheck(a);
