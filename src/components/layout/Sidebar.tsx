@@ -102,6 +102,7 @@ const getIconBgColor = (label: string, isActive: boolean) => {
       return 'bg-zinc-50 text-zinc-500 border border-zinc-100';
     case 'Dış Muhasebe':
       return 'bg-blue-50 text-blue-600 border border-blue-100';
+    case 'Hukuk Departmanı':
     case 'Hukuki İşlemler':
       return 'bg-rose-50 text-rose-600 border border-rose-100';
     case 'Şubelerimiz':
@@ -315,24 +316,28 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
           localStorage.setItem(`sidebar_custom_${user.email}`, JSON.stringify(config));
         }
 
-        // Otomatik migrasyon: Hukuki İşlemler menüsünü "Dış Muhasebe"nin altına yerleştir
+        // Otomatik migrasyon: Hukuk Departmanı menüsünü "Dış Muhasebe"nin altına yerleştir ve eski ismi güncelle
         if (config.order) {
-          const targetIndex = config.order.indexOf('Hukuki İşlemler');
+          const oldIndex = config.order.indexOf('Hukuki İşlemler');
+          if (oldIndex !== -1) {
+            config.order[oldIndex] = 'Hukuk Departmanı';
+          }
+          const targetIndex = config.order.indexOf('Hukuk Departmanı');
           if (targetIndex !== -1) {
             config.order.splice(targetIndex, 1);
           }
           const disMuhasebeIdx = config.order.indexOf('Dış Muhasebe');
           if (disMuhasebeIdx !== -1) {
-            config.order.splice(disMuhasebeIdx + 1, 0, 'Hukuki İşlemler');
+            config.order.splice(disMuhasebeIdx + 1, 0, 'Hukuk Departmanı');
           } else {
-            config.order.push('Hukuki İşlemler');
+            config.order.push('Hukuk Departmanı');
           }
           localStorage.setItem(`sidebar_custom_${user.email}`, JSON.stringify(config));
         }
 
-        // Otomatik migrasyon: Ana Kasa menüsünü "Hukuki İşlemler"in altına yerleştir
+        // Otomatik migrasyon: Ana Kasa menüsünü "Hukuk Departmanı"nın altına yerleştir
         if (config.order && !config.order.includes('Ana Kasa')) {
-          const hukukIdx = config.order.indexOf('Hukuki İşlemler');
+          const hukukIdx = config.order.indexOf('Hukuk Departmanı');
           if (hukukIdx !== -1) {
             config.order.splice(hukukIdx + 1, 0, 'Ana Kasa');
           } else {

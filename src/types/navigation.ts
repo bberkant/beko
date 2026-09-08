@@ -133,7 +133,7 @@ export const navItems: NavItem[] = [
     ]
   },
   {
-    label: 'Hukuki İşlemler',
+    label: 'Hukuk Departmanı',
     to: '/hukuk/dosyalar',
     icon: Gavel,
     children: [
