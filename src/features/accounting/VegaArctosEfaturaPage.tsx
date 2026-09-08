@@ -180,16 +180,16 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
     setIsSyncing(true);
     try {
       const response = await fetch(`${TUNNEL_URL}/api/${company}/efaturalar?force=true`);
-      if (!response.ok) throw new Error(`${company === 'etik' ? 'Vega' : 'Mikrokom'} API yanıt vermedi.`);
+      if (!response.ok) throw new Error(`${company === 'etik' ? 'Vega' : 'Mikrokom'} API sunucusuna ulaşılamadı (${response.status}).`);
       const data = await response.json();
       if (data && data.success === false) {
         let msg = data.details || data.error || 'Fatura kayıtları sunucudan alınamadı.';
         if (typeof msg === 'string' && msg.includes('ENOTFOUND hasan')) {
-          msg = "Marif faturalarının kayıtlı olduğu mezbahadaki 'HASAN' bilgisayarına şu an ağ üzerinden ulaşılamıyor. (Bilgisayar kapalı veya ağ bağlantısı yok).";
+          msg = "Marif faturalarının kayıtlı olduğu mezbahadaki 'HASAN' bilgisayarına şu an ağ üzerinden ulaşılamıyor.";
         }
         throw new Error(msg);
       }
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         setInvoices(data);
         const hasIncoming = data.some((i: any) => (i.direction || 'gelen') === 'gelen');
         const hasOutgoing = data.some((i: any) => (i.direction || 'gelen') === 'giden');
@@ -201,7 +201,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
         setLastSyncTime(timeStr);
         setCacheSource('Canlı');
-        setCooldownSeconds(company === 'marif' ? 3600 : 60); // Marif için saatte 1 (3600s), Etik için 60s
+        setCooldownSeconds(company === 'marif' ? 3600 : 60);
 
         // Save immediately to local IndexedDB
         void setLocalCache(company, data, nowIso);
@@ -209,14 +209,14 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         void saveSupabaseCache(company, data, user?.email);
 
         if (showNotification) {
-          notify(`${company === 'etik' ? 'Etik' : 'Marif'} e-Fatura kayıtları güncellendi ve Supabase'e yedeklendi. (${data.length} kayıt)`, 'success');
+          notify(`${company === 'etik' ? 'Etik' : 'Marif'} e-Fatura kayıtları güncellendi. (${data.length} kayıt)`, 'success');
         }
-      } else {
-        setInvoices([]);
       }
     } catch (err: any) {
-      console.error('e-Faturalar çekilemedi:', err);
-      notify(err.message || 'e-Fatura kayıtları sunucudan alınamadı.', 'error');
+      console.warn('e-Faturalar canlı çekilemedi (önbellek devrede):', err);
+      if (showNotification) {
+        notify('Vega yerel sunucu servisine şu an ulaşılamıyor. Önbellekteki veriler gösterilmeye devam ediyor.', 'info');
+      }
     } finally {
       setIsLoading(false);
       setIsSyncing(false);
@@ -413,18 +413,14 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         }]);
       }
     } catch (err) {
-      console.error('Fatura detayları çekilemedi:', err);
-      if (company === 'marif') {
-        setDetails([{
-          id: 1,
-          productCode: invoice.vkn || String(invoice.cariCode),
-          productName: invoice.cariName || 'Fatura Bedeli',
-          lineTutar: invoice.matrah || invoice.amount || 0,
-          kdvTutar: invoice.kdv || 0,
-        }]);
-      } else {
-        notify('Fatura satır detayları yüklenemedi.', 'error');
-      }
+      console.warn('Fatura detayları canlı çekilemedi, özet gösteriliyor:', err);
+      setDetails([{
+        id: 1,
+        productCode: invoice.vkn || String(invoice.cariCode),
+        productName: invoice.cariName || 'Fatura Bedeli',
+        lineTutar: invoice.matrah || invoice.amount || 0,
+        kdvTutar: invoice.kdv || 0,
+      }]);
     } finally {
       setDetailsLoading(false);
     }
