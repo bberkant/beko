@@ -441,13 +441,15 @@ function InlineSelect({
   );
 }
 
+let globalKesimRecordsCache: KesimRecord[] = [];
+
 export function KesimListesiPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { notify } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [records, setRecords] = useState<KesimRecord[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [records, setRecords] = useState<KesimRecord[]>(() => globalKesimRecordsCache);
+  const [loading, setLoading] = useState(() => globalKesimRecordsCache.length === 0);
   const [actionLoading, setActionLoading] = useState(false);
 
   // Search & Filters
@@ -523,32 +525,35 @@ export function KesimListesiPage() {
 
   // Fetch records
   const fetchRecords = useCallback(async () => {
-    setLoading(true);
+    if (globalKesimRecordsCache.length === 0) {
+      setLoading(true);
+    }
     try {
       let fetchedData: KesimRecord[] | null = null;
 
       // 1. Önce doğrudan yüksek hızlı ve indeksli Supabase veritabanından çek (anında <100ms)
+      let query = supabase
+        .from('kesim_listesi')
+        .select('*')
+        .order('slaughter_date', { ascending: false });
+
       if (user?.organizationId) {
-        let query = supabase
-          .from('kesim_listesi')
-          .select('*')
-          .eq('organization_id', user.organizationId)
-          .order('slaughter_date', { ascending: false });
-
-        if (startDate) {
-          query = query.gte('slaughter_date', startDate);
-        }
-        if (endDate) {
-          query = query.lte('slaughter_date', endDate);
-        }
-
-        const { data, error } = await query;
-        if (!error && data && data.length > 0) {
-          fetchedData = data;
-        }
+        query = query.eq('organization_id', user.organizationId);
       }
 
-      // 2. Eğer Supabase'de henüz yoksa veya boşsa Mezbaha API'den çekmeyi dene (2.5 sn zaman aşımı ile)
+      if (startDate) {
+        query = query.gte('slaughter_date', startDate);
+      }
+      if (endDate) {
+        query = query.lte('slaughter_date', endDate);
+      }
+
+      const { data, error } = await query;
+      if (!error && data && data.length > 0) {
+        fetchedData = data;
+      }
+
+      // 2. Eğer Supabase henüz veri dönmediyse Mezbaha API'den çekmeyi dene (2.5 sn zaman aşımı ile)
       if (!fetchedData || fetchedData.length === 0) {
         try {
           let apiUrl = `https://vega-api.amasyaetas.com/api/kesim/records`;
@@ -574,17 +579,23 @@ export function KesimListesiPage() {
         }
       }
 
-      setRecords(fetchedData || []);
+      if (fetchedData && fetchedData.length > 0) {
+        globalKesimRecordsCache = fetchedData;
+        setRecords(fetchedData);
+      } else if (records.length === 0) {
+        setRecords(fetchedData || []);
+      }
     } catch (error: any) {
       notify('Kesim kayıtları yüklenirken bir hata oluştu: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [user?.organizationId, startDate, endDate, notify]);
+  }, [user?.organizationId, startDate, endDate, notify, records.length]);
 
   useEffect(() => {
+    if (authLoading) return;
     void fetchRecords();
-  }, [fetchRecords]);
+  }, [authLoading, user?.organizationId, fetchRecords]);
 
   const handleSyncVegaPrices = async () => {
     setActionLoading(true);
