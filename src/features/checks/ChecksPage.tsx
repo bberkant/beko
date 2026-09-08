@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { SectionCard } from '../../components/ui/SectionCard';
@@ -20,7 +20,8 @@ import {
   FolderOpen,
   Calendar,
   Filter,
-  X
+  X,
+  ArrowUpDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Modal } from '../../components/ui/Modal';
@@ -87,23 +88,44 @@ export const isHatirAlinan = (c: any): boolean => {
   if (!c || c.check_type !== 'alinan') return false;
   const debtor = normalizeString(c.debtor);
   const creditor = normalizeString(c.creditor);
-  return debtor.includes('hatir bizim borcumuz') || debtor.includes('hatir bizim borc') ||
-         creditor.includes('hatir bizim borcumuz') || creditor.includes('hatir bizim borc');
+  const note = normalizeString(c.ozel_alan || c.notlar || '');
+  return debtor.includes('hatir bizim borcumuz') || debtor.includes('hatir bizim borc') || debtor.includes('hatir oldu') || debtor.includes('hatir ol') ||
+         creditor.includes('hatir bizim borcumuz') || creditor.includes('hatir bizim borc') || creditor.includes('hatir oldu') || creditor.includes('hatir ol') ||
+         note.includes('hatir oldu') || note.includes('hatir ol');
 };
+
 
 export const getCleanBankName = (debtor: string | null, bankName: string | null): string | null => {
   if (!debtor && !bankName) return null;
-  const d = (debtor || '').toUpperCase().trim();
-  const b = (bankName || '').toUpperCase().trim();
+  let d = (debtor || '').toUpperCase().trim();
+  let b = (bankName || '').toUpperCase().trim();
   
-  if (d === 'E.AKBANK' || d === 'M.AKBANK') return d;
-  if (d.includes('DENİZ') || d.includes('DENIZ')) return 'DENİZ';
-  if (d === 'M.ZİRAAT') return 'M.ZİRAAT';
-  if (d === 'E.ZİRAAT' || d === 'Ö.ZİRAAT' || d === 'ZİRAAT' || d.includes('ZİRAAT') || d.includes('ZIRAAT')) return 'E.ZİRAAT';
-  if (d.includes('ALBARAKA')) return 'E.ALBARAKA';
-  if (d.includes('İŞ') || d.includes('IS') || d.includes('İŞBANK') || d.includes('ISBANK')) return 'İŞBANK';
-  if (d === 'M.GARANTİ' || d === 'M.GARANTI') return 'M.GARANTİ';
-  if (d === 'E.GARANTİ' || d === 'E.GARANTI') return 'E.GARANTİ';
+  // Filter out generic placeholder names
+  const genericWords = ['ÇEKLER', 'CEKLER', 'ıEKLER', 'IEKLER', 'ÇEK', 'CEK', 'ıEK', 'IEK', 'SENET', 'SENETLER', 'BELİRSİZ', 'BILINMIYOR'];
+  if (genericWords.includes(d)) d = '';
+  if (genericWords.includes(b)) b = '';
+  if (!d && !b) return null;
+  
+  // Determine prefix (E. or M.)
+  let prefix = 'E.';
+  if (d.startsWith('M.') || d.includes('MARİF') || d.includes('MARIF')) {
+    prefix = 'M.';
+  } else if (b.startsWith('M.') || b.includes('MARİF') || b.includes('MARIF')) {
+    prefix = 'M.';
+  } else if (d.startsWith('E.') || d.includes('ETİK') || d.includes('ETIK')) {
+    prefix = 'E.';
+  } else if (b.startsWith('E.') || b.includes('ETİK') || b.includes('ETIK')) {
+    prefix = 'E.';
+  }
+  
+  // Match base bank name
+  if (d.includes('AKBANK') || b.includes('AKBANK')) return `${prefix}AKBANK`;
+  if (d.includes('DENİZ') || d.includes('DENIZ') || b.includes('DENİZ') || b.includes('DENIZ')) return `${prefix}DENİZ`;
+  if (d.includes('ZİRAAT') || d.includes('ZIRAAT') || b.includes('ZİRAAT') || b.includes('ZIRAAT')) return `${prefix}ZİRAAT`;
+  if (d.includes('ALBARAKA') || b.includes('ALBARAKA')) return 'ALBARAKA';
+  if (d.includes('İŞ') || d.includes('IS') || d.includes('İŞBANK') || d.includes('ISBANK') || b.includes('İŞ') || b.includes('IS') || b.includes('İŞBANK') || b.includes('ISBANK')) return `${prefix}İŞBANK`;
+  if (d.includes('GARANTİ') || d.includes('GARANTI') || b.includes('GARANTİ') || b.includes('GARANTI')) return `${prefix}GARANTİ`;
+  if (d.includes('YAPI') || b.includes('YAPI')) return `${prefix}YAPI`;
 
   if (d.startsWith('E.') || d.startsWith('M.') || d.startsWith('Ö.')) {
     return d;
@@ -116,13 +138,14 @@ export const getCleanBankName = (debtor: string | null, bankName: string | null)
   if (d.includes('GARANTİ') || d.includes('GARANTI')) return 'GARANTİ';
   
   if (d && (d.includes('BANK') || d.includes('KATILIM'))) return d;
-  if (b && (b.includes('BANK') || b.includes('KATILIM') || b.includes('DENİZ') || b.includes('AKBANK') || b.includes('ZİRAAT') || b.includes('GARANTİ') || b.includes('HALK') || b.includes('VAKIF') || b.includes('KUVEYT') || b.includes('ALBARAKA') || b.includes('İŞ'))) {
-    if (b.includes('AKBANK')) return 'E.AKBANK';
-    if (b.includes('DENİZ') || b.includes('DENIZ')) return 'DENİZ';
-    if (b.includes('ZİRAAT') || b.includes('ZIRAAT')) return 'E.ZİRAAT';
-    if (b.includes('ALBARAKA')) return 'E.ALBARAKA';
-    if (b.includes('İŞ') || b.includes('IS') || b.includes('İŞBANK') || b.includes('ISBANK')) return 'İŞBANK';
-    if (b.includes('GARANTİ') || b.includes('GARANTI')) return 'E.GARANTİ';
+  if (b && (b.includes('BANK') || b.includes('KATILIM') || b.includes('DENİZ') || b.includes('AKBANK') || b.includes('ZİRAAT') || b.includes('GARANTİ') || b.includes('HALK') || b.includes('VAKIF') || b.includes('KUVEYT') || b.includes('ALBARAKA') || b.includes('İŞ') || b.includes('YAPI'))) {
+    if (b.includes('AKBANK')) return `${prefix}AKBANK`;
+    if (b.includes('DENİZ') || b.includes('DENIZ')) return `${prefix}DENİZ`;
+    if (b.includes('ZİRAAT') || b.includes('ZIRAAT')) return `${prefix}ZİRAAT`;
+    if (b.includes('ALBARAKA')) return 'ALBARAKA';
+    if (b.includes('İŞ') || b.includes('IS') || b.includes('İŞBANK') || b.includes('ISBANK')) return `${prefix}İŞBANK`;
+    if (b.includes('GARANTİ') || b.includes('GARANTI')) return `${prefix}GARANTİ`;
+    if (b.includes('YAPI')) return `${prefix}YAPI`;
     if (b.includes('HALK')) return 'HALKBANK';
     if (b.includes('VAKIF')) return 'VAKIFBANK';
     if (b.includes('KUVEYT')) return 'KUVEYT';
@@ -223,6 +246,8 @@ const formatTaksitDesc = (desc: string | null | undefined): string => {
 
 export function ChecksPage() {
   const { user } = useAuth();
+  const pendingInserts = useRef<Record<string, boolean>>({});
+  const insertPromises = useRef<Record<string, Promise<any>>>({});
   const [selectedCells, setSelectedCells] = useState<Record<string, { amount: number; label: string }>>({});
 
   const handleCellClick = (
@@ -283,6 +308,15 @@ export function ChecksPage() {
   
   // Sol Menü Durum Filtresi
   const [selectedSidebarFilter, setSelectedSidebarFilter] = useState<string>(isTakasRoute ? 'takasa_verildi' : 'all');
+  const [detailSortConfig, setDetailSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'bank_name', direction: 'asc' });
+
+  const handleRequestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (detailSortConfig && detailSortConfig.key === key && detailSortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setDetailSortConfig({ key, direction });
+  };
 
   useEffect(() => {
     if (isTakasRoute) {
@@ -295,6 +329,17 @@ export function ChecksPage() {
   }, [isTakasRoute]);
 
   const [openDropdown, setOpenDropdown] = useState<{ section: 'takas' | 'nontakas'; rowIndex: number; colName?: string } | null>(null);
+  const [openHeaderDropdown, setOpenHeaderDropdown] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      if (openHeaderDropdown) {
+        setOpenHeaderDropdown(null);
+      }
+    };
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [openHeaderDropdown]);
 
   useEffect(() => {
     const handleOutsideClick = () => {
@@ -419,7 +464,7 @@ export function ChecksPage() {
     return checks.filter(c => {
       const status = (c.status || '').toLowerCase();
       return !status.includes('ödendi') && 
-             !status.includes('tahsil') && 
+             !(status.includes('tahsil') && !status.includes('tahsilde')) && 
              !status.includes('ödenen') && 
              !status.includes('kayıp') &&
              !status.includes('iptal');
@@ -551,7 +596,27 @@ export function ChecksPage() {
       const accounts = accountsResult.data || [];
       setBankAccounts(accounts);
 
-      // 2. Çekleri paralel sayfalar halinde çek (1000'erli paketler halinde)
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + 
+        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(today.getDate()).padStart(2, '0');
+
+      // 2. Hızlı Başlangıç Yüklemesi: Eğer takas sayfasındaysak, sadece gerekli olanları hemen çek
+      if (isTakasRoute) {
+        const { data: initialChecks, error: initialError } = await supabase
+          .from('ebs_checks')
+          .select('*')
+          .eq('organization_id', user.organizationId)
+          .or(`due_date.eq.${todayStr},status.ilike.%kayıp%,ozel_alan.ilike.%takasta%`)
+          .order('due_date', { ascending: true });
+
+        if (!initialError && initialChecks) {
+          setChecks(initialChecks);
+          setLoading(false); // Kullanıcıya yükleme ekranını hemen kapat!
+        }
+      }
+
+      // 3. Arka Planda tüm çekleri paralel sayfalar halinde çek (1000'erli paketler halinde)
       let allData: EbsCheck[] = [];
       const pageSize = 1000;
       const numPages = Math.ceil(totalCount / pageSize);
@@ -677,7 +742,7 @@ export function ChecksPage() {
       }).length,
       odenen: activeKesilen.filter(c => {
         const st = cleanStatus(c.status);
-        return st.includes('ödendi') || st.includes('ödenen') || st.includes('tahsil');
+        return st.includes('ödendi') || st.includes('ödenen') || (st.includes('tahsil') && !st.includes('tahsilde'));
       }).length,
       geri_alinan: activeKesilen.filter(c => cleanStatus(c.status).includes('geri alındı')).length,
       iptal: activeKesilen.filter(c => cleanStatus(c.status).includes('iptal')).length,
@@ -854,7 +919,7 @@ export function ChecksPage() {
           if (selectedSidebarFilter === 'bankada_karsiliksiz' && !checkStatus.includes('bankada karşılıksız') && !checkStatus.includes('banka karşılıksız') && !checkStatus.includes('yazıldı') && !checkStatus.includes('karşılıksız')) return false;
         } else {
           if (selectedSidebarFilter === 'tahsilde' && !checkStatus.includes('tahsilde') && !checkStatus.includes('beklemede') && !checkStatus.includes('ödenmedi')) return false;
-          if (selectedSidebarFilter === 'odenen' && !checkStatus.includes('ödendi') && !checkStatus.includes('ödenen') && !checkStatus.includes('tahsil')) return false;
+          if (selectedSidebarFilter === 'odenen' && !checkStatus.includes('ödendi') && !checkStatus.includes('ödenen') && !(checkStatus.includes('tahsil') && !checkStatus.includes('tahsilde'))) return false;
           if (selectedSidebarFilter === 'geri_alinan' && !checkStatus.includes('geri alındı')) return false;
           if (selectedSidebarFilter === 'iptal' && !checkStatus.includes('iptal')) return false;
           if (selectedSidebarFilter === 'yasakli' && !checkStatus.includes('yasaklı')) return false;
@@ -1113,6 +1178,36 @@ export function ChecksPage() {
     { id: 'custom', label: 'Keşide Tarihi : Özel Tarih Aralığı' }
   ];
 
+  const getBankColumn = (debtor: string | null, bankName: string | null) => {
+    const d = (debtor || '').toUpperCase().trim();
+    const b = (bankName || '').toUpperCase().trim();
+    
+    if (d.includes('TAKSİT') || b.includes('TAKSİT')) return 'TAKSİT';
+    
+    // Determine prefix (E. or M.)
+    let prefix = 'E.';
+    if (d.startsWith('M.') || d.includes('MARİF') || d.includes('MARIF')) {
+      prefix = 'M.';
+    } else if (b.startsWith('M.') || b.includes('MARİF') || b.includes('MARIF')) {
+      prefix = 'M.';
+    } else if (d.startsWith('E.') || d.includes('ETİK') || d.includes('ETIK')) {
+      prefix = 'E.';
+    } else if (b.startsWith('E.') || b.includes('ETİK') || b.includes('ETIK')) {
+      prefix = 'E.';
+    }
+    
+    // Match base bank name
+    if (d.includes('AKBANK') || b.includes('AKBANK')) return `${prefix}AKBANK`;
+    if (d.includes('DENİZ') || d.includes('DENIZ') || b.includes('DENİZ') || b.includes('DENIZ')) return `${prefix}DENİZ`;
+    if (d.includes('ZİRAAT') || d.includes('ZIRAAT') || b.includes('ZİRAAT') || b.includes('ZIRAAT')) return `${prefix}ZİRAAT`;
+    if (d.includes('ALBARAKA') || b.includes('ALBARAKA')) return 'ALBARAKA';
+    if (d.includes('İŞ') || d.includes('IS') || d.includes('İŞBANK') || d.includes('ISBANK') || b.includes('İŞ') || b.includes('IS') || b.includes('İŞBANK') || b.includes('ISBANK')) return `${prefix}İŞBANK`;
+    if (d.includes('GARANTİ') || d.includes('GARANTI') || b.includes('GARANTİ') || b.includes('GARANTI')) return `${prefix}GARANTİ`;
+    if (d.includes('YAPI') || b.includes('YAPI')) return `${prefix}YAPI`;
+    
+    return null;
+  };
+
   // Takas Dashboard Sınıflandırması
   const dashboardData = useMemo(() => {
     const today = new Date();
@@ -1146,8 +1241,7 @@ export function ChecksPage() {
                      checkStatus.includes('iptal');
       if (isPaid) return false;
 
-      if (isForced) return true;
-      return isHatirAlinan(c);
+      return isForced || isHatirAlinan(c);
     });
 
     const activeUnpaid = [...activeUnpaidKesilen, ...hatirAlinan];
@@ -1157,22 +1251,7 @@ export function ChecksPage() {
 
     const nonTakasKeywords = ['HATIR', 'KRŞ', 'KARŞILIK', 'TAZMİNAT', 'BORÇ', 'ÖMER DEMİR', 'BURAK BESİCİLİK', 'ALİ ARAN', 'TAKASTA OLMAYAN'];
 
-    // Helper to resolve columns
-    const getBankColumn = (debtor: string | null, bankName: string | null) => {
-      const d = (debtor || '').toUpperCase().trim();
-      const b = (bankName || '').toUpperCase().trim();
-      if (d === 'E.AKBANK') return 'E.AKBANK';
-      if (d === 'M.AKBANK') return 'M.AKBANK';
-      if (d.includes('DENİZ') || d.includes('DENIZ')) return 'DENİZ';
-      if (d === 'M.ZİRAAT') return 'M.ZİRAAT';
-      if (d === 'E.ZİRAAT' || d === 'Ö.ZİRAAT' || d === 'ZİRAAT' || d.includes('ZİRAAT') || d.includes('ZIRAAT')) return 'E.ZİRAAT';
-      if (d.includes('ALBARAKA')) return 'E.ALBARAKA';
-      if (d.includes('İŞ') || d.includes('IS') || d.includes('İŞBANK') || d.includes('ISBANK')) return 'İŞBANK';
-      if (d === 'M.GARANTİ' || d === 'M.GARANTI') return 'M.GARANTİ';
-      if (d === 'E.GARANTİ' || d === 'E.GARANTI') return 'E.GARANTİ';
-      if (d.includes('TAKSİT') || b.includes('TAKSİT')) return 'TAKSİT';
-      return null;
-    };
+
 
     const isNonTakasCheck = (c: EbsCheck) => {
       const note = (c.ozel_alan || '').toUpperCase();
@@ -1185,9 +1264,8 @@ export function ChecksPage() {
       const creditor = (c.creditor || '').toUpperCase();
       const debtor = (c.debtor || '').toUpperCase();
 
-      if (note === 'TAKASTA') {
-        const column = getBankColumn(c.debtor, c.bank_name) || getCleanBankName(c.debtor, c.bank_name);
-        return !column;
+      if (note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN')) {
+        return false;
       }
       
       const column = getBankColumn(c.debtor, c.bank_name) || getCleanBankName(c.debtor, c.bank_name);
@@ -1219,7 +1297,11 @@ export function ChecksPage() {
     
     takasCandidates.forEach(c => {
       const bankName = getBankColumn(c.debtor, c.bank_name) || getCleanBankName(c.debtor, c.bank_name);
-      if (isHatirAlinan(c) || bankName === 'TAKSİT') {
+      const note = (c.ozel_alan || '').toUpperCase();
+      const isExplicitTakasta = note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN');
+      const shouldGoToTaksit = isHatirAlinan(c) || bankName === 'TAKSİT' || (!bankName && isExplicitTakasta);
+
+      if (shouldGoToTaksit) {
         taksitChecks.push(c);
       } else {
         if (bankName) {
@@ -1231,20 +1313,51 @@ export function ChecksPage() {
       }
     });
     
-    const defaultBankCols = ['E.AKBANK', 'DENİZ', 'E.ZİRAAT', 'M.ZİRAAT', 'E.ALBARAKA', 'İŞBANK', 'M.GARANTİ', 'M.AKBANK', 'E.GARANTİ'];
-    const emptyDefaultBanks = defaultBankCols.filter(bank => !candidateBanks[bank] || candidateBanks[bank].length === 0);
-    const extraActiveBanks = Object.keys(candidateBanks).filter(bank => !defaultBankCols.includes(bank));
+    const possibleBanksPredefined = [
+      'ALBARAKA',
+      'E.DENİZ',
+      'E.ZİRAAT',
+      'M.ZİRAAT',
+      'M.DENİZ',
+      'M.GARANTİ',
+      'M.AKBANK',
+      'M.YAPI'
+    ];
+    const activeSet = Object.keys(candidateBanks).filter(bank => candidateBanks[bank] && candidateBanks[bank].length > 0);
+    const inactiveSet = possibleBanksPredefined.filter(bank => !activeSet.includes(bank));
     
-    const activeBankCols = [...defaultBankCols];
-    extraActiveBanks.forEach((extraBank, index) => {
-      if (index < emptyDefaultBanks.length) {
-        const targetEmptyBank = emptyDefaultBanks[index];
-        const colIndex = activeBankCols.indexOf(targetEmptyBank);
-        if (colIndex !== -1) {
-          activeBankCols[colIndex] = extraBank;
+    const combined = [...activeSet, ...inactiveSet];
+    const sliced = combined.slice(0, 8);
+    
+    sliced.sort((a, b) => {
+      const getSortWeight = (bank: string) => {
+        const bothDeniz = sliced.includes('E.DENİZ') && sliced.includes('M.DENİZ');
+        const order = [
+          'ALBARAKA',
+          'E.DENİZ',
+          'E.ZİRAAT',
+          'M.ZİRAAT',
+          'M.DENİZ',
+          'E.GARANTİ', 'M.GARANTİ',
+          'E.AKBANK', 'M.AKBANK',
+          'E.İŞBANK', 'M.İŞBANK',
+          'E.YAPI', 'M.YAPI'
+        ];
+        if (bank === 'M.DENİZ' && !bothDeniz) {
+          return order.indexOf('E.DENİZ');
         }
-      }
+        return order.indexOf(bank);
+      };
+      
+      const idxA = getSortWeight(a);
+      const idxB = getSortWeight(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
     });
+    
+    const activeBankCols = sliced;
     
     const columns: Record<string, EbsCheck[]> = {};
     activeBankCols.forEach(col => {
@@ -1256,7 +1369,11 @@ export function ChecksPage() {
     
     takasCandidates.forEach(c => {
       const bankName = getBankColumn(c.debtor, c.bank_name) || getCleanBankName(c.debtor, c.bank_name);
-      if (isHatirAlinan(c) || bankName === 'TAKSİT') {
+      const note = (c.ozel_alan || '').toUpperCase();
+      const isExplicitTakasta = note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN');
+      const shouldGoToTaksit = isHatirAlinan(c) || bankName === 'TAKSİT' || (!bankName && isExplicitTakasta);
+
+      if (shouldGoToTaksit) {
         // already handled
       } else {
         if (bankName && columns[bankName]) {
@@ -1288,15 +1405,29 @@ export function ChecksPage() {
                  desc.includes('MARİF') || 
                  desc.includes('MARIF');
         };
+        const isToggledNonTakas = (c: EbsCheck) => {
+          const note = (c.ozel_alan || '').toUpperCase();
+          return note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN');
+        };
         
-        const systemChecks = columns[colName].filter(c => isSystem(c));
-        const manualChecks = columns[colName].filter(c => !isSystem(c));
+        const toggledNonTakasChecks = columns[colName].filter(c => isToggledNonTakas(c));
+        const systemChecks = columns[colName].filter(c => isSystem(c) && !isToggledNonTakas(c));
+        const regularManualChecks = columns[colName].filter(c => !isSystem(c) && !isToggledNonTakas(c));
         
-        // Sort both lists alphabetically so identical banks group together (alt alta)
+        // Sort lists: system checks alphabetically, manual checks chronologically by creation date to prevent jumping while editing
         systemChecks.sort((a, b) => getDesc(a).localeCompare(getDesc(b), 'tr'));
-        manualChecks.sort((a, b) => getDesc(a).localeCompare(getDesc(b), 'tr'));
+        regularManualChecks.sort((a, b) => {
+          const timeDiff = (a.created_at || '').localeCompare(b.created_at || '');
+          if (timeDiff !== 0) return timeDiff;
+          return (a.id || '').localeCompare(b.id || '');
+        });
+        toggledNonTakasChecks.sort((a, b) => {
+          const timeDiff = (a.created_at || '').localeCompare(b.created_at || '');
+          if (timeDiff !== 0) return timeDiff;
+          return (a.id || '').localeCompare(b.id || '');
+        });
         
-        columns[colName] = [...systemChecks, ...manualChecks];
+        columns[colName] = [...systemChecks, ...regularManualChecks, ...toggledNonTakasChecks];
       } else {
         columns[colName].sort((a, b) => {
           const aIc = isIcTakasCheck(a);
@@ -1304,13 +1435,29 @@ export function ChecksPage() {
           if (aIc !== bIc) {
             return aIc ? 1 : -1;
           }
-          return (a.amount || 0) - (b.amount || 0);
+          return Number(a.amount || 0) - Number(b.amount || 0);
         });
       }
     });
 
-    // Sort non-takas checks by amount (low to high)
-    nonTakasChecks.sort((a, b) => (a.amount || 0) - (b.amount || 0));
+    // Sort non-takas checks to match Excel template (empty bank name first, then alphabetical by bank, then alphabetical by creditor)
+    nonTakasChecks.sort((a, b) => {
+      const bankA = (a.bank_name || a.debtor || '').trim().toUpperCase();
+      const bankB = (b.bank_name || b.debtor || '').trim().toUpperCase();
+      
+      const hasBankA = bankA && bankA !== 'TAKSİT';
+      const hasBankB = bankB && bankB !== 'TAKSİT';
+      
+      if (!hasBankA && hasBankB) return 1;
+      if (hasBankA && !hasBankB) return -1;
+      if (hasBankA && hasBankB && bankA !== bankB) {
+        return bankA.localeCompare(bankB, 'tr');
+      }
+      
+      const nameA = (a.creditor || a.kesideci || '').trim().toUpperCase();
+      const nameB = (b.creditor || b.kesideci || '').trim().toUpperCase();
+      return nameA.localeCompare(nameB, 'tr');
+    });
 
     const columnTotals: Record<string, number> = {};
     let takasGrandTotal = 0;
@@ -1393,7 +1540,7 @@ export function ChecksPage() {
     colKey: string,
     rowIndex: number
   ) => {
-    const activeBankCols = dashboardData?.activeBankCols || ['E.AKBANK', 'DENİZ', 'E.ZİRAAT', 'M.ZİRAAT', 'E.ALBARAKA', 'İŞBANK', 'M.GARANTİ', 'M.AKBANK', 'E.GARANTİ'];
+    const activeBankCols = dashboardData?.activeBankCols || ['ALBARAKA', 'E.DENİZ', 'E.ZİRAAT', 'M.ZİRAAT', 'M.AKBANK', 'M.GARANTİ', 'E.İŞBANK', 'M.YAPI'];
     const sections = {
       takas: [...activeBankCols, 'TAKSİT-Tutar', 'TAKSİT-Desc'],
       nontakas: ['creditor', 'debtor', 'amount'],
@@ -1408,10 +1555,37 @@ export function ChecksPage() {
     let targetColIndex = colIndex;
     let shouldNavigate = false;
 
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.currentTarget.value = e.currentTarget.defaultValue;
+      e.currentTarget.blur();
+      return;
+    }
+
     if (e.key === 'Enter') {
       e.preventDefault();
       e.currentTarget.blur();
-      targetRow = rowIndex + 1;
+      
+      if (section === 'takas') {
+        if (colKey === 'TAKSİT-Tutar') {
+          targetColIndex = colIndex + 1; // Move to TAKSİT-Desc
+          targetRow = rowIndex;
+        } else if (colKey === 'TAKSİT-Desc') {
+          targetColIndex = colIndex - 1; // Move to TAKSİT-Tutar
+          targetRow = rowIndex + 1;
+        } else {
+          targetRow = rowIndex + 1; // Other bank columns move down
+        }
+      } else {
+        // Horizontal navigation for nontakas, kayip, and balances
+        if (colIndex < cols.length - 1) {
+          targetColIndex = colIndex + 1;
+          targetRow = rowIndex;
+        } else {
+          targetColIndex = 0;
+          targetRow = rowIndex + 1;
+        }
+      }
       shouldNavigate = true;
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
@@ -1448,20 +1622,19 @@ export function ChecksPage() {
 
     if (shouldNavigate) {
       const targetCol = cols[targetColIndex];
-      const nextInput = document.querySelector(
-        `input[data-section="${section}"][data-col="${targetCol}"][data-row-index="${targetRow}"]`
-      ) as HTMLInputElement | null;
-      
-      if (nextInput) {
-        setTimeout(() => {
+      setTimeout(() => {
+        const nextInput = document.querySelector(
+          `input[data-section="${section}"][data-col="${targetCol}"][data-row-index="${targetRow}"]`
+        ) as HTMLInputElement | null;
+        if (nextInput) {
           nextInput.focus();
           nextInput.select();
-        }, 50);
-      }
+        }
+      }, 50);
     }
   };
 
-  const handleCellBlur = async (
+  const handleCellBlur = (
     check: EbsCheck | undefined,
     field: 'amount' | 'creditor' | 'debtor' | 'bank_name' | 'due_date',
     newValue: string,
@@ -1516,24 +1689,61 @@ export function ChecksPage() {
       }
 
       // Perform update asynchronously in background
-      try {
+      if (check.id.startsWith('temp-')) {
+        const insertPromise = insertPromises.current[check.id] || Promise.resolve();
+        insertPromise.then(() => {
+          setChecks(prev => {
+            const latest = prev.find(c => c.local_id === check.local_id);
+            if (latest && !latest.id.startsWith('temp-')) {
+              if (shouldDelete) {
+                supabase.from('ebs_checks').delete().eq('id', latest.id).then(({ error }) => {
+                  if (error) console.error(error);
+                });
+              } else {
+                supabase
+                  .from('ebs_checks')
+                  .update({ [field]: parsedValue })
+                  .eq('id', latest.id)
+                  .then(({ error }) => {
+                    if (error) console.error(error);
+                  });
+              }
+            }
+            return prev;
+          });
+        });
+      } else {
         if (shouldDelete) {
-          await supabase.from('ebs_checks').delete().eq('id', check.id);
+          supabase.from('ebs_checks').delete().eq('id', check.id).then(({ error }) => {
+            if (error) {
+              console.error(error);
+              void fetchChecks(); // Revert/sync on error
+            }
+          });
         } else {
-          await supabase
+          supabase
             .from('ebs_checks')
             .update({ [field]: parsedValue })
-            .eq('id', check.id);
+            .eq('id', check.id)
+            .then(({ error }) => {
+              if (error) {
+                console.error(error);
+                void fetchChecks(); // Revert/sync on error
+              }
+            });
         }
-      } catch (error) {
-        console.error('Failed to update check in background:', error);
-        void fetchChecks(); // Revert/sync on error
       }
     } else {
       if (!parsedValue || (field === 'amount' && parsedValue === 0)) return;
 
+      const cellKey = `${context.type}-${context.colName || ''}-${context.rowIndex}`;
+      if (pendingInserts.current[cellKey]) return;
+      pendingInserts.current[cellKey] = true;
+
       const todayStr = new Date().toISOString().split('T')[0];
       const localId = Math.floor(Date.now() % 10000000);
+      const tempId = `temp-${localId}`;
+
       const insertData: any = {
         organization_id: user.organizationId,
         check_type: context.type === 'kayip' ? 'alinan' : 'kesilen',
@@ -1561,13 +1771,34 @@ export function ChecksPage() {
         if (field === 'due_date') insertData.due_date = parsedValue;
       }
 
-      // For insert, we must wait to get the new check id from the DB
-      const { error } = await supabase.from('ebs_checks').insert(insertData);
-      if (error) {
-        console.error('Supabase insert error:', error);
-        alert('Yeni satır kaydedilemedi: ' + error.message);
-      }
-      void fetchChecks();
+      // Create optimistic check in state
+      const optimisticCheck: EbsCheck = {
+        id: tempId,
+        created_at: new Date().toISOString(),
+        ...insertData
+      };
+
+      setChecks(prev => [...prev, optimisticCheck]);
+
+      // Insert into Supabase in background
+      const insertPromise = supabase
+        .from('ebs_checks')
+        .insert(insertData)
+        .select() as any;
+
+      insertPromises.current[tempId] = insertPromise;
+
+      insertPromise.then(({ data, error }: { data: any[] | null; error: any }) => {
+        delete pendingInserts.current[cellKey];
+        delete insertPromises.current[tempId];
+        if (error) {
+          console.error('Supabase insert error:', error);
+          setChecks(prev => prev.filter(c => c.id !== tempId));
+        } else if (data && data[0]) {
+          // Replace optimistic check with real check from DB, keeping any changes made in the meantime
+          setChecks(prev => prev.map(c => c.id === tempId ? { ...data[0], amount: c.amount, creditor: c.creditor, debtor: c.debtor } : c));
+        }
+      });
     }
   };
 
@@ -1650,6 +1881,38 @@ export function ChecksPage() {
     }
   };
 
+  const handleMarkColumnAsPaid = async (colName: string) => {
+    setOpenHeaderDropdown(null);
+    if (!user?.organizationId) return;
+
+    const checksInCol = dashboardData.columns[colName] || [];
+    const targets = checksInCol.filter(c => c.id && !(c.status || '').toLowerCase().includes('ödendi'));
+    if (targets.length === 0) return;
+
+    if (!confirm(`${colName} sütunundaki tüm çekleri (${targets.length} adet) "Ödendi" olarak işaretlemek istediğinize emin misiniz?`)) {
+      return;
+    }
+
+    const targetIds = targets.map(t => t.id);
+
+    setChecks(prev => prev.map(c => targetIds.includes(c.id) ? { ...c, status: 'Ödendi' } : c));
+
+    try {
+      const { error } = await supabase
+        .from('ebs_checks')
+        .update({ status: 'Ödendi' })
+        .in('id', targetIds);
+      if (error) {
+        console.error('Supabase batch update status error:', error);
+        alert('Çekler güncellenemedi: ' + error.message);
+        void fetchChecks();
+      }
+    } catch (e: any) {
+      console.error(e);
+      void fetchChecks();
+    }
+  };
+
   const handleBalanceBlur = async (
     accountId: string,
     newValue: string
@@ -1678,220 +1941,437 @@ export function ChecksPage() {
     const selectedTotal = selectedValues.reduce((sum, item) => sum + item.amount, 0);
     const selectedAverage = selectedCount > 0 ? selectedTotal / selectedCount : 0;
 
-    const maxTakasRows = Math.max(
-      10,
+    const screenTakasRows = Math.max(
+      12,
       ...Object.keys(dashboardData.columns).map(k => dashboardData.columns[k].length)
     );
 
-    const maxNonTakasRows = Math.max(7, dashboardData.nonTakasChecks.length);
+    const printTakasRows = Math.max(
+      15,
+      ...Object.keys(dashboardData.columns).map(k => dashboardData.columns[k].length)
+    );
+
+    const screenNonTakasRows = Math.max(7, dashboardData.nonTakasChecks.length + 1);
+    const printNonTakasRows = Math.max(11, dashboardData.nonTakasChecks.length + 1);
 
     return (
       <div className="space-y-6">
         {/* Upper Bank Columns Table with thick Excel border */}
-        <div className="overflow-x-auto w-full border-2 border-black bg-white rounded-lg shadow-sm">
-          <div className="bg-gray-50 border-b border-black px-4 py-3 flex items-center justify-center print:py-2">
-            <h3 className="text-sm font-bold text-red-600 uppercase tracking-wider text-center">
+        <div className="overflow-x-auto w-full border-2 border-black bg-white rounded-lg shadow-sm print:border-none">
+          <div className="bg-gray-50 border-b border-black px-4 py-3 flex items-center justify-center print:hidden">
+            <h3 className="text-sm text-red-600 uppercase tracking-wider text-center takas-cekleri-title">
               TAKAS ÇEKLERİ
             </h3>
           </div>
-          <table className="w-full border-collapse" style={{ fontFamily: 'Calibri, Arial, sans-serif' }}>
-            <thead>
-              <tr className="bg-gray-50 border-b-2 border-black divide-x divide-gray-300 text-center" style={{ fontFamily: 'Calibri, sans-serif' }}>
-                {dashboardData.activeBankCols.map((colName, colIdx) => (
-                  <Fragment key={colName}>
-                    {colIdx > 0 && <th className="w-[15px] bg-gray-100 p-0 takas-spacer-col"></th>}
-                    <th className="py-1.5 w-[100px] min-w-[100px] takas-bank-col text-center takas-header-th" style={{ fontFamily: 'Calibri, sans-serif' }}>{colName}</th>
-                  </Fragment>
-                ))}
-                <th className="w-[15px] bg-gray-100 p-0 takas-spacer-col"></th>
-                <th colSpan={2} className="w-[250px] min-w-[250px] takas-taksit-col text-center takas-header-th" style={{ fontFamily: 'Calibri, sans-serif' }}>TAKSİT</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {Array.from({ length: maxTakasRows }).map((_, rowIndex) => {
-                const taksitList = dashboardData.columns['TAKSİT'] || [];
-                const taksitCheck = taksitList[rowIndex];
 
-                return (
-                  <tr key={rowIndex} className="h-[34px] divide-x divide-gray-300 hover:bg-gray-50/20">
-                    {dashboardData.activeBankCols.map(colName => {
-                      const list = dashboardData.columns[colName] || [];
-                      const check = list[rowIndex];
-                      const isIcTakas = check && (colName === 'E.ZİRAAT' || colName === 'M.ZİRAAT') && check.ozel_alan?.includes('İÇ TAKAS');
-                      
-                      return (
-                        <Fragment key={colName}>
-                          <td className={`p-0 h-full border border-gray-300 relative group ${isIcTakas ? 'bg-red-600 takas-ictakas-cell' : ''}`}>
-                            <div className="relative flex items-center w-full h-full">
-                              <input
-                               key={check ? check.id : `empty-${colName}-${rowIndex}`}
-                               type="text"
-                               className={`w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-[17px] pr-5 text-black font-normal ${selectedCells[check?.id || `takas-${colName}-${rowIndex}`] ? 'ring-2 ring-green-600 bg-green-50/50' : ''}`}
-                               onClick={e => handleCellClick(e, check, check ? check.amount : 0, check?.id || `takas-${colName}-${rowIndex}`)}
-                               style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
-                               defaultValue={check ? formatExcelNumber(check.amount) : ''}
-                               onChange={handleNumberInput}
-                               onKeyDown={e => handleKeyDown(e, 'takas', colName, rowIndex)}
-                               onBlur={e => handleCellBlur(check, 'amount', e.target.value, { type: 'takas', colName, rowIndex })}
-                               data-section="takas"
-                               data-col={colName}
-                               data-row-index={rowIndex}
-                              />
-                              {check && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (openDropdown?.section === 'takas' && openDropdown?.rowIndex === rowIndex && openDropdown?.colName === colName) {
-                                      setOpenDropdown(null);
-                                    } else {
-                                      setOpenDropdown({ section: 'takas', rowIndex, colName });
-                                    }
-                                  }}
-                                  className="absolute right-0.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-red-650 rounded bg-white/80 md:opacity-0 md:group-hover:opacity-100 transition-opacity focus:outline-none z-10"
-                                >
-                                  <ChevronDown size={14} className="stroke-[3]" />
-                                </button>
-                              )}
-                              {openDropdown?.section === 'takas' && openDropdown?.rowIndex === rowIndex && openDropdown?.colName === colName && (
-                                <div className="absolute top-full right-0 mt-0.5 w-32 bg-white border border-gray-300 rounded shadow-lg z-50 py-1 text-left">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleTakasStatus(check, 'takasta')}
-                                    className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold flex items-center justify-between ${!check.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-black' : ''}`}
-                                  >
-                                    Takasta
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleTakasStatus(check, 'nontakas')}
-                                    className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold flex items-center justify-between ${check.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-black' : ''}`}
-                                  >
-                                    Takasta Değil
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleTakasStatus(check, 'odendi')}
-                                    className="w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left border-t border-gray-100"
-                                  >
-                                    Ödendi
-                                  </button>
-                                  {(colName === 'E.ZİRAAT' || colName === 'M.ZİRAAT') && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleToggleTakasStatus(check, 'ictakas')}
-                                      className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left border-t border-gray-100 ${check?.ozel_alan?.includes('İÇ TAKAS') ? 'bg-red-50 text-red-700 font-black' : ''}`}
-                                    >
-                                      İç Takas
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="bg-gray-100 p-0"></td>
-                        </Fragment>
-                      );
-                    })}
-                    {/* Taksit Tutar */}
-                    <td className="p-0 h-full border border-gray-300 w-[100px] relative group">
-                      <div className="relative flex items-center w-full h-full">
-                        <input
-                          key={taksitCheck ? taksitCheck.id : `empty-taksit-tutar-${rowIndex}`}
-                          type="text"
-                          className={`w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-[17px] font-normal text-gray-900 pr-5 ${selectedCells[taksitCheck?.id || `taksit-tutar-${rowIndex}`] ? 'ring-2 ring-green-600 bg-green-50/50' : ''}`}
-                          onClick={e => handleCellClick(e, taksitCheck, taksitCheck ? taksitCheck.amount : 0, taksitCheck?.id || `taksit-tutar-${rowIndex}`)}
-                          style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
-                          defaultValue={taksitCheck ? formatExcelNumber(taksitCheck.amount) : ''}
-                          onChange={handleNumberInput}
-                          onKeyDown={e => handleKeyDown(e, 'takas', 'TAKSİT-Tutar', rowIndex)}
-                          onBlur={e => handleCellBlur(taksitCheck, 'amount', e.target.value, { type: 'takas', colName: 'TAKSİT', rowIndex })}
-                          data-section="takas"
-                          data-col="TAKSİT-Tutar"
-                          data-row-index={rowIndex}
-                        />
-                        {taksitCheck && (
+          {/* Screen-only Table View (Interactive) */}
+          <div className="print:hidden">
+            <table className="w-full border-collapse" style={{ fontFamily: 'Calibri, Arial, sans-serif' }}>
+              <thead>
+                <tr className="bg-gray-50 border-b-2 border-black divide-x divide-gray-300 text-center" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                  {dashboardData.activeBankCols.map((colName, colIdx) => (
+                    <Fragment key={colName}>
+                      {colIdx > 0 && <th className="w-[15px] bg-gray-100 p-0 takas-spacer-col"></th>}
+                      <th className="py-1.5 w-[100px] min-w-[100px] takas-bank-col text-center takas-header-th relative group" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                        <div className="flex items-center justify-center gap-0.5">
+                           <span>{colName === 'E.ALBARAKA' || colName === 'M.ALBARAKA' ? 'ALBARAKA' : colName === 'E.İŞBANK' ? 'İŞBANK' : colName}</span>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (openDropdown?.section === 'takas' && openDropdown?.rowIndex === rowIndex && openDropdown?.colName === 'TAKSİT') {
-                                setOpenDropdown(null);
-                              } else {
-                                setOpenDropdown({ section: 'takas', rowIndex, colName: 'TAKSİT' });
-                              }
+                              setOpenHeaderDropdown(openHeaderDropdown === colName ? null : colName);
                             }}
-                            className="absolute right-0.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-red-650 rounded bg-white/80 md:opacity-0 md:group-hover:opacity-100 transition-opacity focus:outline-none z-10"
+                            className={`p-0.5 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100 focus:outline-none transition-opacity print:hidden ${openHeaderDropdown === colName ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                           >
-                            <ChevronDown size={14} className="stroke-[3]" />
+                            <ChevronDown size={11} className="stroke-[3]" />
                           </button>
-                        )}
-                        {openDropdown?.section === 'takas' && openDropdown?.rowIndex === rowIndex && openDropdown?.colName === 'TAKSİT' && (
-                          <div className="absolute top-full right-0 mt-0.5 w-32 bg-white border border-gray-300 rounded shadow-lg z-50 py-1 text-left">
+                        </div>
+                        {openHeaderDropdown === colName && (
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-28 bg-white border border-gray-300 rounded shadow-lg z-50 py-1 text-left font-sans font-bold">
                             <button
                               type="button"
-                              onClick={() => handleToggleTakasStatus(taksitCheck, 'takasta')}
-                              className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold flex items-center justify-between ${!taksitCheck.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-bold' : ''}`}
-                            >
-                              Takasta
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleTakasStatus(taksitCheck, 'nontakas')}
-                              className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold flex items-center justify-between ${taksitCheck.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-bold' : ''}`}
-                            >
-                              Takasta Değil
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleTakasStatus(taksitCheck, 'odendi')}
-                              className="w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left border-t border-gray-100"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleMarkColumnAsPaid(colName);
+                              }}
+                              className="w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left"
                             >
                               Ödendi
                             </button>
                           </div>
                         )}
+                      </th>
+                    </Fragment>
+                  ))}
+                  <th className="w-[15px] bg-gray-100 p-0 takas-spacer-col"></th>
+                  <th colSpan={2} className="w-[250px] min-w-[250px] takas-taksit-col text-center takas-header-th relative group" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                    <div className="flex items-center justify-center gap-0.5">
+                      <span>TAKSİT</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenHeaderDropdown(openHeaderDropdown === 'TAKSİT' ? null : 'TAKSİT');
+                        }}
+                        className={`p-0.5 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100 focus:outline-none transition-opacity print:hidden ${openHeaderDropdown === 'TAKSİT' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                      >
+                        <ChevronDown size={11} className="stroke-[3]" />
+                      </button>
+                    </div>
+                    {openHeaderDropdown === 'TAKSİT' && (
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-28 bg-white border border-gray-300 rounded shadow-lg z-50 py-1 text-left font-sans font-bold">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleMarkColumnAsPaid('TAKSİT');
+                          }}
+                          className="w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left"
+                        >
+                          Ödendi
+                        </button>
                       </div>
-                    </td>
-                    {/* Taksit Açıklama */}
-                    <td className="p-0 h-full border border-gray-300 w-[150px]">
-                      <input
-                        key={taksitCheck ? taksitCheck.id : `empty-taksit-desc-${rowIndex}`}
-                        type="text"
-                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-left pl-2 text-[17px] font-bold text-gray-700 uppercase"
-                        style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
-                        defaultValue={taksitCheck ? (isHatirAlinan(taksitCheck) ? formatTaksitDesc(taksitCheck.kesideci) : formatTaksitDesc(taksitCheck.creditor)) : ''}
-                        onKeyDown={e => handleKeyDown(e, 'takas', 'TAKSİT-Desc', rowIndex)}
-                        onBlur={e => handleCellBlur(taksitCheck, 'creditor', e.target.value, { type: 'takas', colName: 'TAKSİT', rowIndex })}
-                        data-section="takas"
-                        data-col="TAKSİT-Desc"
-                        data-row-index={rowIndex}
-                      />
-                    </td>
-                  </tr>
+                    )}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {Array.from({ length: screenTakasRows }).map((_, rowIndex) => {
+                  const taksitList = dashboardData.columns['TAKSİT'] || [];
+                  const taksitCheck = taksitList[rowIndex];
+
+                  return (
+                    <tr key={rowIndex} className="h-[34px] divide-x divide-gray-300 hover:bg-gray-50/20">
+                      {dashboardData.activeBankCols.map(colName => {
+                        const list = dashboardData.columns[colName] || [];
+                        const check = list[rowIndex];
+                        const isIcTakas = check && (colName === 'E.ZİRAAT' || colName === 'M.ZİRAAT') && check.ozel_alan?.includes('İÇ TAKAS');
+                        
+                        return (
+                          <Fragment key={colName}>
+                            <td className={`p-0 h-full border border-gray-300 relative group ${isIcTakas ? 'bg-red-600 takas-ictakas-cell' : ''}`}>
+                              <div className="relative flex items-center w-full h-full">
+                                <input
+                                 key={check ? (check.local_id ? `temp-${check.local_id}` : check.id) : `empty-${colName}-${rowIndex}`}
+                                 type="text"
+                                 className={`w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-[17px] pr-5 text-black font-normal ${selectedCells[check?.id || `takas-${colName}-${rowIndex}`] ? 'ring-2 ring-green-600 bg-green-50/50' : ''}`}
+                                 onClick={e => handleCellClick(e, check, check ? check.amount : 0, check?.id || `takas-${colName}-${rowIndex}`)}
+                                 style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
+                                 defaultValue={check ? formatExcelNumber(check.amount) : ''}
+                                 onChange={handleNumberInput}
+                                 onFocus={e => e.target.select()}
+                                 onKeyDown={e => handleKeyDown(e, 'takas', colName, rowIndex)}
+                                 onBlur={e => handleCellBlur(check, 'amount', e.target.value, { type: 'takas', colName, rowIndex })}
+                                 data-section="takas"
+                                 data-col={colName}
+                                 data-row-index={rowIndex}
+                                />
+                                {check && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (openDropdown?.section === 'takas' && openDropdown?.rowIndex === rowIndex && openDropdown?.colName === colName) {
+                                        setOpenDropdown(null);
+                                      } else {
+                                        setOpenDropdown({ section: 'takas', rowIndex, colName });
+                                      }
+                                    }}
+                                    className="absolute right-0.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-red-650 rounded bg-white/80 md:opacity-0 md:group-hover:opacity-100 transition-opacity focus:outline-none z-10"
+                                  >
+                                    <ChevronDown size={14} className="stroke-[3]" />
+                                  </button>
+                                )}
+                                {openDropdown?.section === 'takas' && openDropdown?.rowIndex === rowIndex && openDropdown?.colName === colName && (
+                                  <div className="absolute top-full right-0 mt-0.5 w-32 bg-white border border-gray-300 rounded shadow-lg z-50 py-1 text-left">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleTakasStatus(check, 'takasta')}
+                                      className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold flex items-center justify-between ${!check.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-black' : ''}`}
+                                    >
+                                      Takasta
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleTakasStatus(check, 'nontakas')}
+                                      className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold flex items-center justify-between ${check.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-black' : ''}`}
+                                    >
+                                      Takasta Değil
+                                    </button>
+                                    {(colName === 'E.ZİRAAT' || colName === 'M.ZİRAAT') && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleToggleTakasStatus(check, 'ictakas')}
+                                        className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left border-t border-gray-100 ${check?.ozel_alan?.includes('İÇ TAKAS') ? 'bg-red-50 text-red-700 font-black' : ''}`}
+                                      >
+                                        İç Takas
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleTakasStatus(check, 'odendi')}
+                                      className="w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left border-t border-gray-100"
+                                    >
+                                      Ödendi
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleTakasStatus(check, 'sil')}
+                                      className="w-full px-3 py-1.5 text-xs text-red-650 hover:bg-red-50 font-bold text-left border-t border-gray-100"
+                                    >
+                                      Kaldır
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="bg-gray-100 p-0 takas-spacer-col"></td>
+                          </Fragment>
+                        );
+                      })}
+                      {/* Taksit Tutar */}
+                      <td className="p-0 h-full border border-gray-300 w-[100px] relative group taksit-tutar-col">
+                        <div className="relative flex items-center w-full h-full">
+                          <input
+                            key={taksitCheck ? (taksitCheck.local_id ? `temp-${taksitCheck.local_id}` : taksitCheck.id) : `empty-taksit-tutar-${rowIndex}`}
+                            type="text"
+                            className={`w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-[17px] font-normal text-gray-900 pr-5 ${selectedCells[taksitCheck?.id || `taksit-tutar-${rowIndex}`] ? 'ring-2 ring-green-600 bg-green-50/50' : ''}`}
+                            onClick={e => handleCellClick(e, taksitCheck, taksitCheck ? taksitCheck.amount : 0, taksitCheck?.id || `taksit-tutar-${rowIndex}`)}
+                            style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
+                            defaultValue={taksitCheck ? formatExcelNumber(taksitCheck.amount) : ''}
+                            onChange={handleNumberInput}
+                            onKeyDown={e => handleKeyDown(e, 'takas', 'TAKSİT-Tutar', rowIndex)}
+                            onFocus={e => e.target.select()}
+                            onBlur={e => handleCellBlur(taksitCheck, 'amount', e.target.value, { type: 'takas', colName: 'TAKSİT', rowIndex })}
+                            data-section="takas"
+                            data-col="TAKSİT-Tutar"
+                            data-row-index={rowIndex}
+                          />
+                          {taksitCheck && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (openDropdown?.section === 'takas' && openDropdown?.rowIndex === rowIndex && openDropdown?.colName === 'TAKSİT') {
+                                  setOpenDropdown(null);
+                                } else {
+                                  setOpenDropdown({ section: 'takas', rowIndex, colName: 'TAKSİT' });
+                                }
+                              }}
+                              className="absolute right-0.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-red-650 rounded bg-white/80 md:opacity-0 md:group-hover:opacity-100 transition-opacity focus:outline-none z-10"
+                            >
+                              <ChevronDown size={14} className="stroke-[3]" />
+                            </button>
+                          )}
+                          {openDropdown?.section === 'takas' && openDropdown?.rowIndex === rowIndex && openDropdown?.colName === 'TAKSİT' && (
+                            <div className="absolute top-full right-0 mt-0.5 w-32 bg-white border border-gray-300 rounded shadow-lg z-50 py-1 text-left">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTakasStatus(taksitCheck, 'takasta')}
+                                className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold flex items-center justify-between ${!taksitCheck.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-bold' : ''}`}
+                              >
+                                Takasta
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTakasStatus(taksitCheck, 'nontakas')}
+                                className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold flex items-center justify-between ${taksitCheck.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-bold' : ''}`}
+                              >
+                                Takasta Değil
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTakasStatus(taksitCheck, 'odendi')}
+                                className="w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left border-t border-gray-100"
+                              >
+                                Ödendi
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTakasStatus(taksitCheck, 'sil')}
+                                className="w-full px-3 py-1.5 text-xs text-red-650 hover:bg-red-50 font-bold text-left border-t border-gray-100"
+                              >
+                                Kaldır
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      {/* Taksit Açıklama */}
+                      <td className="p-0 h-full border border-gray-300 w-[150px] taksit-desc-col">
+                        <input
+                          key={taksitCheck ? (taksitCheck.local_id ? `temp-${taksitCheck.local_id}` : taksitCheck.id) : `empty-taksit-desc-${rowIndex}`}
+                          type="text"
+                          className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-left pl-2 text-[17px] font-bold text-gray-700 uppercase"
+                          style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
+                          defaultValue={taksitCheck ? (isHatirAlinan(taksitCheck) ? formatTaksitDesc(taksitCheck.kesideci) : formatTaksitDesc(taksitCheck.creditor)) : ''}
+                          onKeyDown={e => handleKeyDown(e, 'takas', 'TAKSİT-Desc', rowIndex)}
+                          onFocus={e => e.target.select()}
+                          onBlur={e => handleCellBlur(taksitCheck, 'creditor', e.target.value, { type: 'takas', colName: 'TAKSİT', rowIndex })}
+                          data-section="takas"
+                          data-col="TAKSİT-Desc"
+                          data-row-index={rowIndex}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="bg-brand-50/50 font-bold text-black border-t-2 border-black divide-x divide-gray-300 h-[36px] text-right" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}>
+                  {dashboardData.activeBankCols.map(colName => (
+                    <Fragment key={colName}>
+                      <td className="text-center text-[17px] font-bold text-black" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px', fontWeight: 'bold' }}>
+                        {formatExcelNumber(dashboardData.columnTotals[colName])}
+                      </td>
+                      <td className="bg-gray-100 p-0 takas-spacer-col"></td>
+                    </Fragment>
+                  ))}
+                  <td colSpan={2} className="text-center text-[17px] font-bold text-black" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px', fontWeight: 'bold' }}>
+                    {formatExcelNumber(dashboardData.columnTotals['TAXTIT'] || dashboardData.columnTotals['TAKSİT'])}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Print-only Table View (Side-by-Side individual columns matching PDF) */}
+          <div className="hidden print:block w-full print-top-tables pl-[12px]" style={{ paddingLeft: '12px' }}>
+            {/* Print-only Merged Header Div matching Excel template */}
+            <div className="text-center py-1 text-[24pt] font-bold text-black uppercase tracking-wider border-2 border-black bg-white mb-1.5 print-header-title" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '24pt', lineHeight: '1.2' }}>
+              TAKAS ÇEKLERİ
+            </div>
+            {/* Flex row containing separate vertical table for each column */}
+            <div className="flex flex-row gap-[16px] w-full justify-start">
+              {dashboardData.activeBankCols.map(colName => {
+                const checksList = dashboardData.columns[colName] || [];
+                const colTotal = dashboardData.columnTotals[colName] || 0;
+                return (
+                  <table key={colName} className="border-collapse print-bank-table" style={{ width: '92px', minWidth: '92px', tableLayout: 'fixed' }}>
+                    <thead>
+                      <tr className="bg-white text-center">
+                        <th className="py-1.5 text-center takas-header-th select-none font-bold text-[16pt] text-red-650" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '16pt', fontWeight: 'bold' }}>
+                          {colName === 'E.ALBARAKA' || colName === 'M.ALBARAKA' ? 'ALBARAKA' : colName === 'E.İŞBANK' ? 'İŞBANK' : colName}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: printTakasRows }).map((_, rowIndex) => {
+                        const check = checksList[rowIndex];
+                        const isIcTakas = check && (colName === 'E.ZİRAAT' || colName === 'M.ZİRAAT') && check.ozel_alan?.includes('İÇ TAKAS');
+                        return (
+                          <tr key={rowIndex} className="h-28_5">
+                            <td className={`p-0 border border-gray-300 relative text-center text-[16pt] ${isIcTakas ? 'bg-red-500 font-bold text-black print-ictakas-cell' : 'font-normal'} ${rowIndex === 0 ? 'print-first-row' : ''}`}>
+                              <span style={{ fontFamily: 'Calibri, sans-serif', fontSize: '16pt', fontWeight: isIcTakas ? 'bold' : 'normal' }}>
+                                {check ? formatExcelNumber(check.amount) : '\u00A0'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="h-28_5">
+                        <td className="text-center text-[16pt] font-bold text-black border border-black bg-white" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '16pt', fontWeight: 'bold' }}>
+                          {colTotal > 0 ? formatExcelNumber(colTotal) : '0'}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 );
               })}
-            </tbody>
-            <tfoot>
-              <tr className="bg-brand-50/50 font-bold text-black border-t-2 border-black divide-x divide-gray-300 h-[36px] text-right" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}>
-                {dashboardData.activeBankCols.map(colName => (
-                  <Fragment key={colName}>
-                    <td className="text-center text-[17px] font-bold text-black" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px', fontWeight: 'bold' }}>
-                      {formatExcelNumber(dashboardData.columnTotals[colName])}
+
+              {/* TAKSİT Tutar Column - exact same component/class as bank tables */}
+              <table className="border-collapse print-bank-table print-taksit-tutar-table" style={{ width: '92px', minWidth: '92px', tableLayout: 'fixed' }}>
+                <thead>
+                  <tr className="bg-white text-center">
+                    <th className="py-1.5 text-center takas-header-th select-none font-bold text-[16pt] text-red-650" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '16pt', fontWeight: 'bold' }}>
+                      TAKSİT
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: printTakasRows }).map((_, rowIndex) => {
+                    const taksitList = dashboardData.columns['TAKSİT'] || [];
+                    const taksitCheck = taksitList[rowIndex];
+                    return (
+                      <tr key={rowIndex} className="h-28_5" style={{ height: '28.5px' }}>
+                        <td className={`p-0 border border-gray-300 text-center text-[16pt] font-normal ${rowIndex === 0 ? 'print-first-row' : ''} ${rowIndex === printTakasRows - 1 ? 'print-last-row' : ''}`} style={{ height: '28.5px', width: '92px', boxSizing: 'border-box' }}>
+                          <span style={{ fontFamily: 'Calibri, sans-serif', fontSize: '16pt', fontWeight: 'normal' }}>
+                            {taksitCheck ? formatExcelNumber(taksitCheck.amount) : '\u00A0'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="h-28_5" style={{ height: '28.5px' }}>
+                    <td className="text-center text-[16pt] font-bold text-black border border-black bg-white" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '16pt', fontWeight: 'bold', height: '28.5px', width: '92px', boxSizing: 'border-box' }}>
+                      {formatExcelNumber(dashboardData.columnTotals['TAXTIT'] || dashboardData.columnTotals['TAKSİT'] || 0)}
                     </td>
-                    <td className="bg-gray-100 p-0"></td>
-                  </Fragment>
-                ))}
-                <td colSpan={2} className="text-center text-[17px] font-bold text-black" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px', fontWeight: 'bold' }}>
-                  {formatExcelNumber(dashboardData.columnTotals['TAXTIT'] || dashboardData.columnTotals['TAKSİT'])}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+                  </tr>
+                </tfoot>
+              </table>
+
+              {/* TAKSİT Açıklama Column */}
+              <table className="border-collapse print-taksit-desc-table" style={{ width: '130px', minWidth: '130px', tableLayout: 'fixed', marginLeft: '-4px' }}>
+                <thead>
+                  <tr className="bg-white text-center">
+                    <th className="py-1.5 text-left" style={{ border: 'none', background: 'transparent', height: '26px' }}>&nbsp;</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: printTakasRows }).map((_, rowIndex) => {
+                    const taksitList = dashboardData.columns['TAKSİT'] || [];
+                    const taksitCheck = taksitList[rowIndex];
+                    const descText = taksitCheck ? (isHatirAlinan(taksitCheck) ? formatTaksitDesc(taksitCheck.kesideci) : formatTaksitDesc(taksitCheck.creditor)) : '';
+                    let customFontSize = '15pt';
+                    if (descText.length > 25) {
+                      customFontSize = '8pt';
+                    } else if (descText.length > 18) {
+                      customFontSize = '9.5pt';
+                    } else if (descText.length > 12) {
+                      customFontSize = '11.5pt';
+                    } else if (descText.length > 8) {
+                      customFontSize = '13.5pt';
+                    }
+                    return (
+                      <tr key={rowIndex} className="h-28_5" style={{ height: '28.5px' }}>
+                        <td 
+                          className="p-0 border-0 text-left pl-1.5 font-bold text-black uppercase" 
+                          style={{ height: '28.5px', border: 'none', background: 'transparent', width: '130px', boxSizing: 'border-box' }}
+                        >
+                          <span style={{ fontFamily: 'Calibri, sans-serif', fontWeight: 'bold', fontSize: customFontSize, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', width: '100%', lineHeight: '28.5px', color: '#000000' }}>
+                            {descText || '\u00A0'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="h-28_5" style={{ height: '28.5px' }}>
+                    <td style={{ border: 'none', background: 'transparent', height: '28.5px', width: '130px' }}>&nbsp;</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Print-only Takas Toplamı matching PDF */}
+            <div className="hidden print:flex my-2.5 border-2 border-black font-bold text-center h-[38px] items-center print-takas-toplami-box" style={{ width: '380px' }}>
+              <div className="bg-gray-100 border-r-2 border-black h-full flex items-center justify-center uppercase text-black font-black px-3 print-takas-toplami-label" style={{ fontSize: '18pt', fontWeight: 'bold' }}>
+                TAKAS TOPLAMI
+              </div>
+              <div className="bg-white h-full flex items-center justify-center font-black text-black px-3 print-takas-toplami-value" style={{ fontSize: '22pt', fontWeight: 'bold' }}>
+                {formatExcelNumber(dashboardData.takasGrandTotal)}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Takas Toplamı */}
-        <div className="flex justify-center">
+        <div className="flex justify-center print:hidden">
           <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex items-center gap-4 min-w-[280px]">
             <div className="rounded-lg bg-brand-50 p-3 text-brand-600">
               <Coins size={20} />
@@ -1906,10 +2386,10 @@ export function ChecksPage() {
         </div>
 
         {/* Lower Tables Grid */}
-        <div className="grid gap-6 lg:grid-cols-3 mt-6">
+        <div className="grid gap-6 lg:grid-cols-3 mt-6 print-lower-grid">
           {/* Takasta Olmayan Çekler */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col print:border-none print:shadow-none">
+            <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between print:hidden">
               <h3 className="text-sm font-bold text-red-600 uppercase tracking-wider flex items-center gap-2">
                 <Coins size={16} className="text-red-500" />
                 TAKASTA OLMAYAN ÇEKLER
@@ -1919,46 +2399,56 @@ export function ChecksPage() {
               </span>
             </div>
             <div className="overflow-x-auto w-full">
-              <table className="w-full text-left border-collapse" style={{ fontFamily: 'Calibri, Arial, sans-serif', fontSize: '17px' }}>
+              {/* Print-only Merged Header Div matching Excel template */}
+              <div 
+                className="hidden print:block text-center py-1.5 text-[16pt] font-bold text-red-650 uppercase tracking-wider border border-black border-b-0 bg-white print-takasta-olmayan-header"
+                style={{ fontSize: '16pt', color: '#dc2626', fontWeight: 'bold' }}
+              >
+                TAKASTA OLMAYAN ÇEKLER
+              </div>
+              <table className="w-full text-left border-collapse print-bottom-table" style={{ fontFamily: 'Calibri, Arial, sans-serif', fontSize: '17px' }}>
                 <thead>
-                  <tr className="bg-gray-50/50 border-b border-gray-200" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                  <tr className="bg-gray-50/50 border-b border-gray-200 print:hidden" style={{ fontFamily: 'Calibri, sans-serif' }}>
                     <th className="px-3 py-2 w-[45%] text-left takas-header-th">Alacaklı / Açıklama</th>
                     <th className="px-3 py-2 w-[25%] text-left takas-header-th">Banka</th>
                     <th className="px-3 py-2 w-[30%] text-right pr-3 takas-header-th">Tutar</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {Array.from({ length: maxNonTakasRows }).map((_, rowIndex) => {
+                <tbody className="print:divide-y-0">
+                  {Array.from({ length: printNonTakasRows }).map((_, rowIndex) => {
                     const check = dashboardData.nonTakasChecks[rowIndex];
+                    const isExtraPrintRow = rowIndex >= screenNonTakasRows;
                     return (
-                      <tr key={rowIndex} className="h-[34px] divide-x divide-gray-200 hover:bg-gray-50/30">
-                        <td className="p-0 border border-gray-300">
+                      <tr key={rowIndex} className={`h-[34px] hover:bg-gray-50/30 print:divide-x-0 ${isExtraPrintRow ? 'hidden print:table-row' : ''}`}>
+                        <td className="p-0 border border-gray-200 print:border-0">
                           <input
                             type="text"
                             className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 pl-2 text-[17px] font-normal text-gray-700 uppercase"
                             style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
                             defaultValue={check ? formatTaksitDesc(check.creditor) : ''}
                             onKeyDown={e => handleKeyDown(e, 'nontakas', 'creditor', rowIndex)}
+                            onFocus={e => e.target.select()}
                             onBlur={e => handleCellBlur(check, 'creditor', e.target.value, { type: 'nontakas', rowIndex })}
                             data-section="nontakas"
                             data-col="creditor"
                             data-row-index={rowIndex}
                           />
                         </td>
-                        <td className="p-0 border border-gray-300">
+                        <td className="p-0 border border-gray-200 print:border-0">
                           <input
                             type="text"
                             className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 pl-2 text-[17px] font-normal text-gray-700 uppercase"
                             style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
                             defaultValue={check ? formatTaksitDesc(check.debtor) : ''}
                             onKeyDown={e => handleKeyDown(e, 'nontakas', 'debtor', rowIndex)}
+                            onFocus={e => e.target.select()}
                             onBlur={e => handleCellBlur(check, 'debtor', e.target.value, { type: 'nontakas', rowIndex })}
                             data-section="nontakas"
                             data-col="debtor"
                             data-row-index={rowIndex}
                           />
                         </td>
-                        <td className="p-0 border border-gray-300 relative group">
+                        <td className="p-0 border border-gray-200 print:border-0 relative group">
                           <div className="relative flex items-center w-full h-full">
                             <input
                               type="text"
@@ -1990,32 +2480,37 @@ export function ChecksPage() {
                               </button>
                             )}
                             {openDropdown?.section === 'nontakas' && openDropdown?.rowIndex === rowIndex && (
-                              <div className="absolute top-full right-0 mt-0.5 w-36 bg-white border border-gray-300 rounded shadow-lg z-50 py-1 text-left">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleTakasStatus(check, 'takasta')}
-                                  className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left ${!check.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-bold' : ''}`}
-                                >
-                                  Takasta
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleTakasStatus(check, 'nontakas')}
-                                  className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left ${check.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-bold' : ''}`}
-                                >
-                                  Takasta Değil
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (confirm('Bu çeki listeden silmek istediğinize emin misiniz?')) {
-                                      void handleToggleTakasStatus(check, 'sil');
-                                    }
-                                  }}
-                                  className="w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 font-bold text-left border-t border-gray-100 mt-1"
-                                >
-                                  Kaldır
-                                </button>
+                              <div className="absolute top-full right-0 mt-0.5 w-44 bg-white border border-gray-300 rounded shadow-xl z-50 py-1 text-left">
+                                <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-gray-400 border-b border-gray-100">
+                                  Takas Durumu
+                                </div>
+                                <div className="py-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleTakasStatus(check, 'takasta')}
+                                    className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left flex items-center justify-between ${!check.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-black' : ''}`}
+                                  >
+                                    <span>Takasa Taşı</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleTakasStatus(check, 'nontakas')}
+                                    className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left border-t border-gray-100 ${check.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-black' : ''}`}
+                                  >
+                                    <span>Takasta Değil</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (confirm('Bu çeki listeden silmek istediğinize emin misiniz?')) {
+                                        void handleToggleTakasStatus(check, 'sil');
+                                      }
+                                    }}
+                                    className="w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 font-bold text-left border-t border-gray-100 mt-0.5"
+                                  >
+                                    <span>Kaldır</span>
+                                  </button>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -2036,9 +2531,28 @@ export function ChecksPage() {
             </div>
           </div>
 
-          {/* Kayıp Çekler */}
-          <div className="bg-white rounded-xl border border-black shadow-sm overflow-hidden flex flex-col">
-            <div className="bg-gray-50 border-b border-black px-4 py-3 flex items-center justify-between">
+          {/* Kayıp Çekler ve Genel Toplam Sütunu */}
+          <div className="flex flex-col gap-4">
+            <div 
+              className="flex border-2 border-black font-bold font-sans text-center h-[38px] items-center print-genel-toplam-box"
+              style={{ border: '2px solid #000000', boxSizing: 'border-box' }}
+            >
+              <div 
+                className="flex-1 bg-gray-150 border-r-2 border-black h-full flex items-center justify-center text-[18px] uppercase text-black font-black print-genel-toplam-label"
+                style={{ backgroundColor: '#f3f4f6', borderRight: '2px solid #000000', fontSize: '18pt', fontWeight: 'bold' }}
+              >
+                GENEL TOPLAM
+              </div>
+              <div 
+                className="flex-1 bg-white h-full flex items-center justify-center text-[22px] font-black text-black print-genel-toplam-value"
+                style={{ backgroundColor: '#ffffff', fontSize: '22pt', fontWeight: 'bold' }}
+              >
+                {formatExcelNumber(dashboardData.takasGrandTotal + dashboardData.nonTakasTotal)}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-black shadow-sm overflow-hidden flex flex-col">
+            <div className="bg-gray-50 border-b border-black px-4 py-3 flex items-center justify-between print:hidden">
               <h3 className="text-sm font-bold text-red-650 uppercase tracking-wider flex items-center gap-1.5">
                 <FileText size={16} className="text-red-500" />
                 KAYIP ÇEKLER
@@ -2048,9 +2562,17 @@ export function ChecksPage() {
               </span>
             </div>
             <div className="overflow-x-auto w-full">
-              <table className="w-full text-left border-collapse" style={{ fontFamily: 'Calibri, Arial, sans-serif' }}>
+              <table className="w-full text-left border-collapse print-bottom-table" style={{ fontFamily: 'Calibri, Arial, sans-serif' }}>
                 <thead>
-                  <tr className="border border-black bg-[#FFFF00]" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                  <tr className="hidden print:table-row border border-black bg-[#FFFF00]" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                    <th colSpan={3} className="bg-[#FFFF00] text-[#FF0000] font-black text-center py-1.5 text-[13px] border border-black uppercase">
+                      KAYIP ÇEKLER
+                    </th>
+                    <th className="bg-[#FFFF00] text-[#FF0000] font-black text-center py-1.5 text-[13px] border border-black uppercase">
+                      VADE TARİHİ
+                    </th>
+                  </tr>
+                  <tr className="border border-black bg-[#FFFF00] print:hidden" style={{ fontFamily: 'Calibri, sans-serif' }}>
                     <th className="bg-[#FFFF00] text-[#FF0000] font-black text-center py-1.5 text-[13px] border border-black uppercase w-[40%]">
                       Alacaklı / Açıklama
                     </th>
@@ -2065,20 +2587,20 @@ export function ChecksPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-black text-[13px]" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                <tbody className="divide-y divide-black text-[13px] print:divide-y-0" style={{ fontFamily: 'Calibri, sans-serif' }}>
                   {FIXED_KAYIP_CHECKS.map((check, rowIndex) => {
                     return (
-                      <tr key={rowIndex} className="h-[28px] divide-x divide-black hover:bg-gray-50/30">
-                        <td className="px-3 py-1 border border-black font-normal text-gray-700 uppercase">
+                      <tr key={rowIndex} className="h-[28px] divide-x divide-black hover:bg-gray-50/30 print:divide-x-0">
+                        <td className="px-3 py-1 border border-black print:border-0 font-normal text-gray-700 uppercase">
                           {check.creditor}
                         </td>
-                        <td className="px-3 py-1 border border-black text-center font-normal text-gray-700 uppercase">
+                        <td className="px-3 py-1 border border-black print:border-0 text-center font-normal text-gray-700 uppercase">
                           {check.bank_name}
                         </td>
-                        <td className="px-3 py-1 border border-black text-center font-normal text-gray-700">
+                        <td className="px-3 py-1 border border-black print:border-0 text-center font-normal text-gray-700">
                           {check.amountText}
                         </td>
-                        <td className="px-3 py-1 border border-black text-center font-normal text-gray-650">
+                        <td className="px-3 py-1 border border-black print:border-0 text-center font-normal text-gray-650">
                           {check.due_dateText}
                         </td>
                       </tr>
@@ -2086,56 +2608,63 @@ export function ChecksPage() {
                   })}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-yellow-50 font-black border-t-2 border-black text-center divide-x divide-black" style={{ fontFamily: 'Calibri, sans-serif' }}>
-                    <td colSpan={2} className="px-3 py-1.5 text-[13px] text-red-650 uppercase border border-black text-left pl-3">TOPLAM</td>
-                    <td className="text-center py-1.5 text-[13px] font-black text-red-650 border border-black">
+                  <tr className="bg-yellow-50 font-black border-t-2 border-black text-center divide-x divide-black print:divide-x-0" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                    <td colSpan={2} className="px-3 py-1.5 text-[13px] text-red-650 uppercase border border-black print:border-0 text-left pl-3">TOPLAM</td>
+                    <td className="text-center py-1.5 text-[13px] font-black text-red-650 border border-black print:border-0">
                       3.348.822
                     </td>
-                    <td className="px-3 py-1.5 border border-black bg-yellow-50"></td>
+                    <td className="px-3 py-1.5 border border-black print:border-0 bg-yellow-50"></td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           </div>
+          </div>
 
           {/* Hesapta Olan Para & Genel Özet */}
           <div className="space-y-6 flex flex-col">
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-              <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 print:hidden">
                 <h3 className="text-sm font-bold text-red-600 uppercase tracking-wider flex items-center gap-1.5">
                   <Landmark size={16} className="text-red-500" />
                   HESAPTA OLAN PARA
                 </h3>
               </div>
-              <div className="overflow-y-auto max-h-[220px]">
-                <table className="w-full text-left border-collapse" style={{ fontFamily: 'Calibri, Arial, sans-serif' }}>
+              <div className="w-full">
+                {/* Print-only Merged Header Div matching Excel template */}
+                <div className="hidden print:block text-center py-1.5 text-[11pt] font-black text-black uppercase tracking-wider border border-black border-b-0 bg-white">
+                  HESAPTA OLAN PARA
+                </div>
+                <table className="w-full text-left border-collapse print-bottom-table" style={{ fontFamily: 'Calibri, Arial, sans-serif' }}>
                   <thead>
-                    <tr className="bg-gray-50/50 border-b border-gray-200 text-[13px] font-bold text-gray-600" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                    <tr className="bg-gray-50/50 border-b border-gray-200 text-[13px] font-bold text-gray-600 print:hidden" style={{ fontFamily: 'Calibri, sans-serif' }}>
                       <th className="px-3 py-1.5">Banka Hesabı</th>
                       <th className="px-3 py-1.5 text-right pr-3">Bakiye</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {bankAccounts
-                      .filter(acc => {
-                        const name = (acc.account_name || acc.bank || '').toUpperCase();
-                        return name.includes('KUVEYT') || name.includes('ZİRAAT') || name.includes('ALBARAKA');
-                      })
-                      .map((acc, rowIndex) => {
-                        const displayName = (() => {
-                          const name = (acc.account_name || acc.bank || '').toUpperCase();
-                          if (name.includes('KUVEYT')) return 'KUVEYT TÜRK';
-                          if (name.includes('ZİRAAT')) return 'ZİRAAT';
-                          if (name.includes('ALBARAKA')) return 'ALBARAKA';
-                          return acc.account_name || acc.bank;
-                        })();
+                  <tbody className="print:divide-y-0">
+                    {(() => {
+                      const allowedBankNames = ['KUVEYT', 'ZİRAAT', 'ALBARAKA', 'AKBANK', 'DENİZ', 'HALKBANK', 'MARİF'];
+                      
+                      return allowedBankNames.map((bankKey, rowIndex) => {
+                        const acc = bankAccounts.find(a => {
+                          const name = (a.account_name || a.bank || '').toUpperCase();
+                          return name.includes(bankKey);
+                        }) || {
+                          id: `mock-${bankKey}`,
+                          account_name: `${bankKey} Hesabı`,
+                          bank: bankKey,
+                          balance: 0
+                        };
+
+                        const displayName = bankKey === 'KUVEYT' ? 'KUVEYT TÜRK' : bankKey;
 
                         return (
-                          <tr key={acc.id} className="h-[28px] divide-x divide-gray-200 hover:bg-gray-50/30">
-                            <td className="pl-3 py-1 text-[13px] font-normal text-gray-700 bg-gray-50/20" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                          <tr key={acc.id} className="h-[28px] hover:bg-gray-50/30 print:divide-x-0">
+                            <td className="pl-3 py-1 text-[13px] font-normal text-gray-700 bg-gray-50/20 border border-gray-200 print:border-0" style={{ fontFamily: 'Calibri, sans-serif' }}>
                               {displayName}
                             </td>
-                            <td className="p-0 border border-gray-300">
+                            <td className="p-0 border border-gray-200 print:border-0">
                               <input
                                 type="text"
                                 className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-[13px] font-normal text-gray-700"
@@ -2143,23 +2672,67 @@ export function ChecksPage() {
                                 defaultValue={formatExcelNumber(Number(acc.balance || 0))}
                                 onChange={handleNumberInput}
                                 onKeyDown={e => handleKeyDown(e, 'balances', 'balance', rowIndex)}
-                                onBlur={e => handleBalanceBlur(acc.id, e.target.value)}
+                                onBlur={e => {
+                                  if (acc.id.startsWith('mock-')) return;
+                                  void handleBalanceBlur(acc.id, e.target.value);
+                                }}
                                 data-section="balances"
                                 data-col="balance"
                                 data-row-index={rowIndex}
+                                disabled={acc.id.startsWith('mock-')}
                               />
                             </td>
                           </tr>
                         );
-                      })}
+                      });
+                    })()}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-gray-50 font-bold border-t border-gray-300 text-right" style={{ fontFamily: 'Calibri, sans-serif' }}>
-                      <td className="px-3 py-1.5 text-[13px] text-gray-600">Toplam Bakiye</td>
-                      <td className="text-center py-1.5 text-[13px] font-black text-gray-800">
-                        {formatExcelNumber(dashboardData.totalBankBalance)}
-                      </td>
-                    </tr>
+                    {(() => {
+                      const allowedBankNames = ['KUVEYT', 'ZİRAAT', 'ALBARAKA', 'AKBANK', 'DENİZ', 'HALKBANK', 'MARİF'];
+                      const localBalances = allowedBankNames.map(bankKey => {
+                        const acc = bankAccounts.find(a => {
+                          const name = (a.account_name || a.bank || '').toUpperCase();
+                          return name.includes(bankKey);
+                        });
+                        return acc ? Number(acc.balance || 0) : 0;
+                      });
+                      const totalListedBalance = localBalances.reduce((sum, b) => sum + b, 0);
+                      const gelecekPara = 0;
+                      const odenecekTutar = dashboardData.takasGrandTotal + dashboardData.nonTakasTotal;
+                      const acikFazla = totalListedBalance + gelecekPara - odenecekTutar;
+
+                      return (
+                        <>
+                          <tr className="bg-gray-50 font-bold border-t border-gray-300 text-right print:hidden" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                            <td className="px-3 py-1.5 text-[13px] text-gray-600">Toplam Bakiye</td>
+                            <td className="text-center py-1.5 text-[13px] font-black text-gray-800">
+                              {formatExcelNumber(totalListedBalance)}
+                            </td>
+                          </tr>
+                          <tr className="bg-white font-bold border-t border-gray-300 text-right print-gelecek-odenecek-row" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                            <td className="px-3 py-1.5 text-[13px] text-gray-600">GELECEK PARA</td>
+                            <td className="text-center py-1.5 text-[13px] font-black text-gray-800">0</td>
+                          </tr>
+                          <tr className="bg-white font-bold border-t border-gray-300 text-right print-gelecek-odenecek-row" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                            <td className="px-3 py-1.5 text-[13px] text-gray-600">ÖDENECEK TUTAR</td>
+                            <td className="text-center py-1.5 text-[13px] font-black text-gray-800">
+                              {formatExcelNumber(odenecekTutar)}
+                            </td>
+                          </tr>
+                          {/* Spacer row ONLY in print */}
+                          <tr className="hidden print:table-row print-spacer-row">
+                            <td colSpan={2}>&nbsp;</td>
+                          </tr>
+                          <tr className="bg-white font-bold border-t border-gray-300 text-right print-acik-fazla-row" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                            <td className="px-3 py-1.5 text-[13px] text-gray-600">AÇIK-FAZLA</td>
+                            <td className={`text-center py-1.5 text-[13px] font-black ${acikFazla < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                              {formatExcelNumber(acikFazla)}
+                            </td>
+                          </tr>
+                        </>
+                      );
+                    })()}
                   </tfoot>
                 </table>
               </div>
@@ -2170,6 +2743,212 @@ export function ChecksPage() {
         </div>
 
         {/* Floating Excel Selection Status Bar */}
+        {/* Daily Detailed Check List (screen view only) */}
+        {(() => {
+          const dashboardDetailChecks = [
+            ...Object.values(dashboardData.columns).flat(),
+            ...dashboardData.nonTakasChecks
+          ].filter((c, idx, self) => c.id && self.findIndex(x => x.id === c.id) === idx);
+
+          if (detailSortConfig) {
+            dashboardDetailChecks.sort((a, b) => {
+              let valA: any = '';
+              let valB: any = '';
+
+              if (detailSortConfig.key === 'bank_name') {
+                const bankA = getBankColumn(a.debtor, a.bank_name) || getCleanBankName(a.debtor, a.bank_name) || '-';
+                const bankB = getBankColumn(b.debtor, b.bank_name) || getCleanBankName(b.debtor, b.bank_name) || '-';
+                const isAEmpty = bankA === '-' || bankA === '';
+                const isBEmpty = bankB === '-' || bankB === '';
+
+                if (isAEmpty && isBEmpty) return 0;
+                if (isAEmpty) return 1;
+                if (isBEmpty) return -1;
+
+                const comparison = bankA.localeCompare(bankB, 'tr', { sensitivity: 'base' });
+                return detailSortConfig.direction === 'asc' ? comparison : -comparison;
+              } else if (detailSortConfig.key === 'issue_date') {
+                valA = a.issue_date || a.created_at || '';
+                valB = b.issue_date || b.created_at || '';
+              } else if (detailSortConfig.key === 'debtor') {
+                valA = a.debtor || '';
+                valB = b.debtor || '';
+              } else if (detailSortConfig.key === 'amount') {
+                valA = Number(a.amount) || 0;
+                valB = Number(b.amount) || 0;
+              } else if (detailSortConfig.key === 'due_date') {
+                valA = a.due_date || '';
+                valB = b.due_date || '';
+              } else if (detailSortConfig.key === 'status') {
+                valA = a.status || '';
+                valB = b.status || '';
+              }
+
+              let comparison = 0;
+              if (typeof valA === 'string') {
+                comparison = valA.localeCompare(valB, 'tr', { sensitivity: 'base' });
+              } else {
+                comparison = valA - valB;
+              }
+
+              return detailSortConfig.direction === 'asc' ? comparison : -comparison;
+            });
+          } else {
+            dashboardDetailChecks.sort((a, b) => {
+              const timeDiff = (a.created_at || '').localeCompare(b.created_at || '');
+              if (timeDiff !== 0) return timeDiff;
+              return (a.id || '').localeCompare(b.id || '');
+            });
+          }
+
+          if (dashboardDetailChecks.length === 0) return null;
+
+          return (
+            <div className="print:hidden mt-8 bg-white rounded-xl border border-gray-250 shadow-sm overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-250 px-4 py-3 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
+                  <Building size={16} className="text-gray-500" />
+                  GÜNLÜK DETAYLI ÇEK LİSTESİ (TAKAS VE DİĞERLERİ)
+                </h3>
+                <span className="bg-gray-100 text-gray-805 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {dashboardDetailChecks.length} Adet
+                </span>
+              </div>
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left border-collapse" style={{ fontFamily: 'Calibri, Arial, sans-serif' }}>
+                  <thead>
+                    <tr className="bg-gray-50/50 border-b border-gray-200 text-[13px] font-bold text-gray-700 select-none">
+                      <th 
+                        className="px-3 py-2 text-center w-28 cursor-pointer hover:bg-gray-100/50 transition-colors"
+                        onClick={() => handleRequestSort('issue_date')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Kayıt Tarihi</span>
+                          <ArrowUpDown size={12} className={detailSortConfig?.key === 'issue_date' ? 'text-blue-600 font-black' : 'text-gray-400 opacity-40'} />
+                        </div>
+                      </th>
+                      <th className="px-3 py-2 text-center w-20">Kalan</th>
+                      <th 
+                        className="px-3 py-2 cursor-pointer hover:bg-gray-100/50 transition-colors"
+                        onClick={() => handleRequestSort('debtor')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Keşideci</span>
+                          <ArrowUpDown size={12} className={detailSortConfig?.key === 'debtor' ? 'text-blue-600 font-black' : 'text-gray-400 opacity-40'} />
+                        </div>
+                      </th>
+                      <th className="px-3 py-2 text-center w-20">Evrak Türü</th>
+                      <th className="px-3 py-2 w-28">Evrak No</th>
+                      <th 
+                        className="px-3 py-2 cursor-pointer hover:bg-gray-100/50 transition-colors"
+                        onClick={() => handleRequestSort('bank_name')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Banka</span>
+                          <ArrowUpDown size={12} className={detailSortConfig?.key === 'bank_name' ? 'text-blue-600 font-black' : 'text-gray-400 opacity-40'} />
+                        </div>
+                      </th>
+                      <th 
+                        className="px-3 py-2 text-right w-36 pr-6 cursor-pointer hover:bg-gray-100/50 transition-colors"
+                        onClick={() => handleRequestSort('amount')}
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          <span>Tutar</span>
+                          <ArrowUpDown size={12} className={detailSortConfig?.key === 'amount' ? 'text-blue-600 font-black' : 'text-gray-400 opacity-40'} />
+                        </div>
+                      </th>
+                      <th 
+                        className="px-3 py-2 text-center w-28 cursor-pointer hover:bg-gray-100/50 transition-colors"
+                        onClick={() => handleRequestSort('due_date')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Vade Tarihi</span>
+                          <ArrowUpDown size={12} className={detailSortConfig?.key === 'due_date' ? 'text-blue-600 font-black' : 'text-gray-400 opacity-40'} />
+                        </div>
+                      </th>
+                      <th 
+                        className="px-3 py-2 text-center w-28 cursor-pointer hover:bg-gray-100/50 transition-colors"
+                        onClick={() => handleRequestSort('status')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Durum</span>
+                          <ArrowUpDown size={12} className={detailSortConfig?.key === 'status' ? 'text-blue-600 font-black' : 'text-gray-400 opacity-40'} />
+                        </div>
+                      </th>
+                      <th className="px-3 py-2">Açıklama / Özel Alan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 text-[13px]">
+                    {dashboardDetailChecks.map(check => {
+                      const isPaid = (check.status || '').toLowerCase().includes('ödendi') || (check.status || '').toLowerCase().includes('tahsil edildi') || (check.status || '').toLowerCase().includes('ödenen') || ((check.status || '').toLowerCase().includes('tahsil') && !(check.status || '').toLowerCase().includes('tahsilde'));
+                      const remainingDays = calculateRemainingDays(check.due_date);
+                      const isRecordSenet = 
+                        check.document_type === 'senet' || 
+                        (check.tahsildar_banka || '').toUpperCase() === 'SENET' || 
+                        (check.bank_name || '').toUpperCase() === 'SENET';
+
+                      return (
+                        <tr key={check.id} className="hover:bg-gray-50/50 transition-colors h-[36px]">
+                          {/* Kayıt Tarihi */}
+                          <td className="px-3 py-1.5 text-center text-gray-500 font-medium whitespace-nowrap">
+                            {formatDate(check.issue_date || check.created_at)}
+                          </td>
+                          {/* Kalan Gün */}
+                          <td className="px-3 py-1.5 text-center font-bold">
+                            {remainingDays !== null ? (
+                              <span className={isPaid ? 'text-gray-400 font-normal' : remainingDays < 0 ? 'text-red-650 font-bold' : remainingDays <= 10 ? 'text-amber-600 font-bold' : 'text-gray-650'}>
+                                {remainingDays}
+                              </span>
+                            ) : '-'}
+                          </td>
+                          {/* Keşideci */}
+                          <td className="px-3 py-1.5 text-gray-700 font-semibold uppercase whitespace-nowrap truncate max-w-[200px]" title={check.kesideci || check.creditor || ''}>
+                            {check.kesideci || check.creditor || '-'}
+                          </td>
+                          {/* Evrak Türü */}
+                          <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                            {isRecordSenet ? (
+                              <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-purple-50 text-purple-700 border border-purple-200 uppercase tracking-wide">SENET</span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wide">ÇEK</span>
+                            )}
+                          </td>
+                          {/* Evrak No */}
+                          <td className="px-3 py-1.5 font-bold text-gray-800 whitespace-nowrap">
+                            {check.check_no || '-'}
+                          </td>
+                          {/* Banka */}
+                          <td className="px-3 py-1.5 text-gray-600 font-semibold uppercase whitespace-nowrap truncate max-w-[150px]" title={getBankColumn(check.debtor, check.bank_name) || getCleanBankName(check.debtor, check.bank_name) || ''}>
+                            {getBankColumn(check.debtor, check.bank_name) || getCleanBankName(check.debtor, check.bank_name) || '-'}
+                          </td>
+                          {/* Tutar */}
+                          <td className="px-3 py-1.5 text-right font-bold text-gray-900 whitespace-nowrap pr-6">
+                            {formatCurrency(check.amount, check.para_birimi)}
+                          </td>
+                          {/* Vade Tarihi */}
+                          <td className="px-3 py-1.5 text-center text-gray-500 font-semibold whitespace-nowrap">
+                            {formatDate(check.due_date)}
+                          </td>
+                          {/* Durum */}
+                          <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                            <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold border ${isPaid ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}>
+                              {isPaid ? 'Ödendi' : 'Tahside'}
+                            </span>
+                          </td>
+                          {/* Açıklama / Özel Alan */}
+                          <td className="px-3 py-1.5 text-gray-500 font-medium text-xs uppercase whitespace-nowrap truncate max-w-[250px]" title={check.ozel_alan || ''}>
+                            {check.ozel_alan || '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+
         {selectedCount > 0 && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900/90 text-white px-6 py-3.5 rounded-full shadow-2xl z-50 flex items-center gap-6 backdrop-blur-md border border-gray-800 transition-all duration-350 select-none animate-bounce-short">
             <div className="flex items-center gap-4 text-xs font-bold tracking-wider text-gray-400">
@@ -2205,7 +2984,7 @@ export function ChecksPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto px-4 print:p-0 main-checks-layout">
+    <div className="space-y-6 max-w-[1600px] mx-auto px-4 print:pl-[12px] print:pr-0 print:py-0 main-checks-layout">
       <style>{`
         @keyframes bounceShort {
           0%, 100% { transform: translate(-50%, 0); }
@@ -2213,6 +2992,9 @@ export function ChecksPage() {
         }
         .animate-bounce-short {
           animation: bounceShort 2s infinite ease-in-out;
+        }
+        .takas-cekleri-title {
+          font-weight: 900 !important;
         }
 
         /* Force Calibri font on all table elements in screen view */
@@ -2241,16 +3023,26 @@ export function ChecksPage() {
 
         @media print {
           @page {
-            size: landscape;
-            margin: 4mm;
+            size: A4 landscape !important;
+            margin: 5mm 6mm !important;
           }
-          body {
-            background: white !important;
-            color: #000 !important;
+          body, html, #root, div.min-h-screen, main, div.flex-1, .main-checks-layout {
+            background-color: #ffffff !important;
+            background: #ffffff !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          .print\\:hidden,
+          body {
+            zoom: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          @media (orientation: portrait) {
+            body {
+              zoom: 70% !important;
+            }
+          }
+          .print\:hidden,
           aside,
           header,
           nav,
@@ -2269,105 +3061,477 @@ export function ChecksPage() {
             padding: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
-            gap: 4px !important;
+            gap: 2px !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
           .space-y-6 {
             margin: 0 !important;
             padding: 0 !important;
-            gap: 4px !important;
+            gap: 2px !important;
+          }
+          .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 2px !important;
+            margin-bottom: 0 !important;
+          }
+          .overflow-x-auto,
+          .overflow-y-auto {
+            overflow: visible !important;
           }
           .mt-6 {
             margin-top: 4px !important;
           }
-          table {
+          /* Strip card borders, shadows, rounded corners for outer wrappers */
+          .overflow-x-auto.w-full.border-2.border-black,
+          .bg-white.rounded-xl.border.border-gray-200,
+          .bg-white.rounded-xl.border.border-black,
+          .bg-white.rounded-xl.border.border-gray-250,
+          .rounded-lg,
+          .rounded-xl,
+          .shadow-sm,
+          .shadow-md {
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .print-lower-grid {
+            display: flex !important;
+            flex-direction: row !important;
             width: 100% !important;
+            max-width: 100% !important;
+            margin-left: 0 !important;
+            gap: 10px !important;
+            margin-top: 6px !important;
+            align-items: stretch !important;
+          }
+          .print-lower-grid > div {
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          .print-lower-grid > div:nth-child(1) {
+            flex: 1.15 1.15 0% !important;
+            min-width: 0 !important;
+          }
+          .print-lower-grid > div:nth-child(2) {
+            flex: 1.3 1.3 0% !important;
+            min-width: 0 !important;
+          }
+          .print-lower-grid > div:nth-child(3) {
+            flex: 1 1 0% !important;
+            min-width: 0 !important;
+          }
+          .print-header-title {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            border: 2px solid #000000 !important;
+            font-size: 24pt !important;
+            padding: 2px 0 !important;
+            margin-bottom: 4px !important;
+          }
+          .print-lower-grid > div > div:not(.print-genel-toplam-box) {
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .print-lower-grid .print-genel-toplam-box,
+          .print-lower-grid > div > div.print-genel-toplam-box,
+          div.print-genel-toplam-box {
+            display: flex !important;
+            flex-direction: row !important;
+            width: 100% !important;
+            height: 38px !important;
+            border: 2px solid #000000 !important;
+            box-sizing: border-box !important;
+            background: #ffffff !important;
+            margin-bottom: 10px !important;
+          }
+          .print-lower-grid .print-genel-toplam-label,
+          div.print-genel-toplam-label {
+            flex: 1.1 1.1 0% !important;
+            min-width: 0 !important;
+            height: 100% !important;
+            background-color: #f3f4f6 !important;
+            border-right: 2px solid #000000 !important;
+            font-size: 18pt !important;
+            font-weight: bold !important;
+            color: #000000 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            white-space: nowrap !important;
+            padding: 0 8px !important;
+            line-height: 1 !important;
+          }
+          .print-lower-grid .print-genel-toplam-value,
+          div.print-genel-toplam-value {
+            flex: 1 1 0% !important;
+            min-width: 0 !important;
+            height: 100% !important;
+            background-color: #ffffff !important;
+            font-size: 22pt !important;
+            font-weight: bold !important;
+            color: #000000 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            white-space: nowrap !important;
+            padding: 0 8px !important;
+            line-height: 1 !important;
+          }
+          .print-takasta-olmayan-header {
+            font-size: 16pt !important;
+            color: #dc2626 !important;
+            font-weight: bold !important;
+            border: 2px solid #000000 !important;
+            border-bottom: none !important;
+            padding: 3px 0 !important;
+            background-color: #ffffff !important;
+          }
+          .hidden.print\:block:not(.print-takasta-olmayan-header) {
+            border: 2px solid #000000 !important;
+            border-bottom: none !important;
+            margin-bottom: 0 !important;
+            padding-top: 2px !important;
+            padding-bottom: 2px !important;
+            font-size: 10pt !important;
+            font-weight: bold !important;
+            background-color: #ffffff !important;
+          }
+
+          .print-top-tables {
+            width: 100% !important;
+            padding-left: 0 !important;
+            margin-left: 0 !important;
+          }
+          .print-top-tables .flex.flex-row,
+          .print-top-tables .flex-row {
+            gap: 10px !important;
+            width: 100% !important;
+          }
+          .print-top-tables table {
+            border-collapse: collapse !important;
+            border: 1px solid #000000 !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+          }
+          .print-top-tables .print-bank-table {
+            width: auto !important;
+            min-width: 0 !important;
+            flex: 1 1 0% !important;
             table-layout: fixed !important;
           }
-          th, td, input, span, h3 {
-            font-family: Calibri, Arial, sans-serif !important;
+          .print-top-tables .print-taksit-desc-table {
+            width: auto !important;
+            min-width: 0 !important;
+            flex: 1.3 1.3 0% !important;
+            table-layout: fixed !important;
           }
-          td, input, span {
+          .print-top-tables .print-taksit-desc-table th,
+          .print-top-tables .print-taksit-desc-table td {
+            border: none !important;
+            background: transparent !important;
+            padding-left: 2px !important;
+            padding-right: 2px !important;
+          }
+          .print-top-tables th, .print-top-tables td {
+            font-family: Calibri, Arial, sans-serif !important;
+            padding: 1px 2px !important;
+            color: #000000 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .print-top-tables .print-bank-table th {
+            border: 1px solid #000000 !important;
+            border-bottom: 1px solid #000000 !important;
+            height: 26px !important;
+            font-size: 16pt !important;
+            font-weight: bold !important;
+          }
+          .print-top-tables .print-bank-table tr,
+          .print-top-tables .print-taksit-desc-table tr {
+            height: 25px !important;
+            max-height: 25px !important;
+          }
+          .print-top-tables .print-bank-table tbody td {
+            border: 1px solid #000000 !important;
+            height: 25px !important;
+            max-height: 25px !important;
+            line-height: 25px !important;
+            box-sizing: border-box !important;
+            font-size: 15pt !important;
             font-weight: normal !important;
+            padding: 0 2px !important;
+          }
+          .print-top-tables .print-bank-table tbody td span {
+            font-size: 15pt !important;
+            font-weight: normal !important;
+          }
+          .print-top-tables td.bg-red-600,
+          .print-top-tables td.bg-red-500,
+          .print-top-tables td.print-ictakas-cell {
+            background-color: #ef4444 !important;
+            color: #000000 !important;
+            font-weight: bold !important;
+          }
+          .print-top-tables td.bg-red-600 span,
+          .print-top-tables td.bg-red-500 span,
+          .print-top-tables td.print-ictakas-cell span {
+            font-weight: bold !important;
+          }
+          .print-top-tables .print-taksit-tutar {
+            width: 50% !important;
+            border: 1px solid #000000 !important;
+            font-size: 15pt !important;
+            font-weight: normal !important;
+            height: 25px !important;
+            box-sizing: border-box !important;
+          }
+          .print-top-tables .print-taksit-desc,
+          .print-top-tables .print-taksit-desc-table td {
+            border: none !important;
+            padding-left: 4px !important;
+            font-weight: bold !important;
+            color: #000000 !important;
+            text-align: left !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
+          .print-top-tables .print-taksit-desc span,
+          .print-top-tables .print-taksit-desc-table td span {
+            white-space: nowrap !important;
+            font-weight: bold !important;
+            color: #000000 !important;
           }
           th.takas-header-th {
             font-weight: bold !important;
             color: #dc2626 !important;
-            font-size: 7.5pt !important;
-            padding: 1px !important;
+            font-size: 15pt !important;
+            padding: 2px !important;
+            background-color: #ffffff !important;
           }
           th:not(.takas-header-th) {
             font-weight: bold !important;
             color: #000000 !important;
-            font-size: 7.5pt !important;
-            padding: 1px !important;
+            font-size: 15pt !important;
+            padding: 2px !important;
+            background-color: #ffffff !important;
           }
-          h3 {
+          th.bg-\\[\\#FFFF00\\] {
+            background-color: #FFFF00 !important;
+            color: #FF0000 !important;
             font-weight: bold !important;
-            font-size: 10pt !important;
           }
-          tfoot td, tfoot td span {
+          .print-top-tables tfoot tr {
+            border-top: 1px solid #000000 !important;
+          }
+          .print-top-tables .print-bank-table tfoot td,
+          .print-top-tables tfoot td {
+            border: 1px solid #000000 !important;
             font-weight: bold !important;
             color: #000000 !important;
+            background-color: #ffffff !important;
+            font-size: 15pt !important;
+            height: 25px !important;
+            line-height: 25px !important;
+            box-sizing: border-box !important;
+            padding: 0 2px !important;
           }
-          input[data-col="TAKSİT-Desc"] {
+
+          /* Takas Toplamı - 18pt Text / 22pt Amount */
+          .print-takas-toplami-box {
+            display: flex !important;
+            flex-direction: row !important;
+            width: 380px !important;
+            height: 38px !important;
+            border: 2px solid #000000 !important;
+            box-sizing: border-box !important;
+            margin-top: 10px !important;
+            margin-bottom: 10px !important;
+            background: #ffffff !important;
+          }
+          .print-takas-toplami-label {
+            flex: 1.1 1.1 0% !important;
+            min-width: 0 !important;
+            height: 100% !important;
+            background-color: #f3f4f6 !important;
+            border-right: 2px solid #000000 !important;
+            font-size: 18pt !important;
             font-weight: bold !important;
+            color: #000000 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            white-space: nowrap !important;
+            padding: 0 8px !important;
+            line-height: 1 !important;
           }
-          td {
-            font-size: 8.5pt !important;
-            padding: 1px !important;
+          .print-takas-toplami-value {
+            flex: 1 1 0% !important;
+            min-width: 0 !important;
+            height: 100% !important;
+            background-color: #ffffff !important;
+            font-size: 22pt !important;
+            font-weight: bold !important;
+            color: #000000 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            white-space: nowrap !important;
+            padding: 0 8px !important;
+            line-height: 1 !important;
           }
-          tr {
-            height: 20px !important;
-          }
-          input {
-            padding: 1px 0px !important;
-            height: 18px !important;
-            font-size: 8.5pt !important;
-          }
-          .takas-spacer-col {
-            width: 6px !important;
-            min-width: 6px !important;
-          }
-          .takas-bank-col {
-            width: 80px !important;
-            min-width: 80px !important;
-          }
-          .takas-taksit-col {
-            width: 200px !important;
-            min-width: 200px !important;
-          }
-          /* Centered takas card on print */
-          .min-w-\\[280px\\] {
-            min-width: 200px !important;
-            padding: 4px 8px !important;
-            margin: 4px auto !important;
-          }
-          .min-w-\\[280px\\] p.text-2xl {
-            font-size: 14pt !important;
-            margin-top: 1px !important;
-          }
-          .min-w-\\[280px\\] svg {
-            width: 18px !important;
-            height: 18px !important;
-          }
-          /* Lower tables layout side-by-side */
-          .grid.gap-6.lg\\:grid-cols-3 {
-            display: grid !important;
-            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-            gap: 10px !important;
-            margin-top: 4px !important;
+          .print-bottom-table {
+            border-collapse: collapse !important;
+            border: 2px solid #000000 !important;
             width: 100% !important;
           }
-          .lg\\:grid-cols-3 table, 
-          .lg\\:grid-cols-3 th, 
-          .lg\\:grid-cols-3 td {
+          .print-bottom-table tr {
+            height: 22px !important;
+          }
+          .print-bottom-table th {
+            border: 1px solid #d1d5db !important;
+            border-bottom: 2px solid #000000 !important;
+            font-size: 9pt !important;
+            padding: 1px 4px !important;
+            font-weight: bold !important;
+            height: 20px !important;
+          }
+          .print-bottom-table tbody td {
+            border: 1px solid #d1d5db !important;
+            font-size: 11pt !important;
+            padding: 0 4px !important;
+            font-weight: normal !important;
+            color: #000000 !important;
+            height: 22px !important;
+            max-height: 22px !important;
+            line-height: 22px !important;
+            box-sizing: border-box !important;
+          }
+          .print-bottom-table tbody td span,
+          .print-bottom-table tbody td input,
+          .print-bottom-table input {
+            font-size: 11pt !important;
+            height: 22px !important;
+            line-height: 22px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            background: transparent !important;
+            font-weight: normal !important;
+            color: #000000 !important;
+            display: block !important;
+            width: 100% !important;
+          }
+          .print-bottom-table tfoot tr:not(.print-spacer-row):not(.print-acik-fazla-row) {
+            border-top: 2px solid #000000 !important;
+          }
+          .print-bottom-table tfoot tr.print-spacer-row {
+            border: none !important;
+            height: 8px !important;
+          }
+          .print-bottom-table tfoot tr.print-spacer-row td {
+            border: none !important;
+            background-color: transparent !important;
+            height: 8px !important;
+            padding: 0 !important;
+          }
+          .print-bottom-table tfoot tr.print-acik-fazla-row {
+            border: none !important;
+          }
+          .print-bottom-table tfoot tr.print-acik-fazla-row td {
+            border: 2px solid #000000 !important;
+            font-size: 11pt !important;
+            font-weight: bold !important;
+            height: 22px !important;
+          }
+          .print-bottom-table tfoot td {
+            border: 1px solid #d1d5db !important;
+            font-size: 11pt !important;
+            font-weight: bold !important;
+            padding: 0 4px !important;
+            height: 22px !important;
+            line-height: 22px !important;
+          }
+          input, select {
+            padding: 0px 0px !important;
+            height: 18px !important;
+            font-size: 11pt !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            background-color: transparent !important;
+            color: #000000 !important;
+            font-weight: normal !important;
+            -webkit-appearance: none !important;
+            appearance: none !important;
+          }
+          td input {
+            width: 100% !important;
+            height: 100% !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .takas-spacer-col {
+            display: table-cell !important;
+            width: 1.2% !important;
+            min-width: 1.2% !important;
+            max-width: 1.2% !important;
+            padding: 0 !important;
+            border: none !important;
+            background-color: #ffffff !important;
+          }
+          thead th.takas-spacer-col {
+            border-top: 2px solid #000000 !important;
+            border-bottom: 2px solid #000000 !important;
+          }
+          tfoot td.takas-spacer-col {
+            border-bottom: 2px solid #000000 !important;
+          }
+          .takas-bank-col {
+            width: auto !important;
+          }
+          .takas-taksit-col {
+            width: auto !important;
+          }
+          .taksit-tutar-col {
+            width: auto !important;
+          }
+          .taksit-desc-col {
+            width: auto !important;
+          }
+          /* Lower tables layout side-by-side */
+          .print-lower-grid {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            gap: 12px !important;
+            margin-top: 6px !important;
+            width: 100% !important;
+          }
+          .print-lower-grid table, 
+          .print-lower-grid th, 
+          .print-lower-grid td {
             font-size: 8pt !important;
           }
-          .lg\\:grid-cols-3 tr {
-            height: 18px !important;
+          .print-lower-grid tr {
+            height: 14.5px !important;
           }
-          .lg\\:grid-cols-3 input {
-            height: 16px !important;
+          .print-lower-grid input {
+            height: 12.5px !important;
             font-size: 8pt !important;
           }
           /* Prevent overflow-y scrollbars on print */
@@ -2377,8 +3541,28 @@ export function ChecksPage() {
           }
           /* Prevent page split */
           .main-checks-layout,
-          .grid.gap-6.lg\\:grid-cols-3 > div {
+          .print-lower-grid > div {
             page-break-inside: avoid !important;
+          }
+          tr.h-28_5, tr.h-28_5 td {
+            height: 21.33px !important;
+          }
+          .takas-toplami-label {
+            font-size: 18pt !important;
+            font-family: 'Calibri', sans-serif !important;
+            font-weight: bold !important;
+          }
+          .takas-toplami-value {
+            font-size: 22pt !important;
+            font-family: 'Calibri', sans-serif !important;
+            font-weight: bold !important;
+          }
+          .print-top-tables th,
+          .print-top-tables td:not(.print-taksit-desc),
+          .print-top-tables td:not(.print-taksit-desc) span {
+            font-size: 11pt !important;
+            font-family: 'Calibri', Arial, sans-serif !important;
+            line-height: 1 !important;
           }
         }
       `}</style>
@@ -2972,7 +4156,7 @@ export function ChecksPage() {
                   </tr>
                 ) : (
                   filteredChecks.map(check => {
-                    const isPaid = (check.status || '').toLowerCase().includes('ödendi') || (check.status || '').toLowerCase().includes('tahsil edildi') || (check.status || '').toLowerCase().includes('ödenen') || (check.status || '').toLowerCase().includes('tahsil');
+                    const isPaid = (check.status || '').toLowerCase().includes('ödendi') || (check.status || '').toLowerCase().includes('tahsil edildi') || (check.status || '').toLowerCase().includes('ödenen') || ((check.status || '').toLowerCase().includes('tahsil') && !(check.status || '').toLowerCase().includes('tahsilde'));
                     const isProblem = (check.status || '').toLowerCase().includes('yazıldı') || (check.status || '').toLowerCase().includes('karşılıksız');
                     const remainingDays = calculateRemainingDays(check.due_date);
                     
