@@ -314,9 +314,9 @@ export function TendersPage(){
         <table className="min-w-full">
           <thead>
             <tr>
+              <SortHeader label="Son Teklif" field="deadline_at" />
               <SortHeader label="İhale" field="title" />
               <SortHeader label="Kurum" field="institution" />
-              <SortHeader label="Son Teklif" field="deadline_at" />
               <SortHeader label="Teklif Tutarı" field="bid_amount" />
               <th className="table-th text-left">Teminat Mektubu</th>
               <th className="table-th text-left">Durum</th>
@@ -342,6 +342,7 @@ export function TendersPage(){
             ) : (
               filtered.map(x => (
                 <tr key={x.id} className="border-t border-gray-100">
+                  <td className="table-td whitespace-nowrap font-medium text-gray-700">{new Date(x.deadline_at).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'})}</td>
                   <td className="table-td max-w-[280px]">
                     <a 
                       href="https://ekapv2.kik.gov.tr/ekap/search" 
@@ -359,7 +360,6 @@ export function TendersPage(){
                     <div className="text-xs text-gray-500">{x.tender_number} · {x.tender_type}</div>
                   </td>
                   <td className="table-td max-w-[200px]"><div className="truncate" title={x.institution}>{x.institution}</div></td>
-                  <td className="table-td">{new Date(x.deadline_at).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'})}</td>
                   <td className="table-td font-medium">{x.bid_amount==null?'—':money(x.bid_amount,x.currency)}</td>
                   <td className="table-td text-sm text-gray-500">{x.teminat_mektubu||'—'}</td>
                   <td className="table-td">
