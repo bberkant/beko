@@ -105,11 +105,11 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
             }`} />
           </div>
           <div>
-            <h2 className={`text-xs font-bold leading-tight ${isDark ? 'text-[#e9edef]' : 'text-gray-900'}`}>
+            <h2 className={`text-sm font-bold leading-tight ${isDark ? 'text-[#e9edef]' : 'text-gray-900'}`}>
               Beko WhatsApp Web
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className={`text-[10px] font-semibold ${
+              <span className={`text-[11.5px] font-semibold ${
                 isConnected ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : 'text-amber-500'
               }`}>
                 {isConnected ? 'Bağlantı Canlı' : 'QR Eşleşme Bekleniyor'}
@@ -130,7 +130,7 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
               }`}
               title="Duvar Kağıdını Değiştir & Özelleştir"
             >
-              <Palette size={16} />
+              <Palette size={17} />
             </button>
           )}
 
@@ -145,7 +145,7 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
               }`}
               title={isDark ? 'Açık Temaya Geç (Gündüz Modu)' : 'Karanlık Temaya Geç (Gece Modu)'}
             >
-              {isDark ? <Sun size={16} /> : <Moon size={16} />}
+              {isDark ? <Sun size={17} /> : <Moon size={17} />}
             </button>
           )}
 
@@ -160,8 +160,8 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
             }`}
             title="Cihaz & QR Bağlantı Ayarları"
           >
-            <Smartphone size={14} />
-            <span className="text-[11px] hidden sm:inline">
+            <Smartphone size={15} />
+            <span className="text-xs hidden sm:inline">
               {isConnected ? 'Bağlı' : 'QR Bağla'}
             </span>
           </button>
@@ -176,7 +176,7 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
             }`}
             title="Sohbetleri Yenile"
           >
-            <RefreshCw size={15} className={isRefreshing ? 'animate-spin text-emerald-500' : ''} />
+            <RefreshCw size={16} className={isRefreshing ? 'animate-spin text-emerald-500' : ''} />
           </button>
         </div>
       </div>
@@ -191,28 +191,28 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
             placeholder="Sohbet veya kişi ara..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl transition shadow-2xs ${
+            className={`w-full pl-9 pr-3 py-2 text-sm rounded-xl transition shadow-2xs ${
               isDark
                 ? 'bg-[#202c33] text-[#d1d7db] placeholder-[#8696a0] border border-[#2a3942] focus:border-[#00a884] focus:outline-none'
                 : 'bg-gray-50/80 text-gray-900 placeholder-gray-400 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-emerald-500'
             }`}
           />
-          <Search size={14} className={`absolute left-3 top-2.5 pointer-events-none ${
+          <Search size={15} className={`absolute left-3 top-2.5 pointer-events-none ${
             isDark ? 'text-[#8696a0]' : 'text-gray-400'
           }`} />
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1.5 mt-2.5 overflow-x-auto text-[11px] font-semibold">
+        <div className="flex items-center gap-1.5 mt-2.5 overflow-x-auto text-xs font-semibold">
           <button
             onClick={() => setActiveFilter('all')}
-            className={`px-3 py-1 rounded-lg transition shrink-0 ${
+            className={`px-3.5 py-1.5 rounded-xl transition shrink-0 ${
               activeFilter === 'all'
                 ? isDark 
-                  ? 'bg-[#00a884] text-[#111b21] font-bold' 
-                  : 'bg-emerald-600 text-white font-bold'
+                  ? 'bg-[#00a884] text-[#111b21] font-bold shadow-xs' 
+                  : 'bg-emerald-600 text-white font-bold shadow-xs'
                 : isDark 
-                  ? 'bg-[#202c33] text-[#8696a0] hover:bg-[#2a3942]' 
+                  ? 'bg-[#202c33] text-[#8696a0] hover:bg-[#2a3942] hover:text-white' 
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -220,19 +220,19 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
           </button>
           <button
             onClick={() => setActiveFilter('unread')}
-            className={`px-3 py-1 rounded-lg transition shrink-0 flex items-center gap-1 ${
+            className={`px-3.5 py-1.5 rounded-xl transition shrink-0 flex items-center gap-1.5 ${
               activeFilter === 'unread'
                 ? isDark 
-                  ? 'bg-[#00a884] text-[#111b21] font-bold' 
-                  : 'bg-emerald-600 text-white font-bold'
+                  ? 'bg-[#00a884] text-[#111b21] font-bold shadow-xs' 
+                  : 'bg-emerald-600 text-white font-bold shadow-xs'
                 : isDark 
-                  ? 'bg-[#202c33] text-[#8696a0] hover:bg-[#2a3942]' 
+                  ? 'bg-[#202c33] text-[#8696a0] hover:bg-[#2a3942] hover:text-white' 
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
             <span>Okunmamış</span>
             {chats.filter(c => c.unread_count > 0).length > 0 && (
-              <span className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-bold ${
+              <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-bold ${
                 isDark ? 'bg-[#111b21] text-[#00a884]' : 'bg-emerald-500 text-white'
               }`}>
                 {chats.filter(c => c.unread_count > 0).length}
@@ -241,13 +241,13 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
           </button>
           <button
             onClick={() => setActiveFilter('groups')}
-            className={`px-3 py-1 rounded-lg transition shrink-0 ${
+            className={`px-3.5 py-1.5 rounded-xl transition shrink-0 ${
               activeFilter === 'groups'
                 ? isDark 
-                  ? 'bg-[#00a884] text-[#111b21] font-bold' 
-                  : 'bg-emerald-600 text-white font-bold'
+                  ? 'bg-[#00a884] text-[#111b21] font-bold shadow-xs' 
+                  : 'bg-emerald-600 text-white font-bold shadow-xs'
                 : isDark 
-                  ? 'bg-[#202c33] text-[#8696a0] hover:bg-[#2a3942]' 
+                  ? 'bg-[#202c33] text-[#8696a0] hover:bg-[#2a3942] hover:text-white' 
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -255,13 +255,13 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
           </button>
           <button
             onClick={() => setActiveFilter('direct')}
-            className={`px-3 py-1 rounded-lg transition shrink-0 ${
+            className={`px-3.5 py-1.5 rounded-xl transition shrink-0 ${
               activeFilter === 'direct'
                 ? isDark 
-                  ? 'bg-[#00a884] text-[#111b21] font-bold' 
-                  : 'bg-emerald-600 text-white font-bold'
+                  ? 'bg-[#00a884] text-[#111b21] font-bold shadow-xs' 
+                  : 'bg-emerald-600 text-white font-bold shadow-xs'
                 : isDark 
-                  ? 'bg-[#202c33] text-[#8696a0] hover:bg-[#2a3942]' 
+                  ? 'bg-[#202c33] text-[#8696a0] hover:bg-[#2a3942] hover:text-white' 
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -275,7 +275,7 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
         isDark ? 'bg-[#111b21] divide-[#222e35]' : 'bg-white divide-gray-100'
       }`}>
         {filteredChats.length === 0 ? (
-          <div className={`p-8 text-center text-xs space-y-1 ${
+          <div className={`p-8 text-center text-sm space-y-1 ${
             isDark ? 'text-[#8696a0]' : 'text-gray-400'
           }`}>
             <p>Aradığınız kriterde sohbet bulunamadı.</p>
@@ -299,11 +299,11 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
               >
                 {/* Avatar */}
                 <div className="relative shrink-0">
-                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm shadow-2xs ${
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm shadow-2xs ${
                     getChatAvatarBg(chat.name, chat.is_group)
                   }`}>
                     {chat.is_group ? (
-                      <Users size={20} />
+                      <Users size={22} />
                     ) : (
                       <span>{chat.name.substring(0, 2).toUpperCase()}</span>
                     )}
@@ -313,20 +313,20 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
                 {/* Name & Last Message */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
-                    <h3 className={`text-xs font-bold truncate ${
+                    <h3 className={`text-[14px] sm:text-[14.5px] font-bold truncate ${
                       isDark ? 'text-[#e9edef]' : 'text-gray-900'
                     }`}>
                       {chat.name}
                     </h3>
-                    <span className={`text-[10px] shrink-0 font-medium ${
+                    <span className={`text-[11.5px] shrink-0 font-medium ${
                       isDark ? 'text-[#8696a0]' : 'text-gray-400'
                     }`}>
                       {formatMessageTime(chat.last_message_time)}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <p className={`text-[11px] truncate ${
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <p className={`text-[13px] truncate font-normal leading-tight ${
                       isDark ? 'text-[#8696a0]' : 'text-gray-500'
                     }`}>
                       {chat.last_message_text || 'Medya / Belge'}
@@ -334,10 +334,10 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
 
                     <div className="flex items-center gap-1 shrink-0">
                       {chat.is_pinned && (
-                        <Pin size={12} className={`rotate-45 ${isDark ? 'text-[#8696a0]' : 'text-gray-400'}`} />
+                        <Pin size={13} className={`rotate-45 ${isDark ? 'text-[#8696a0]' : 'text-gray-400'}`} />
                       )}
                       {chat.unread_count > 0 && (
-                        <span className={`px-1.5 py-0.5 rounded-full font-extrabold text-[9px] shadow-2xs ${
+                        <span className={`px-2 py-0.5 rounded-full font-extrabold text-[10px] shadow-2xs ${
                           isDark 
                             ? 'bg-[#00a884] text-[#111b21]' 
                             : 'bg-emerald-500 text-white'

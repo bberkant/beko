@@ -159,12 +159,12 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
           </div>
 
           <div>
-            <h2 className={`text-xs sm:text-sm font-bold leading-tight ${
+            <h2 className={`text-sm sm:text-base font-bold leading-tight ${
               isDark ? 'text-[#e9edef]' : 'text-gray-900'
             }`}>
               {chat.name}
             </h2>
-            <p className={`text-[11px] mt-0.5 truncate max-w-xs sm:max-w-md ${
+            <p className={`text-xs mt-0.5 truncate max-w-xs sm:max-w-md ${
               isDark ? 'text-[#8696a0]' : 'text-gray-500'
             }`}>
               {chat.is_group 
@@ -187,7 +187,7 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
               }`}
               title="Sohbet Duvar Kağıdını & Desenini Değiştir"
             >
-              <Palette size={17} />
+              <Palette size={18} />
             </button>
           )}
 
@@ -202,7 +202,7 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
               }`}
               title={isDark ? 'Açık Temaya Geç' : 'Karanlık Temaya Geç'}
             >
-              {isDark ? <Sun size={17} /> : <Moon size={17} />}
+              {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
           )}
 
@@ -212,12 +212,12 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
             <button className={`p-2 rounded-lg transition ${
               isDark ? 'hover:bg-[#2a3942] text-[#8696a0]' : 'hover:bg-gray-100'
             }`} title="Sesli Arama">
-              <Phone size={17} />
+              <Phone size={18} />
             </button>
             <button className={`p-2 rounded-lg transition ${
               isDark ? 'hover:bg-[#2a3942] text-[#8696a0]' : 'hover:bg-gray-100'
             }`} title="Görüntülü Arama">
-              <Video size={17} />
+              <Video size={18} />
             </button>
           </div>
 
@@ -228,19 +228,19 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
             }`}
             title="Mesajlarda Ara"
           >
-            <Search size={17} />
+            <Search size={18} />
           </button>
         </div>
       </div>
 
       {/* Messages Scroll Area with Authentic WhatsApp Doodle Wallpaper */}
       <div 
-        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 transition-all"
+        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 transition-all"
         style={getWallpaperStyle(wallpaperConfig, isDark)}
       >
         {/* Date Divider */}
         <div className="flex items-center justify-center my-2">
-          <span className={`px-3 py-1 rounded-full text-[10px] font-bold shadow-2xs border backdrop-blur-xs ${
+          <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-2xs border backdrop-blur-xs ${
             isDark 
               ? 'bg-[#182229] text-[#8696a0] border-[#222e35]' 
               : 'bg-white/90 text-gray-500 border-gray-200/60'
@@ -257,7 +257,7 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
               className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group`}
             >
               <div
-                className={`relative max-w-[85%] sm:max-w-md rounded-2xl p-3 shadow-2xs border text-xs ${
+                className={`relative max-w-[85%] sm:max-w-lg rounded-2xl px-3.5 py-2.5 shadow-2xs border text-[14.5px] leading-relaxed ${
                   isMe
                     ? isDark
                       ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-xs border-[#005c4b]'
@@ -269,7 +269,7 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
               >
                 {/* Sender Name in Groups */}
                 {!isMe && chat.is_group && (
-                  <div className={`text-[11px] font-bold mb-1 ${
+                  <div className={`text-[13px] font-bold mb-1 ${
                     isDark ? 'text-[#00a884]' : 'text-emerald-700'
                   }`}>
                     {msg.sender_name}
@@ -282,38 +282,38 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
                     <img
                       src={msg.media_url}
                       alt="WhatsApp Medya"
-                      className="w-full max-h-60 object-cover cursor-pointer hover:opacity-95 transition"
+                      className="w-full max-h-72 object-cover cursor-pointer hover:opacity-95 transition"
                       onClick={() => setSelectedMediaUrl(msg.media_url!)}
                     />
                     <button
                       onClick={() => setSelectedMediaUrl(msg.media_url!)}
-                      className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/60 text-white text-[10px] font-bold flex items-center gap-1 backdrop-blur-xs opacity-0 group-hover/img:opacity-100 transition"
+                      className="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-black/60 text-white text-[11px] font-bold flex items-center gap-1 backdrop-blur-xs opacity-0 group-hover/img:opacity-100 transition"
                     >
-                      <ExternalLink size={12} />
+                      <ExternalLink size={13} />
                       Büyüt
                     </button>
                   </div>
                 )}
 
                 {msg.message_type === 'document' && (
-                  <div className={`mb-2 p-2.5 rounded-xl flex items-center gap-2.5 border ${
+                  <div className={`mb-2 p-3 rounded-xl flex items-center gap-3 border ${
                     isDark 
                       ? 'bg-[#111b21]/70 border-[#2a3942]' 
                       : 'bg-black/5 border-black/10'
                   }`}>
-                    <div className="w-8 h-8 rounded-lg bg-red-500 text-white flex items-center justify-center font-bold">
-                      <FileText size={16} />
+                    <div className="w-9 h-9 rounded-lg bg-red-500 text-white flex items-center justify-center font-bold">
+                      <FileText size={18} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="font-bold block truncate">{msg.body || 'Fatura_Belgesi.pdf'}</span>
-                      <span className={`text-[10px] ${isDark ? 'text-[#8696a0]' : 'opacity-75'}`}>PDF Belgesi &bull; 1.2 MB</span>
+                      <span className="font-bold block truncate text-sm">{msg.body || 'Fatura_Belgesi.pdf'}</span>
+                      <span className={`text-[11px] ${isDark ? 'text-[#8696a0]' : 'opacity-75'}`}>PDF Belgesi &bull; 1.2 MB</span>
                     </div>
                   </div>
                 )}
 
                 {/* Text Body / Caption */}
                 {msg.body && (
-                  <p className="whitespace-pre-wrap leading-relaxed select-text">
+                  <p className="whitespace-pre-wrap leading-relaxed select-text font-normal">
                     {msg.body}
                   </p>
                 )}
@@ -325,14 +325,14 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
                 )}
 
                 {/* Time & Read Status */}
-                <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] font-medium ${
+                <div className={`flex items-center justify-end gap-1 mt-1 text-[11.5px] font-medium ${
                   isMe 
                     ? isDark ? 'text-[#8696a0]' : 'text-emerald-100'
                     : isDark ? 'text-[#8696a0]' : 'text-gray-400'
                 }`}>
                   <span>{formatTime(msg.timestamp)}</span>
                   {isMe && (
-                    <CheckCheck size={13} className={isDark ? 'text-[#53bdeb]' : 'text-emerald-200'} />
+                    <CheckCheck size={14} className={isDark ? 'text-[#53bdeb]' : 'text-emerald-200'} />
                   )}
                 </div>
               </div>
@@ -379,7 +379,7 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
             }`}>
               <ImageIcon size={20} />
             </div>
-            <span className="text-[10px] font-bold">Fotoğraf</span>
+            <span className="text-[11px] font-bold">Fotoğraf</span>
           </button>
 
           <button
@@ -393,7 +393,7 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
             }`}>
               <FileText size={20} />
             </div>
-            <span className="text-[10px] font-bold">Belge / PDF</span>
+            <span className="text-[11px] font-bold">Belge / PDF</span>
           </button>
 
           <button
@@ -410,13 +410,13 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
             }`}>
               <Camera size={20} />
             </div>
-            <span className="text-[10px] font-bold">Konum</span>
+            <span className="text-[11px] font-bold">Konum</span>
           </button>
         </div>
       )}
 
       {/* Input Bar */}
-      <div className={`p-3 border-t flex items-center gap-2 z-10 transition-colors ${
+      <div className={`p-3.5 border-t flex items-center gap-2.5 z-10 transition-colors ${
         isDark ? 'bg-[#202c33] border-[#222e35]' : 'bg-white border-gray-200'
       }`}>
         <input
@@ -436,7 +436,7 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
           }`}
           title="Emoji Ekle"
         >
-          <Smile size={20} />
+          <Smile size={22} />
         </button>
 
         <button
@@ -448,7 +448,7 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
           }`}
           title="Fotoğraf veya Belge Ekle"
         >
-          <Paperclip size={20} />
+          <Paperclip size={22} />
         </button>
 
         <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2">
@@ -457,7 +457,7 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
             placeholder="Bir mesaj yazın..."
             value={inputMessage}
             onChange={e => setInputMessage(e.target.value)}
-            className={`w-full px-4 py-2.5 text-xs rounded-xl shadow-2xs transition ${
+            className={`w-full px-4 py-2.5 text-sm sm:text-[14.5px] rounded-xl shadow-2xs transition ${
               isDark
                 ? 'bg-[#2a3942] text-[#e9edef] placeholder-[#8696a0] border border-transparent focus:border-[#00a884] focus:outline-none'
                 : 'bg-gray-50 text-gray-900 placeholder-gray-400 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-emerald-500'
@@ -473,7 +473,7 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white disabled:hover:bg-emerald-600'
             }`}
           >
-            <Send size={16} />
+            <Send size={18} />
           </button>
         </form>
       </div>
