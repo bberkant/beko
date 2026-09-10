@@ -76,10 +76,10 @@ function getInvoicePdfUrl(company: string, invoice: VegaEfatura): string {
     return `/invoices/${invoiceNo}.pdf`;
   }
   if (company === 'marif') {
-    const uuid = invoice.id || '';
+    const uuid = invoice.ettn || invoice.id || '';
     const direction = invoice.direction || 'gelen';
     const date = invoice.date || '';
-    return `/api/marif/efaturalar/${invoiceNo}/pdf?uuid=${encodeURIComponent(uuid)}&direction=${encodeURIComponent(direction)}&date=${encodeURIComponent(date)}`;
+    return `${TUNNEL_URL}/api/marif/efaturalar/${invoiceNo}/pdf?uuid=${encodeURIComponent(uuid)}&direction=${encodeURIComponent(direction)}&date=${encodeURIComponent(date)}`;
   }
   return `${TUNNEL_URL}/api/${company}/efaturalar/${invoiceNo}/pdf`;
 }
@@ -1130,7 +1130,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                   <a
                     href={
                       company === 'marif'
-                        ? `/api/marif/efaturalar/${selectedInvoice.invoiceNo}/html?uuid=${encodeURIComponent(selectedInvoice.id || '')}&direction=${encodeURIComponent(selectedInvoice.direction || 'gelen')}&date=${encodeURIComponent(selectedInvoice.date || '')}`
+                        ? `${TUNNEL_URL}/api/marif/efaturalar/${selectedInvoice.invoiceNo}/html?uuid=${encodeURIComponent(selectedInvoice.ettn || selectedInvoice.id || '')}&direction=${encodeURIComponent(selectedInvoice.direction || 'gelen')}&date=${encodeURIComponent(selectedInvoice.date || '')}`
                         : `${TUNNEL_URL}/api/${company}/efaturalar/${selectedInvoice.invoiceNo}/xml`
                     }
                     download={company === 'marif' ? `${selectedInvoice.invoiceNo}.html` : `${selectedInvoice.invoiceNo}.xml`}
