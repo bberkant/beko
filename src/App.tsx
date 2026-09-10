@@ -71,7 +71,8 @@ function AdminRoute() {
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-gray-550">Oturum kontrol ediliyor...</div>;
   }
-  const isAuthorized = user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Yönetici' || user?.role === 'Süper Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.rawRole === 'developer' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local';
+  const isDeveloper = user?.role === 'Developer' || user?.rawRole === 'developer';
+  const isAuthorized = (user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Yönetici' || user?.role === 'Süper Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local') && !isDeveloper;
   if (!isAuthorized) {
     return <Navigate to="/dashboard" replace />;
   }

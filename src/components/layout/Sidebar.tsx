@@ -163,6 +163,8 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
   const { user } = useAuth();
   const isYonetici = user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Yönetici' || user?.role === 'Süper Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.rawRole === 'developer';
   const isSuper = user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Süper Yönetici' || user?.rawRole === 'super_admin' || user?.rawRole === 'developer';
+  const isDeveloper = user?.role === 'Developer' || user?.rawRole === 'developer';
+  const isWhatsAppAllowed = (user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Süper Yönetici' || user?.role === 'Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local') && !isDeveloper;
   
   const [sidebarTheme, setSidebarTheme] = useState<'banking' | 'classic' | 'banking_trial' | 'dia_v3' | 'one_dars_v4' | 'bulut_erp'>(() => {
     try {
@@ -427,7 +429,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
       // Sadece Süper Admin ve Developer görebilir
       if (item.to === '/ay-sonu' && !isSuper) return null;
       if ((item.to === '/ana-kasa' || item.to === '/ana-kasa/rapor') && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return null;
-      if (item.to === '/whatsapp-operasyon' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return null;
+      if (item.to === '/whatsapp-operasyon' && !isWhatsAppAllowed) return null;
 
       if (!item.children) return item;
       
@@ -1011,7 +1013,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                     if (item.to === '/kullanicilar' && !isYonetici) return false;
                     if (item.to === '/ana-kasa' && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
                     if (item.to === '/aktivite-gunlugu' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
-                    if (item.to === '/whatsapp-operasyon' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
+                    if (item.to === '/whatsapp-operasyon' && !isWhatsAppAllowed) return false;
                     return true;
                   }).map((item) => renderItemLink(item))}
                 </div>
@@ -1022,7 +1024,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
               if (item.to === '/kullanicilar' && !isYonetici) return false;
               if (item.to === '/ana-kasa' && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
               if (item.to === '/aktivite-gunlugu' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
-              if (item.to === '/whatsapp-operasyon' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
+              if (item.to === '/whatsapp-operasyon' && !isWhatsAppAllowed) return false;
               return true;
             }).map((item) => renderItemLink(item))
           )}
