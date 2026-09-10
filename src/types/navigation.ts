@@ -37,11 +37,6 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   {
-    label: 'WhatsApp Operasyon',
-    to: '/whatsapp-operasyon',
-    icon: MessageSquare,
-  },
-  {
     label: 'Çek & Senet İşlemleri',
     to: '/cekler/takas',
     icon: Coins,
@@ -164,6 +159,11 @@ export const navItems: NavItem[] = [
     ]
   },
   { label: 'Ay Sonu', to: '/ay-sonu', icon: TrendingUp },
+  {
+    label: 'WhatsApp Operasyon',
+    to: '/whatsapp-operasyon',
+    icon: MessageSquare,
+  },
   { label: 'Bildirimler', to: '/bildirimler', icon: Bell },
   { label: 'Takvim', to: '/takvim', icon: CalendarDays },
   { label: 'Belgeler', to: '/belgeler', icon: FileText },

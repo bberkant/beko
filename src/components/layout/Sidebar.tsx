@@ -84,8 +84,10 @@ const getIconBgColor = (label: string, isActive: boolean) => {
       return 'bg-orange-50 text-orange-500 border border-orange-100';
     case 'Gayrimenkul Listesi':
       return 'bg-teal-50 text-teal-500 border border-teal-100';
-    case 'Ana Kasa':
-      return 'bg-emerald-50 text-emerald-555 border border-emerald-100';
+    case 'Ay Sonu':
+      return 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+    case 'WhatsApp Operasyon':
+      return 'bg-emerald-50 text-emerald-600 border border-emerald-100';
     case 'Bildirimler':
       return 'bg-yellow-50 text-yellow-555 border border-yellow-100';
     case 'Takvim':
