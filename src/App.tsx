@@ -72,7 +72,8 @@ function AdminRoute() {
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-gray-550">Oturum kontrol ediliyor...</div>;
   }
-  const isAuthorized = user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Yönetici' || user?.role === 'Süper Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.rawRole === 'developer' || true;
+  const isDeveloper = user?.role === 'Developer' || user?.rawRole === 'developer';
+  const isAuthorized = (user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Yönetici' || user?.role === 'Süper Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local') && !isDeveloper;
   if (!isAuthorized) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -90,14 +91,16 @@ export default function App() {
               <Route element={<StoreProvider><VehiclesProvider><BankAccountsProvider><AppLayout /></BankAccountsProvider></VehiclesProvider></StoreProvider>}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 
-                {/* WhatsApp Paneli Sadece Admin & Yöneticilere Özeldir */}
+                {/* WhatsApp Sohbetleri (Yeni WhatsApp Web) HERKESE AÇIKTIR */}
+                <Route path="/whatsapp" element={<WhatsAppOperasyonPage initialTab="chat" />} />
+                <Route path="/whatsapp/sohbetler" element={<WhatsAppOperasyonPage initialTab="chat" />} />
+                
+                {/* WhatsApp Operasyon Masası ve Yönetim Masası SADECE ADMIN KULLANICIYA ÖZELDİR (GİZLİ) */}
                 <Route element={<AdminRoute />}>
-                  <Route path="/whatsapp" element={<WhatsAppOperasyonPage initialTab="chat" />} />
-                  <Route path="/whatsapp/sohbetler" element={<WhatsAppOperasyonPage initialTab="chat" />} />
                   <Route path="/whatsapp/belgeler" element={<WhatsAppOperasyonPage initialTab="media" />} />
                   <Route path="/whatsapp/gorevler" element={<WhatsAppOperasyonPage initialTab="tasks" />} />
                   <Route path="/whatsapp/ayarlar" element={<WhatsAppOperasyonPage initialTab="settings" />} />
-                  <Route path="/whatsapp-operasyon" element={<Navigate to="/whatsapp/sohbetler" replace />} />
+                  <Route path="/whatsapp-operasyon" element={<WhatsAppOperasyonPage initialTab="media" />} />
                 </Route>
                 
                 <Route path="/finans/kredi-kartlari" element={<CreditCardListPage />} />

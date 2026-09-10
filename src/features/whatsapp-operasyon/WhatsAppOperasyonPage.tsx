@@ -24,6 +24,9 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
   initialTab = 'chat'
 }) => {
   const { user } = useAuth();
+  const isDeveloper = user?.role === 'Developer' || user?.rawRole === 'developer';
+  const isWhatsAppOperasyonAllowed = (user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Süper Yönetici' || user?.role === 'Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local') && !isDeveloper;
+
   const [activeTab, setActiveTab] = useState<'chat' | 'media' | 'tasks' | 'settings'>(initialTab);
   const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -98,8 +101,37 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
   }, [user?.organizationId]);
 
   useEffect(() => {
-    loadStats();
-  }, [loadStats]);
+    if (isWhatsAppOperasyonAllowed) {
+      loadStats();
+    }
+  }, [loadStats, isWhatsAppOperasyonAllowed]);
+
+  // Normal kullanıcılar ve Developer için sadece temiz WhatsApp Web arayüzü gösterilir (Operasyon sekmeleri gizlidir)
+  if (!isWhatsAppOperasyonAllowed) {
+    return (
+      <div className="space-y-3">
+        {/* Simple Clean Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-sm">
+              <MessageSquare size={20} />
+            </div>
+            <div>
+              <h1 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">
+                WhatsApp Web
+              </h1>
+              <p className="text-xs text-gray-500">
+                Panel içerisinden doğrudan WhatsApp mesajlaşması ve sohbet yönetimi.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* WhatsApp Messenger */}
+        <WhatsAppMessenger />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
