@@ -150,6 +150,24 @@ export async function queryCheck(
     } as FindeksCheckInquiry;
   }
 
+  // Decrement remaining credit by 1
+  try {
+    const { data: currentSettings } = await supabase
+      .from('findeks_settings')
+      .select('remaining_credits')
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (currentSettings && currentSettings.remaining_credits > 0) {
+      await supabase
+        .from('findeks_settings')
+        .update({ remaining_credits: currentSettings.remaining_credits - 1, updated_at: new Date().toISOString() })
+        .eq('organization_id', organizationId);
+    }
+  } catch (err) {
+    console.error('Kontör düşme hatası:', err);
+  }
+
   return inserted as FindeksCheckInquiry;
 }
 
@@ -186,4 +204,33 @@ export async function getFindeksSettings(organizationId: string): Promise<Findek
   }
 
   return data as FindeksSettings | null;
+}
+
+/**
+ * Save or update Findeks organization settings & credits
+ */
+export async function saveFindeksSettings(
+  organizationId: string,
+  settings: Partial<FindeksSettings>
+): Promise<boolean> {
+  const payload = {
+    organization_id: organizationId,
+    username: settings.username || null,
+    password: settings.password || null,
+    institution_code: settings.institution_code || null,
+    remaining_credits: settings.remaining_credits ?? 100,
+    is_active: settings.is_active ?? true,
+    updated_at: new Date().toISOString()
+  };
+
+  const { error } = await supabase
+    .from('findeks_settings')
+    .upsert(payload, { onConflict: 'organization_id' });
+
+  if (error) {
+    console.error('Findeks ayarları kaydedilemedi:', error);
+    throw error;
+  }
+
+  return true;
 }

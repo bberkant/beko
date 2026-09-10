@@ -61,6 +61,7 @@ export interface FindeksSettings {
   id: string;
   organization_id: string;
   username?: string;
+  password?: string;
   institution_code?: string;
   remaining_credits: number;
   is_active: boolean;

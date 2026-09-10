@@ -6,7 +6,8 @@ import {
   Sparkles, 
   Coins, 
   RefreshCw, 
-  ShieldCheck
+  ShieldCheck,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { useAuth } from '../../../lib/auth';
 import { useToast } from '../../../lib/toast';
@@ -15,6 +16,7 @@ import { CheckScannerModal } from '../components/CheckScannerModal';
 import { ManualInquiryModal } from '../components/ManualInquiryModal';
 import { CheckReportCard } from '../components/CheckReportCard';
 import { FindeksHistoryList } from '../components/FindeksHistoryList';
+import { FindeksSettingsModal } from '../components/FindeksSettingsModal';
 import { decodeCheckFromImageFile } from '../utils/checkQrDecoder';
 import { queryCheck, getInquiryHistory, getFindeksSettings } from '../services/findeksService';
 
@@ -30,6 +32,7 @@ export const FindeksPage: React.FC = () => {
   // Modals
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState<boolean>(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,7 +70,7 @@ export const FindeksPage: React.FC = () => {
       setActiveReport(report);
       notify('Findeks çek raporu başarıyla getirildi!', 'success');
       
-      // Refresh history list
+      // Refresh history list and credits
       await loadData();
     } catch (err: any) {
       console.error('Sorgu işleme hatası:', err);
@@ -115,19 +118,26 @@ export const FindeksPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Credit Badge Pill */}
-        <div className="flex items-center gap-3">
-          <div className="px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl flex items-center gap-2.5 shadow-2xs">
-            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+        {/* Credit Badge Pill & Settings Trigger */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200 rounded-2xl flex items-center gap-3 shadow-2xs transition active:scale-95 group text-left"
+            title="Findeks Hesap & Kontör Ayarları"
+          >
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-xs">
               <Coins size={16} />
             </div>
             <div>
-              <div className="text-[10px] uppercase tracking-wider font-bold text-emerald-800">Findeks Kontörünüz</div>
+              <div className="text-[10px] uppercase tracking-wider font-bold text-emerald-800 flex items-center gap-1">
+                <span>Findeks Kontörünüz</span>
+                <SettingsIcon size={12} className="text-emerald-600 group-hover:rotate-45 transition-transform" />
+              </div>
               <div className="text-sm font-black text-emerald-950">
                 {settings?.remaining_credits ?? 85} <span className="text-xs font-normal text-emerald-700">Kredi Kaldı</span>
               </div>
             </div>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -262,6 +272,13 @@ export const FindeksPage: React.FC = () => {
           setIsManualModalOpen(false);
           await handleDecodedQR(parsed);
         }}
+      />
+
+      <FindeksSettingsModal
+        open={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        settings={settings}
+        onSaved={loadData}
       />
     </div>
   );
