@@ -86,6 +86,7 @@ const getIconBgColor = (label: string, isActive: boolean) => {
       return 'bg-teal-50 text-teal-500 border border-teal-100';
     case 'Ay Sonu':
       return 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+    case 'WhatsApp':
     case 'WhatsApp Operasyon':
       return 'bg-emerald-50 text-emerald-600 border border-emerald-100';
     case 'Bildirimler':
@@ -385,6 +386,25 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
           localStorage.setItem(`sidebar_custom_${user.email}`, JSON.stringify(config));
         }
 
+        // Otomatik migrasyon: WhatsApp menüsünü "Bildirimler"in hemen üzerine taşı ve eski ismi güncelle
+        if (config.order) {
+          const oldWhatsAppIdx = config.order.indexOf('WhatsApp Operasyon');
+          if (oldWhatsAppIdx !== -1) {
+            config.order[oldWhatsAppIdx] = 'WhatsApp';
+          }
+          const whatsappIdx = config.order.indexOf('WhatsApp');
+          if (whatsappIdx !== -1) {
+            config.order.splice(whatsappIdx, 1);
+          }
+          const bildirimlerIdx = config.order.indexOf('Bildirimler');
+          if (bildirimlerIdx !== -1) {
+            config.order.splice(bildirimlerIdx, 0, 'WhatsApp');
+          } else {
+            config.order.push('WhatsApp');
+          }
+          localStorage.setItem(`sidebar_custom_${user.email}`, JSON.stringify(config));
+        }
+
         const itemsMap = new Map(navItems.map(item => [item.label, item]));
         const orderedItems: typeof navItems = [];
         
@@ -429,7 +449,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
       // Sadece Süper Admin ve Developer görebilir
       if (item.to === '/ay-sonu' && !isSuper) return null;
       if ((item.to === '/ana-kasa' || item.to === '/ana-kasa/rapor') && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return null;
-      if (item.to === '/whatsapp-operasyon' && !isWhatsAppAllowed) return null;
+      if ((item.to === '/whatsapp-operasyon' || item.to.startsWith('/whatsapp') || item.label === 'WhatsApp') && !isWhatsAppAllowed) return null;
 
       if (!item.children) return item;
       
@@ -1013,7 +1033,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                     if (item.to === '/kullanicilar' && !isYonetici) return false;
                     if (item.to === '/ana-kasa' && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
                     if (item.to === '/aktivite-gunlugu' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
-                    if (item.to === '/whatsapp-operasyon' && !isWhatsAppAllowed) return false;
+                    if ((item.to === '/whatsapp-operasyon' || item.to.startsWith('/whatsapp') || item.label === 'WhatsApp') && !isWhatsAppAllowed) return false;
                     return true;
                   }).map((item) => renderItemLink(item))}
                 </div>
@@ -1024,7 +1044,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
               if (item.to === '/kullanicilar' && !isYonetici) return false;
               if (item.to === '/ana-kasa' && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
               if (item.to === '/aktivite-gunlugu' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
-              if (item.to === '/whatsapp-operasyon' && !isWhatsAppAllowed) return false;
+              if ((item.to === '/whatsapp-operasyon' || item.to.startsWith('/whatsapp') || item.label === 'WhatsApp') && !isWhatsAppAllowed) return false;
               return true;
             }).map((item) => renderItemLink(item))
           )}
