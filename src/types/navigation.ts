@@ -55,7 +55,7 @@ export const navItems: NavItem[] = [
       { label: 'Çek Vade Hesaplama', to: '/finans/cek-vade-hesaplama' },
       { label: 'POS Fark Hesaplama', to: '/finans/pos-fark-hesaplama' },
       { label: 'Banka Hesapları', to: '/finans/banka-hesaplari' },
-      { label: 'Findeks Çek Sorgulama', to: '/finans/findeks' },
+      { label: 'Findeks', to: '/finans/findeks' },
     ],
   },
   {
