@@ -9,8 +9,8 @@ export interface WallpaperConfig {
 }
 
 export const DEFAULT_WALLPAPER_CONFIG: WallpaperConfig = {
-  preset: 'doodle',
-  showDoodle: true,
+  preset: 'plain',
+  showDoodle: false,
   doodleOpacity: 40,
 };
 
@@ -131,6 +131,15 @@ export interface WallpaperPresetItem {
 
 export const WALLPAPER_PRESETS: WallpaperPresetItem[] = [
   {
+    id: 'plain',
+    name: 'Düz & Desensiz Sade (Varsayılan)',
+    description: 'Çizimsiz, temiz ve sade tek renk arka plan',
+    darkBg: '#0b141a',
+    lightBg: '#efeae2',
+    previewBg: '#0b141a',
+    type: 'plain',
+  },
+  {
     id: 'doodle',
     name: 'Klasik WhatsApp Doodle',
     description: 'Orijinal zengin WhatsApp çizimleri ve simgeleri',
@@ -183,15 +192,6 @@ export const WALLPAPER_PRESETS: WallpaperPresetItem[] = [
     lightBg: '#f1f5f9',
     previewBg: '#0a1017',
     type: 'geometric',
-  },
-  {
-    id: 'plain',
-    name: 'Düz & Desensiz Sade',
-    description: 'Çizimsiz, temiz ve sade tek renk arka plan',
-    darkBg: '#111b21',
-    lightBg: '#f4f6f8',
-    previewBg: '#111b21',
-    type: 'plain',
   },
   {
     id: 'custom',

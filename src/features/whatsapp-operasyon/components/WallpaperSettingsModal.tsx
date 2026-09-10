@@ -41,6 +41,7 @@ export const WallpaperSettingsModal: React.FC<WallpaperSettingsModalProps> = ({
     setDraft(prev => ({
       ...prev,
       preset: presetId,
+      showDoodle: presetId !== 'plain' && presetId !== 'custom',
       customColor: presetId === 'custom' ? prev.customColor : undefined,
       customImageUrl: presetId === 'custom' ? prev.customImageUrl : undefined,
     }));
