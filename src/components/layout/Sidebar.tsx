@@ -427,6 +427,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
       // Sadece Süper Admin ve Developer görebilir
       if (item.to === '/ay-sonu' && !isSuper) return null;
       if ((item.to === '/ana-kasa' || item.to === '/ana-kasa/rapor') && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return null;
+      if (item.to === '/whatsapp-operasyon' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return null;
 
       if (!item.children) return item;
       
@@ -1010,6 +1011,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                     if (item.to === '/kullanicilar' && !isYonetici) return false;
                     if (item.to === '/ana-kasa' && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
                     if (item.to === '/aktivite-gunlugu' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
+                    if (item.to === '/whatsapp-operasyon' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
                     return true;
                   }).map((item) => renderItemLink(item))}
                 </div>
@@ -1020,6 +1022,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
               if (item.to === '/kullanicilar' && !isYonetici) return false;
               if (item.to === '/ana-kasa' && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
               if (item.to === '/aktivite-gunlugu' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
+              if (item.to === '/whatsapp-operasyon' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local') return false;
               return true;
             }).map((item) => renderItemLink(item))
           )}
