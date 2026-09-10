@@ -52,6 +52,7 @@ import { MonthEndPage } from './features/month-end/MonthEndPage';
 import { DisMuhasebePage } from './features/dis-muhasebe/DisMuhasebePage';
 import { HukukiIslemlerPage } from './features/hukuk/HukukiIslemlerPage';
 import { SubelerPage } from './features/subeler/SubelerPage';
+import { WhatsAppOperasyonPage } from './features/whatsapp-operasyon/WhatsAppOperasyonPage';
 
 function SuperAdminRoute() {
   const { user, loading } = useAuth();
@@ -75,6 +76,7 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<StoreProvider><VehiclesProvider><BankAccountsProvider><AppLayout /></BankAccountsProvider></VehiclesProvider></StoreProvider>}>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/whatsapp-operasyon" element={<WhatsAppOperasyonPage />} />
                 <Route path="/finans/kredi-kartlari" element={<CreditCardListPage />} />
                 <Route path="/finans/kredi-kartlari/yeni" element={<CreditCardFormPage />} />
                 <Route path="/finans/kredi-kartlari/ekstreler" element={<StatementsPage />} />

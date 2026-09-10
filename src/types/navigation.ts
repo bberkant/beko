@@ -19,6 +19,7 @@ import {
   Store,
   TrendingUp,
   BarChart3,
+  MessageSquare,
 } from 'lucide-react';
 
 export interface NavChild {
@@ -35,6 +36,11 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
+  {
+    label: 'WhatsApp Operasyon',
+    to: '/whatsapp-operasyon',
+    icon: MessageSquare,
+  },
   {
     label: 'Çek & Senet İşlemleri',
     to: '/cekler/takas',
