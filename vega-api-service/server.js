@@ -597,13 +597,41 @@ app.get(['/api/:company/efaturalar', '/api/efaturalar'], async (req, res) => {
   try {
     const company = (req.params.company || 'etik').toLowerCase();
     
-    // Marif GMS Flow
+    // Marif Flow (VEGADB F0102 + GMS.Net + EDM Bilisim Portal)
     if (company === 'marif') {
       const force = req.query.force === 'true';
       if (force) {
-        try { await syncMarifIncomingInvoices(true); } catch (e) {}
+        try { syncMarifIncomingInvoices(true).catch(() => {}); } catch (e) {}
       }
 
+      // 1. Vega Veritabanı Marif Faturaları (VEGADB - F0102)
+      let vegaMarifInvoices = [];
+      try {
+        const pool = await getVegaPool();
+        const result = await pool.request().query(`
+          SELECT 
+              b.IND AS [id],
+              b.BELGENO AS [invoiceNo],
+              b.TARIH AS [date],
+              b.FIRMANO AS [cariCode],
+              COALESCE(NULLIF(c.UNVAN, ''), NULLIF(c.FIRMAKODU, ''), c.ADI) AS [cariName],
+              ISNULL(SUM(h.GERCEKTOPLAM), 0) AS [matrah],
+              ISNULL(SUM(h.KDVTUTAR), 0) AS [kdv],
+              ISNULL(SUM(h.GERCEKTOPLAM + h.KDVTUTAR), 0) AS [amount],
+              CASE WHEN b.BELGETIPI IN (21, 27, 33, 34, 104, 105, 151) THEN 'giden' ELSE 'gelen' END AS [direction],
+              CASE WHEN b.BELGENO LIKE 'MAR%' OR b.BELGENO LIKE 'EAS%' OR b.BELGENO LIKE 'ETS%' THEN 'e-Fatura' ELSE 'e-Arşiv' END AS [type]
+          FROM F0102D0007VFATURABASLIKLAR b
+          LEFT JOIN F0102D0007VFATURAHAREKETLER h ON b.IND = h.EVRAKNO
+          LEFT JOIN F0102TBLCARI c ON b.FIRMANO = c.IND
+          GROUP BY b.IND, b.BELGENO, b.TARIH, b.FIRMANO, c.UNVAN, c.FIRMAKODU, c.ADI, b.BELGETIPI
+          ORDER BY b.TARIH DESC, b.IND DESC;
+        `);
+        vegaMarifInvoices = result.recordset || [];
+      } catch (vegaErr) {
+        console.warn('Vega Marif tablosu okunamadı:', vegaErr.message);
+      }
+
+      // 2. GMS.Net SQL (HASAN\\SQLEXPRESS) Faturaları
       let gmsInvoices = [];
       let incomingGms = [];
       try {
@@ -628,11 +656,31 @@ app.get(['/api/:company/efaturalar', '/api/efaturalar'], async (req, res) => {
             ORDER BY b.FAT_TAR DESC
           `);
           gmsInvoices = result.recordset || [];
-        }
-      } catch (sqlErr) {
-        // GMS sunucusu kapalıysa disk önbelleğini kullan
-      }
 
+          try {
+            const gelRes = await pool.request().query(`
+              SELECT 
+                f.ID AS [id],
+                f.BELGE_NO AS [invoiceNo],
+                f.DUZENLEME_TARIHI AS [date],
+                f.TOPLAM_TUTAR AS [amount],
+                'gelen' AS [direction],
+                CASE WHEN f.BELGE_TURU LIKE '%ARS%' THEN 'e-Arşiv' ELSE 'e-Fatura' END AS [type]
+              FROM [${marifDb}].[dbo].[F0001_2026_T_BIL_GIB_EA_GEL_FAT] f
+              ORDER BY f.DUZENLEME_TARIHI DESC
+            `);
+            incomingGms = (gelRes.recordset || []).map(r => ({
+              ...r,
+              cariCode: '',
+              cariName: 'Gelen Fatura (GMS)',
+              matrah: r.amount || 0,
+              kdv: 0
+            }));
+          } catch (gelErr) {}
+        }
+      } catch (sqlErr) {}
+
+      // 3. EDM Bilişim Önbellek Dosyası
       let cachedIncoming = [];
       try {
         if (fs.existsSync(CACHE_FILE_PATH)) {
@@ -640,8 +688,9 @@ app.get(['/api/:company/efaturalar', '/api/efaturalar'], async (req, res) => {
         }
       } catch (e) {}
 
+      // Tüm kaynakları fatura numarasına göre birleştir ve tekilleştir
       const invoiceMap = new Map();
-      for (const inv of [...gmsInvoices, ...incomingGms, ...cachedIncoming]) {
+      for (const inv of [...vegaMarifInvoices, ...gmsInvoices, ...incomingGms, ...cachedIncoming]) {
         if (inv && inv.invoiceNo && !invoiceMap.has(inv.invoiceNo)) {
           invoiceMap.set(inv.invoiceNo, inv);
         }
@@ -1222,6 +1271,141 @@ app.get('/api/kesim/sync', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// Akıllı EDM Senkronizasyon Kilidi ve İstek Sınırlayıcı (Rate Limiter)
+let lastSyncAttempt = 0;
+let syncLockUntil = 0;
+const SYNC_INTERVAL_MS = 60 * 60 * 1000;
+
+async function syncMarifIncomingInvoices(force = false) {
+  const now = Date.now();
+  if (!force && syncLockUntil > now) {
+    return [];
+  }
+  if (!force && (now - lastSyncAttempt < SYNC_INTERVAL_MS)) {
+    return [];
+  }
+  lastSyncAttempt = now;
+
+  try {
+    const actionDate = new Date().toISOString();
+    const loginXml = `<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <tem:LoginRequest>
+         <tem:REQUEST_HEADER>
+            <tem:ACTION_DATE>${actionDate}</tem:ACTION_DATE>
+            <tem:REASON>Login</tem:REASON>
+            <tem:APPLICATION_NAME>GMSNet</tem:APPLICATION_NAME>
+            <tem:HOSTNAME>GMSNet</tem:HOSTNAME>
+            <tem:CHANNEL_NAME>GMSNet</tem:CHANNEL_NAME>
+            <tem:COMPRESSED>N</tem:COMPRESSED>
+         </tem:REQUEST_HEADER>
+         <tem:USER_NAME>admin_007408</tem:USER_NAME>
+         <tem:PASSWORD>rvkDAuKh</tem:PASSWORD>
+      </tem:LoginRequest>
+   </soapenv:Body>
+</soapenv:Envelope>`;
+
+    const loginResponse = await soapRequest('LoginRequest', loginXml, 'portal1.edmbilisim.com.tr');
+    const sessionIdMatch = loginResponse.data.match(/<SESSION_ID>(.*?)<\/SESSION_ID>/) || loginResponse.data.match(/<SESSION_ID[^>]*>(.*?)<\/SESSION_ID>/);
+    
+    if (!sessionIdMatch) {
+      if (loginResponse.data.includes('askıya') || loginResponse.data.includes('Hatalı istek')) {
+        syncLockUntil = Date.now() + 60 * 60 * 1000;
+      }
+      return [];
+    }
+    const sessionId = sessionIdMatch[1];
+
+    let existingInvoices = [];
+    if (fs.existsSync(CACHE_FILE_PATH)) {
+      try {
+        existingInvoices = JSON.parse(fs.readFileSync(CACHE_FILE_PATH, 'utf8')) || [];
+      } catch (e) {}
+    }
+    const invMap = new Map();
+    existingInvoices.forEach(inv => {
+      if (inv && inv.invoiceNo) invMap.set(inv.invoiceNo, inv);
+    });
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 120);
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = new Date().toISOString().split('T')[0];
+
+    for (const dir of ['IN', 'OUT']) {
+      const getInvoiceXml = `<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <tem:GetInvoiceRequest>
+         <tem:REQUEST_HEADER>
+            <tem:SESSION_ID>${sessionId}</tem:SESSION_ID>
+            <tem:ACTION_DATE>${actionDate}</tem:ACTION_DATE>
+            <tem:REASON>GetInvoices</tem:REASON>
+            <tem:APPLICATION_NAME>GMSNet</tem:APPLICATION_NAME>
+            <tem:HOSTNAME>GMSNet</tem:HOSTNAME>
+            <tem:CHANNEL_NAME>GMSNet</tem:CHANNEL_NAME>
+            <tem:COMPRESSED>N</tem:COMPRESSED>
+         </tem:REQUEST_HEADER>
+         <tem:INVOICE_SEARCH_KEY>
+            <tem:LIMIT>100</tem:LIMIT>
+            <tem:START_DATE>${startDateStr}</tem:START_DATE>
+            <tem:END_DATE>${endDateStr}</tem:END_DATE>
+            <tem:READ_INCLUDED>true</tem:READ_INCLUDED>
+            <tem:DIRECTION>${dir}</tem:DIRECTION>
+         </tem:INVOICE_SEARCH_KEY>
+         <tem:HEADER_ONLY>Y</tem:HEADER_ONLY>
+      </tem:GetInvoiceRequest>
+   </soapenv:Body>
+</soapenv:Envelope>`;
+
+      const invoiceResponse = await soapRequest('GetInvoiceRequest', getInvoiceXml, 'portal1.edmbilisim.com.tr');
+      const invoiceMatches = invoiceResponse.data.match(/<INVOICE>([\s\S]*?)<\/INVOICE>/g);
+      if (invoiceMatches) {
+        for (const invXml of invoiceMatches) {
+          const uuidMatch = invXml.match(/<UUID[^>]*>(.*?)<\/UUID>/);
+          const invoiceNoMatch = invXml.match(/<ID[^>]*>(.*?)<\/ID>/) || invXml.match(/<INVOICE_NUMBER[^>]*>(.*?)<\/INVOICE_NUMBER>/);
+          const dateMatch = invXml.match(/<ISSUE_DATE[^>]*>(.*?)<\/ISSUE_DATE>/);
+          const cariNameMatch = dir === 'IN'
+            ? (invXml.match(/<SENDER_NAME[^>]*>(.*?)<\/SENDER_NAME>/) || invXml.match(/<SENDER_TITLE[^>]*>(.*?)<\/SENDER_TITLE>/))
+            : (invXml.match(/<RECEIVER_NAME[^>]*>(.*?)<\/RECEIVER_NAME>/) || invXml.match(/<RECEIVER_TITLE[^>]*>(.*?)<\/RECEIVER_TITLE>/));
+          const cariCodeMatch = dir === 'IN'
+            ? (invXml.match(/<SENDER_VKN[^>]*>(.*?)<\/SENDER_VKN>/) || invXml.match(/<SENDER_TCKN[^>]*>(.*?)<\/SENDER_TCKN>/))
+            : (invXml.match(/<RECEIVER_VKN[^>]*>(.*?)<\/RECEIVER_VKN>/) || invXml.match(/<RECEIVER_TCKN[^>]*>(.*?)<\/RECEIVER_TCKN>/));
+          const amountMatch = invXml.match(/<PAYABLE_AMOUNT[^>]*>(.*?)<\/PAYABLE_AMOUNT>/);
+          const kdvMatch = invXml.match(/<TAX_AMOUNT[^>]*>(.*?)<\/TAX_AMOUNT>/) || [0, '0'];
+          
+          if (uuidMatch && invoiceNoMatch) {
+            const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
+            const kdv = kdvMatch ? parseFloat(kdvMatch[1]) : 0;
+            const invObj = {
+              id: uuidMatch[1],
+              invoiceNo: invoiceNoMatch[1],
+              date: dateMatch ? dateMatch[1] : new Date().toISOString(),
+              cariCode: cariCodeMatch ? cariCodeMatch[1] : '',
+              cariName: cariNameMatch ? cariNameMatch[1] : 'Bilinmeyen Cari',
+              matrah: amount - kdv,
+              kdv: kdv,
+              amount: amount,
+              direction: dir === 'IN' ? 'gelen' : 'giden',
+              type: invoiceNoMatch[1].startsWith('MAR') ? 'e-Fatura' : 'e-Arşiv'
+            };
+            invMap.set(invObj.invoiceNo, invObj);
+          }
+        }
+      }
+    }
+
+    const allInvoices = Array.from(invMap.values());
+    fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(allInvoices, null, 2), 'utf8');
+    return allInvoices;
+  } catch (err) {
+    return [];
+  }
+}
 
 // Arka plan otomatik periyodik kesim listesi kontrolü (60 saniyede bir)
 setInterval(() => {

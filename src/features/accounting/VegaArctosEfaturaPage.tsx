@@ -201,7 +201,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
         setLastSyncTime(timeStr);
         setCacheSource('Canlı');
-        setCooldownSeconds(company === 'marif' ? 3600 : 60);
+        setCooldownSeconds(10);
 
         // Save immediately to local IndexedDB
         void setLocalCache(company, data, nowIso);
@@ -283,21 +283,10 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
             // Save to IndexedDB for next instant load
             void setLocalCache(company, supaData.invoices, supaData.updatedAt);
 
-            // Marif için saatlik limit kontrolü: son güncelleme 1 saatten yeniyse cooldown başlat
-            if (company === 'marif' && supaTime > 0) {
-              const diffSec = Math.floor((Date.now() - supaTime) / 1000);
-              if (diffSec < 3600) {
-                setCooldownSeconds(3600 - diffSec);
-              }
-            }
+            // Kısa bekleme süresi
+            setCooldownSeconds(0);
           } else if (localData && company === 'marif') {
-            const lTime = localData.updatedAt ? new Date(localData.updatedAt).getTime() : 0;
-            if (lTime > 0) {
-              const diffSec = Math.floor((Date.now() - lTime) / 1000);
-              if (diffSec < 3600) {
-                setCooldownSeconds(3600 - diffSec);
-              }
-            }
+            setCooldownSeconds(0);
           }
           setIsLoading(false);
           return;
