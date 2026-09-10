@@ -13,9 +13,54 @@ import {
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 
-export const WhatsAppMessenger: React.FC = () => {
+interface WhatsAppMessengerProps {
+  theme?: 'light' | 'dark';
+  onToggleTheme?: () => void;
+}
+
+export const WhatsAppMessenger: React.FC<WhatsAppMessengerProps> = ({
+  theme: propTheme,
+  onToggleTheme: propToggleTheme
+}) => {
   const { user } = useAuth();
   const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+
+  const [internalTheme, setInternalTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      return (localStorage.getItem(`whatsapp_theme_${user?.email || 'default'}`) as 'light' | 'dark') || 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  const theme = propTheme || internalTheme;
+  const isDark = theme === 'dark';
+
+  const handleToggleTheme = () => {
+    if (propToggleTheme) {
+      propToggleTheme();
+      return;
+    }
+    const next = internalTheme === 'dark' ? 'light' : 'dark';
+    setInternalTheme(next);
+    try {
+      localStorage.setItem(`whatsapp_theme_${user?.email || 'default'}`, next);
+      window.dispatchEvent(new Event('whatsapp-theme-changed'));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    const handleEvent = () => {
+      try {
+        const stored = (localStorage.getItem(`whatsapp_theme_${user?.email || 'default'}`) as 'light' | 'dark') || 'light';
+        setInternalTheme(stored);
+      } catch (e) {}
+    };
+    window.addEventListener('whatsapp-theme-changed', handleEvent);
+    return () => window.removeEventListener('whatsapp-theme-changed', handleEvent);
+  }, [user?.email]);
 
   const [chats, setChats] = useState<WhatsAppChat[]>([]);
   const [activeChat, setActiveChat] = useState<WhatsAppChat | null>(null);
@@ -106,7 +151,11 @@ export const WhatsAppMessenger: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-12rem)] min-h-[580px]">
+    <div className={`rounded-2xl border shadow-sm overflow-hidden flex flex-col h-[calc(100vh-12rem)] min-h-[580px] transition-colors ${
+      isDark
+        ? 'bg-[#111b21] border-[#222e35] text-[#e9edef]'
+        : 'bg-white border-gray-200 text-gray-900'
+    }`}>
       <div className="flex-1 flex overflow-hidden">
         {/* Left Column: Chat List (Hidden on mobile if chat is active) */}
         <div className={`w-full md:w-80 lg:w-96 flex flex-col shrink-0 ${
@@ -120,6 +169,8 @@ export const WhatsAppMessenger: React.FC = () => {
             onOpenDeviceModal={() => setIsDeviceModalOpen(true)}
             onRefresh={loadChats}
             isRefreshing={isRefreshing}
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
           />
         </div>
 
@@ -133,11 +184,14 @@ export const WhatsAppMessenger: React.FC = () => {
               messages={messages}
               onBack={() => setActiveChat(null)}
               onRefreshMessages={loadMessages}
+              theme={theme}
+              onToggleTheme={handleToggleTheme}
             />
           ) : (
             <WhatsAppWebLanding
               session={session}
               onOpenDeviceModal={() => setIsDeviceModalOpen(true)}
+              theme={theme}
             />
           )}
         </div>

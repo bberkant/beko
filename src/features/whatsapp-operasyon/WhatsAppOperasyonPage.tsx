@@ -6,7 +6,9 @@ import {
   ListTodo, 
   Settings2, 
   Inbox,
-  MessagesSquare
+  MessagesSquare,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
@@ -26,6 +28,37 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
   const { user } = useAuth();
   const isDeveloper = user?.role === 'Developer' || user?.rawRole === 'developer';
   const isWhatsAppOperasyonAllowed = (user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Süper Yönetici' || user?.role === 'Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local') && !isDeveloper;
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      return (localStorage.getItem(`whatsapp_theme_${user?.email || 'default'}`) as 'light' | 'dark') || 'light';
+    } catch {
+      return 'light';
+    }
+  });
+  const isDark = theme === 'dark';
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    try {
+      localStorage.setItem(`whatsapp_theme_${user?.email || 'default'}`, next);
+      window.dispatchEvent(new Event('whatsapp-theme-changed'));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    const handleEvent = () => {
+      try {
+        const stored = (localStorage.getItem(`whatsapp_theme_${user?.email || 'default'}`) as 'light' | 'dark') || 'light';
+        setTheme(stored);
+      } catch (e) {}
+    };
+    window.addEventListener('whatsapp-theme-changed', handleEvent);
+    return () => window.removeEventListener('whatsapp-theme-changed', handleEvent);
+  }, [user?.email]);
 
   const [activeTab, setActiveTab] = useState<'chat' | 'media' | 'tasks' | 'settings'>(initialTab);
   const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
@@ -125,10 +158,24 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
               </p>
             </div>
           </div>
+
+          {/* Theme Toggle Button */}
+          <button
+            onClick={toggleTheme}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shadow-2xs border transition cursor-pointer ${
+              isDark
+                ? 'bg-[#202c33] border-[#2a3942] text-amber-400 hover:bg-[#2a3942]'
+                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
+            title={isDark ? 'Açık Temaya Geç' : 'Karanlık Temaya Geç'}
+          >
+            {isDark ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-600" />}
+            <span className="hidden sm:inline">{isDark ? 'Açık Tema' : 'Karanlık Tema'}</span>
+          </button>
         </div>
 
         {/* WhatsApp Messenger */}
-        <WhatsAppMessenger />
+        <WhatsAppMessenger theme={theme} onToggleTheme={toggleTheme} />
       </div>
     );
   }
@@ -155,6 +202,20 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center gap-2.5">
+          {/* Dark / Light Theme Toggle Pill */}
+          <button
+            onClick={toggleTheme}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shadow-2xs border transition cursor-pointer ${
+              isDark
+                ? 'bg-[#202c33] border-[#2a3942] text-amber-400 hover:bg-[#2a3942]'
+                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
+            title={isDark ? 'Açık Temaya Geç' : 'Karanlık Temaya Geç'}
+          >
+            {isDark ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-indigo-600" />}
+            <span>{isDark ? 'Açık Tema' : 'Karanlık Tema'}</span>
+          </button>
+
           {/* Live Device Status Pill */}
           <button
             onClick={() => setIsDeviceModalOpen(true)}
@@ -178,19 +239,23 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
       </div>
 
       {/* Primary Navigation Tabs */}
-      <div className="flex items-center gap-1 border-b border-gray-200 bg-white px-2 py-1 rounded-2xl shadow-2xs overflow-x-auto">
+      <div className={`flex items-center gap-1 border-b px-2 py-1 rounded-2xl shadow-2xs overflow-x-auto transition-colors ${
+        isDark ? 'bg-[#202c33] border-[#2a3942]' : 'bg-white border-gray-200'
+      }`}>
         <button
           onClick={() => setActiveTab('chat')}
           className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'chat'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? isDark ? 'bg-[#00a884] text-[#111b21] shadow-sm' : 'bg-emerald-600 text-white shadow-sm'
+              : isDark ? 'text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef]' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
           <MessagesSquare size={16} />
           <span>WhatsApp Sohbetleri (Web Client)</span>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
-            activeTab === 'chat' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+            activeTab === 'chat'
+              ? isDark ? 'bg-[#111b21]/30 text-[#111b21]' : 'bg-white/20 text-white'
+              : isDark ? 'bg-[#111b21] text-[#00a884]' : 'bg-emerald-100 text-emerald-800'
           }`}>
             {totalChatsCount}
           </span>
@@ -200,8 +265,8 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
           onClick={() => setActiveTab('media')}
           className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'media'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? isDark ? 'bg-[#00a884] text-[#111b21] shadow-sm' : 'bg-emerald-600 text-white shadow-sm'
+              : isDark ? 'text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef]' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
           <Inbox size={16} />
@@ -219,8 +284,8 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
           onClick={() => setActiveTab('tasks')}
           className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'tasks'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? isDark ? 'bg-[#00a884] text-[#111b21] shadow-sm' : 'bg-emerald-600 text-white shadow-sm'
+              : isDark ? 'text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef]' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
           <ListTodo size={16} />
@@ -238,8 +303,8 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
           onClick={() => setActiveTab('settings')}
           className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'settings'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? isDark ? 'bg-[#00a884] text-[#111b21] shadow-sm' : 'bg-emerald-600 text-white shadow-sm'
+              : isDark ? 'text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef]' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
           <Settings2 size={16} />
@@ -249,7 +314,7 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
 
       {/* Tab Content */}
       {activeTab === 'chat' && (
-        <WhatsAppMessenger />
+        <WhatsAppMessenger theme={theme} onToggleTheme={toggleTheme} />
       )}
 
       {activeTab === 'media' && (
