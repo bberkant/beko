@@ -475,7 +475,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
              normCariName.includes(qNorm) || 
              normCariCode.includes(qNorm) || 
              normVkn.includes(qNorm);
-    });
+    }).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.invoiceNo || '').localeCompare(a.invoiceNo || ''));
   }, [invoices, searchQuery, startDate, endDate, activeTab, cariVknMap, gidenBoxFilter]);
 
   // Date range quick presets helper

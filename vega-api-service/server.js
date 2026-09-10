@@ -1401,7 +1401,7 @@ function fetchMikrokomMedia(token, uuid, direction, dateStr, mediaType = 'pdf') 
     const postData = JSON.stringify({
       documentUuid: uuid,
       year: year,
-      month: direction === 'gelen' ? month : 12
+      month: month
     });
 
     const req = https.request({
@@ -1450,9 +1450,8 @@ async function syncMarifIncomingInvoices(force = false) {
   lastSyncAttempt = now;
 
   try {
-    console.log('[MİKROKOM] Marif gelen faturaları Mikrokom Portal REST API üzerinden senkronize ediliyor...');
+    console.log('[MİKROKOM] Marif gelen ve giden faturaları Mikrokom Portal REST API üzerinden senkronize ediliyor...');
     const token = await getMikrokomToken();
-    const allInvoices = [];
     const invoiceMap = new Map();
 
     // Mevcut önbellek varsa yükle
@@ -1462,7 +1461,6 @@ async function syncMarifIncomingInvoices(force = false) {
         prev.forEach(inv => {
           if (inv && inv.invoiceNo) {
             invoiceMap.set(inv.invoiceNo, inv);
-            allInvoices.push(inv);
           }
         });
       } catch (e) {}
@@ -1471,6 +1469,7 @@ async function syncMarifIncomingInvoices(force = false) {
     const currentYear = new Date().getFullYear();
     const yearsToScan = force ? [currentYear, currentYear - 1, 2024, 2023] : [currentYear, currentYear - 1];
 
+    // 1. INBOX (GELEN FATURALAR)
     for (const yr of yearsToScan) {
       for (let mo = 0; mo <= 11; mo++) {
         let page = 0;
@@ -1542,7 +1541,80 @@ async function syncMarifIncomingInvoices(force = false) {
       }
     }
 
+    // 2. OUTBOX (GİDEN FATURALAR)
+    for (const yr of yearsToScan) {
+      for (let mo = 0; mo <= 11; mo++) {
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const qs = `/accounting/api/outbox/getOutboxes?year=${yr}&month=${mo}&page=${page}&size=100`;
+
+          const res = await new Promise((resolve) => {
+            const req = https.request({
+              hostname: 'portal.mikrokomdonusum.com',
+              port: 443,
+              path: qs,
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json;charset=UTF-8',
+                'User-Agent': 'Mozilla/5.0'
+              },
+              secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
+            }, (response) => {
+              let d = '';
+              response.on('data', c => d += c);
+              response.on('end', () => resolve({ statusCode: response.statusCode, data: d }));
+            });
+            req.on('error', () => resolve({ statusCode: 500, data: '' }));
+            req.end();
+          });
+
+          if (res.statusCode === 200) {
+            try {
+              const j = JSON.parse(res.data);
+              const items = j.content || [];
+              for (const item of items) {
+                const invObj = {
+                  id: item.recordId,
+                  invoiceNo: item.documentId,
+                  ettn: item.documentUuid,
+                  year: yr,
+                  date: item.documentIssueDate || item.receivedDate,
+                  receivedDate: item.receivedDate,
+                  cariCode: item.destinationId || '',
+                  vkn: item.destinationId || '',
+                  cariName: item.destinationTitle || 'Bilinmeyen Cari',
+                  matrah: item.taxExclusiveAmount != null ? Number(item.taxExclusiveAmount) : (Number(item.invoiceTotal || 0) - Number(item.taxTotalAmount || 0)),
+                  kdv: Number(item.taxTotalAmount || 0),
+                  amount: Number(item.taxInclusiveAmount || item.invoiceTotal || 0),
+                  direction: 'giden',
+                  type: item.documentProfile || 'e-Fatura',
+                  profile: item.documentProfile || 'TEMELFATURA',
+                  status: item.resultExplanation || item.responseCode || (item.processState === 500 ? 'Başarılı' : 'Gönderildi')
+                };
+                if (invObj.invoiceNo) {
+                  invoiceMap.set(invObj.invoiceNo, invObj);
+                }
+              }
+              if (items.length < 100 || (page + 1) * 100 >= (j.totalElements || 0)) {
+                hasMore = false;
+              } else {
+                page++;
+              }
+            } catch (e) {
+              hasMore = false;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+      }
+    }
+
     const finalInvoices = Array.from(invoiceMap.values());
+    finalInvoices.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.invoiceNo || '').localeCompare(a.invoiceNo || ''));
     console.log(`[MİKROKOM] Senkronizasyon tamamlandı: Toplam ${finalInvoices.length} adet Marif faturası kaydedildi.`);
     try {
       fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(finalInvoices, null, 2), 'utf8');
