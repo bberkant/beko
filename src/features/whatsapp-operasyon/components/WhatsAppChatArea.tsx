@@ -14,12 +14,14 @@ import {
   CheckCheck, 
   ExternalLink,
   Moon,
-  Sun
+  Sun,
+  Palette
 } from 'lucide-react';
 import { WhatsAppChat, WhatsAppMessage } from '../types';
 import { sendWhatsAppMessage } from '../services/whatsappService';
 import { useAuth } from '../../../lib/auth';
 import { useToast } from '../../../lib/toast';
+import { WallpaperConfig, getWallpaperStyle, DEFAULT_WALLPAPER_CONFIG } from '../services/wallpaperPresets';
 
 interface WhatsAppChatAreaProps {
   chat: WhatsAppChat;
@@ -28,6 +30,8 @@ interface WhatsAppChatAreaProps {
   onRefreshMessages: () => void;
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
+  wallpaperConfig?: WallpaperConfig;
+  onOpenWallpaperModal?: () => void;
 }
 
 export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
@@ -36,7 +40,9 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
   onBack,
   onRefreshMessages,
   theme = 'light',
-  onToggleTheme
+  onToggleTheme,
+  wallpaperConfig = DEFAULT_WALLPAPER_CONFIG,
+  onOpenWallpaperModal
 }) => {
   const isDark = theme === 'dark';
   const { user } = useAuth();
@@ -170,6 +176,21 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center gap-1.5">
+          {/* Wallpaper Customization Button */}
+          {onOpenWallpaperModal && (
+            <button
+              onClick={onOpenWallpaperModal}
+              className={`p-2 rounded-lg transition active:scale-95 flex items-center justify-center ${
+                isDark 
+                  ? 'text-emerald-400 hover:bg-[#2a3942] hover:text-emerald-300' 
+                  : 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'
+              }`}
+              title="Sohbet Duvar Kağıdını & Desenini Değiştir"
+            >
+              <Palette size={17} />
+            </button>
+          )}
+
           {/* Theme Switcher in Chat Header */}
           {onToggleTheme && (
             <button
@@ -212,15 +233,10 @@ export const WhatsAppChatArea: React.FC<WhatsAppChatAreaProps> = ({
         </div>
       </div>
 
-      {/* Messages Scroll Area */}
+      {/* Messages Scroll Area with Authentic WhatsApp Doodle Wallpaper */}
       <div 
-        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3"
-        style={{
-          backgroundImage: isDark
-            ? `radial-gradient(#1f2c34 1px, transparent 1px)`
-            : `radial-gradient(#cbd5e1 0.75px, transparent 0.75px)`,
-          backgroundSize: '24px 24px'
-        }}
+        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 transition-all"
+        style={getWallpaperStyle(wallpaperConfig, isDark)}
       >
         {/* Date Divider */}
         <div className="flex items-center justify-center my-2">

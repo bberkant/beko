@@ -4,10 +4,15 @@ import { WhatsAppChatList } from './WhatsAppChatList';
 import { WhatsAppChatArea } from './WhatsAppChatArea';
 import { WhatsAppWebLanding } from './WhatsAppWebLanding';
 import { DeviceConnectionModal } from './DeviceConnectionModal';
+import { WallpaperSettingsModal } from './WallpaperSettingsModal';
+import { 
+  WallpaperConfig, 
+  DEFAULT_WALLPAPER_CONFIG 
+} from '../services/wallpaperPresets';
 import { 
   fetchWhatsAppChats, 
   fetchWhatsAppMessages, 
-  markChatAsRead,
+  markChatAsRead, 
   getGatewaySession 
 } from '../services/whatsappService';
 import { supabase } from '../../../lib/supabase';
@@ -32,6 +37,30 @@ export const WhatsAppMessenger: React.FC<WhatsAppMessengerProps> = ({
       return 'light';
     }
   });
+
+  // Wallpaper settings state
+  const [wallpaperConfig, setWallpaperConfig] = useState<WallpaperConfig>(() => {
+    try {
+      const stored = localStorage.getItem(`whatsapp_wallpaper_${user?.email || 'default'}`);
+      if (stored) {
+        return JSON.parse(stored) as WallpaperConfig;
+      }
+      return DEFAULT_WALLPAPER_CONFIG;
+    } catch {
+      return DEFAULT_WALLPAPER_CONFIG;
+    }
+  });
+
+  const [isWallpaperModalOpen, setIsWallpaperModalOpen] = useState(false);
+
+  const handleSaveWallpaper = (newConfig: WallpaperConfig) => {
+    setWallpaperConfig(newConfig);
+    try {
+      localStorage.setItem(`whatsapp_wallpaper_${user?.email || 'default'}`, JSON.stringify(newConfig));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const theme = propTheme || internalTheme;
   const isDark = theme === 'dark';
@@ -171,6 +200,7 @@ export const WhatsAppMessenger: React.FC<WhatsAppMessengerProps> = ({
             isRefreshing={isRefreshing}
             theme={theme}
             onToggleTheme={handleToggleTheme}
+            onOpenWallpaperModal={() => setIsWallpaperModalOpen(true)}
           />
         </div>
 
@@ -186,6 +216,8 @@ export const WhatsAppMessenger: React.FC<WhatsAppMessengerProps> = ({
               onRefreshMessages={loadMessages}
               theme={theme}
               onToggleTheme={handleToggleTheme}
+              wallpaperConfig={wallpaperConfig}
+              onOpenWallpaperModal={() => setIsWallpaperModalOpen(true)}
             />
           ) : (
             <WhatsAppWebLanding
@@ -202,6 +234,15 @@ export const WhatsAppMessenger: React.FC<WhatsAppMessengerProps> = ({
         open={isDeviceModalOpen}
         onClose={() => setIsDeviceModalOpen(false)}
         groupsCount={chats.filter(c => c.is_group).length || 5}
+      />
+
+      {/* Wallpaper Settings & Customization Modal */}
+      <WallpaperSettingsModal
+        open={isWallpaperModalOpen}
+        onClose={() => setIsWallpaperModalOpen(false)}
+        config={wallpaperConfig}
+        onSaveConfig={handleSaveWallpaper}
+        theme={theme}
       />
     </div>
   );

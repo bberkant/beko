@@ -6,7 +6,8 @@ import {
   Smartphone, 
   RefreshCw,
   Moon,
-  Sun
+  Sun,
+  Palette
 } from 'lucide-react';
 import { WhatsAppChat, GatewaySession } from '../types';
 
@@ -20,6 +21,7 @@ interface WhatsAppChatListProps {
   isRefreshing?: boolean;
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
+  onOpenWallpaperModal?: () => void;
 }
 
 export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
@@ -31,7 +33,8 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
   onRefresh,
   isRefreshing = false,
   theme = 'light',
-  onToggleTheme
+  onToggleTheme,
+  onOpenWallpaperModal
 }) => {
   const isDark = theme === 'dark';
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,6 +119,21 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Wallpaper Customization Button */}
+          {onOpenWallpaperModal && (
+            <button
+              onClick={onOpenWallpaperModal}
+              className={`p-2 rounded-xl text-xs transition active:scale-95 flex items-center justify-center ${
+                isDark 
+                  ? 'text-emerald-400 hover:bg-[#2a3942] hover:text-emerald-300' 
+                  : 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'
+              }`}
+              title="Duvar Kağıdını Değiştir & Özelleştir"
+            >
+              <Palette size={16} />
+            </button>
+          )}
+
           {/* Dark / Light Theme Switcher */}
           {onToggleTheme && (
             <button
