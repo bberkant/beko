@@ -607,7 +607,7 @@ export function ChecksPage() {
           .from('ebs_checks')
           .select('*')
           .eq('organization_id', user.organizationId)
-          .or(`due_date.eq.${todayStr},status.ilike.%kayıp%,ozel_alan.ilike.%takasta%`)
+          .or(`due_date.eq.${todayStr},debtor.eq.TAKSİT,status.ilike.%kayıp%,ozel_alan.ilike.%takas%`)
           .order('due_date', { ascending: true });
 
         if (!initialError && initialChecks) {
@@ -1215,31 +1215,46 @@ export function ChecksPage() {
       String(today.getMonth() + 1).padStart(2, '0') + '-' + 
       String(today.getDate()).padStart(2, '0');
 
-    // 1. Durumu 'Tahsilde', 'beklemede', 'ödenmedi' olan, kesilen tipte ve vadesi bugün olan çekler (Veya özel alanı 'TAKASTA' ile başlayanlar)
-    const activeUnpaidKesilen = checks.filter(c => 
-      c.check_type === 'kesilen' && 
-      ['tahsilde', 'beklemede', 'ödenmedi'].includes(cleanStatus(c.status)) &&
-      c.due_date && (c.due_date.substring(0, 10) === todayStr || (c.ozel_alan || '').trim().toUpperCase().startsWith('TAKASTA'))
-    );
+    const isCheckPaid = (status: string | null | undefined): boolean => {
+      const clean = cleanStatus(status);
+      return clean.includes('ödendi') || 
+             clean.includes('ödenen') || 
+             clean.includes('tahsil edildi') || 
+             clean.includes('tahsilat') || 
+             clean.includes('ciro') ||
+             clean.includes('iade') || 
+             clean.includes('iptal');
+    };
 
-    // 2. Alınan çeklerde bugün tarihli asıl alacaklı kısmında 'HATIR BİZİM BORCUMUZ' veya 'HATIR BİZİM BORÇ' yazanlar (Veya özel alanı 'TAKASTA' ile başlayanlar)
+    // 1. Durumu 'Tahsilde', 'beklemede', 'ödenmedi' olan (yani Ödendi/İptal OLMAYAN), kesilen tipte:
+    // - Vadesi bugün olanlar
+    // - VEYA özel alanı 'TAKASTA' ile başlayanlar
+    // - VEYA taksit / manuel girilmiş olup henüz 'Ödendi' yapılmamış geçmiş kayıtlar (debtor === 'TAKSİT' veya !check_no)
+    const activeUnpaidKesilen = checks.filter(c => {
+      if (c.check_type !== 'kesilen') return false;
+      const status = cleanStatus(c.status);
+      if (isCheckPaid(c.status) || !['tahsilde', 'beklemede', 'ödenmedi'].includes(status)) {
+        return false;
+      }
+      if (!c.due_date) return false;
+      const due = c.due_date.substring(0, 10);
+      const isForced = (c.ozel_alan || '').trim().toUpperCase().startsWith('TAKASTA');
+      const isManualOrTaksit = c.debtor === 'TAKSİT' || !c.check_no;
+      
+      return due === todayStr || isForced || (isManualOrTaksit && due <= todayStr);
+    });
+
+    // 2. Alınan çeklerde asıl alacaklı kısmında 'HATIR BİZİM BORCUMUZ' veya 'HATIR BİZİM BORÇ' yazanlar (Veya özel alanı 'TAKASTA' ile başlayanlar)
     const hatirAlinan = checks.filter(c => {
       if (c.check_type !== 'alinan') return false;
+      if (isCheckPaid(c.status)) return false;
       
       const isForced = (c.ozel_alan || '').trim().toUpperCase().startsWith('TAKASTA');
       if (!isForced) {
-        if (!c.due_date || c.due_date.substring(0, 10) !== todayStr) return false;
+        if (!c.due_date) return false;
+        const due = c.due_date.substring(0, 10);
+        if (due > todayStr) return false;
       }
-      
-      const checkStatus = cleanStatus(c.status);
-      const isPaid = checkStatus.includes('ödendi') || 
-                     checkStatus.includes('ödenen') || 
-                     checkStatus.includes('tahsil edildi') || 
-                     checkStatus.includes('tahsilat') || 
-                     checkStatus.includes('ciro') ||
-                     checkStatus.includes('iade') ||
-                     checkStatus.includes('iptal');
-      if (isPaid) return false;
 
       return isForced || isHatirAlinan(c);
     });
@@ -1765,6 +1780,7 @@ export function ChecksPage() {
 
       if (context.type === 'takas') {
         insertData.debtor = context.colName;
+        insertData.ozel_alan = 'TAKASTA';
         if (field === 'amount') insertData.amount = parsedValue;
         if (field === 'creditor') insertData.creditor = parsedValue;
       } else if (context.type === 'nontakas') {
@@ -1817,6 +1833,13 @@ export function ChecksPage() {
   ) => {
     setOpenDropdown(null);
     if (!check || !user?.organizationId) return;
+
+    if (statusOption === 'odendi') {
+      const checkDesc = check.creditor || check.check_no ? ` (${check.creditor || ''} ${check.check_no ? 'No: ' + check.check_no : ''})` : '';
+      if (!confirm(`Bu çeki/ödemeyi${checkDesc} "Ödendi" olarak işaretlemek istediğinize emin misiniz?`)) {
+        return;
+      }
+    }
 
     // 1. Calculate new values optimistically
     let updatedOzelAlan = check.ozel_alan || '';
