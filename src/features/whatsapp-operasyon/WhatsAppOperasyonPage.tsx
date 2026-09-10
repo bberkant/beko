@@ -3,29 +3,42 @@ import {
   MessageSquare, 
   Smartphone, 
   RefreshCw, 
-  Sparkles, 
   ListTodo, 
   Settings2, 
-  Building2, 
-  Inbox
+  Inbox,
+  MessagesSquare
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
+import { WhatsAppMessenger } from './components/WhatsAppMessenger';
 import { IncomingMediaFeed } from './components/IncomingMediaFeed';
 import { TaskBoard } from './components/TaskBoard';
 import { GroupRoutingSettings } from './components/GroupRoutingSettings';
 import { DeviceConnectionModal } from './components/DeviceConnectionModal';
 
-export const WhatsAppOperasyonPage: React.FC = () => {
+interface WhatsAppOperasyonPageProps {
+  initialTab?: 'chat' | 'media' | 'tasks' | 'settings';
+}
+
+export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
+  initialTab = 'chat'
+}) => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'media' | 'tasks' | 'settings'>('media');
+  const [activeTab, setActiveTab] = useState<'chat' | 'media' | 'tasks' | 'settings'>(initialTab);
   const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Stats
   const [pendingMediaCount, setPendingMediaCount] = useState(0);
   const [openTasksCount, setOpenTasksCount] = useState(0);
   const [activeRulesCount, setActiveRulesCount] = useState(5);
+  const [totalChatsCount, setTotalChatsCount] = useState(7);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -66,6 +79,17 @@ export const WhatsAppOperasyonPage: React.FC = () => {
       }
       const rulesRes = await rulesQuery;
       setActiveRulesCount(rulesRes.count || 5);
+
+      // 4. Total chats count
+      let chatsQuery = supabase
+        .from('whatsapp_chats')
+        .select('*', { count: 'exact', head: true });
+
+      if (user?.organizationId) {
+        chatsQuery = chatsQuery.eq('organization_id', user.organizationId);
+      }
+      const chatsRes = await chatsQuery;
+      setTotalChatsCount(chatsRes.count || 7);
     } catch (err) {
       console.error('WhatsApp stats yükleme hatası:', err);
     } finally {
@@ -78,18 +102,20 @@ export const WhatsAppOperasyonPage: React.FC = () => {
   }, [loadStats]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Top Header Section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md">
               <MessageSquare size={22} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">WhatsApp Operasyon Masası</h1>
+              <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+                WhatsApp Panel & Operasyon Merkezi
+              </h1>
               <p className="text-xs text-gray-500 mt-0.5">
-                Şirket içi gruplardan gelen fiş, fatura ve talimatların ERP&apos;ye tek tıkla aktarım ve görev masası.
+                Panel içinden doğrudan WhatsApp mesajlaşması, canlı grup akışları ve tek tıkla ERP fiş entegrasyonu.
               </p>
             </div>
           </div>
@@ -103,7 +129,7 @@ export const WhatsAppOperasyonPage: React.FC = () => {
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs hover:bg-emerald-100 transition-colors cursor-pointer"
           >
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Gateway: Canlı Bağlı</span>
+            <span>QR Gateway: Canlı Eşleşme</span>
             <Smartphone size={14} className="text-emerald-700" />
           </button>
 
@@ -119,76 +145,39 @@ export const WhatsAppOperasyonPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div 
-          onClick={() => setActiveTab('media')}
-          className="p-4 rounded-2xl bg-white border border-gray-200 shadow-2xs flex items-center justify-between cursor-pointer hover:border-amber-300 transition"
-        >
-          <div>
-            <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">İşlem Bekleyen Fişler</div>
-            <div className="text-2xl font-extrabold text-amber-600 mt-1">{pendingMediaCount} Adet</div>
-            <div className="text-[11px] text-gray-500 mt-0.5">Sanayi, yakıt, kasa fişleri</div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-            <Inbox size={24} />
-          </div>
-        </div>
-
-        <div 
-          onClick={() => setActiveTab('tasks')}
-          className="p-4 rounded-2xl bg-white border border-gray-200 shadow-2xs flex items-center justify-between cursor-pointer hover:border-blue-300 transition"
-        >
-          <div>
-            <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Açık Grup Görevleri</div>
-            <div className="text-2xl font-extrabold text-blue-600 mt-1">{openTasksCount} Görev</div>
-            <div className="text-[11px] text-gray-500 mt-0.5">Sevkiyat & operasyon işleri</div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-            <ListTodo size={24} />
-          </div>
-        </div>
-
-        <div 
-          onClick={() => setActiveTab('settings')}
-          className="p-4 rounded-2xl bg-white border border-gray-200 shadow-2xs flex items-center justify-between cursor-pointer hover:border-emerald-300 transition"
-        >
-          <div>
-            <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">İzlenen WhatsApp Grubu</div>
-            <div className="text-2xl font-extrabold text-emerald-600 mt-1">{activeRulesCount} Grup</div>
-            <div className="text-[11px] text-emerald-700 font-medium mt-0.5">Mezbaha, Lojistik, Şubeler</div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <Building2 size={24} />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white border border-gray-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Otomasyon & OCR</div>
-            <div className="text-2xl font-extrabold text-purple-600 mt-1">%100</div>
-            <div className="text-[11px] text-purple-700 font-medium mt-0.5">Plaka ve tutar ayrıştırıcı aktif</div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-            <Sparkles size={24} />
-          </div>
-        </div>
-      </div>
-
       {/* Primary Navigation Tabs */}
-      <div className="flex border-b border-gray-200 bg-white px-2 rounded-xl shadow-2xs">
+      <div className="flex items-center gap-1 border-b border-gray-200 bg-white px-2 py-1 rounded-2xl shadow-2xs overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('chat')}
+          className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'chat'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <MessagesSquare size={16} />
+          <span>WhatsApp Sohbetleri (Web Client)</span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+            activeTab === 'chat' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+          }`}>
+            {totalChatsCount}
+          </span>
+        </button>
+
         <button
           onClick={() => setActiveTab('media')}
-          className={`px-5 py-3.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+          className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'media'
-              ? 'border-emerald-600 text-emerald-700'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
           <Inbox size={16} />
           <span>Gelen Fiş & Belge Havuzu</span>
           {pendingMediaCount > 0 && (
-            <span className="rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5">
+            <span className={`rounded-full text-[10px] font-extrabold px-2 py-0.5 ${
+              activeTab === 'media' ? 'bg-amber-400 text-gray-900' : 'bg-amber-100 text-amber-800'
+            }`}>
               {pendingMediaCount}
             </span>
           )}
@@ -196,16 +185,18 @@ export const WhatsAppOperasyonPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('tasks')}
-          className={`px-5 py-3.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+          className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'tasks'
-              ? 'border-emerald-600 text-emerald-700'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
           <ListTodo size={16} />
           <span>Grup Görevleri & İş Emirleri</span>
           {openTasksCount > 0 && (
-            <span className="rounded-full bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5">
+            <span className={`rounded-full text-[10px] font-extrabold px-2 py-0.5 ${
+              activeTab === 'tasks' ? 'bg-blue-300 text-gray-900' : 'bg-blue-100 text-blue-800'
+            }`}>
               {openTasksCount}
             </span>
           )}
@@ -213,10 +204,10 @@ export const WhatsAppOperasyonPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('settings')}
-          className={`px-5 py-3.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+          className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'settings'
-              ? 'border-emerald-600 text-emerald-700'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
           <Settings2 size={16} />
@@ -225,6 +216,10 @@ export const WhatsAppOperasyonPage: React.FC = () => {
       </div>
 
       {/* Tab Content */}
+      {activeTab === 'chat' && (
+        <WhatsAppMessenger />
+      )}
+
       {activeTab === 'media' && (
         <IncomingMediaFeed
           onRefreshStats={loadStats}

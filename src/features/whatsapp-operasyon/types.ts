@@ -1,4 +1,4 @@
-﻿export interface WhatsAppIncomingMedia {
+export interface WhatsAppIncomingMedia {
   id: string;
   organization_id: string;
   group_name: string;
@@ -73,4 +73,52 @@ export interface WhatsAppGroupRule {
   auto_task: boolean;
   is_active: boolean;
   created_at?: string;
+}
+
+export interface WhatsAppChat {
+  id: string;
+  organization_id: string;
+  chat_jid: string;
+  name: string;
+  phone_number?: string;
+  is_group: boolean;
+  avatar_url?: string;
+  unread_count: number;
+  last_message_text?: string;
+  last_message_time: string;
+  is_pinned?: boolean;
+  participants?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WhatsAppMessage {
+  id: string;
+  chat_id: string;
+  organization_id: string;
+  message_id?: string;
+  sender_name: string;
+  sender_phone?: string;
+  is_from_me: boolean;
+  message_type: 'text' | 'image' | 'document' | 'audio' | 'video';
+  body?: string;
+  media_url?: string;
+  media_caption?: string;
+  status: 'sent' | 'delivered' | 'read';
+  timestamp: string;
+  created_at?: string;
+}
+
+export interface GatewaySession {
+  id?: string;
+  organization_id?: string;
+  status: 'disconnected' | 'qr_ready' | 'connected' | 'error';
+  qr_code?: string | null;
+  qr_raw?: string | null;
+  phone_number?: string | null;
+  device_name?: string | null;
+  battery_level?: number;
+  is_charging?: boolean;
+  last_heartbeat?: string | null;
+  error_message?: string | null;
 }

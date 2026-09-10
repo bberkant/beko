@@ -161,9 +161,15 @@ export const navItems: NavItem[] = [
   },
   { label: 'Ay Sonu', to: '/ay-sonu', icon: TrendingUp },
   {
-    label: 'WhatsApp Operasyon',
-    to: '/whatsapp-operasyon',
+    label: 'WhatsApp',
+    to: '/whatsapp/sohbetler',
     icon: MessageSquare,
+    children: [
+      { label: 'WhatsApp Sohbetleri', to: '/whatsapp/sohbetler' },
+      { label: 'Gelen Fiş & Belge Havuzu', to: '/whatsapp/belgeler' },
+      { label: 'Grup Görevleri', to: '/whatsapp/gorevler' },
+      { label: 'Grup Ayarları', to: '/whatsapp/ayarlar' },
+    ],
   },
   { label: 'Bildirimler', to: '/bildirimler', icon: Bell },
   { label: 'Takvim', to: '/takvim', icon: CalendarDays },

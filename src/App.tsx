@@ -91,9 +91,14 @@ export default function App() {
               <Route element={<StoreProvider><VehiclesProvider><BankAccountsProvider><AppLayout /></BankAccountsProvider></VehiclesProvider></StoreProvider>}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 
-                {/* WhatsApp Operasyon Sadece Admin & Yöneticilere Özeldir */}
+                {/* WhatsApp Paneli Sadece Admin & Yöneticilere Özeldir */}
                 <Route element={<AdminRoute />}>
-                  <Route path="/whatsapp-operasyon" element={<WhatsAppOperasyonPage />} />
+                  <Route path="/whatsapp" element={<WhatsAppOperasyonPage initialTab="chat" />} />
+                  <Route path="/whatsapp/sohbetler" element={<WhatsAppOperasyonPage initialTab="chat" />} />
+                  <Route path="/whatsapp/belgeler" element={<WhatsAppOperasyonPage initialTab="media" />} />
+                  <Route path="/whatsapp/gorevler" element={<WhatsAppOperasyonPage initialTab="tasks" />} />
+                  <Route path="/whatsapp/ayarlar" element={<WhatsAppOperasyonPage initialTab="settings" />} />
+                  <Route path="/whatsapp-operasyon" element={<Navigate to="/whatsapp/sohbetler" replace />} />
                 </Route>
                 
                 <Route path="/finans/kredi-kartlari" element={<CreditCardListPage />} />
