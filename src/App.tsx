@@ -53,6 +53,7 @@ import { DisMuhasebePage } from './features/dis-muhasebe/DisMuhasebePage';
 import { HukukiIslemlerPage } from './features/hukuk/HukukiIslemlerPage';
 import { SubelerPage } from './features/subeler/SubelerPage';
 import { WhatsAppOperasyonPage } from './features/whatsapp-operasyon/WhatsAppOperasyonPage';
+import { FindeksPage } from './features/findeks/pages/FindeksPage';
 
 function SuperAdminRoute() {
   const { user, loading } = useAuth();
@@ -105,6 +106,7 @@ export default function App() {
                 <Route path="/finans/pos-fark-hesaplama" element={<PosDifferencesPage />} />
                 <Route path="/kesim-listesi/acik-mal-odemeleri" element={<AcikMalOdemeleriPage />} />
                 <Route path="/finans/cekten-hesabi" element={<CektenHesabiPage />} />
+                <Route path="/finans/findeks" element={<FindeksPage />} />
                 <Route path="/finans" element={<Navigate to="/finans/kredi-kartlari" replace />} />
                 
                 {/* Banka Hesapları, Hareketleri ve Ay Sonu Kokpiti Sadece Süper Admin & Developer'a Özeldir */}
