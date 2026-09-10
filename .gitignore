@@ -24,5 +24,6 @@ dist-ssr
 *.zip
 *.rar
 dosyalar/
+!dosyalar/vega-api-service/**
 scratch/
 marif_incoming_cache.json
