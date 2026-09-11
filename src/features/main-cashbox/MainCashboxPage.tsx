@@ -1908,14 +1908,14 @@ export function MainCashboxPage() {
                       </div>
 
                       {/* Main Headers (ÇIKIŞ | GİRİŞ) */}
-                      <div className="grid grid-cols-[57%_14px_41%] border-b-2 border-black bg-white h-[44px] items-center text-center font-black text-[20px] tracking-widest uppercase">
-                        <div className="text-rose-700 py-1">ÇIKIŞ</div>
+                      <div className="grid grid-cols-[57%_14px_41%] border-b-2 border-black bg-white h-[44px] items-center text-center font-bold text-[20px] tracking-widest uppercase">
+                        <div className="text-black py-1">ÇIKIŞ</div>
                         <div className="border-l border-black border-r border-black h-full bg-white"></div>
-                        <div className="text-emerald-700 py-1">GİRİŞ</div>
+                        <div className="text-black py-1">GİRİŞ</div>
                       </div>
 
                       {/* Column Headers Row */}
-                      <div className="grid grid-cols-[57%_14px_41%] border-b-2 border-black bg-gray-100 h-[34px] items-center text-xs font-black uppercase text-gray-800 tracking-wider">
+                      <div className="grid grid-cols-[57%_14px_41%] border-b-2 border-black bg-gray-100 h-[34px] items-center text-xs font-bold uppercase text-gray-800 tracking-wider">
                         {/* Outflow Headers */}
                         <div className="flex divide-x divide-black h-full items-center">
                           <div className="w-[55%] pl-3 text-left">Açıklama / Cari</div>
@@ -1957,8 +1957,8 @@ export function MainCashboxPage() {
                                 <div className="w-[20%] h-full flex items-center">
                                   <input
                                     type="text"
-                                    className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-left pl-3 text-[14px] truncate uppercase font-black text-rose-700"
-                                    style={{ color: '#be123c' }}
+                                    className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-left pl-3 text-[14px] truncate uppercase font-bold"
+                                    style={{ color: '#FF0000' }}
                                     defaultValue={cRow.bankOrType}
                                     onBlur={e => handleCellBlur('cikis', 'bankOrType', index, e.target.value)}
                                     disabled={!isStaff}
@@ -1970,7 +1970,7 @@ export function MainCashboxPage() {
                                   <input
                                     key={`cikis-amt-${index}-${cRow.amount}`}
                                     type="text"
-                                    className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-right pr-1 text-[14px] font-black text-gray-950"
+                                    className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-right pr-1 text-[14px] font-bold text-gray-950"
                                     defaultValue={cRow.amount !== '' ? new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(Number(cRow.amount)) : ''}
                                     onBlur={e => handleCellBlur('cikis', 'amount', index, e.target.value)}
                                     disabled={!isStaff}
@@ -1989,9 +1989,9 @@ export function MainCashboxPage() {
                                   <input
                                     type="text"
                                     className={`w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-right pr-3 text-[14px] truncate uppercase font-bold ${
-                                      isInflowKasa ? 'text-red-600 font-black' : 'text-gray-900'
+                                      isInflowKasa ? 'font-bold' : 'text-gray-900'
                                     }`}
-                                    style={{ color: isInflowKasa ? '#dc2626' : undefined }}
+                                    style={{ color: isInflowKasa ? '#FF0000' : undefined }}
                                     defaultValue={gRow.description}
                                     onBlur={e => handleCellBlur('giris', 'description', index, e.target.value)}
                                     disabled={!isStaff}
@@ -2003,10 +2003,10 @@ export function MainCashboxPage() {
                                   <input
                                     key={`giris-amt-${index}-${gRow.amount}`}
                                     type="text"
-                                    className={`w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-right pr-1 text-[14px] font-black ${
-                                      isInflowKasa ? 'text-red-600 font-black' : 'text-gray-950'
+                                    className={`w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 text-right pr-1 text-[14px] font-bold ${
+                                      isInflowKasa ? 'font-bold' : 'text-gray-950'
                                     }`}
-                                    style={{ color: isInflowKasa ? '#dc2626' : undefined }}
+                                    style={{ color: isInflowKasa ? '#FF0000' : undefined }}
                                     defaultValue={gRow.amount !== '' ? new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(Number(gRow.amount)) : ''}
                                     onBlur={e => handleCellBlur('giris', 'amount', index, e.target.value)}
                                     disabled={!isStaff}
@@ -2020,16 +2020,16 @@ export function MainCashboxPage() {
                       </div>
 
                       {/* Sum Footer Row */}
-                      <div className="grid grid-cols-[57%_14px_41%] border-t-2 border-black text-[15px] font-black bg-gray-50 h-[34px] items-center">
+                      <div className="grid grid-cols-[57%_14px_41%] border-t-2 border-black text-[15px] font-bold bg-gray-50 h-[34px] items-center">
                         <div className="flex justify-between items-center h-full px-3">
-                          <span className="font-black text-red-600">TOPLAM</span>
-                          <span className="font-black text-gray-950">{new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(reportTotalOut)}</span>
+                          <span className="font-bold" style={{ color: '#FF0000' }}>TOPLAM</span>
+                          <span className="font-bold text-gray-950">{new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(reportTotalOut)}</span>
                         </div>
                         {/* Divider */}
                         <div className="border-l border-black border-r border-black h-full bg-gray-50"></div>
                         <div className="flex justify-between items-center h-full px-3">
-                          <span className="font-black text-red-600">TOPLAM</span>
-                          <span className="font-black text-gray-950">{new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(reportTotalIn)}</span>
+                          <span className="font-bold" style={{ color: '#FF0000' }}>TOPLAM</span>
+                          <span className="font-bold text-gray-950">{new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(reportTotalIn)}</span>
                         </div>
                       </div>
 
@@ -2037,8 +2037,8 @@ export function MainCashboxPage() {
 
                     {/* Kasa Farkı Display */}
                     <div className="flex justify-end mt-2">
-                      <div className="px-5 py-2 border-2 border-black bg-white font-black text-[17px] text-right min-w-[160px]" style={{ fontFamily: 'Calibri, sans-serif' }}>
-                        <span className={reportDiff >= 0 ? 'text-blue-600' : 'text-red-600'}>
+                      <div className="px-5 py-2 border-2 border-black bg-white font-bold text-[17px] text-right min-w-[160px]" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                        <span className={reportDiff >= 0 ? 'text-blue-600' : ''} style={{ color: reportDiff < 0 ? '#FF0000' : undefined }}>
                           {new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(reportDiff)}
                         </span>
                       </div>

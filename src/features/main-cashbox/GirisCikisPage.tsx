@@ -1236,7 +1236,7 @@ export function GirisCikisPage() {
               <div className="border-2 border-black bg-white shadow-sm flex flex-col min-w-0">
                 
                 {/* POSLAR Header (Height 34px matching all subheaders across the page) */}
-                <div className="border-b-2 border-black text-center h-[34px] flex items-center justify-center text-xs font-black text-rose-600 tracking-wider uppercase bg-gray-50">
+                <div className="border-b-2 border-black text-center h-[34px] flex items-center justify-center text-xs font-bold text-gray-900 tracking-wider uppercase bg-gray-50">
                   POSLAR
                 </div>
 
@@ -1275,7 +1275,7 @@ export function GirisCikisPage() {
                 <div className="h-[32px] border-b border-black bg-white"></div>
 
                 {/* 15) POS TOPLAM */}
-                <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-bold text-rose-600 bg-rose-50/40">
+                <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-bold text-gray-900 bg-gray-50">
                   <span className="uppercase">TOPLAM</span>
                   <span className="text-xs font-bold">{formatExcel(posTotal)}</span>
                 </div>
@@ -1298,9 +1298,10 @@ export function GirisCikisPage() {
                 {/* 19) GİRİŞ-ÇIKIŞ KALANI (Tam DEPO hizasında, index 18) */}
                 <div className="flex items-center justify-between px-2.5 h-[32px] text-xs font-bold bg-white">
                   <span className="uppercase text-[11px] text-gray-900">GİRİŞ-ÇIKIŞ KALANI</span>
-                  <span className={`text-xs font-bold ${
-                    netKalan < 0 ? 'text-rose-600' : 'text-gray-950'
-                  }`}>
+                  <span 
+                    className="text-xs font-bold text-gray-950"
+                    style={{ color: netKalan < 0 ? '#FF0000' : undefined }}
+                  >
                     {formatExcel(netKalan)}
                   </span>
                 </div>
@@ -1311,7 +1312,7 @@ export function GirisCikisPage() {
               <div className="border-2 border-black bg-white shadow-sm flex flex-col">
                 
                 {/* GİRİŞ HAREKETLERİ Subheaders (Exact 34px to align with POSLAR, ÇIKIŞ and ANA KASA) */}
-                <div className="flex divide-x divide-black border-b-2 border-black bg-gray-50 h-[34px] items-center text-xs font-black uppercase text-gray-800 tracking-wider">
+                <div className="flex divide-x divide-black border-b-2 border-black bg-gray-50 h-[34px] items-center text-xs font-bold uppercase text-gray-800 tracking-wider">
                   <div className="w-[48%] pl-2 text-left">AÇIKLAMA / CARİ</div>
                   <div className="w-[24%] pl-2 text-left">BANKA / TÜR</div>
                   <div className="w-[28%] pr-2 text-right">TUTAR</div>
@@ -1328,9 +1329,8 @@ export function GirisCikisPage() {
                       <div className="w-[48%] h-full flex items-center">
                         <input
                           type="text"
-                          className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-xs uppercase ${
-                            isRed ? 'text-rose-600 font-black' : 'text-gray-900 font-bold'
-                          }`}
+                          className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-xs uppercase font-bold text-gray-900"
+                          style={{ color: isRed ? '#FF0000' : undefined }}
                           value={g.description}
                           onChange={(e) => {
                             isUserDirtyRef.current = true;
@@ -1364,9 +1364,8 @@ export function GirisCikisPage() {
                       <div className="w-[28%] h-full flex items-center justify-end pr-1">
                         <input
                           type="text"
-                          className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-xs font-bold ${
-                            isDevir ? 'text-rose-600 font-bold' : 'text-gray-950'
-                          }`}
+                          className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-xs font-bold text-gray-950"
+                          style={{ color: isDevir ? '#FF0000' : undefined }}
                           value={g.amount}
                           onChange={(e) => {
                             isUserDirtyRef.current = true;
@@ -1433,9 +1432,8 @@ export function GirisCikisPage() {
                     <div className="w-[48%] h-full flex items-center">
                       <input
                         type="text"
-                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-xs uppercase ${
-                          isRedLabel(c.description) ? 'text-rose-600 font-bold' : 'text-gray-900 font-bold'
-                        }`}
+                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-xs uppercase font-bold text-gray-900"
+                        style={{ color: isRedLabel(c.description) ? '#FF0000' : undefined }}
                         value={c.description}
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
@@ -1451,7 +1449,8 @@ export function GirisCikisPage() {
                     <div className="w-[24%] h-full flex items-center">
                       <input
                         type="text"
-                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-xs font-bold uppercase text-rose-700"
+                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-xs font-bold uppercase"
+                        style={{ color: '#FF0000' }}
                         value={c.bankOrType}
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
@@ -1467,7 +1466,7 @@ export function GirisCikisPage() {
                     <div className="w-[28%] h-full flex items-center justify-end pr-1">
                       <input
                         type="text"
-                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-xs font-bold text-rose-800"
+                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-xs font-bold text-gray-950"
                         value={c.amount}
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
@@ -1513,7 +1512,7 @@ export function GirisCikisPage() {
           <div className="flex flex-col min-w-0">
             <div className="border-2 border-black bg-white shadow-sm overflow-hidden flex flex-col min-w-0">
               {/* Header */}
-              <div className="border-b-2 border-black bg-white h-[40px] flex items-center justify-center font-black text-[19px] tracking-widest text-[#1f4e79] uppercase">
+              <div className="border-b-2 border-black bg-white h-[40px] flex items-center justify-center font-bold text-[19px] tracking-widest text-[#1f4e79] uppercase">
                 ANA KASA
               </div>
 
@@ -1556,9 +1555,8 @@ export function GirisCikisPage() {
                     <div className="w-[15%] h-full flex items-center justify-end pr-0.5 min-w-0">
                       <input
                         type="text"
-                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold ${
-                          parseNum(ak.devir) < 0 ? 'text-rose-600' : 'text-gray-900'
-                        }`}
+                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold text-gray-900"
+                        style={{ color: parseNum(ak.devir) < 0 ? '#FF0000' : undefined }}
                         value={ak.devir}
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
@@ -1589,9 +1587,8 @@ export function GirisCikisPage() {
                     <div className="w-[15%] h-full flex items-center justify-end pr-0.5 min-w-0">
                       <input
                         type="text"
-                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold ${
-                          parseNum(ak.movement) < 0 ? 'text-rose-600' : (parseNum(ak.movement) > 0 ? 'text-emerald-700' : 'text-gray-500')
-                        }`}
+                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold text-gray-900"
+                        style={{ color: parseNum(ak.movement) < 0 ? '#FF0000' : (parseNum(ak.movement) > 0 ? '#047857' : undefined) }}
                         value={ak.movement}
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
@@ -1653,9 +1650,8 @@ export function GirisCikisPage() {
                     <div className="w-[15%] h-full flex items-center justify-end pr-0.5 bg-indigo-50/30 min-w-0">
                       <input
                         type="text"
-                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold ${
-                          parseNum(ak.duzeltme || '') < 0 ? 'text-rose-600' : 'text-indigo-900'
-                        }`}
+                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold text-indigo-900"
+                        style={{ color: parseNum(ak.duzeltme || '') < 0 ? '#FF0000' : undefined }}
                         value={ak.duzeltme !== undefined && ak.duzeltme !== null ? ak.duzeltme : ''}
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
@@ -1687,9 +1683,8 @@ export function GirisCikisPage() {
                     <div className="w-[15%] h-full flex items-center justify-end pr-1 bg-blue-50/40 min-w-0">
                       <input
                         type="text"
-                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold ${
-                          parseNum(ak.gunSonu || '') < 0 ? 'text-rose-700' : 'text-gray-950'
-                        }`}
+                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold text-gray-950"
+                        style={{ color: parseNum(ak.gunSonu || '') < 0 ? '#FF0000' : undefined }}
                         value={ak.gunSonu !== undefined && ak.gunSonu !== null ? ak.gunSonu : ''}
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
@@ -1721,9 +1716,10 @@ export function GirisCikisPage() {
               <div className="w-[85%] pl-2 text-right pr-2 font-bold text-gray-700 uppercase">
                 TOPLAM KASA BAKİYESİ:
               </div>
-              <div className={`w-[15%] h-full flex items-center justify-end pr-2 font-bold ${
-                anaKasaTotal < 0 ? 'text-rose-600' : 'text-gray-950'
-              }`}>
+              <div 
+                className="w-[15%] h-full flex items-center justify-end pr-2 font-bold text-gray-950"
+                style={{ color: anaKasaTotal < 0 ? '#FF0000' : undefined }}
+              >
                 {formatAnaKasa(anaKasaTotal)}
               </div>
             </div>
@@ -1733,9 +1729,10 @@ export function GirisCikisPage() {
               <div className="w-[85%] pl-2 text-right pr-2 font-bold text-gray-700 uppercase">
                 GİRİŞ-ÇIKIŞ KALANI:
               </div>
-              <div className={`w-[15%] h-full flex items-center justify-end pr-2 font-bold ${
-                netKalan < 0 ? 'text-rose-600' : 'text-gray-950'
-              }`}>
+              <div 
+                className="w-[15%] h-full flex items-center justify-end pr-2 font-bold text-gray-950"
+                style={{ color: netKalan < 0 ? '#FF0000' : undefined }}
+              >
                 {formatAnaKasa(netKalan)}
               </div>
             </div>
@@ -1745,9 +1742,10 @@ export function GirisCikisPage() {
               <div className="w-[85%] pl-2 text-right pr-2 font-bold text-gray-700 uppercase">
                 KASA:
               </div>
-              <div className={`w-[15%] h-full flex items-center justify-end pr-2 font-bold ${
-                bakiyeFarki < 0 ? 'text-rose-600' : 'text-gray-950'
-              }`}>
+              <div 
+                className="w-[15%] h-full flex items-center justify-end pr-2 font-bold text-gray-950"
+                style={{ color: bakiyeFarki < 0 ? '#FF0000' : undefined }}
+              >
                 {bakiyeFarki === 0 ? '0' : formatAnaKasa(bakiyeFarki)}
               </div>
             </div>
