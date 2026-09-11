@@ -735,7 +735,7 @@ export function MainCashboxPage() {
     void refresh();
   }, [refresh]);
 
-  // Live Multi-Report Search across Ana Kasa & Bank Transactions
+  // Live Search scoped strictly to currently active module/section
   useEffect(() => {
     const q = query.trim().toLocaleLowerCase('tr-TR');
     if (q.length < 2) {
@@ -751,104 +751,108 @@ export function MainCashboxPage() {
       try {
         const results: SearchResultItem[] = [];
 
-        // 1. Search in cashbox_ana_kasa_reports
-        let anaKasaQuery = supabase
-          .from('cashbox_ana_kasa_reports')
-          .select('report_date, data')
-          .order('report_date', { ascending: false });
+        // 1. Ana Kasa Günlük Rapor sayfasındaysak: SADECE cashbox_ana_kasa_reports içinde ara
+        if (activeSection === 'rapor_yeni' || activeSection === 'rapor') {
+          let anaKasaQuery = supabase
+            .from('cashbox_ana_kasa_reports')
+            .select('report_date, data')
+            .order('report_date', { ascending: false });
 
-        if (isRange && startDate && endDate) {
-          anaKasaQuery = anaKasaQuery.gte('report_date', startDate).lte('report_date', endDate);
-        }
+          if (isRange && startDate && endDate) {
+            anaKasaQuery = anaKasaQuery.gte('report_date', startDate).lte('report_date', endDate);
+          }
 
-        const { data: anaKasaData } = await anaKasaQuery;
-        if (anaKasaData) {
-          for (const row of anaKasaData) {
-            const rDate = row.report_date;
-            const sheetRows = row.data?.rows || [];
-            for (let i = 3; i < sheetRows.length; i++) {
-              const r = sheetRows[i] || [];
-              const c0 = String(r[0] || '').trim();
-              const c1 = String(r[1] || '').trim();
-              const c2 = r[2];
-              const c4 = String(r[4] || '').trim();
-              const c5 = r[5];
+          const { data: anaKasaData } = await anaKasaQuery;
+          if (anaKasaData && !isCancelled) {
+            for (const row of anaKasaData) {
+              const rDate = row.report_date;
+              const sheetRows = row.data?.rows || [];
+              for (let i = 3; i < sheetRows.length; i++) {
+                const r = sheetRows[i] || [];
+                const c0 = String(r[0] || '').trim();
+                const c1 = String(r[1] || '').trim();
+                const c2 = r[2];
+                const c4 = String(r[4] || '').trim();
+                const c5 = r[5];
 
-              if (c0.toLocaleLowerCase('tr-TR').includes(q) || c1.toLocaleLowerCase('tr-TR').includes(q)) {
-                results.push({
-                  date: rDate,
-                  category: 'ÇIKIŞ',
-                  description: c0,
-                  bankOrType: c1,
-                  amount: c2 || ''
-                });
+                if (c0.toLocaleLowerCase('tr-TR').includes(q) || c1.toLocaleLowerCase('tr-TR').includes(q)) {
+                  results.push({
+                    date: rDate,
+                    category: 'ÇIKIŞ',
+                    description: c0,
+                    bankOrType: c1,
+                    amount: c2 || ''
+                  });
+                }
+                if (c4.toLocaleLowerCase('tr-TR').includes(q)) {
+                  results.push({
+                    date: rDate,
+                    category: 'GİRİŞ',
+                    description: c4,
+                    bankOrType: 'GİRİŞ',
+                    amount: c5 || ''
+                  });
+                }
               }
-              if (c4.toLocaleLowerCase('tr-TR').includes(q)) {
-                results.push({
-                  date: rDate,
-                  category: 'GİRİŞ',
-                  description: c4,
-                  bankOrType: 'GİRİŞ',
-                  amount: c5 || ''
-                });
-              }
-            }
 
-            // Arka sayfa cariler
-            const cariler = row.data?.arka_sayfa?.cariler || [];
-            for (const c of cariler) {
-              const name = String(c.name || '').trim();
-              if (name.toLocaleLowerCase('tr-TR').includes(q)) {
-                results.push({
-                  date: rDate,
-                  category: 'CARİ TAH.',
-                  description: name,
-                  bankOrType: 'RAPOR ARKA SAYFA',
-                  amount: c.amount || ''
-                });
+              // Arka sayfa cariler
+              const cariler = row.data?.arka_sayfa?.cariler || [];
+              for (const c of cariler) {
+                const name = String(c.name || '').trim();
+                if (name.toLocaleLowerCase('tr-TR').includes(q)) {
+                  results.push({
+                    date: rDate,
+                    category: 'CARİ TAH.',
+                    description: name,
+                    bankOrType: 'RAPOR ARKA SAYFA',
+                    amount: c.amount || ''
+                  });
+                }
               }
             }
           }
         }
 
-        // 2. Search in cashbox_gunluk_hesap_reports (Günlük Hesap 11 Banka)
-        let gHesapQuery = supabase
-          .from('cashbox_gunluk_hesap_reports')
-          .select('report_date, data')
-          .order('report_date', { ascending: false });
+        // 2. Günlük Hesap (Banka Defterleri) sayfasındaysak: SADECE cashbox_gunluk_hesap_reports içinde ara
+        if (activeSection === 'gunluk_hesap') {
+          let gHesapQuery = supabase
+            .from('cashbox_gunluk_hesap_reports')
+            .select('report_date, data')
+            .order('report_date', { ascending: false });
 
-        if (isRange && startDate && endDate) {
-          gHesapQuery = gHesapQuery.gte('report_date', startDate).lte('report_date', endDate);
-        }
+          if (isRange && startDate && endDate) {
+            gHesapQuery = gHesapQuery.gte('report_date', startDate).lte('report_date', endDate);
+          }
 
-        const { data: gHesapData } = await gHesapQuery;
-        if (gHesapData) {
-          for (const row of gHesapData) {
-            const rDate = row.report_date;
-            const banks = row.data?.banks || {};
-            for (const [bName, bData] of Object.entries<any>(banks)) {
-              for (const outTx of Object.values<any>(bData.outflows || {})) {
-                const desc = String(outTx.description || '').trim();
-                if (desc.toLocaleLowerCase('tr-TR').includes(q)) {
-                  results.push({
-                    date: rDate,
-                    category: 'BANKA ÇIKIŞ',
-                    description: desc,
-                    bankOrType: bName,
-                    amount: outTx.amount || ''
-                  });
+          const { data: gHesapData } = await gHesapQuery;
+          if (gHesapData && !isCancelled) {
+            for (const row of gHesapData) {
+              const rDate = row.report_date;
+              const banks = row.data?.banks || {};
+              for (const [bName, bData] of Object.entries<any>(banks)) {
+                for (const outTx of Object.values<any>(bData.outflows || {})) {
+                  const desc = String(outTx.description || '').trim();
+                  if (desc.toLocaleLowerCase('tr-TR').includes(q)) {
+                    results.push({
+                      date: rDate,
+                      category: 'BANKA ÇIKIŞ',
+                      description: desc,
+                      bankOrType: bName,
+                      amount: outTx.amount || ''
+                    });
+                  }
                 }
-              }
-              for (const inTx of Object.values<any>(bData.inflows || {})) {
-                const desc = String(inTx.description || '').trim();
-                if (desc.toLocaleLowerCase('tr-TR').includes(q)) {
-                  results.push({
-                    date: rDate,
-                    category: 'BANKA GİRİŞ',
-                    description: desc,
-                    bankOrType: bName,
-                    amount: inTx.amount || ''
-                  });
+                for (const inTx of Object.values<any>(bData.inflows || {})) {
+                  const desc = String(inTx.description || '').trim();
+                  if (desc.toLocaleLowerCase('tr-TR').includes(q)) {
+                    results.push({
+                      date: rDate,
+                      category: 'BANKA GİRİŞ',
+                      description: desc,
+                      bankOrType: bName,
+                      amount: inTx.amount || ''
+                    });
+                  }
                 }
               }
             }
@@ -868,7 +872,7 @@ export function MainCashboxPage() {
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [query, isRange, startDate, endDate, user?.organizationId]);
+  }, [query, isRange, startDate, endDate, activeSection, user?.organizationId]);
 
 
 
