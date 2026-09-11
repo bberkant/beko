@@ -712,7 +712,12 @@ export function GirisCikisPage() {
 
   // Calculated fallbacks (only used if Excel didn't provide a direct total or user creates a new blank day)
   const calcGirisTotal = useMemo(() => {
-    return girisList.reduce((sum, item) => sum + parseNum(item.amount), 0);
+    return girisList.reduce((sum, item, idx) => {
+      // 1. satır (Devir Bakiye) gün içi giriş değil, dünden devreden bakiyedir; gün içi Giriş Toplamı'na katılmaz
+      const isDevir = idx === 0 || (item.description || '').trim().toLocaleUpperCase('tr-TR').startsWith('DEVİR') || (item.description || '').trim().toLocaleUpperCase('tr-TR').startsWith('DEVIR');
+      if (isDevir) return sum;
+      return sum + parseNum(item.amount);
+    }, 0);
   }, [girisList]);
 
   const calcCikisTotal = useMemo(() => {
