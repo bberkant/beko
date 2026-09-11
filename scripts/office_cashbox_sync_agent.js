@@ -427,8 +427,25 @@ async function processGirisCikisWorkbook(wb, filePath) {
       let gunSonu = (rCell && rCell.v !== undefined && rCell.v !== '') ? cleanNum(rCell.v) : 0;
       
       const isKasa = upperName === 'KASA';
-      const computedGunSonu = isKasa ? (move + pos + duzeltme) : (devir + move + pos + duzeltme);
-      if (gunSonu === 0 && (!rCell || rCell.v === undefined || rCell.v === '') && (devir !== 0 || move !== 0 || pos !== 0 || duzeltme !== 0)) {
+      const isDepo = upperName === 'DEPO';
+      let depoGirisTotal = 0;
+      let depoCikisTotal = 0;
+      if (isDepo) {
+        for (const g of girisList) {
+          const desc = String(g.description || '').trim().toUpperCase();
+          const bank = String(g.bankOrType || '').trim().toUpperCase();
+          if (desc === 'DEPO' || bank === 'DEPO') depoGirisTotal += cleanNum(g.amount);
+        }
+        for (const c of cikisList) {
+          const desc = String(c.description || '').trim().toUpperCase();
+          if (desc.startsWith('DEPO ÇIKIŞ') || desc.startsWith('DEPO CIKIS')) depoCikisTotal += cleanNum(c.amount);
+        }
+      }
+
+      const computedGunSonu = isKasa 
+        ? (move + pos + duzeltme) 
+        : (isDepo ? (devir + depoGirisTotal - depoCikisTotal) : (devir + move + pos + duzeltme));
+      if (gunSonu === 0 && (!rCell || rCell.v === undefined || rCell.v === '') && (devir !== 0 || move !== 0 || pos !== 0 || duzeltme !== 0 || isDepo)) {
         gunSonu = computedGunSonu;
       }
 

@@ -198,13 +198,43 @@ const formatAnaKasaNumber = (val: number | string | '' | undefined | null): stri
   }).format(num);
 };
 
-const calcRowGunSonu = (name: any, devir: any, movement: any, pos: any, duzeltme: any): string => {
+const calcRowGunSonu = (
+  name: any, 
+  devir: any, 
+  movement: any, 
+  pos: any, 
+  duzeltme: any,
+  girisRows?: GirisItem[],
+  cikisRows?: CikisItem[]
+): string => {
   const upper = String(name || '').trim().toLocaleUpperCase('tr-TR');
   const isKasa = upper === 'KASA';
+  const isDepo = upper === 'DEPO';
   const devirNum = parseNum(devir);
   const moveNum = parseNum(movement);
   const posNum = parseNum(pos);
   const duzNum = parseNum(duzeltme);
+
+  if (isDepo && girisRows && cikisRows) {
+    let depoGiris = 0;
+    for (const g of girisRows) {
+      const desc = (g.description || '').trim().toLocaleUpperCase('tr-TR');
+      const bank = (g.bankOrType || '').trim().toLocaleUpperCase('tr-TR');
+      if (desc === 'DEPO' || bank === 'DEPO') {
+        depoGiris += parseNum(g.amount);
+      }
+    }
+    let depoCikis = 0;
+    for (const c of cikisRows) {
+      const desc = (c.description || '').trim().toLocaleUpperCase('tr-TR');
+      if (desc.startsWith('DEPO ÇIKIŞ') || desc.startsWith('DEPO CIKIS')) {
+        depoCikis += parseNum(c.amount);
+      }
+    }
+    const computed = devirNum + depoGiris - depoCikis;
+    return formatAnaKasaNumber(computed);
+  }
+
   const hasInput = (devir !== '' && devir !== undefined && devir !== null) ||
                    (movement !== '' && movement !== undefined && movement !== null) ||
                    (pos !== '' && pos !== undefined && pos !== null) ||
@@ -215,8 +245,30 @@ const calcRowGunSonu = (name: any, devir: any, movement: any, pos: any, duzeltme
   return formatAnaKasaNumber(computed);
 };
 
-const fitAnaKasaRows = (raw: any[]): AnaKasaItem[] => {
+const fitAnaKasaRows = (raw: any[], girisRaw?: any[], cikisRaw?: any[]): AnaKasaItem[] => {
   if (!Array.isArray(raw)) return [];
+
+  let depoGiris = 0;
+  if (Array.isArray(girisRaw)) {
+    for (const g of girisRaw) {
+      const desc = String(g?.description || '').trim().toLocaleUpperCase('tr-TR');
+      const bank = String(g?.bankOrType || '').trim().toLocaleUpperCase('tr-TR');
+      if (desc === 'DEPO' || bank === 'DEPO') {
+        depoGiris += parseNum(g?.amount);
+      }
+    }
+  }
+
+  let depoCikis = 0;
+  if (Array.isArray(cikisRaw)) {
+    for (const c of cikisRaw) {
+      const desc = String(c?.description || '').trim().toLocaleUpperCase('tr-TR');
+      if (desc.startsWith('DEPO ÇIKIŞ') || desc.startsWith('DEPO CIKIS')) {
+        depoCikis += parseNum(c?.amount);
+      }
+    }
+  }
+
   const sanitized = raw.map((item) => {
     if (!item) {
       return {
@@ -253,6 +305,7 @@ const fitAnaKasaRows = (raw: any[]): AnaKasaItem[] => {
     }
 
     const isKasa = upper === 'KASA';
+    const isDepo = upper === 'DEPO';
     const devirNum = parseNum(item.devir);
     const moveNum = parseNum(item.movement);
     const posNum = parseNum(item.pos);
@@ -262,11 +315,16 @@ const fitAnaKasaRows = (raw: any[]): AnaKasaItem[] => {
       ? String(item.gunSonu).trim()
       : '';
 
-    // If gunSonu is empty, calculate it automatically from devir, movement, pos, duzeltme!
-    if (!gunSonu && (item.devir !== '' || item.movement !== '' || item.pos !== '' || item.duzeltme !== '')) {
-      const computed = isKasa ? (moveNum + posNum + duzNum) : (devirNum + moveNum + posNum + duzNum);
-      if (computed !== 0 || item.movement !== '' || item.pos !== '' || item.duzeltme !== '') {
+    // If gunSonu is empty, calculate it automatically!
+    if (!gunSonu) {
+      if (isDepo && (item.devir !== '' || depoGiris !== 0 || depoCikis !== 0)) {
+        const computed = devirNum + depoGiris - depoCikis;
         gunSonu = formatAnaKasaNumber(computed);
+      } else if (item.devir !== '' || item.movement !== '' || item.pos !== '' || item.duzeltme !== '') {
+        const computed = isKasa ? (moveNum + posNum + duzNum) : (devirNum + moveNum + posNum + duzNum);
+        if (computed !== 0 || item.movement !== '' || item.pos !== '' || item.duzeltme !== '') {
+          gunSonu = formatAnaKasaNumber(computed);
+        }
       }
     }
 
@@ -427,7 +485,7 @@ export function GirisCikisPage() {
               setCikisList(fitCikisRows(data.cikis_list));
             }
             if (Array.isArray(data.ana_kasa_list || data.anaKasa_list) && (data.ana_kasa_list || data.anaKasa_list).length > 0) {
-              setAnaKasaList(fitAnaKasaRows(data.ana_kasa_list || data.anaKasa_list));
+              setAnaKasaList(fitAnaKasaRows(data.ana_kasa_list || data.anaKasa_list, data.giris_list, data.cikis_list));
             }
             if (Array.isArray(data.pos_list) && data.pos_list.length > 0) {
               setPosList(data.pos_list);
@@ -525,6 +583,24 @@ export function GirisCikisPage() {
       supabase.removeChannel(channel);
     };
   }, [selectedDate, storageKey, refreshKey]);
+
+  // Giriş veya Çıkış listesi güncellendiğinde Ana Kasa'daki DEPO satırının Gün Sonu tutarını otomatik ve canlı günceller
+  useEffect(() => {
+    setAnaKasaList(prev => {
+      let changed = false;
+      const next = prev.map(item => {
+        if (item.name && item.name.trim().toLocaleUpperCase('tr-TR') === 'DEPO') {
+          const computed = calcRowGunSonu(item.name, item.devir, item.movement, item.pos, item.duzeltme, girisList, cikisList);
+          if (item.gunSonu !== computed) {
+            changed = true;
+            return { ...item, gunSonu: computed };
+          }
+        }
+        return item;
+      });
+      return changed ? next : prev;
+    });
+  }, [girisList, cikisList]);
 
   // Live Multi-Date Search Engine across Supabase
   useEffect(() => {
@@ -1522,7 +1598,7 @@ export function GirisCikisPage() {
                           setAnaKasaList(prev => prev.map((item, i) => {
                             if (i !== index) return item;
                             const nextItem = { ...item, name: val };
-                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme, girisList, cikisList) };
                           }));
                         }}
                         onKeyDown={(e) => handleKeyDown(e, 'ak-name', index)}
@@ -1543,7 +1619,7 @@ export function GirisCikisPage() {
                           setAnaKasaList(prev => prev.map((item, i) => {
                             if (i !== index) return item;
                             const nextItem = { ...item, devir: val };
-                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme, girisList, cikisList) };
                           }));
                         }}
                         onBlur={() => {
@@ -1553,7 +1629,7 @@ export function GirisCikisPage() {
                             setAnaKasaList(prev => prev.map((item, i) => {
                               if (i !== index) return item;
                               const nextItem = { ...item, devir: formatted };
-                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme, girisList, cikisList) };
                             }));
                           }
                         }}
@@ -1575,7 +1651,7 @@ export function GirisCikisPage() {
                           setAnaKasaList(prev => prev.map((item, i) => {
                             if (i !== index) return item;
                             const nextItem = { ...item, movement: val };
-                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme, girisList, cikisList) };
                           }));
                         }}
                         onBlur={() => {
@@ -1585,7 +1661,7 @@ export function GirisCikisPage() {
                             setAnaKasaList(prev => prev.map((item, i) => {
                               if (i !== index) return item;
                               const nextItem = { ...item, movement: formatted };
-                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme, girisList, cikisList) };
                             }));
                           }
                         }}
@@ -1606,7 +1682,7 @@ export function GirisCikisPage() {
                           setAnaKasaList(prev => prev.map((item, i) => {
                             if (i !== index) return item;
                             const nextItem = { ...item, pos: val };
-                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme, girisList, cikisList) };
                           }));
                         }}
                         onBlur={() => {
@@ -1616,7 +1692,7 @@ export function GirisCikisPage() {
                             setAnaKasaList(prev => prev.map((item, i) => {
                               if (i !== index) return item;
                               const nextItem = { ...item, pos: formatted };
-                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme, girisList, cikisList) };
                             }));
                           }
                         }}
@@ -1638,7 +1714,7 @@ export function GirisCikisPage() {
                           setAnaKasaList(prev => prev.map((item, i) => {
                             if (i !== index) return item;
                             const nextItem = { ...item, duzeltme: val };
-                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                            return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme, girisList, cikisList) };
                           }));
                         }}
                         onBlur={() => {
@@ -1648,7 +1724,7 @@ export function GirisCikisPage() {
                             setAnaKasaList(prev => prev.map((item, i) => {
                               if (i !== index) return item;
                               const nextItem = { ...item, duzeltme: formatted };
-                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme) };
+                              return { ...nextItem, gunSonu: calcRowGunSonu(nextItem.name, nextItem.devir, nextItem.movement, nextItem.pos, nextItem.duzeltme, girisList, cikisList) };
                             }));
                           }
                         }}
