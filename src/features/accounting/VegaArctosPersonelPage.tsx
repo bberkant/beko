@@ -53,6 +53,7 @@ interface PersonnelMovement {
 }
 
 const TUNNEL_URL = 'https://vega-api.amasyaetas.com';
+const DEFAULT_ORG_ID = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
 
 const turkishNormalize = (str: string): string => {
   if (!str) return '';
@@ -85,7 +86,7 @@ export function VegaArctosPersonelPage() {
   const [selectedPersonnel, setSelectedPersonnel] = useState<PersonnelCard | null>(null);
   const [selectedMovements, setSelectedMovements] = useState<PersonnelMovement[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'vega' | 'manual'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'vega' | 'manual' | 'borc' | 'alacak'>('all');
   
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoadingMovements, setIsLoadingMovements] = useState(false);
@@ -94,8 +95,8 @@ export function VegaArctosPersonelPage() {
   const [isPageLoading, setIsPageLoading] = useState(true);
 
   // Sorting
-  const [sortField, setSortField] = useState<'code' | 'name' | 'type' | 'lastTransactionDate' | 'balance'>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortField, setSortField] = useState<'code' | 'name' | 'type' | 'lastTransactionDate' | 'balance'>('balance');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -138,9 +139,7 @@ export function VegaArctosPersonelPage() {
   const [newMoveAmount, setNewMoveAmount] = useState('');
 
   useEffect(() => {
-    if (user?.organizationId) {
-      initLoad();
-    }
+    initLoad();
   }, [user?.organizationId]);
 
   useEffect(() => {
@@ -162,47 +161,38 @@ export function VegaArctosPersonelPage() {
 
   const initLoad = async () => {
     setIsPageLoading(true);
-    const hasData = await fetchSavedPersonnel();
-    if (!hasData) {
-      await handleSync();
-    } else {
-      // Test remote connection silently
-      try {
-        const response = await fetch(`${TUNNEL_URL}/api/personel`);
-        if (response.ok) {
-          setLiveConnection(true);
-        }
-      } catch (e) {
-        setLiveConnection(false);
-      }
-    }
+    // 1. Initial cached load from Supabase for instant response
+    await fetchSavedPersonnel();
     setIsPageLoading(false);
+
+    // 2. Fetch live data from Vega tunnel in background immediately
+    await handleSync(true);
   };
 
   const fetchSavedPersonnel = async () => {
-    if (!user?.organizationId) return false;
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
     try {
       const { data, error } = await supabase
         .from('vega_personel')
         .select('*')
-        .eq('organization_id', user.organizationId)
+        .eq('organization_id', orgId)
         .order('code', { ascending: true });
         
       if (error) throw error;
       if (data && data.length > 0) {
-        const mappedData = data.map(item => ({
+        const mappedData: PersonnelCard[] = data.map(item => ({
           id: item.id,
-          code: item.code,
+          code: String(item.code),
           name: item.name,
           companyCode: item.company_code,
           companyTrackingCode: item.company_tracking_code,
           taxOffice: item.tax_office,
           taxNo: item.tax_no,
-          type: item.type,
+          type: item.type || 'Personel',
           city: item.city || '',
           lastTransactionDate: item.last_transaction_date,
-          balance: Number(item.balance),
-          is_manual: item.is_manual
+          balance: Number(item.balance || 0),
+          is_manual: Boolean(item.is_manual)
         }));
         setPersonnelList(mappedData);
         return true;
@@ -213,53 +203,76 @@ export function VegaArctosPersonelPage() {
     return false;
   };
 
-  const handleSync = async () => {
+  const handleSync = async (silent = false) => {
     if (isSyncing) return;
     setIsSyncing(true);
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
     try {
       const response = await fetch(`${TUNNEL_URL}/api/personel`);
-      if (!response.ok) throw new Error('API yanıt vermedi.');
+      if (!response.ok) throw new Error('Vega API yanıt vermedi.');
       const data = await response.json();
       
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         setLiveConnection(true);
         const now = new Date();
         setLastSyncTime(
           `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
         );
-        
-        // Save/Upsert Vega personnel to Supabase (only is_manual = false)
-        if (user?.organizationId) {
-          const payload = data.map(item => ({
-            organization_id: user.organizationId,
-            code: item.code,
-            name: item.name,
-            company_code: item.companyCode,
-            company_tracking_code: item.companyTrackingCode,
-            tax_office: item.taxOffice,
-            tax_no: item.taxNo,
-            type: 'Personel',
-            city: item.city,
-            last_transaction_date: item.lastTransactionDate,
-            balance: item.balance,
-            is_manual: false
-          }));
 
-          const { error } = await supabase
+        const mappedLive: PersonnelCard[] = data.map(item => ({
+          code: String(item.code),
+          name: item.name,
+          companyCode: item.companyCode,
+          companyTrackingCode: item.companyTrackingCode,
+          taxOffice: item.taxOffice,
+          taxNo: item.taxNo,
+          type: 'Personel',
+          city: item.city || '',
+          lastTransactionDate: item.lastTransactionDate,
+          balance: Number(item.balance || 0),
+          is_manual: false
+        }));
+
+        // Merge with existing manual personnel
+        setPersonnelList(prev => {
+          const manualOnes = prev.filter(p => p.is_manual);
+          return [...mappedLive, ...manualOnes];
+        });
+
+        // Upsert to Supabase in chunks of 100
+        const payload = data.map(item => ({
+          organization_id: orgId,
+          code: String(item.code),
+          name: item.name,
+          company_code: item.companyCode,
+          company_tracking_code: item.companyTrackingCode,
+          tax_office: item.taxOffice,
+          tax_no: item.taxNo,
+          type: 'Personel',
+          city: item.city || '',
+          last_transaction_date: item.lastTransactionDate,
+          balance: Number(item.balance || 0),
+          is_manual: false
+        }));
+
+        const chunkSize = 100;
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.slice(i, i + chunkSize);
+          await supabase
             .from('vega_personel')
-            .upsert(payload, { onConflict: 'organization_id,code' });
-            
-          if (error) throw error;
+            .upsert(chunk, { onConflict: 'organization_id,code' });
         }
-        
-        // Reload all combined personnel
-        await fetchSavedPersonnel();
-        notify('Vega personel verileri başarıyla eşitlendi.', 'success');
+
+        if (!silent) {
+          notify(`Vega personel verileri başarıyla eşitlendi (${data.length} Personel).`, 'success');
+        }
       }
     } catch (err: any) {
       console.error('Eşitleme hatası:', err);
       setLiveConnection(false);
-      notify('Vega API bağlantısı kurulamadı. Kayıtlı veriler gösteriliyor.', 'error');
+      if (!silent) {
+        notify('Vega API bağlantısı kurulamadı. Kayıtlı veriler gösteriliyor.', 'error');
+      }
       await fetchSavedPersonnel();
     } finally {
       setIsSyncing(false);
@@ -268,13 +281,14 @@ export function VegaArctosPersonelPage() {
 
   const fetchMovements = async (personnel: PersonnelCard) => {
     setIsLoadingMovements(true);
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
     try {
       if (personnel.is_manual) {
         // Load manual movements from Supabase
         const { data, error } = await supabase
           .from('vega_personel_hareketler')
           .select('*')
-          .eq('organization_id', user?.organizationId)
+          .eq('organization_id', orgId)
           .eq('personel_code', personnel.code)
           .order('date', { ascending: true });
 
@@ -285,9 +299,9 @@ export function VegaArctosPersonelPage() {
           date: row.date,
           invoiceNo: row.invoice_no,
           izahat: row.izahat || 'İşlem',
-          description: row.description,
-          borc: Number(row.borc),
-          alacak: Number(row.alacak),
+          description: row.description || row.izahat || 'Manuel Hareket',
+          borc: Number(row.borc || 0),
+          alacak: Number(row.alacak || 0),
           type: Number(row.borc) > 0 ? 'Borç Dekontu' : 'Alacak Dekontu',
           amount: Number(row.borc) > 0 ? Number(row.borc) : Number(row.alacak),
           is_manual: true
@@ -300,7 +314,14 @@ export function VegaArctosPersonelPage() {
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data)) {
-            setSelectedMovements(data);
+            const mappedMoves: PersonnelMovement[] = data.map(item => ({
+              ...item,
+              description: item.description || item.productName || item.izahat || 'Cari Hareket',
+              borc: Number(item.borc || 0),
+              alacak: Number(item.alacak || 0),
+              amount: Number(item.amount || (Number(item.borc || 0) + Number(item.alacak || 0)))
+            }));
+            setSelectedMovements(mappedMoves);
           }
         } else {
           notify('Vega hareket detayı alınamadı.', 'error');
@@ -317,14 +338,13 @@ export function VegaArctosPersonelPage() {
   // Create Manual Personnel
   const handleAddPersonnel = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.organizationId) return;
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
     if (!newPersonnelName || !newPersonnelCode) {
       notify('Lütfen isim ve kod alanlarını doldurun.', 'error');
       return;
     }
 
     try {
-      // Check if code is unique
       const exists = personnelList.some(p => p.code.toLowerCase() === newPersonnelCode.trim().toLowerCase());
       if (exists) {
         notify('Bu personel kodu zaten kullanımda.', 'error');
@@ -332,7 +352,7 @@ export function VegaArctosPersonelPage() {
       }
 
       const payload = {
-        organization_id: user.organizationId,
+        organization_id: orgId,
         code: newPersonnelCode.trim(),
         name: newPersonnelName.trim(),
         city: newPersonnelCity.trim() || 'AMASYA',
@@ -363,7 +383,8 @@ export function VegaArctosPersonelPage() {
   // Create Manual Movement
   const handleAddMovement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.organizationId || !selectedPersonnel) return;
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
+    if (!selectedPersonnel) return;
     if (!newMoveAmount || isNaN(Number(newMoveAmount))) {
       notify('Lütfen geçerli bir tutar girin.', 'error');
       return;
@@ -374,7 +395,7 @@ export function VegaArctosPersonelPage() {
       const isBorc = newMoveType === 'borc';
       
       const payload = {
-        organization_id: user.organizationId,
+        organization_id: orgId,
         personel_code: selectedPersonnel.code,
         date: new Date(newMoveDate).toISOString(),
         invoice_no: 'MANUEL',
@@ -394,21 +415,21 @@ export function VegaArctosPersonelPage() {
       const { data: moves, error: fetchError } = await supabase
         .from('vega_personel_hareketler')
         .select('borc,alacak')
-        .eq('organization_id', user.organizationId)
+        .eq('organization_id', orgId)
         .eq('personel_code', selectedPersonnel.code);
 
       if (fetchError) throw fetchError;
 
       let newBalance = 0;
       (moves || []).forEach(m => {
-        newBalance += (Number(m.borc) - Number(m.alacak));
+        newBalance += (Number(m.borc || 0) - Number(m.alacak || 0));
       });
 
       // Update personnel balance
       const { error: updateError } = await supabase
         .from('vega_personel')
         .update({ balance: newBalance })
-        .eq('organization_id', user.organizationId)
+        .eq('organization_id', orgId)
         .eq('code', selectedPersonnel.code);
 
       if (updateError) throw updateError;
@@ -420,7 +441,6 @@ export function VegaArctosPersonelPage() {
       
       // Refresh lists
       await fetchSavedPersonnel();
-      // Update selected personnel state to reflect new balance
       const updatedCard = { ...selectedPersonnel, balance: newBalance };
       setSelectedPersonnel(updatedCard);
       await fetchMovements(updatedCard);
@@ -481,16 +501,19 @@ export function VegaArctosPersonelPage() {
       turkishNormalize(p.code).includes(normQuery) ||
       turkishNormalize(p.city || '').includes(normQuery);
       
-    if (filterType === 'all') return matchesSearch;
-    if (filterType === 'vega') return matchesSearch && !p.is_manual;
-    if (filterType === 'manual') return matchesSearch && p.is_manual;
-    return matchesSearch;
+    if (!matchesSearch) return false;
+    if (filterType === 'all') return true;
+    if (filterType === 'vega') return !p.is_manual;
+    if (filterType === 'manual') return p.is_manual;
+    if (filterType === 'borc') return (p.balance || 0) > 0;
+    if (filterType === 'alacak') return (p.balance || 0) < 0;
+    return true;
   });
 
   // Sort logic helper
   const sortedList = useMemo<PersonnelCard[]>(() => {
     return [...filteredList].sort((a, b) => {
-      // Rule: Always push 0 balances to the bottom of the list
+      // Rule: Push 0 balances to the bottom of the list
       const balA = Number(a.balance || 0);
       const balB = Number(b.balance || 0);
       if (balA === 0 && balB !== 0) return 1;
@@ -528,10 +551,12 @@ export function VegaArctosPersonelPage() {
   }, [filteredList, sortField, sortDirection]);
 
   // Calculate statistics
-  const totalVegaBalance = personnelList.filter(p => !p.is_manual).reduce((acc, p) => acc + p.balance, 0);
-  const totalManualBalance = personnelList.filter(p => p.is_manual).reduce((acc, p) => acc + p.balance, 0);
-  const totalBalance = totalVegaBalance + totalManualBalance;
-  const activePersonnelCount = personnelList.filter(p => p.balance !== 0).length;
+  const totalBorc = personnelList.filter(p => (p.balance || 0) > 0).reduce((acc, p) => acc + (p.balance || 0), 0);
+  const totalAlacak = personnelList.filter(p => (p.balance || 0) < 0).reduce((acc, p) => acc + Math.abs(p.balance || 0), 0);
+  const netBalance = totalBorc - totalAlacak;
+  const borcluCount = personnelList.filter(p => (p.balance || 0) > 0).length;
+  const alacakliCount = personnelList.filter(p => (p.balance || 0) < 0).length;
+  const activePersonnelCount = personnelList.filter(p => (p.balance || 0) !== 0).length;
 
   if (isPageLoading) {
     return (
@@ -621,7 +646,7 @@ export function VegaArctosPersonelPage() {
             <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
               <span className="text-[10px] text-white/60 uppercase font-bold tracking-wider">Hesap Durumu</span>
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                selectedPersonnel.balance > 0 ? 'bg-emerald-500/20 text-emerald-300' : selectedPersonnel.balance < 0 ? 'bg-rose-500/20 text-rose-300' : 'bg-white/10 text-white/70'
+                selectedPersonnel.balance > 0 ? 'bg-blue-500/30 text-blue-200 border border-blue-400/30' : selectedPersonnel.balance < 0 ? 'bg-rose-500/30 text-rose-200 border border-rose-400/30' : 'bg-white/10 text-white/70'
               }`}>
                 {selectedPersonnel.balance > 0 ? 'Personel Borçlu (B)' : selectedPersonnel.balance < 0 ? 'Personel Alacaklı (A)' : 'Bakiyesiz'}
               </span>
@@ -635,7 +660,7 @@ export function VegaArctosPersonelPage() {
           <p>
             {selectedPersonnel.is_manual 
               ? 'Bu personel panelden manuel olarak eklenmiştir. Cari hareket girişlerini, silme ve düzenleme işlemlerini panel üzerinden gerçekleştirebilirsiniz.'
-              : 'Aşağıdaki hareket dökümü, mezbahane lokal server kasasında kurulu olan **Vega Arctos** programının veritabanından anlık olarak SQL Query ile çekilmektedir.'
+              : 'Aşağıdaki hareket dökümü, mezbahane lokal server kasasında kurulu olan **Vega Arctos** programının veritabanından anlık olarak çekilmektedir.'
             }
           </p>
         </div>
@@ -656,8 +681,8 @@ export function VegaArctosPersonelPage() {
                   <th className="border-r border-gray-200 px-3 py-2.5 text-center">Tarih</th>
                   <th className="border-r border-gray-200 px-3 py-2.5">Açıklama</th>
                   <th className="border-r border-gray-200 px-3 py-2.5 text-center">İzahat</th>
-                  <th className="border-r border-gray-200 px-3 py-2.5 text-right">Borç</th>
-                  <th className="border-r border-gray-200 px-3 py-2.5 text-right">Alacak</th>
+                  <th className="border-r border-gray-200 px-3 py-2.5 text-right">Borç (Çıkış)</th>
+                  <th className="border-r border-gray-200 px-3 py-2.5 text-right">Alacak (Giriş)</th>
                   <th className="px-3 py-2.5 text-right">Toplam Bakiye</th>
                 </tr>
               </thead>
@@ -688,9 +713,11 @@ export function VegaArctosPersonelPage() {
                     return (
                       <tr key={inv.id || idx} className={`${isBlueRow ? 'bg-[#f0f7ff]' : 'bg-white'} hover:bg-gray-50/30 transition-colors`}>
                         <td className="border-r border-gray-200 px-3 py-2 text-center whitespace-nowrap text-gray-500">{formatDate(inv.date)}</td>
-                        <td className="border-r border-gray-200 px-3 py-2 font-semibold text-gray-900 max-w-[280px] truncate" title={inv.description}>{inv.description}</td>
+                        <td className="border-r border-gray-200 px-3 py-2 font-semibold text-gray-900 max-w-[280px] truncate" title={inv.description}>
+                          {inv.description || inv.izahat || 'İşlem'}
+                        </td>
                         <td className="border-r border-gray-200 px-3 py-2 text-center text-gray-500 font-bold">{inv.izahat || 'İşlem'}</td>
-                        <td className="border-r border-gray-200 px-3 py-2 text-right font-semibold text-rose-600">
+                        <td className="border-r border-gray-200 px-3 py-2 text-right font-semibold text-blue-700">
                           {inv.borc > 0 ? inv.borc.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) : '-'}
                         </td>
                         <td className="border-r border-gray-200 px-3 py-2 text-right font-semibold text-emerald-600">
@@ -715,7 +742,12 @@ export function VegaArctosPersonelPage() {
 
           <div className="flex justify-end items-center mt-4 text-sm font-bold text-gray-950 pr-4 gap-2">
             <span>Genel Toplam :</span>
-            <span className="text-base text-brand-600">{Math.abs(selectedPersonnel.balance).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</span>
+            <span className="text-base text-brand-600">
+              {Math.abs(selectedPersonnel.balance).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL
+              <span className="text-xs ml-1 font-semibold text-gray-500">
+                {selectedPersonnel.balance > 0 ? '(B) Borçlu' : selectedPersonnel.balance < 0 ? '(A) Alacaklı' : ''}
+              </span>
+            </span>
           </div>
         </div>
 
@@ -755,7 +787,7 @@ export function VegaArctosPersonelPage() {
                       onClick={() => setNewMoveType('borc')}
                       className={`py-2 text-center rounded-lg border font-bold transition-all ${
                         newMoveType === 'borc'
-                          ? 'border-rose-500 bg-rose-50 text-rose-700'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
                           : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                       }`}
                     >
@@ -843,7 +875,7 @@ export function VegaArctosPersonelPage() {
           </button>
           
           <button
-            onClick={handleSync}
+            onClick={() => handleSync(false)}
             disabled={isSyncing}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 transition-colors disabled:opacity-70"
           >
@@ -872,14 +904,14 @@ export function VegaArctosPersonelPage() {
                 }`}></span>
               </span>
               <h2 className="text-base font-bold">
-                {liveConnection ? 'Mezbahane Server Kasası Bağlantısı Aktif' : 'Vega SQL Bağlantısı Bekleniyor (Demo)'}
+                {liveConnection ? 'Mezbahane Server Kasası Bağlantısı Aktif' : 'Vega SQL Bağlantısı Bekleniyor'}
               </h2>
             </div>
             <p className="text-xs text-white/70 mt-1">
               Server IP: <span className="font-semibold text-white">{liveConnection ? '192.168.2.240 (Lokal)' : 'Lokal Server'}</span> &nbsp;|&nbsp; 
               Veritabanı: <span className="font-semibold text-white">ARCTOS_2026</span> &nbsp;|&nbsp;
               Bağlantı Modu: <span className={`${liveConnection ? 'text-emerald-300' : 'text-amber-300'} font-semibold`}>
-                {liveConnection ? 'SQL Direct-Query (Canlı)' : 'Çevrimdışı (Demo Verisi)'}
+                {liveConnection ? 'SQL Direct-Query (Canlı)' : 'Kayıtlı Veriler'}
               </span>
             </p>
           </div>
@@ -891,49 +923,70 @@ export function VegaArctosPersonelPage() {
             <div className="text-sm font-semibold mt-0.5">{liveConnection ? (lastSyncTime ? lastSyncTime : 'Az Önce') : 'Senkronize Edilmedi'}</div>
           </div>
           <div>
-            <span className="text-[10px] text-white/50 uppercase font-bold tracking-wider">Kayıtlı Personel</span>
-            <div className="text-sm font-semibold mt-0.5">{activePersonnelCount.toLocaleString('tr-TR')} Personel</div>
+            <span className="text-[10px] text-white/50 uppercase font-bold tracking-wider">Kayıtlı / Aktif Personel</span>
+            <div className="text-sm font-semibold mt-0.5">{personnelList.length} Toplam ({activePersonnelCount} Bakiyeli)</div>
           </div>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-5 grid-cols-1 md:grid-cols-3">
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vega Personel Bakiyesi</span>
-            <div className="text-xl font-extrabold text-gray-900 mt-1">
-              {Math.abs(totalVegaBalance).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-blue-600"></span>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Toplam Personel Borcu (B)</span>
             </div>
-            <p className="text-[11px] text-slate-500 font-semibold flex items-center gap-1 mt-1.5">
-              <span>Durum:</span>
-              <span className="font-bold">{totalVegaBalance > 0 ? 'Personel Borçlu (B)' : 'Personel Alacaklı (A)'}</span>
+            <div className="text-2xl font-black text-gray-900 mt-2">
+              {totalBorc.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
+            </div>
+            <p className="text-[11px] text-gray-500 font-semibold flex items-center gap-1.5 mt-2">
+              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-bold border border-blue-100">{borcluCount} Kişi</span>
+              <span>Personele verilen avans / borçlar</span>
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Manuel Personel Bakiyesi</span>
-            <div className="text-xl font-extrabold text-gray-900 mt-1">
-              {Math.abs(totalManualBalance).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-rose-600"></span>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Toplam Personel Alacağı (A)</span>
             </div>
-            <p className="text-[11px] text-slate-500 font-semibold flex items-center gap-1 mt-1.5">
-              <span>Durum:</span>
-              <span className="font-bold">{totalManualBalance > 0 ? 'Personel Borçlu (B)' : 'Personel Alacaklı (A)'}</span>
+            <div className="text-2xl font-black text-rose-700 mt-2">
+              {totalAlacak.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
+            </div>
+            <p className="text-[11px] text-gray-500 font-semibold flex items-center gap-1.5 mt-2">
+              <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-bold border border-rose-100">{alacakliCount} Kişi</span>
+              <span>Personele ödenecek maaş / hak ediş</span>
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Konsolide Net Personel Bakiyesi</span>
-            <div className="text-xl font-extrabold text-gray-900 mt-1">
-              {Math.abs(totalBalance).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
+            <div className="flex items-center gap-2">
+              <span className={`h-2 w-2 rounded-full ${netBalance > 0 ? 'bg-blue-600' : netBalance < 0 ? 'bg-rose-600' : 'bg-gray-400'}`}></span>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Konsolide Net Durum</span>
             </div>
-            <p className="text-[11px] text-slate-500 font-semibold flex items-center gap-1 mt-1.5">
-              <span>Net Durum:</span>
-              <span className="font-bold">{totalBalance > 0 ? 'Personel Net Borçlu (B)' : 'Personel Net Alacaklı (A)'}</span>
+            <div className="text-2xl font-black text-gray-900 mt-2 flex items-baseline gap-2">
+              <span>{Math.abs(netBalance).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL</span>
+              <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${
+                netBalance > 0 
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                  : netBalance < 0 
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200' 
+                    : 'bg-gray-50 text-gray-600 border border-gray-200'
+              }`}>
+                {netBalance > 0 ? '(B) Şirket Alacaklı' : netBalance < 0 ? '(A) Personel Alacaklı' : '0.00'}
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 font-semibold mt-2">
+              {netBalance > 0 
+                ? 'Şirket personellerden net alacaklıdır.' 
+                : netBalance < 0 
+                  ? 'Personeller şirketten net alacaklıdır.' 
+                  : 'Konsolide personel bakiyesi sıfırdır.'}
             </p>
           </div>
         </div>
@@ -974,7 +1027,7 @@ export function VegaArctosPersonelPage() {
           </div>
 
           {/* Filter badges */}
-          <div className="flex items-center gap-1.5 self-end sm:self-auto">
+          <div className="flex items-center gap-1.5 flex-wrap self-end sm:self-auto">
             <button
               onClick={() => setFilterType('all')}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
@@ -983,27 +1036,47 @@ export function VegaArctosPersonelPage() {
                   : 'bg-gray-50 text-gray-600 hover:bg-gray-150'
               }`}
             >
-              Tümü
+              Tümü ({personnelList.length})
+            </button>
+            <button
+              onClick={() => setFilterType('borc')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                filterType === 'borc'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+              }`}
+            >
+              Borçlular ({borcluCount})
+            </button>
+            <button
+              onClick={() => setFilterType('alacak')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                filterType === 'alacak'
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+              }`}
+            >
+              Alacaklılar ({alacakliCount})
             </button>
             <button
               onClick={() => setFilterType('vega')}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                 filterType === 'vega'
-                  ? 'bg-brand-600 text-white'
+                  ? 'bg-gray-800 text-white'
                   : 'bg-gray-50 text-gray-600 hover:bg-gray-150'
               }`}
             >
-              Vega Personelleri
+              Vega ({personnelList.filter(p => !p.is_manual).length})
             </button>
             <button
               onClick={() => setFilterType('manual')}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                 filterType === 'manual'
-                  ? 'bg-brand-600 text-white'
-                  : 'bg-gray-50 text-gray-600 hover:bg-gray-150'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
               }`}
             >
-              Manuel Eklenenler
+              Manuel ({personnelList.filter(p => p.is_manual).length})
             </button>
           </div>
         </div>
@@ -1035,7 +1108,7 @@ export function VegaArctosPersonelPage() {
                       >
                         {cari.name}
                       </div>
-                      <div className="text-[11px] text-gray-500 font-medium mt-0.5">{cari.city}</div>
+                      <div className="text-[11px] text-gray-500 font-medium mt-0.5">{cari.city || 'AMASYA'}</div>
                     </td>
                     <td className="px-5 py-2.5">
                       <span className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
@@ -1048,11 +1121,17 @@ export function VegaArctosPersonelPage() {
                       </span>
                     </td>
                     <td className={`px-5 py-2.5 text-[15px] font-bold text-right whitespace-nowrap ${
-                      (cari.balance || 0) > 0 ? 'text-slate-900' : (cari.balance || 0) < 0 ? 'text-rose-700' : 'text-gray-900'
+                      (cari.balance || 0) > 0 ? 'text-blue-700' : (cari.balance || 0) < 0 ? 'text-rose-700' : 'text-gray-900'
                     }`}>
-                      {(cari.balance || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
-                      <span className="text-xs font-bold ml-1">
-                        {(cari.balance || 0) > 0 ? '(B)' : (cari.balance || 0) < 0 ? '(A)' : ''}
+                      {Math.abs(cari.balance || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
+                      <span className={`text-xs font-bold ml-1.5 px-1.5 py-0.5 rounded ${
+                        (cari.balance || 0) > 0 
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                          : (cari.balance || 0) < 0 
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200' 
+                            : 'text-gray-400'
+                      }`}>
+                        {(cari.balance || 0) > 0 ? '(B)' : (cari.balance || 0) < 0 ? '(A)' : '-'}
                       </span>
                     </td>
                     <td className="px-5 py-2.5 text-xs text-gray-700 font-semibold text-right whitespace-nowrap">{formatDateTime(cari.lastTransactionDate) || '-'}</td>
