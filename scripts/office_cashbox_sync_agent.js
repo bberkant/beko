@@ -241,7 +241,7 @@ async function processGirisCikisWorkbook(wb, filePath) {
         continue;
       }
 
-      if (idx > 0 && (amt > 0 || col2 || col3)) {
+      if (amt !== 0 || col2 || col3) {
         girisItemCount++;
         girisTotal += amt;
       }

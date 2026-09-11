@@ -397,12 +397,6 @@ export function GirisCikisPage() {
   const [isLoadingDb, setIsLoadingDb] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Exact Excel numbers loaded from database / sync (NO formula override)
-  const [posTotalRaw, setPosTotalRaw] = useState<number | null>(null);
-  const [girisTotalRaw, setGirisTotalRaw] = useState<number | null>(null);
-  const [cikisTotalRaw, setCikisTotalRaw] = useState<number | null>(null);
-  const [netKalanRaw, setNetKalanRaw] = useState<number | null>(null);
-
   const lastGirisCikisUpdatedAtRef = useRef<string>('');
 
   // Load from Supabase (with continuous background polling & fallback to localStorage / template)
@@ -439,21 +433,11 @@ export function GirisCikisPage() {
               setPosList(data.pos_list);
             }
 
-            // Excel exact totals (DİREKT EXCEL VERİSİ)
-            setPosTotalRaw(data.pos_total !== undefined && data.pos_total !== null ? Number(data.pos_total) : null);
-            setGirisTotalRaw(data.giris_total !== undefined && data.giris_total !== null ? Number(data.giris_total) : null);
-            setCikisTotalRaw(data.cikis_total !== undefined && data.cikis_total !== null ? Number(data.cikis_total) : null);
-            setNetKalanRaw(data.net_kalan !== undefined && data.net_kalan !== null ? Number(data.net_kalan) : null);
-
             setLastSyncSource(data.source || 'office_pc_sync');
             setIsSaved(true);
             if (!isSilent) setIsLoadingDb(false);
             return;
           } else if (!isSilent) {
-            setPosTotalRaw(null);
-            setGirisTotalRaw(null);
-            setCikisTotalRaw(null);
-            setNetKalanRaw(null);
             lastGirisCikisUpdatedAtRef.current = '';
             // Supabase'de veri yok: Bu gün kesinlikle boştur, eski localStorage çöpünü temizle!
             localStorage.removeItem(storageKey);
@@ -710,14 +694,9 @@ export function GirisCikisPage() {
     }).format(num);
   };
 
-  // Calculated fallbacks (only used if Excel didn't provide a direct total or user creates a new blank day)
+  // Calculated totals: DEVİR BAKİYE dahil tüm satırlar toplanır
   const calcGirisTotal = useMemo(() => {
-    return girisList.reduce((sum, item, idx) => {
-      // 1. satır (Devir Bakiye) gün içi giriş değil, dünden devreden bakiyedir; gün içi Giriş Toplamı'na katılmaz
-      const isDevir = idx === 0 || (item.description || '').trim().toLocaleUpperCase('tr-TR').startsWith('DEVİR') || (item.description || '').trim().toLocaleUpperCase('tr-TR').startsWith('DEVIR');
-      if (isDevir) return sum;
-      return sum + parseNum(item.amount);
-    }, 0);
+    return girisList.reduce((sum, item) => sum + parseNum(item.amount), 0);
   }, [girisList]);
 
   const calcCikisTotal = useMemo(() => {
@@ -748,13 +727,12 @@ export function GirisCikisPage() {
     }, 0);
   }, [anaKasaList]);
 
-  // DİREKT EXCEL'DEN ÇEKİLEN VERİLER
-  const posTotal = posTotalRaw !== null ? posTotalRaw : calcPosTotal;
-  const girisTotal = girisTotalRaw !== null ? girisTotalRaw : calcGirisTotal;
-  const cikisTotal = cikisTotalRaw !== null ? cikisTotalRaw : calcCikisTotal;
-  const netKalan = netKalanRaw !== null ? netKalanRaw : (girisTotal - cikisTotal);
-  // Toplam Kasa Bakiyesi her zaman Ana Kasa'daki SONU sütununun toplamıdır
-  const anaKasaTotal = calcAnaKasaTotal;
+  // TÜM TOPLAMLAR TABLOLARDAN DİNAMİK VE DOĞRUDAN HESAPLANIR
+  const posTotal = calcPosTotal;
+  const girisTotal = calcGirisTotal; // Devir bakiye dahil tüm girişler
+  const cikisTotal = calcCikisTotal; // Tüm çıkışlar
+  const netKalan = girisTotal - cikisTotal; // Devir dahil Giriş-Çıkış Kalanı
+  const anaKasaTotal = calcAnaKasaTotal; // Ana Kasa Sonu sütununun toplamı
   const bakiyeFarki = anaKasaTotal - netKalan;
 
   // Auto Save to localStorage and Supabase (Only when user explicitly edits)
