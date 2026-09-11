@@ -30,6 +30,16 @@ export const getTodayStr = (): string => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
+export const formatDateTr = (dateStr?: string | null): string => {
+  if (!dateStr) return '-';
+  const parts = String(dateStr).split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    return `${d}.${m}.${y}`;
+  }
+  return String(dateStr);
+};
+
 const formatMoney = (val: number): string => {
   return new Intl.NumberFormat('tr-TR', {
     minimumFractionDigits: 2,
@@ -250,7 +260,7 @@ export function CashboxDateFilterBar({
                   )}
                 </div>
                 <p className="text-xs text-gray-500 font-medium">
-                  {isRange ? `${startDate} ile ${endDate} tarihleri arasında` : 'Tüm kayıtlarda'}{' '}
+                  {isRange ? `${formatDateTr(startDate)} ile ${formatDateTr(endDate)} tarihleri arasında` : 'Tüm kayıtlarda'}{' '}
                   toplam <span className="font-bold text-gray-900">{searchResults.length}</span> eşleşen hareket bulundu.
                 </p>
               </div>
@@ -319,7 +329,7 @@ export function CashboxDateFilterBar({
                         <td className="py-2.5 px-3 font-bold text-gray-900 whitespace-nowrap">
                           <span className="flex items-center gap-1.5 font-mono">
                             <Calendar size={13} className="text-gray-400 group-hover:text-brand-600" />
-                            {item.date}
+                            {formatDateTr(item.date)}
                           </span>
                         </td>
                         <td className="py-2.5 px-3">

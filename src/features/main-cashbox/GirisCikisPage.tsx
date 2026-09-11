@@ -13,6 +13,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useToast } from '../../lib/toast';
 import { supabase } from '../../lib/supabase';
+import { formatDateTr } from './components/CashboxDateFilterBar';
 
 // Interfaces
 export interface SearchResultItem {
@@ -1047,7 +1048,7 @@ export function GirisCikisPage() {
                   )}
                 </div>
                 <p className="text-xs text-gray-500 font-medium">
-                  {isRange ? `${startDate} ile ${endDate} tarihleri arasında` : 'Tüm geçmiş kasalarda'}{' '}
+                  {isRange ? `${formatDateTr(startDate)} ile ${formatDateTr(endDate)} tarihleri arasında` : 'Tüm geçmiş kasalarda'}{' '}
                   toplam <span className="font-bold text-gray-900">{searchResults.length}</span> eşleşen hareket bulundu.
                 </p>
               </div>
@@ -1112,7 +1113,7 @@ export function GirisCikisPage() {
                         <td className="py-2.5 px-3 font-bold text-gray-900 whitespace-nowrap">
                           <span className="flex items-center gap-1.5 font-mono">
                             <Calendar size={13} className="text-gray-400 group-hover:text-brand-600" />
-                            {item.date}
+                            {formatDateTr(item.date)}
                           </span>
                         </td>
                         <td className="py-2.5 px-3">
