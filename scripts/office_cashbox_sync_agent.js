@@ -455,10 +455,18 @@ async function processGirisCikisWorkbook(wb, filePath) {
       continue;
     }
 
-    // DIRECT EXCEL VALUES - NO CUSTOM OVERRIDES OR ARTIFICIAL FORMULAS!
+    // DIRECT EXCEL VALUES
     const actualNetKalan = excelNetKalan !== null ? excelNetKalan : (excelGirisTotal !== null && excelCikisTotal !== null ? (excelGirisTotal - excelCikisTotal) : (girisTotal - cikisTotal));
-    const actualAnaKasaTotal = excelAnaKasaTotal !== null ? excelAnaKasaTotal : actualNetKalan;
-    const actualBakiyeFarki = excelKasaFarki !== null ? excelKasaFarki : 0;
+    
+    // Toplam Kasa Bakiyesi: Ana Kasa'daki Gün Sonu sütununun toplamıdır
+    let computedAnaKasaTotal = 0;
+    for (const item of anaKasaList) {
+      if (item.gunSonu !== '' && item.gunSonu !== undefined && item.gunSonu !== null) {
+        computedAnaKasaTotal += cleanNum(item.gunSonu);
+      }
+    }
+    const actualAnaKasaTotal = computedAnaKasaTotal;
+    const actualBakiyeFarki = actualAnaKasaTotal - actualNetKalan;
 
     const { error } = await supabase
       .from('cashbox_giris_cikis_reports')
