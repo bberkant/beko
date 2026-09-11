@@ -34,7 +34,7 @@ export function CreditCardDetailPage() {
   const navigate = useNavigate();
   const { notify } = useToast();
   const { user } = useAuth();
-  const { getCard, getStatementsByCard, getPaymentsByCard, addStatement, addPayment, getTransactionsByCard, refresh, deleteStatement } = useStore();
+  const { getCard, getStatementsByCard, getPaymentsByCard, addStatement, addPayment, getTransactionsByCard, refresh, deleteStatement, loading } = useStore();
 
   const [activeTab, setActiveTab] = useState('overview');
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -287,6 +287,14 @@ export function CreditCardDetailPage() {
   };
 
   if (!card) {
+    if (loading) {
+      return (
+        <div className="mx-auto max-w-5xl py-12 text-center text-gray-400">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand-600 border-r-transparent mb-3 align-[-0.125em]" />
+          <p className="text-sm font-medium">Kart bilgileri yükleniyor...</p>
+        </div>
+      );
+    }
     return (
       <div className="mx-auto max-w-3xl">
         <p className="text-sm text-gray-500">Kart bulunamadı.</p>

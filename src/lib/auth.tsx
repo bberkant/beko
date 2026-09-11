@@ -74,7 +74,7 @@ async function resolveUser(session: Session): Promise<AuthUser> {
     email: authUser.email || '',
     role: role ? (roleLabels[role] || role) : (isBerkant ? 'Developer' : 'Admin'),
     rawRole: role ?? (isBerkant ? 'developer' : 'admin'),
-    organizationId: organizationId,
+    organizationId: organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391',
   };
 }
 

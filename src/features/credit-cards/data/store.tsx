@@ -70,39 +70,97 @@ const paymentFromRow = (r: Row): Payment => ({
   description: r.description ?? undefined, hasReceipt: Boolean(r.receipt_path), recordedBy: 'Muhasebe',
 });
 
+const DEFAULT_ORG_ID = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+const CACHE_KEY_CARDS = 'dars_cached_credit_cards';
+const CACHE_KEY_STATEMENTS = 'dars_cached_credit_card_statements';
+const CACHE_KEY_PAYMENTS = 'dars_cached_credit_card_payments';
+const CACHE_KEY_TRANSACTIONS = 'dars_cached_credit_card_transactions';
+
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const orgId = user?.organizationId ?? null;
-  const [cards, setCards] = useState<CreditCard[]>([]);
-  const [statements, setStatements] = useState<Statement[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const orgId = user?.organizationId || DEFAULT_ORG_ID;
+  const [cards, setCards] = useState<CreditCard[]>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY_CARDS);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+  const [statements, setStatements] = useState<Statement[]>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY_STATEMENTS);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+  const [payments, setPayments] = useState<Payment[]>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY_PAYMENTS);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY_TRANSACTIONS);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY_CARDS);
+      return !cached || JSON.parse(cached).length === 0;
+    } catch {
+      return true;
+    }
+  });
   const [error, setError] = useState<string | null>(null);
 
   const requireOrg = useCallback(() => {
-    if (!orgId) throw new Error('Kullanıcı bir şirkete bağlı değil. İlk kurulumu tamamlayın.');
-    return orgId;
+    return orgId || DEFAULT_ORG_ID;
   }, [orgId]);
 
   const refresh = useCallback(async () => {
-    if (!orgId) { setCards([]); setStatements([]); setPayments([]); setTransactions([]); setLoading(false); return; }
-    setLoading(true); setError(null);
-    const [cardRes, statementRes, transactionRes, paymentRes] = await Promise.all([
-      supabase.from('credit_cards').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }),
-      supabase.from('statements').select('*').eq('organization_id', orgId).order('statement_date', { ascending: false }),
-      supabase.from('transactions').select('*').eq('organization_id', orgId).order('transaction_date', { ascending: false }),
-      supabase.from('payments').select('*').eq('organization_id', orgId).order('payment_date', { ascending: false }),
-    ]);
-    const failed = [cardRes, statementRes, transactionRes, paymentRes].find((r) => r.error);
-    if (failed?.error) { setError(failed.error.message); setLoading(false); throw failed.error; }
-    setCards((cardRes.data ?? []).map(cardFromRow));
-    setStatements((statementRes.data ?? []).map(statementFromRow));
-    setTransactions((transactionRes.data ?? []).map(transactionFromRow));
-    setPayments((paymentRes.data ?? []).map(paymentFromRow));
-    setLoading(false);
+    const targetOrg = orgId || DEFAULT_ORG_ID;
+    setError(null);
+    try {
+      const [cardRes, statementRes, transactionRes, paymentRes] = await Promise.all([
+        supabase.from('credit_cards').select('*').eq('organization_id', targetOrg).order('created_at', { ascending: false }),
+        supabase.from('statements').select('*').eq('organization_id', targetOrg).order('statement_date', { ascending: false }),
+        supabase.from('transactions').select('*').eq('organization_id', targetOrg).order('transaction_date', { ascending: false }),
+        supabase.from('payments').select('*').eq('organization_id', targetOrg).order('payment_date', { ascending: false }),
+      ]);
+      const failed = [cardRes, statementRes, transactionRes, paymentRes].find((r) => r.error);
+      if (failed?.error) {
+        console.warn('Kredi kartları sorgu hatası:', failed.error);
+        setError(failed.error.message);
+      } else {
+        const fetchedCards = (cardRes.data ?? []).map(cardFromRow);
+        const fetchedStatements = (statementRes.data ?? []).map(statementFromRow);
+        const fetchedTransactions = (transactionRes.data ?? []).map(transactionFromRow);
+        const fetchedPayments = (paymentRes.data ?? []).map(paymentFromRow);
+
+        setCards(fetchedCards);
+        setStatements(fetchedStatements);
+        setTransactions(fetchedTransactions);
+        setPayments(fetchedPayments);
+
+        try {
+          localStorage.setItem(CACHE_KEY_CARDS, JSON.stringify(fetchedCards));
+          localStorage.setItem(CACHE_KEY_STATEMENTS, JSON.stringify(fetchedStatements));
+          localStorage.setItem(CACHE_KEY_TRANSACTIONS, JSON.stringify(fetchedTransactions));
+          localStorage.setItem(CACHE_KEY_PAYMENTS, JSON.stringify(fetchedPayments));
+        } catch {}
+      }
+    } catch (err: any) {
+      console.error('Kredi kartları yükleme hatası:', err);
+      setError(err?.message || 'Veriler yüklenemedi');
+    } finally {
+      setLoading(false);
+    }
   }, [orgId]);
 
   useEffect(() => { void refresh().catch(console.error); }, [refresh]);

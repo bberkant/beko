@@ -18,7 +18,7 @@ import {
 export function StatementsPage() {
   const navigate = useNavigate();
   const { notify } = useToast();
-  const { statements, cards, deleteStatement, addStatement } = useStore();
+  const { statements, cards, deleteStatement, addStatement, loading } = useStore();
 
   const [search, setSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -205,87 +205,112 @@ export function StatementsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((s) => (
-                <tr key={s.id} className="hover:bg-gray-50/40">
-                  <td className="table-td text-gray-700">{cardMap.get(s.cardId) ?? '-'}</td>
-                  <td className="table-td">
-                    <button className="font-medium text-brand-600 hover:text-brand-700" onClick={() => {
-                      const card = cards.find((c) => c.id === s.cardId);
-                      if (card) navigate(`/finans/kredi-kartlari/${card.id}/ekstreler/${s.id}`);
-                    }}>
-                      {s.period}
-                    </button>
-                  </td>
-                  <td className="table-td text-gray-600">{formatDate(s.statementDate)}</td>
-                  <td className="table-td text-gray-600">{formatDate(s.dueDate)}</td>
-                  <td className="table-td font-medium text-gray-900">{formatTRY(s.totalDebt)}</td>
-                  <td className="table-td text-gray-600">{formatTRY(s.minPayment)}</td>
-                  <td className="table-td text-gray-600">{s.transactionCount}</td>
-                  <td className="table-td"><Badge className={aiStatusCls[s.aiStatus]}>{aiStatusLabel[s.aiStatus]}</Badge></td>
-                  <td className="table-td"><Badge className={paymentStatusCls[s.paymentStatus]}>{paymentStatusLabel[s.paymentStatus]}</Badge></td>
-                  <td className="table-td text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => {
-                        const card = cards.find((c) => c.id === s.cardId);
-                        if (card) navigate(`/finans/kredi-kartlari/${card.id}/ekstreler/${s.id}`);
-                      }}>
-                        <Eye size={16} />
-                      </button>
-                      <button className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600" onClick={() => setDeleteTarget(s.id)}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {loading && statements.length === 0 ? (
+                Array.from({ length: 4 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse">
+                    <td className="table-td"><div className="h-4 w-32 bg-gray-200 rounded" /></td>
+                    <td className="table-td"><div className="h-4 w-16 bg-gray-100 rounded" /></td>
+                    <td className="table-td"><div className="h-4 w-20 bg-gray-100 rounded" /></td>
+                    <td className="table-td"><div className="h-4 w-20 bg-gray-100 rounded" /></td>
+                    <td className="table-td"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
+                    <td className="table-td"><div className="h-4 w-20 bg-gray-100 rounded" /></td>
+                    <td className="table-td"><div className="h-4 w-10 bg-gray-100 rounded" /></td>
+                    <td className="table-td"><div className="h-5 w-16 bg-gray-100 rounded-full" /></td>
+                    <td className="table-td"><div className="h-5 w-16 bg-gray-100 rounded-full" /></td>
+                    <td className="table-td text-right"><div className="h-6 w-12 bg-gray-100 rounded ml-auto" /></td>
+                  </tr>
+                ))
+              ) : (
+                filtered.map((s) => (
+                  <tr key={s.id}>
+                    <td className="table-td font-medium text-gray-900">{cardMap.get(s.cardId) ?? '-'}</td>
+                    <td className="table-td text-gray-600">{s.period}</td>
+                    <td className="table-td text-gray-600">{formatDate(s.statementDate)}</td>
+                    <td className="table-td text-gray-600">{formatDate(s.dueDate)}</td>
+                    <td className="table-td font-medium text-gray-900">{formatTRY(s.totalDebt)}</td>
+                    <td className="table-td text-gray-600">{formatTRY(s.minPayment)}</td>
+                    <td className="table-td text-gray-600">{s.transactionCount}</td>
+                    <td className="table-td"><Badge className={aiStatusCls[s.aiStatus]}>{aiStatusLabel[s.aiStatus]}</Badge></td>
+                    <td className="table-td"><Badge className={paymentStatusCls[s.paymentStatus]}>{paymentStatusLabel[s.paymentStatus]}</Badge></td>
+                    <td className="table-td text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => {
+                          const card = cards.find((c) => c.id === s.cardId);
+                          if (card) navigate(`/finans/kredi-kartlari/${card.id}/ekstreler/${s.id}`);
+                        }}>
+                          <Eye size={16} />
+                        </button>
+                        <button className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600" onClick={() => setDeleteTarget(s.id)}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && <div className="py-12 text-center text-sm text-gray-400">Ekstre bulunamadı.</div>}
+        {!loading && filtered.length === 0 && <div className="py-12 text-center text-sm text-gray-400">Ekstre bulunamadı.</div>}
       </div>
 
       <div className="space-y-3 lg:hidden">
-        {filtered.map((s) => (
-          <div key={s.id} className="card p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-semibold text-gray-900">{cardMap.get(s.cardId) ?? '-'}</p>
-                <p className="text-xs text-gray-500">{s.period} · {formatDate(s.statementDate)}</p>
+        {loading && statements.length === 0 ? (
+          Array.from({ length: 3 }).map((_, idx) => (
+            <div key={idx} className="card p-4 animate-pulse space-y-3">
+              <div className="flex justify-between items-center">
+                <div className="h-4 w-36 bg-gray-200 rounded" />
+                <div className="h-5 w-16 bg-gray-100 rounded-full" />
               </div>
-              <Badge className={paymentStatusCls[s.paymentStatus]}>{paymentStatusLabel[s.paymentStatus]}</Badge>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <p className="text-gray-400">Toplam Borç</p>
-                <p className="font-medium text-gray-700">{formatTRY(s.totalDebt)}</p>
-              </div>
-              <div>
-                <p className="text-gray-400">Asgari Ödeme</p>
-                <p className="font-medium text-gray-700">{formatTRY(s.minPayment)}</p>
-              </div>
-              <div>
-                <p className="text-gray-400">Son Ödeme</p>
-                <p className="font-medium text-gray-700">{formatDate(s.dueDate)}</p>
-              </div>
-              <div>
-                <p className="text-gray-400">AI Analiz</p>
-                <Badge className={aiStatusCls[s.aiStatus]}>{aiStatusLabel[s.aiStatus]}</Badge>
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <div className="h-8 bg-gray-100 rounded" />
+                <div className="h-8 bg-gray-100 rounded" />
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
-              <button className="btn-secondary !px-3 !py-1.5 !text-xs" onClick={() => {
-                const card = cards.find((c) => c.id === s.cardId);
-                if (card) navigate(`/finans/kredi-kartlari/${card.id}/ekstreler/${s.id}`);
-              }}>
-                <Eye size={14} /> Görüntüle
-              </button>
-              <button className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600" onClick={() => setDeleteTarget(s.id)}>
-                <Trash2 size={16} />
-              </button>
+          ))
+        ) : (
+          filtered.map((s) => (
+            <div key={s.id} className="card p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{cardMap.get(s.cardId) ?? '-'}</p>
+                  <p className="text-xs text-gray-500">{s.period} · {formatDate(s.statementDate)}</p>
+                </div>
+                <Badge className={paymentStatusCls[s.paymentStatus]}>{paymentStatusLabel[s.paymentStatus]}</Badge>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p className="text-gray-400">Toplam Borç</p>
+                  <p className="font-medium text-gray-700">{formatTRY(s.totalDebt)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Asgari Ödeme</p>
+                  <p className="font-medium text-gray-700">{formatTRY(s.minPayment)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Son Ödeme</p>
+                  <p className="font-medium text-gray-700">{formatDate(s.dueDate)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">AI Analiz</p>
+                  <Badge className={aiStatusCls[s.aiStatus]}>{aiStatusLabel[s.aiStatus]}</Badge>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
+                <button className="btn-secondary !px-3 !py-1.5 !text-xs" onClick={() => {
+                  const card = cards.find((c) => c.id === s.cardId);
+                  if (card) navigate(`/finans/kredi-kartlari/${card.id}/ekstreler/${s.id}`);
+                }}>
+                  <Eye size={14} /> Görüntüle
+                </button>
+                <button className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600" onClick={() => setDeleteTarget(s.id)}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-        {filtered.length === 0 && <div className="py-12 text-center text-sm text-gray-400">Ekstre bulunamadı.</div>}
+          ))
+        )}
+        {!loading && filtered.length === 0 && <div className="py-12 text-center text-sm text-gray-400">Ekstre bulunamadı.</div>}
       </div>
 
       <Modal

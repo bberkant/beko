@@ -119,7 +119,7 @@ function InlineTextCell({
 export function CreditCardListPage() {
   const navigate = useNavigate();
   const { notify } = useToast();
-  const { cards, statements, addStatement, addPayment, updateCard } = useStore();
+  const { cards, statements, loading, addStatement, addPayment, updateCard } = useStore();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -616,23 +616,36 @@ export function CreditCardListPage() {
       />
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        {kpiList.map((k) => {
-          const Icon = k.icon;
-          const isCritical = k.id === 'crit' && kpis.critical > 0;
-          return (
-            <div key={k.id} className="card p-4">
+        {loading && cards.length === 0 ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="card p-4 animate-pulse">
               <div className="flex items-center justify-between">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
-                  <Icon size={15} />
-                </span>
-                {isCritical && <span className="h-2 w-2 rounded-full bg-red-500" />}
+                <span className="h-8 w-8 rounded-lg bg-gray-100" />
               </div>
-              <p className="mt-3 text-lg font-semibold tracking-tight text-gray-900">{k.value}</p>
-              <p className="mt-0.5 text-xs font-medium text-gray-600">{k.label}</p>
-              <p className="mt-0.5 text-[11px] text-gray-400">{k.hint}</p>
+              <div className="mt-3 h-6 w-24 bg-gray-200 rounded" />
+              <div className="mt-1.5 h-3 w-28 bg-gray-100 rounded" />
+              <div className="mt-1 h-2.5 w-16 bg-gray-50 rounded" />
             </div>
-          );
-        })}
+          ))
+        ) : (
+          kpiList.map((k) => {
+            const Icon = k.icon;
+            const isCritical = k.id === 'crit' && kpis.critical > 0;
+            return (
+              <div key={k.id} className="card p-4">
+                <div className="flex items-center justify-between">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
+                    <Icon size={15} />
+                  </span>
+                  {isCritical && <span className="h-2 w-2 rounded-full bg-red-500" />}
+                </div>
+                <p className="mt-3 text-lg font-semibold tracking-tight text-gray-900">{k.value}</p>
+                <p className="mt-0.5 text-xs font-medium text-gray-600">{k.label}</p>
+                <p className="mt-0.5 text-[11px] text-gray-400">{k.hint}</p>
+              </div>
+            );
+          })
+        )}
       </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -730,238 +743,282 @@ export function CreditCardListPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((c, index) => {
-                const dueDate = resolveCardDueDate(c, statements);
-                return (
-                  <tr key={c.id} className="hover:bg-gray-50/40">
-                    <td className="table-td text-center text-gray-500 font-medium text-xs !px-1">{index + 1}</td>
+              {loading && cards.length === 0 ? (
+                Array.from({ length: 6 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse">
+                    <td className="table-td text-center !px-1"><div className="h-4 w-4 bg-gray-100 rounded mx-auto" /></td>
                     <td className="table-td !px-2">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gray-100 text-[10px] font-semibold text-gray-600">{c.bankShort}</span>
-                        <div className="min-w-0 flex-1">
-                          {editingCell && editingCell.vehicleId === c.id && editingCell.field === 'bank' ? (
-                            <input
-                              type="text"
-                              className="input !py-0.5 !px-1.5 !text-xs w-full mb-1"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleCardInlineSave(c, 'bank', editValue);
-                                else if (e.key === 'Escape') setEditingCell(null);
-                              }}
-                              onBlur={() => handleCardInlineSave(c, 'bank', editValue)}
-                              autoFocus
-                            />
-                          ) : (
-                            <div className="relative flex items-center justify-between gap-1 group/item">
-                              <button className="block max-w-full truncate font-bold text-brand-600 hover:text-brand-700 text-left" onClick={() => navigate(`/finans/kredi-kartlari/${c.id}`)}>{c.bank}</button>
-                              <button
-                                onClick={() => {
-                                  setEditingCell({ vehicleId: c.id, field: 'bank' });
-                                  setEditValue(c.bank);
-                                }}
-                                className="p-1 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded opacity-0 group-hover/item:opacity-100 transition-opacity absolute right-1 top-1/2 -translate-y-1/2 shrink-0"
-                                title="Bankayı Düzenle"
-                              >
-                                <Pencil size={16} />
-                              </button>
-                            </div>
-                          )}
-
-                          {editingCell && editingCell.vehicleId === c.id && editingCell.field === 'cardName' ? (
-                            <input
-                              type="text"
-                              className="input !py-0.5 !px-1.5 !text-[11px] w-full"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleCardInlineSave(c, 'cardName', editValue);
-                                else if (e.key === 'Escape') setEditingCell(null);
-                              }}
-                              onBlur={() => handleCardInlineSave(c, 'cardName', editValue)}
-                              autoFocus
-                            />
-                          ) : (
-                            <div className="relative flex items-center justify-between gap-1 group/item">
-                              <span className="block truncate text-[11px] text-gray-500 font-bold">{c.cardName}</span>
-                              <button
-                                onClick={() => {
-                                  setEditingCell({ vehicleId: c.id, field: 'cardName' });
-                                  setEditValue(c.cardName);
-                                }}
-                                className="p-1 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded opacity-0 group-hover/item:opacity-100 transition-opacity absolute right-1 top-1/2 -translate-y-1/2 shrink-0"
-                                title="Kart Adını Düzenle"
-                              >
-                                <Pencil size={16} />
-                              </button>
-                            </div>
-                          )}
+                        <div className="h-7 w-7 rounded-md bg-gray-200 shrink-0" />
+                        <div className="space-y-1 w-full">
+                          <div className="h-4 w-28 bg-gray-200 rounded" />
+                          <div className="h-3 w-16 bg-gray-100 rounded" />
                         </div>
                       </div>
                     </td>
-                    <InlineTextCell
-                      value={c.last4}
-                      displayValue={
-                        <span className="font-mono text-sm">
-                          <span className="text-gray-400 tracking-tight">•••• </span>
-                          <span className="font-bold text-gray-900 text-[15px]">{c.last4}</span>
-                        </span>
-                      }
-                      onSave={(val) => handleCardInlineSave(c, "last4", val)}
-                      className="!text-sm text-gray-700"
-                      inputClassName="font-mono text-center max-w-[80px]"
-                    />
-                    <InlineTextCell
-                      value={String(c.statementDay)}
-                      displayValue={`${c.statementDay}. gün`}
-                      onSave={(val) => handleCardInlineSave(c, "statementDay", val)}
-                      className="!text-sm font-semibold text-gray-900 text-center"
-                      inputClassName="text-center max-w-[60px]"
-                    />
-                    <td className="table-td !px-2 !text-xs relative overflow-visible pr-8">
-                      {editingCell && editingCell.vehicleId === c.id && editingCell.field === 'dueDay' ? (
-                        <input
-                          type="text"
-                          className="input !py-0.5 !px-1.5 !text-xs max-w-[60px] text-center"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleCardInlineSave(c, 'dueDay', editValue);
-                            else if (e.key === 'Escape') setEditingCell(null);
-                          }}
-                          onBlur={() => handleCardInlineSave(c, 'dueDay', editValue)}
-                          autoFocus
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center w-full gap-1 group/item">
-                          <DueDateCell dueDate={dueDate.date} statementStatus={c.statementStatus} currentDebt={Number(c.currentDebt) || 0} cardLimit={c.limit} />
-                          <button
-                            onClick={() => {
-                              setEditingCell({ vehicleId: c.id, field: 'dueDay' });
-                              setEditValue(String(c.dueDay));
-                            }}
-                            className="p-1 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded opacity-0 group-hover/item:opacity-100 transition-opacity absolute right-1 top-1/2 -translate-y-1/2 shrink-0"
-                            title="Son Ödeme Gününü Düzenle"
-                          >
-                            <Pencil size={16} />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                    <InlineTextCell
-                      value={String(c.limit)}
-                      displayValue={formatTRY(c.limit)}
-                      onSave={(val) => handleCardInlineSave(c, "limit", val)}
-                      className="!text-xs text-gray-700 text-center"
-                      inputClassName="text-center"
-                    />
-                    <InlineTextCell
-                      value={String(c.currentDebt)}
-                      displayValue={formatTRY(c.currentDebt)}
-                      onSave={(val) => handleCardInlineSave(c, "currentDebt", val)}
-                      className="!text-xs font-normal text-gray-900 text-center"
-                      inputClassName="text-center"
-                    />
-                    <InlineTextCell
-                      value={c.holder || ""}
-                      displayValue={c.holder}
-                      onSave={(val) => handleCardInlineSave(c, "holder", val)}
-                      className="!text-xs text-gray-700"
-                      placeholder="—"
-                    />
-                    <td className="table-td !px-2">
-                      <div className="flex items-center gap-1.5">
-                        {(c.statementStatus === 'bu-ay-eksik' || c.statementStatus === 'bekleniyor') && <AlertTriangle size={13} className="text-amber-400" />}
-                        <Badge className={statementStatusCls[c.statementStatus as StatementStatus]}>{statementStatusLabel[c.statementStatus as StatementStatus]}</Badge>
-                      </div>
-                    </td>
-                    <td className="table-td !px-2"><Badge className={cardStatusCls[c.status]}>{cardStatusLabel[c.status]}</Badge></td>
-                    <td className="table-td !px-1 text-center">
-                      <CardRowMenu card={c} onUploadStatement={() => { setUploadCard(c); setProgress(null); }} onAddPayment={() => setPaymentCard(c)} />
-                    </td>
+                    <td className="table-td text-center"><div className="h-4 w-12 bg-gray-100 rounded mx-auto" /></td>
+                    <td className="table-td text-center pr-8"><div className="h-4 w-16 bg-gray-100 rounded mx-auto" /></td>
+                    <td className="table-td text-center pr-8"><div className="h-4 w-24 bg-gray-200 rounded mx-auto" /></td>
+                    <td className="table-td text-center pr-8"><div className="h-4 w-20 bg-gray-200 rounded mx-auto" /></td>
+                    <td className="table-td text-center pr-8"><div className="h-4 w-20 bg-gray-200 rounded mx-auto" /></td>
+                    <td className="table-td"><div className="h-4 w-20 bg-gray-100 rounded" /></td>
+                    <td className="table-td"><div className="h-5 w-16 bg-gray-100 rounded-full" /></td>
+                    <td className="table-td"><div className="h-5 w-14 bg-gray-100 rounded-full" /></td>
+                    <td className="table-td text-center"><div className="h-6 w-6 bg-gray-100 rounded mx-auto" /></td>
                   </tr>
-                );
-              })}
+                ))
+              ) : (
+                filtered.map((c, index) => {
+                  const dueDate = resolveCardDueDate(c, statements);
+                  return (
+                    <tr key={c.id} className="hover:bg-gray-50/40">
+                      <td className="table-td text-center text-gray-500 font-medium text-xs !px-1">{index + 1}</td>
+                      <td className="table-td !px-2">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gray-100 text-[10px] font-semibold text-gray-600">{c.bankShort}</span>
+                          <div className="min-w-0 flex-1">
+                            {editingCell && editingCell.vehicleId === c.id && editingCell.field === 'bank' ? (
+                              <input
+                                type="text"
+                                className="input !py-0.5 !px-1.5 !text-xs w-full mb-1"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleCardInlineSave(c, 'bank', editValue);
+                                  else if (e.key === 'Escape') setEditingCell(null);
+                                }}
+                                onBlur={() => handleCardInlineSave(c, 'bank', editValue)}
+                                autoFocus
+                              />
+                            ) : (
+                              <div className="relative flex items-center justify-between gap-1 group/item">
+                                <button className="block max-w-full truncate font-bold text-brand-600 hover:text-brand-700 text-left" onClick={() => navigate(`/finans/kredi-kartlari/${c.id}`)}>{c.bank}</button>
+                                <button
+                                  onClick={() => {
+                                    setEditingCell({ vehicleId: c.id, field: 'bank' });
+                                    setEditValue(c.bank);
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded opacity-0 group-hover/item:opacity-100 transition-opacity absolute right-1 top-1/2 -translate-y-1/2 shrink-0"
+                                  title="Bankayı Düzenle"
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                              </div>
+                            )}
+
+                            {editingCell && editingCell.vehicleId === c.id && editingCell.field === 'cardName' ? (
+                              <input
+                                type="text"
+                                className="input !py-0.5 !px-1.5 !text-[11px] w-full"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleCardInlineSave(c, 'cardName', editValue);
+                                  else if (e.key === 'Escape') setEditingCell(null);
+                                }}
+                                onBlur={() => handleCardInlineSave(c, 'cardName', editValue)}
+                                autoFocus
+                              />
+                            ) : (
+                              <div className="relative flex items-center justify-between gap-1 group/item">
+                                <span className="block truncate text-[11px] text-gray-500 font-bold">{c.cardName}</span>
+                                <button
+                                  onClick={() => {
+                                    setEditingCell({ vehicleId: c.id, field: 'cardName' });
+                                    setEditValue(c.cardName);
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded opacity-0 group-hover/item:opacity-100 transition-opacity absolute right-1 top-1/2 -translate-y-1/2 shrink-0"
+                                  title="Kart Adını Düzenle"
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <InlineTextCell
+                        value={c.last4}
+                        displayValue={
+                          <span className="font-mono text-sm">
+                            <span className="text-gray-400 tracking-tight">•••• </span>
+                            <span className="font-bold text-gray-900 text-[15px]">{c.last4}</span>
+                          </span>
+                        }
+                        onSave={(val) => handleCardInlineSave(c, "last4", val)}
+                        className="!text-sm text-gray-700"
+                        inputClassName="font-mono text-center max-w-[80px]"
+                      />
+                      <InlineTextCell
+                        value={String(c.statementDay)}
+                        displayValue={`${c.statementDay}. gün`}
+                        onSave={(val) => handleCardInlineSave(c, "statementDay", val)}
+                        className="!text-sm font-semibold text-gray-900 text-center"
+                        inputClassName="text-center max-w-[60px]"
+                      />
+                      <td className="table-td !px-2 !text-xs relative overflow-visible pr-8">
+                        {editingCell && editingCell.vehicleId === c.id && editingCell.field === 'dueDay' ? (
+                          <input
+                            type="text"
+                            className="input !py-0.5 !px-1.5 !text-xs max-w-[60px] text-center"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleCardInlineSave(c, 'dueDay', editValue);
+                              else if (e.key === 'Escape') setEditingCell(null);
+                            }}
+                            onBlur={() => handleCardInlineSave(c, 'dueDay', editValue)}
+                            autoFocus
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center w-full gap-1 group/item">
+                            <DueDateCell dueDate={dueDate.date} statementStatus={c.statementStatus} currentDebt={Number(c.currentDebt) || 0} cardLimit={c.limit} />
+                            <button
+                              onClick={() => {
+                                setEditingCell({ vehicleId: c.id, field: 'dueDay' });
+                                setEditValue(String(c.dueDay));
+                              }}
+                              className="p-1 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded opacity-0 group-hover/item:opacity-100 transition-opacity absolute right-1 top-1/2 -translate-y-1/2 shrink-0"
+                              title="Son Ödeme Gününü Düzenle"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                      <InlineTextCell
+                        value={String(c.limit)}
+                        displayValue={formatTRY(c.limit)}
+                        onSave={(val) => handleCardInlineSave(c, "limit", val)}
+                        className="!text-xs text-gray-700 text-center"
+                        inputClassName="text-center"
+                      />
+                      <InlineTextCell
+                        value={String(c.currentDebt)}
+                        displayValue={formatTRY(c.currentDebt)}
+                        onSave={(val) => handleCardInlineSave(c, "currentDebt", val)}
+                        className="!text-xs font-normal text-gray-900 text-center"
+                        inputClassName="text-center"
+                      />
+                      <InlineTextCell
+                        value={c.holder || ""}
+                        displayValue={c.holder}
+                        onSave={(val) => handleCardInlineSave(c, "holder", val)}
+                        className="!text-xs text-gray-700"
+                        placeholder="—"
+                      />
+                      <td className="table-td !px-2">
+                        <div className="flex items-center gap-1.5">
+                          {(c.statementStatus === 'bu-ay-eksik' || c.statementStatus === 'bekleniyor') && <AlertTriangle size={13} className="text-amber-400" />}
+                          <Badge className={statementStatusCls[c.statementStatus as StatementStatus]}>{statementStatusLabel[c.statementStatus as StatementStatus]}</Badge>
+                        </div>
+                      </td>
+                      <td className="table-td !px-2"><Badge className={cardStatusCls[c.status]}>{cardStatusLabel[c.status]}</Badge></td>
+                      <td className="table-td !px-1 text-center">
+                        <CardRowMenu card={c} onUploadStatement={() => { setUploadCard(c); setProgress(null); }} onAddPayment={() => setPaymentCard(c)} />
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && <div className="py-12 text-center text-sm text-gray-400">Filtrelere uyan kart bulunamadı.</div>}
+        {!loading && filtered.length === 0 && <div className="py-12 text-center text-sm text-gray-400">Filtrelere uyan kart bulunamadı.</div>}
       </div>
 
       {/* Mobile/tablet cards — shown below lg */}
       <div className="space-y-3 lg:hidden">
-        {filtered.map((c) => {
-          const usage = limitUsage(c.currentDebt, c.limit);
-          const level = usageLevel(usage);
-          const available = c.limit - c.currentDebt;
-          const dueDate = resolveCardDueDate(c, statements);
-          return (
-            <div key={c.id} className="card p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-600">{c.bankShort}</span>
-                  <div>
-                    <button className="text-sm font-semibold text-brand-600 hover:text-brand-700" onClick={() => navigate(`/finans/kredi-kartlari/${c.id}`)}>
-                      {c.bank}
-                    </button>
-                    <p className="text-xs text-gray-500">
-                      {c.cardName} ·{' '}
-                      <span className="font-mono">
-                        <span className="text-gray-400">•••• </span>
-                        <span className="font-semibold text-gray-800">{c.last4}</span>
-                      </span>
-                    </p>
-                  </div>
-                </div>
-                <Badge className={cardStatusCls[c.status]}>{cardStatusLabel[c.status]}</Badge>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <p className="text-gray-400">Kartı Kullanan</p>
-                  <p className="font-medium text-gray-700">{c.holder || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Güncel Borç</p>
-                  <p className="font-medium text-gray-700">{formatTRY(c.currentDebt)}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Kart Limiti</p>
-                  <p className="font-medium text-gray-700">{formatTRY(c.limit)}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Kullanılabilir</p>
-                  <p className="font-medium text-gray-700">{formatTRY(available)}</p>
+        {loading && cards.length === 0 ? (
+          Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="card p-4 animate-pulse space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 bg-gray-200 rounded-lg shrink-0" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-4 w-32 bg-gray-200 rounded" />
+                  <div className="h-3 w-20 bg-gray-100 rounded" />
                 </div>
               </div>
-              <div className="mt-3">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-xs text-gray-400">Limit Kullanımı</span>
-                </div>
-                <ProgressBar value={usage} level={level} showLabel />
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <p className="text-gray-400">Son Ödeme</p>
-                  <DueDateCell dueDate={dueDate.date} statementStatus={c.statementStatus} currentDebt={Number(c.currentDebt) || 0} cardLimit={c.limit} />
-                </div>
-                <div>
-                  <p className="text-gray-400">Ekstre Durumu</p>
-                  <div className="flex items-center gap-1.5">
-                    {(c.statementStatus === 'bu-ay-eksik' || c.statementStatus === 'bekleniyor') && <AlertTriangle size={13} className="text-amber-400" />}
-                    <Badge className={statementStatusCls[c.statementStatus as StatementStatus]}>{statementStatusLabel[c.statementStatus as StatementStatus]}</Badge>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
-                <button className="btn-secondary !px-3 !py-1.5 !text-xs" onClick={() => navigate(`/finans/kredi-kartlari/${c.id}`)}>
-                  <Eye size={14} /> Görüntüle
-                </button>
-                <CardRowMenu card={c} onUploadStatement={() => { setUploadCard(c); setProgress(null); }} onAddPayment={() => setPaymentCard(c)} />
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <div className="h-8 bg-gray-100 rounded" />
+                <div className="h-8 bg-gray-100 rounded" />
               </div>
             </div>
-          );
-        })}
-        {filtered.length === 0 && <div className="py-12 text-center text-sm text-gray-400">Filtrelere uyan kart bulunamadı.</div>}
+          ))
+        ) : (
+          filtered.map((c) => {
+            const usage = limitUsage(c.currentDebt, c.limit);
+            const level = usageLevel(usage);
+            const available = c.limit - c.currentDebt;
+            const dueDate = resolveCardDueDate(c, statements);
+            return (
+              <div key={c.id} className="card p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-600">{c.bankShort}</span>
+                    <div>
+                      <button className="text-sm font-semibold text-brand-600 hover:text-brand-700" onClick={() => navigate(`/finans/kredi-kartlari/${c.id}`)}>
+                        {c.bank}
+                      </button>
+                      <p className="text-xs text-gray-500">
+                        {c.cardName} ·{' '}
+                        <span className="font-mono">
+                          <span className="text-gray-400">•••• </span>
+                          <span className="font-semibold text-gray-800">{c.last4}</span>
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className={cardStatusCls[c.status]}>{cardStatusLabel[c.status]}</Badge>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-gray-400">Kartı Kullanan</p>
+                    <p className="font-medium text-gray-700">{c.holder || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Güncel Borç</p>
+                    <p className="font-medium text-gray-700">{formatTRY(c.currentDebt)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Kart Limiti</p>
+                    <p className="font-medium text-gray-700">{formatTRY(c.limit)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Kullanılabilir</p>
+                    <p className="font-medium text-gray-700">{formatTRY(available)}</p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Limit Kullanımı</span>
+                  </div>
+                  <ProgressBar value={usage} level={level} showLabel />
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-gray-400">Son Ödeme</p>
+                    <DueDateCell dueDate={dueDate.date} statementStatus={c.statementStatus} currentDebt={Number(c.currentDebt) || 0} cardLimit={c.limit} />
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Ekstre Durumu</p>
+                    <div className="flex items-center gap-1.5">
+                      {(c.statementStatus === 'bu-ay-eksik' || c.statementStatus === 'bekleniyor') && <AlertTriangle size={13} className="text-amber-400" />}
+                      <Badge className={statementStatusCls[c.statementStatus as StatementStatus]}>{statementStatusLabel[c.statementStatus as StatementStatus]}</Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
+                  <button className="btn-secondary !px-3 !py-1.5 !text-xs" onClick={() => navigate(`/finans/kredi-kartlari/${c.id}`)}>
+                    <Eye size={14} /> Görüntüle
+                  </button>
+                  <CardRowMenu card={c} onUploadStatement={() => { setUploadCard(c); setProgress(null); }} onAddPayment={() => setPaymentCard(c)} />
+                </div>
+              </div>
+            );
+          })
+        )}
+        {!loading && filtered.length === 0 && <div className="py-12 text-center text-sm text-gray-400">Filtrelere uyan kart bulunamadı.</div>}
       </div>
 
       {/* Upload statement modal */}
