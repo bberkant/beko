@@ -1262,7 +1262,7 @@ export function GirisCikisPage() {
                             setPosList(prev => prev.map((item, i) => i === pIdx ? { ...item, amount: n !== 0 ? formatExcel(n) : '' } : item));
                           }
                         }}
-                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-xs font-mono font-bold text-gray-900"
+                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-xs font-bold text-gray-900"
                       />
                     </div>
                   </div>
@@ -1275,30 +1275,30 @@ export function GirisCikisPage() {
                 <div className="h-[32px] border-b border-black bg-white"></div>
 
                 {/* 15) POS TOPLAM */}
-                <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-black text-rose-600 bg-rose-50/40">
+                <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-bold text-rose-600 bg-rose-50/40">
                   <span className="uppercase">TOPLAM</span>
-                  <span className="font-mono text-xs">{formatExcel(posTotal)}</span>
+                  <span className="text-xs font-bold">{formatExcel(posTotal)}</span>
                 </div>
 
                 {/* 16) BOŞLUK SATIRI 3 */}
                 <div className="h-[32px] border-b border-black bg-white"></div>
 
                 {/* 17) GİRİŞ TOPLAMI */}
-                <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-black text-gray-900 bg-white">
+                <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-bold text-gray-900 bg-white">
                   <span className="uppercase text-[11px]">GİRİŞ TOPLAMI</span>
-                  <span className="font-mono text-xs text-gray-950">{formatExcel(girisTotal)}</span>
+                  <span className="text-xs font-bold text-gray-950">{formatExcel(girisTotal)}</span>
                 </div>
 
                 {/* 18) ÇIKIŞ TOPLAMI */}
-                <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-black text-gray-900 bg-white">
+                <div className="flex items-center justify-between px-2.5 h-[32px] border-b border-black text-xs font-bold text-gray-900 bg-white">
                   <span className="uppercase text-[11px]">ÇIKIŞ TOPLAMI</span>
-                  <span className="font-mono text-xs text-gray-950">{formatExcel(cikisTotal)}</span>
+                  <span className="text-xs font-bold text-gray-950">{formatExcel(cikisTotal)}</span>
                 </div>
 
                 {/* 19) GİRİŞ-ÇIKIŞ KALANI (Tam DEPO hizasında, index 18) */}
-                <div className="flex items-center justify-between px-2.5 h-[32px] text-xs font-black bg-white">
+                <div className="flex items-center justify-between px-2.5 h-[32px] text-xs font-bold bg-white">
                   <span className="uppercase text-[11px] text-gray-900">GİRİŞ-ÇIKIŞ KALANI</span>
-                  <span className={`font-mono text-xs font-black ${
+                  <span className={`text-xs font-bold ${
                     netKalan < 0 ? 'text-rose-600' : 'text-gray-950'
                   }`}>
                     {formatExcel(netKalan)}
@@ -1364,8 +1364,8 @@ export function GirisCikisPage() {
                       <div className="w-[28%] h-full flex items-center justify-end pr-1">
                         <input
                           type="text"
-                          className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-xs font-black font-mono ${
-                            isDevir ? 'text-rose-600 font-black' : 'text-gray-950'
+                          className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-xs font-bold ${
+                            isDevir ? 'text-rose-600 font-bold' : 'text-gray-950'
                           }`}
                           value={g.amount}
                           onChange={(e) => {
@@ -1389,7 +1389,7 @@ export function GirisCikisPage() {
                 })}
 
                 {/* Footer Total & Add Row */}
-                <div className="border-t-2 border-black bg-emerald-50/80 p-2.5 flex items-center justify-between text-emerald-950 font-black text-xs">
+                <div className="border-t-2 border-black bg-emerald-50/80 p-2.5 flex items-center justify-between text-emerald-950 font-bold text-xs">
                   <div className="flex items-center gap-2">
                     <span className="font-bold">GİRİŞ TOPLAMI:</span>
                     <button
@@ -1401,7 +1401,7 @@ export function GirisCikisPage() {
                       + 10 Satır Ekle
                     </button>
                   </div>
-                  <span className="text-sm font-mono text-emerald-900">{formatMoney(girisTotal)} ₺</span>
+                  <span className="text-sm font-bold text-emerald-900">{formatMoney(girisTotal)} ₺</span>
                 </div>
               </div>
 
@@ -1413,12 +1413,12 @@ export function GirisCikisPage() {
           {/* ========================================================= */}
           <div className="border-2 border-black bg-white shadow-sm overflow-hidden flex flex-col min-w-0">
             {/* Header */}
-            <div className="border-b-2 border-black bg-[#cfd5dd] h-[40px] flex items-center justify-center font-black text-[20px] tracking-widest text-black uppercase">
+            <div className="border-b-2 border-black bg-[#cfd5dd] h-[40px] flex items-center justify-center font-bold text-[20px] tracking-widest text-black uppercase">
               ÇIKIŞ
             </div>
 
             {/* Subheaders */}
-            <div className="flex divide-x divide-black border-b-2 border-black bg-gray-50 h-[34px] items-center text-xs font-black uppercase text-gray-800 tracking-wider">
+            <div className="flex divide-x divide-black border-b-2 border-black bg-gray-50 h-[34px] items-center text-xs font-bold uppercase text-gray-800 tracking-wider">
               <div className="w-[48%] pl-2 text-left">AÇIKLAMA / CARİ</div>
               <div className="w-[24%] pl-2 text-left">BANKA / TÜR</div>
               <div className="w-[28%] pr-2 text-right">TUTAR</div>
@@ -1434,7 +1434,7 @@ export function GirisCikisPage() {
                       <input
                         type="text"
                         className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-xs uppercase ${
-                          isRedLabel(c.description) ? 'text-rose-600 font-black' : 'text-gray-900 font-bold'
+                          isRedLabel(c.description) ? 'text-rose-600 font-bold' : 'text-gray-900 font-bold'
                         }`}
                         value={c.description}
                         onChange={(e) => {
@@ -1467,7 +1467,7 @@ export function GirisCikisPage() {
                     <div className="w-[28%] h-full flex items-center justify-end pr-1">
                       <input
                         type="text"
-                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-xs font-black text-rose-800 font-mono"
+                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-xs font-bold text-rose-800"
                         value={c.amount}
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
@@ -1491,7 +1491,7 @@ export function GirisCikisPage() {
             </div>
 
             {/* Footer Total & Add Row */}
-            <div className="border-t-2 border-black bg-rose-50/80 p-2.5 flex items-center justify-between text-rose-950 font-black text-xs">
+            <div className="border-t-2 border-black bg-rose-50/80 p-2.5 flex items-center justify-between text-rose-950 font-bold text-xs">
               <div className="flex items-center gap-2">
                 <span className="font-bold">ÇIKIŞ TOPLAMI (J66):</span>
                 <button
@@ -1503,7 +1503,7 @@ export function GirisCikisPage() {
                   + 10 Satır Ekle
                 </button>
               </div>
-              <span className="text-sm font-mono text-rose-900">{formatMoney(cikisTotal)} ₺</span>
+              <span className="text-sm font-bold text-rose-900">{formatMoney(cikisTotal)} ₺</span>
             </div>
           </div>
 
@@ -1518,13 +1518,13 @@ export function GirisCikisPage() {
               </div>
 
             {/* Subheaders */}
-            <div className="flex divide-x divide-black border-b-2 border-black bg-gray-50 h-[34px] items-center text-[10px] xl:text-[11px] font-black uppercase text-gray-800 tracking-wider">
+            <div className="flex divide-x divide-black border-b-2 border-black bg-gray-50 h-[34px] items-center text-[10px] xl:text-[11px] font-bold uppercase text-gray-800 tracking-wider">
               <div className="w-[25%] pl-2 text-left truncate">HESAP ADI (M)</div>
               <div className="w-[15%] pr-1 text-right truncate">DEVİR (L)</div>
               <div className="w-[15%] pr-1 text-right truncate">HAREKET (N)</div>
               <div className="w-[15%] pr-1 text-right truncate">POS (O)</div>
-              <div className="w-[15%] pr-1 text-right text-indigo-900 bg-indigo-50/60 font-black truncate" title="Banka Düzeltmeleri (P)">BANKA DÜZ. (P)</div>
-              <div className="w-[15%] pr-1.5 text-right bg-blue-50 text-blue-950 font-black truncate">SONU (R)</div>
+              <div className="w-[15%] pr-1 text-right text-indigo-900 bg-indigo-50/60 font-bold truncate" title="Banka Düzeltmeleri (P)">BANKA DÜZ. (P)</div>
+              <div className="w-[15%] pr-1.5 text-right bg-blue-50 text-blue-950 font-bold truncate">SONU (R)</div>
             </div>
 
             {/* Data Rows */}
@@ -1536,7 +1536,7 @@ export function GirisCikisPage() {
                     <div className="w-[25%] h-full flex items-center min-w-0">
                       <input
                         type="text"
-                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-[11px] xl:text-xs font-black uppercase text-gray-900 truncate"
+                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 pl-2 text-[11px] xl:text-xs font-bold uppercase text-gray-900 truncate"
                         value={ak.name}
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
@@ -1556,8 +1556,8 @@ export function GirisCikisPage() {
                     <div className="w-[15%] h-full flex items-center justify-end pr-0.5 min-w-0">
                       <input
                         type="text"
-                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-mono ${
-                          parseNum(ak.devir) < 0 ? 'text-rose-600 font-black' : 'text-gray-900 font-bold'
+                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold ${
+                          parseNum(ak.devir) < 0 ? 'text-rose-600' : 'text-gray-900'
                         }`}
                         value={ak.devir}
                         onChange={(e) => {
@@ -1589,7 +1589,7 @@ export function GirisCikisPage() {
                     <div className="w-[15%] h-full flex items-center justify-end pr-0.5 min-w-0">
                       <input
                         type="text"
-                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold font-mono ${
+                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold ${
                           parseNum(ak.movement) < 0 ? 'text-rose-600' : (parseNum(ak.movement) > 0 ? 'text-emerald-700' : 'text-gray-500')
                         }`}
                         value={ak.movement}
@@ -1622,7 +1622,7 @@ export function GirisCikisPage() {
                     <div className="w-[15%] h-full flex items-center justify-end pr-0.5 min-w-0">
                       <input
                         type="text"
-                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold text-blue-700 font-mono"
+                        className="w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold text-blue-700"
                         value={ak.pos}
                         onChange={(e) => {
                           isUserDirtyRef.current = true;
@@ -1653,7 +1653,7 @@ export function GirisCikisPage() {
                     <div className="w-[15%] h-full flex items-center justify-end pr-0.5 bg-indigo-50/30 min-w-0">
                       <input
                         type="text"
-                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold font-mono ${
+                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold ${
                           parseNum(ak.duzeltme || '') < 0 ? 'text-rose-600' : 'text-indigo-900'
                         }`}
                         value={ak.duzeltme !== undefined && ak.duzeltme !== null ? ak.duzeltme : ''}
@@ -1687,7 +1687,7 @@ export function GirisCikisPage() {
                     <div className="w-[15%] h-full flex items-center justify-end pr-1 bg-blue-50/40 min-w-0">
                       <input
                         type="text"
-                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-black font-mono ${
+                        className={`w-full h-full bg-transparent border-0 focus:outline-none focus:bg-amber-50 text-right pr-1 text-[11px] xl:text-xs font-bold ${
                           parseNum(ak.gunSonu || '') < 0 ? 'text-rose-700' : 'text-gray-950'
                         }`}
                         value={ak.gunSonu !== undefined && ak.gunSonu !== null ? ak.gunSonu : ''}
@@ -1717,11 +1717,11 @@ export function GirisCikisPage() {
           {/* Excel Exact Bottom 3-Row Summary as Separate Box Below */}
           <div className="mt-3 border-2 border-black bg-white shadow-sm overflow-hidden flex flex-col min-w-0">
             {/* Row 1: Toplam Kasa Bakiyesi */}
-            <div className="flex divide-x divide-black h-[32px] items-center text-xs border-b border-black font-mono">
+            <div className="flex divide-x divide-black h-[32px] items-center text-xs border-b border-black">
               <div className="w-[85%] pl-2 text-right pr-2 font-bold text-gray-700 uppercase">
                 TOPLAM KASA BAKİYESİ:
               </div>
-              <div className={`w-[15%] h-full flex items-center justify-end pr-2 font-black ${
+              <div className={`w-[15%] h-full flex items-center justify-end pr-2 font-bold ${
                 anaKasaTotal < 0 ? 'text-rose-600' : 'text-gray-950'
               }`}>
                 {formatAnaKasa(anaKasaTotal)}
@@ -1729,11 +1729,11 @@ export function GirisCikisPage() {
             </div>
 
             {/* Row 2: Giriş Çıkış Net Kalanı */}
-            <div className="flex divide-x divide-black h-[32px] items-center text-xs border-b border-black font-mono">
+            <div className="flex divide-x divide-black h-[32px] items-center text-xs border-b border-black">
               <div className="w-[85%] pl-2 text-right pr-2 font-bold text-gray-700 uppercase">
                 GİRİŞ-ÇIKIŞ KALANI:
               </div>
-              <div className={`w-[15%] h-full flex items-center justify-end pr-2 font-black ${
+              <div className={`w-[15%] h-full flex items-center justify-end pr-2 font-bold ${
                 netKalan < 0 ? 'text-rose-600' : 'text-gray-950'
               }`}>
                 {formatAnaKasa(netKalan)}
@@ -1741,11 +1741,11 @@ export function GirisCikisPage() {
             </div>
 
             {/* Row 3: Kasa */}
-            <div className="flex divide-x divide-black h-[32px] items-center text-xs font-mono">
+            <div className="flex divide-x divide-black h-[32px] items-center text-xs">
               <div className="w-[85%] pl-2 text-right pr-2 font-bold text-gray-700 uppercase">
                 KASA:
               </div>
-              <div className={`w-[15%] h-full flex items-center justify-end pr-2 font-black ${
+              <div className={`w-[15%] h-full flex items-center justify-end pr-2 font-bold ${
                 bakiyeFarki < 0 ? 'text-rose-600' : 'text-gray-950'
               }`}>
                 {bakiyeFarki === 0 ? '0' : formatAnaKasa(bakiyeFarki)}

@@ -1,10 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body, button, input, select, textarea, span, p, h1, h2, h3, h4, h5, h6, div, td, th {
-    font-family: 'Calibri', 'Inter', system-ui, sans-serif !important;
+    font-family: 'Calibri', 'Carlito', Candara, 'Segoe UI', Arial, sans-serif !important;
   }
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
@@ -37,7 +39,7 @@
     @apply px-4 py-3 text-sm whitespace-nowrap;
   }
   .font-calibri {
-    font-family: 'Calibri', 'Inter', sans-serif !important;
+    font-family: 'Calibri', 'Carlito', Candara, 'Segoe UI', Arial, sans-serif !important;
   }
   .font-inter {
     font-family: 'Inter', system-ui, sans-serif !important;
