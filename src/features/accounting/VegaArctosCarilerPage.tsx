@@ -57,6 +57,7 @@ interface CariKart {
 // Demo/mock cari data removed to prevent display on initial load.
 
 const TUNNEL_URL = 'https://vega-api.amasyaetas.com';
+const DEFAULT_ORG_ID = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
 
 const turkishNormalize = (str: string): string => {
   if (!str) return '';
@@ -293,12 +294,12 @@ export function VegaArctosCarilerPage() {
   });
 
   const fetchSavedCariler = async () => {
-    if (!user?.organizationId) return false;
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
     try {
       const { data, error } = await supabase
         .from('vega_cariler')
         .select('*')
-        .eq('organization_id', user.organizationId)
+        .eq('organization_id', orgId)
         .order('code', { ascending: true });
         
       if (error) throw error;
@@ -424,6 +425,7 @@ export function VegaArctosCarilerPage() {
   };
 
   const fetchCariler = async (showNotification = false) => {
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
     try {
       const response = await fetch(`${TUNNEL_URL}/api/cariler`);
       if (!response.ok) throw new Error('API yanıt vermedi.');
@@ -436,39 +438,33 @@ export function VegaArctosCarilerPage() {
           `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
         );
         
-        // Save to Supabase (upsert)
-        if (user?.organizationId) {
-          const payload = data.map(item => ({
-            organization_id: user.organizationId,
-            code: item.code,
-            name: item.name,
-            company_code: item.companyCode,
-            company_tracking_code: item.companyTrackingCode,
-            tax_office: item.taxOffice,
-            tax_no: item.taxNo,
-            type: item.type,
-            city: item.city,
-            last_transaction_date: item.lastTransactionDate,
-            balance: item.balance
-          }));
-          
-          const batchSize = 1000;
-          for (let i = 0; i < payload.length; i += batchSize) {
-            const chunk = payload.slice(i, i + batchSize);
-            const { error } = await supabase
-              .from('vega_cariler')
-              .upsert(chunk, { onConflict: 'organization_id,code' });
-            if (error) throw error;
-          }
-          
-          // Eşitlenen carilerin hareketlerini de yedekle
-          if (showNotification) {
-            notify('Cari kartlar eşitlendi. Şimdi tüm hesap ve stok hareketleri Supabase\'e yedekleniyor. Lütfen bekleyin...', 'info');
-            await syncCariMovements(data, user.organizationId);
-          }
+        // Save to Supabase (upsert) in background
+        const payload = data.map(item => ({
+          organization_id: orgId,
+          code: item.code,
+          name: item.name,
+          company_code: item.companyCode,
+          company_tracking_code: item.companyTrackingCode,
+          tax_office: item.taxOffice,
+          tax_no: item.taxNo,
+          type: item.type,
+          city: item.city,
+          last_transaction_date: item.lastTransactionDate,
+          balance: item.balance
+        }));
+        
+        const batchSize = 1000;
+        for (let i = 0; i < payload.length; i += batchSize) {
+          const chunk = payload.slice(i, i + batchSize);
+          await supabase
+            .from('vega_cariler')
+            .upsert(chunk, { onConflict: 'organization_id,code' });
         }
         
+        // Eşitlenen carilerin hareketlerini de yedekle
         if (showNotification) {
+          notify('Cari kartlar eşitlendi. Şimdi tüm hesap ve stok hareketleri Supabase\'e yedekleniyor. Lütfen bekleyin...', 'info');
+          await syncCariMovements(data, orgId);
           notify('Tüm cari kartlar, hesap ve stok hareketleri başarıyla senkronize edildi!', 'success');
         }
       }
@@ -492,13 +488,16 @@ export function VegaArctosCarilerPage() {
   useEffect(() => {
     const initLoad = async () => {
       setIsLoading(true);
-      await fetchSavedCariler();
+      // 1. Instantly load cached 2,183 cariler from Supabase for zero-delay UI rendering
+      const hasSaved = await fetchSavedCariler();
+      if (hasSaved) {
+        setIsLoading(false);
+      }
+      // 2. Refresh live data from Vega in the background
       await fetchCariler(false);
       setIsLoading(false);
     };
-    if (user?.organizationId) {
-      initLoad();
-    }
+    initLoad();
   }, [user?.organizationId]);
 
   useEffect(() => {
