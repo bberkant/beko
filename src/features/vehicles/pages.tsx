@@ -274,9 +274,14 @@ function K({ i, v, l }: { i: any; v: string; l: string }) {
 }
 export function VehicleListPage() {
   const nav = useNavigate();
-  const { vehicles, expenses, saveVehicle } = useVehicles();
+  const { vehicles, expenses, saveVehicle, loading, refresh } = useVehicles();
   const { notify } = useToast();
   const [q, setQ] = useState("");
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
   const [bulkInspectionOpen, setBulkInspectionOpen] = useState(false);
   const [bulkInspectionSubmitting, setBulkInspectionSubmitting] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
@@ -634,12 +639,18 @@ export function VehicleListPage() {
             ))}
           </tbody>
         </table>
-        {!list.length && (
+        {loading && vehicles.length === 0 ? (
+          <div className="py-12 flex flex-col items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-gray-400">Araç filosu yükleniyor...</p>
+          </div>
+        ) : !list.length ? (
           <p className="py-12 text-center text-sm text-gray-400">
             Araç bulunamadı.
           </p>
-        )}
+        ) : null}
       </div>
+
 
       {/* Bulk Inspection Modal */}
       <Modal

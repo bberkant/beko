@@ -37,43 +37,268 @@ const vehicle=(r:R):Vehicle=>{
 const expense=(r:R):VehicleExpense=>({id:r.id,vehicleId:r.vehicle_id,date:r.expense_date,type:r.expense_type,amount:Number(r.amount),km:r.km??undefined,supplier:r.supplier,description:r.description,hasDocument:Boolean(r.document_path)});
 const driver=(r:R):Driver=>({id:r.id,fullName:r.full_name,phone:r.phone,email:r.email,identityNumber:r.identity_number,licenseClass:r.license_class,licenseNumber:r.license_number,licenseExpiryDate:r.license_expiry_date??undefined,assignedVehicleId:r.assigned_vehicle_id??undefined,status:r.status,description:r.description??undefined});
 const fine=(r:R):TrafficFine=>({id:r.id,vehicleId:r.vehicle_id,driverId:r.driver_id??undefined,fineDate:r.fine_date,notificationDate:r.notification_date??undefined,fineNumber:r.fine_number,violationType:r.violation_type,location:r.location,amount:Number(r.amount),paymentStatus:r.payment_status,paymentDate:r.payment_date??undefined,description:r.description??undefined});
-export function VehiclesProvider({children}:{children:ReactNode}){const{user}=useAuth();const org=user?.organizationId;const[vehicles,setVehicles]=useState<Vehicle[]>([]);const[expenses,setExpenses]=useState<VehicleExpense[]>([]);const[drivers,setDrivers]=useState<Driver[]>([]);const[fines,setFines]=useState<TrafficFine[]>([]);const need=()=>{if(!org)throw new Error('Şirket bağlantısı bulunamadı.');return org};
-const refresh=useCallback(async()=>{if(!org)return;const[v,e,d,f]=await Promise.all([supabase.from('vehicles').select('*').eq('organization_id',org).order('created_at',{ascending:false}),supabase.from('vehicle_expenses').select('*').eq('organization_id',org).order('expense_date',{ascending:false}),supabase.from('drivers').select('*').eq('organization_id',org).order('created_at',{ascending:false}),supabase.from('traffic_fines').select('*').eq('organization_id',org).order('fine_date',{ascending:false})]);for(const x of[v,e,d,f])if(x.error)throw x.error;setVehicles((v.data??[]).map(vehicle));setExpenses((e.data??[]).map(expense));setDrivers((d.data??[]).map(driver));setFines((f.data??[]).map(fine))},[org]);useEffect(()=>{void refresh().catch(console.error)},[refresh]);
-const saveVehicle=async(x:VehicleInput,id?:string)=>{const organization_id=need();
-  const extra = {
-    insuranceCompany: x.insuranceCompany || '',
-    kaskoCompany: x.kaskoCompany || '',
-    kaskoStartDate: x.kaskoStartDate || '',
-    dainiMurtehin: x.dainiMurtehin || ''
+const DEFAULT_ORG_ID = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+
+export function VehiclesProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const org = user?.organizationId || DEFAULT_ORG_ID;
+
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
+    try {
+      const cached = localStorage.getItem('dars_cached_vehicles');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+
+  const [expenses, setExpenses] = useState<VehicleExpense[]>(() => {
+    try {
+      const cached = localStorage.getItem('dars_cached_vehicle_expenses');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+
+  const [drivers, setDrivers] = useState<Driver[]>(() => {
+    try {
+      const cached = localStorage.getItem('dars_cached_drivers');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+
+  const [fines, setFines] = useState<TrafficFine[]>(() => {
+    try {
+      const cached = localStorage.getItem('dars_cached_traffic_fines');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+
+  const [loading, setLoading] = useState(() => {
+    try {
+      if (localStorage.getItem('dars_cached_vehicles')) return false;
+    } catch {}
+    return true;
+  });
+
+  const need = () => {
+    return org || DEFAULT_ORG_ID;
   };
-  const description = JSON.stringify(extra);
-  const p={
-    organization_id,
-    plate:x.plate.toUpperCase().replace(/\s+/g,' '),
-    brand:x.brand,
-    model:x.model,
-    model_year:x.modelYear,
-    vehicle_type:x.vehicleType,
-    fuel_type:x.fuelType,
-    current_km:x.currentKm,
-    assigned_to:x.assignedTo,
-    department:x.department,
-    purchase_date:x.purchaseDate||null,
-    inspection_date:x.inspectionDate||null,
-    insurance_date:x.insuranceDate||null,
-    casco_date:x.cascoDate||null,
-    status:x.status,
-    description,
-    daini_murtehin: x.dainiMurtehin || null,
-    purchase_price: x.purchasePrice || 0,
-    current_price: x.currentPrice || 0
+
+  const refresh = useCallback(async () => {
+    const activeOrg = org || DEFAULT_ORG_ID;
+    try {
+      const [v, e, d, f] = await Promise.all([
+        supabase.from('vehicles').select('*').eq('organization_id', activeOrg).order('created_at', { ascending: false }),
+        supabase.from('vehicle_expenses').select('*').eq('organization_id', activeOrg).order('expense_date', { ascending: false }),
+        supabase.from('drivers').select('*').eq('organization_id', activeOrg).order('created_at', { ascending: false }),
+        supabase.from('traffic_fines').select('*').eq('organization_id', activeOrg).order('fine_date', { ascending: false })
+      ]);
+      for (const x of [v, e, d, f]) {
+        if (x.error) throw x.error;
+      }
+      const vList = (v.data ?? []).map(vehicle);
+      const eList = (e.data ?? []).map(expense);
+      const dList = (d.data ?? []).map(driver);
+      const fList = (f.data ?? []).map(fine);
+      setVehicles(vList);
+      setExpenses(eList);
+      setDrivers(dList);
+      setFines(fList);
+      try {
+        localStorage.setItem('dars_cached_vehicles', JSON.stringify(vList));
+        localStorage.setItem('dars_cached_vehicle_expenses', JSON.stringify(eList));
+        localStorage.setItem('dars_cached_drivers', JSON.stringify(dList));
+        localStorage.setItem('dars_cached_traffic_fines', JSON.stringify(fList));
+      } catch {}
+    } catch (err) {
+      console.warn('Araçlar yüklenemedi, önbellek korunuyor:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [org]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const saveVehicle = async (x: VehicleInput, id?: string) => {
+    const organization_id = need();
+    const extra = {
+      insuranceCompany: x.insuranceCompany || '',
+      kaskoCompany: x.kaskoCompany || '',
+      kaskoStartDate: x.kaskoStartDate || '',
+      dainiMurtehin: x.dainiMurtehin || ''
+    };
+    const description = JSON.stringify(extra);
+    const p = {
+      organization_id,
+      plate: x.plate.toUpperCase().replace(/\s+/g, ' '),
+      brand: x.brand,
+      model: x.model,
+      model_year: x.modelYear,
+      vehicle_type: x.vehicleType,
+      fuel_type: x.fuelType,
+      current_km: x.currentKm,
+      assigned_to: x.assignedTo,
+      department: x.department,
+      purchase_date: x.purchaseDate || null,
+      inspection_date: x.inspectionDate || null,
+      insurance_date: x.insuranceDate || null,
+      casco_date: x.cascoDate || null,
+      status: x.status,
+      description,
+      daini_murtehin: x.dainiMurtehin || null,
+      purchase_price: x.purchasePrice || 0,
+      current_price: x.currentPrice || 0
+    };
+    const q = id
+      ? supabase.from('vehicles').update(p).eq('id', id).eq('organization_id', organization_id)
+      : supabase.from('vehicles').insert(p);
+    const { error } = await q;
+    if (error) throw error;
+    await refresh();
   };
-  const q=id?supabase.from('vehicles').update(p).eq('id',id).eq('organization_id',organization_id):supabase.from('vehicles').insert(p);const{error}=await q;if(error)throw error;await refresh()};
-const deleteVehicle=async(id:string)=>{const{error}=await supabase.from('vehicles').delete().eq('id',id).eq('organization_id',need());if(error)throw error;await refresh()};
-const addExpense=async(x:VehicleExpenseInput)=>{const organization_id=need();let document_path:null|string=null;if(x.file){const normalizedName=normalizeFileName(x.file.name);document_path=`${organization_id}/vehicle/${x.vehicleId}/${crypto.randomUUID()}-${normalizedName}`;const{error}=await supabase.storage.from('operations-documents').upload(document_path,x.file);if(error)throw error}const{error}=await supabase.from('vehicle_expenses').insert({organization_id,vehicle_id:x.vehicleId,expense_date:x.date,expense_type:x.type,amount:x.amount,km:x.km||null,supplier:x.supplier,description:x.description,document_path});if(error)throw error;if(x.km)await supabase.from('vehicles').update({current_km:x.km}).eq('id',x.vehicleId).eq('organization_id',organization_id);await refresh()};
-const saveDriver=async(x:DriverInput,id?:string)=>{const organization_id=need();const p={organization_id,full_name:x.fullName,phone:x.phone,email:x.email,identity_number:x.identityNumber,license_class:x.licenseClass,license_number:x.licenseNumber,license_expiry_date:x.licenseExpiryDate||null,assigned_vehicle_id:x.assignedVehicleId||null,status:x.status,description:x.description};const q=id?supabase.from('drivers').update(p).eq('id',id).eq('organization_id',organization_id):supabase.from('drivers').insert(p);const{error}=await q;if(error)throw error;await refresh()};
-const deleteDriver=async(id:string)=>{const{error}=await supabase.from('drivers').delete().eq('id',id).eq('organization_id',need());if(error)throw error;await refresh()};
-const saveFine=async(x:TrafficFineInput)=>{const organization_id=need();let document_path:null|string=null;if(x.file){const normalizedName=normalizeFileName(x.file.name);document_path=`${organization_id}/fines/${x.vehicleId}/${crypto.randomUUID()}-${normalizedName}`;const{error}=await supabase.storage.from('operations-documents').upload(document_path,x.file);if(error)throw error}const{error}=await supabase.from('traffic_fines').insert({organization_id,vehicle_id:x.vehicleId,driver_id:x.driverId||null,fine_date:x.fineDate,notification_date:x.notificationDate||null,fine_number:x.fineNumber,violation_type:x.violationType,location:x.location,amount:x.amount,payment_status:x.paymentStatus,payment_date:x.paymentDate||null,description:x.description,document_path});if(error)throw error;await refresh()};
-const updateFineStatus=async(id:string,status:TrafficFine['paymentStatus'])=>{const{error}=await supabase.from('traffic_fines').update({payment_status:status,payment_date:status==='odendi'?new Date().toISOString().slice(0,10):null}).eq('id',id).eq('organization_id',need());if(error)throw error;await refresh()};
-const value=useMemo(()=>({vehicles,expenses,drivers,fines,saveVehicle,deleteVehicle,addExpense,saveDriver,deleteDriver,saveFine,updateFineStatus,getVehicle:(id:string)=>vehicles.find(v=>v.id===id),getExpenses:(id:string)=>expenses.filter(e=>e.vehicleId===id)}),[vehicles,expenses,drivers,fines]);return <C.Provider value={value}>{children}</C.Provider>}
-export const useVehicles=()=>useContext(C) as{vehicles:Vehicle[];expenses:VehicleExpense[];drivers:Driver[];fines:TrafficFine[];saveVehicle:(x:VehicleInput,id?:string)=>Promise<void>;deleteVehicle:(id:string)=>Promise<void>;addExpense:(x:VehicleExpenseInput)=>Promise<void>;saveDriver:(x:DriverInput,id?:string)=>Promise<void>;deleteDriver:(id:string)=>Promise<void>;saveFine:(x:TrafficFineInput)=>Promise<void>;updateFineStatus:(id:string,s:TrafficFine['paymentStatus'])=>Promise<void>;getVehicle:(id:string)=>Vehicle|undefined;getExpenses:(id:string)=>VehicleExpense[]};
+
+  const deleteVehicle = async (id: string) => {
+    const { error } = await supabase.from('vehicles').delete().eq('id', id).eq('organization_id', need());
+    if (error) throw error;
+    await refresh();
+  };
+
+  const addExpense = async (x: VehicleExpenseInput) => {
+    const organization_id = need();
+    let document_path: null | string = null;
+    if (x.file) {
+      const normalizedName = normalizeFileName(x.file.name);
+      document_path = `${organization_id}/vehicle/${x.vehicleId}/${crypto.randomUUID()}-${normalizedName}`;
+      const { error } = await supabase.storage.from('operations-documents').upload(document_path, x.file);
+      if (error) throw error;
+    }
+    const { error } = await supabase.from('vehicle_expenses').insert({
+      organization_id,
+      vehicle_id: x.vehicleId,
+      expense_date: x.date,
+      expense_type: x.type,
+      amount: x.amount,
+      km: x.km || null,
+      supplier: x.supplier,
+      description: x.description,
+      document_path
+    });
+    if (error) throw error;
+    if (x.km) await supabase.from('vehicles').update({ current_km: x.km }).eq('id', x.vehicleId).eq('organization_id', organization_id);
+    await refresh();
+  };
+
+  const saveDriver = async (x: DriverInput, id?: string) => {
+    const organization_id = need();
+    const p = {
+      organization_id,
+      full_name: x.fullName,
+      phone: x.phone,
+      email: x.email,
+      identity_number: x.identityNumber,
+      license_class: x.licenseClass,
+      license_number: x.licenseNumber,
+      license_expiry_date: x.licenseExpiryDate || null,
+      assigned_vehicle_id: x.assignedVehicleId || null,
+      status: x.status,
+      description: x.description
+    };
+    const q = id
+      ? supabase.from('drivers').update(p).eq('id', id).eq('organization_id', organization_id)
+      : supabase.from('drivers').insert(p);
+    const { error } = await q;
+    if (error) throw error;
+    await refresh();
+  };
+
+  const deleteDriver = async (id: string) => {
+    const { error } = await supabase.from('drivers').delete().eq('id', id).eq('organization_id', need());
+    if (error) throw error;
+    await refresh();
+  };
+
+  const saveFine = async (x: TrafficFineInput) => {
+    const organization_id = need();
+    let document_path: null | string = null;
+    if (x.file) {
+      const normalizedName = normalizeFileName(x.file.name);
+      document_path = `${organization_id}/fines/${x.vehicleId}/${crypto.randomUUID()}-${normalizedName}`;
+      const { error } = await supabase.storage.from('operations-documents').upload(document_path, x.file);
+      if (error) throw error;
+    }
+    const { error } = await supabase.from('traffic_fines').insert({
+      organization_id,
+      vehicle_id: x.vehicleId,
+      driver_id: x.driverId || null,
+      fine_date: x.fineDate,
+      notification_date: x.notificationDate || null,
+      fine_number: x.fineNumber,
+      violation_type: x.violationType,
+      location: x.location,
+      amount: x.amount,
+      payment_status: x.paymentStatus,
+      payment_date: x.paymentDate || null,
+      description: x.description,
+      document_path
+    });
+    if (error) throw error;
+    await refresh();
+  };
+
+  const updateFineStatus = async (id: string, status: TrafficFine['paymentStatus']) => {
+    const { error } = await supabase
+      .from('traffic_fines')
+      .update({ payment_status: status, payment_date: status === 'odendi' ? new Date().toISOString().slice(0, 10) : null })
+      .eq('id', id)
+      .eq('organization_id', need());
+    if (error) throw error;
+    await refresh();
+  };
+
+  const value = useMemo(
+    () => ({
+      vehicles,
+      expenses,
+      drivers,
+      fines,
+      loading,
+      refresh,
+      saveVehicle,
+      deleteVehicle,
+      addExpense,
+      saveDriver,
+      deleteDriver,
+      saveFine,
+      updateFineStatus,
+      getVehicle: (id: string) => vehicles.find((v) => v.id === id),
+      getExpenses: (id: string) => expenses.filter((e) => e.vehicleId === id)
+    }),
+    [vehicles, expenses, drivers, fines, loading, refresh]
+  );
+
+  return <C.Provider value={value}>{children}</C.Provider>;
+}
+
+export const useVehicles = () =>
+  useContext(C) as {
+    vehicles: Vehicle[];
+    expenses: VehicleExpense[];
+    drivers: Driver[];
+    fines: TrafficFine[];
+    loading: boolean;
+    refresh: () => Promise<void>;
+    saveVehicle: (x: VehicleInput, id?: string) => Promise<void>;
+    deleteVehicle: (id: string) => Promise<void>;
+    addExpense: (x: VehicleExpenseInput) => Promise<void>;
+    saveDriver: (x: DriverInput, id?: string) => Promise<void>;
+    deleteDriver: (id: string) => Promise<void>;
+    saveFine: (x: TrafficFineInput) => Promise<void>;
+    updateFineStatus: (id: string, s: TrafficFine['paymentStatus']) => Promise<void>;
+    getVehicle: (id: string) => Vehicle | undefined;
+    getExpenses: (id: string) => VehicleExpense[];
+  };
+

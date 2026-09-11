@@ -211,11 +211,24 @@ function InlineSelect({
   );
 }
 
+const DEFAULT_ORG_ID = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+
 export function RealEstatesPage() {
   const { user } = useAuth();
   const { notify } = useToast();
-  const [items, setItems] = useState<RealEstate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<RealEstate[]>(() => {
+    try {
+      const cached = localStorage.getItem('dars_cached_real_estates');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      if (localStorage.getItem('dars_cached_real_estates')) return false;
+    } catch {}
+    return true;
+  });
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -251,8 +264,6 @@ export function RealEstatesPage() {
   // Manual File Upload States
   const [manualFile, setManualFile] = useState<File>();
 
-
-
   // AI OCR States
   const [aiOpen, setAiOpen] = useState(false);
   const [aiFile, setAiFile] = useState<File>();
@@ -263,25 +274,28 @@ export function RealEstatesPage() {
   const canWrite = ['Süper Admin', 'Admin', 'Developer', 'Süper Yönetici', 'Yönetici', 'Muhasebe', 'Finans'].includes(user?.role ?? '');
 
   const refresh = useCallback(async () => {
-    if (!user?.organizationId) return;
-    setLoading(true);
+    const activeOrg = user?.organizationId || DEFAULT_ORG_ID;
     
     // Load real estates
     const { data, error } = await supabase
       .from('real_estates')
       .select('*')
-      .eq('organization_id', user.organizationId)
+      .eq('organization_id', activeOrg)
       .order('created_at', { ascending: false });
 
     if (error) {
-      notify(error.message, 'error');
+      console.warn('Gayrimenkuller yüklenirken hata oluştu:', error);
     } else {
-      setItems((data ?? []).map(r => ({
+      const mapped = (data ?? []).map(r => ({
         ...r,
         area_sqm: Number(r.area_sqm),
         purchase_amount: Number(r.purchase_amount),
         current_value: Number(r.current_value)
-      })) as RealEstate[]);
+      })) as RealEstate[];
+      setItems(mapped);
+      try {
+        localStorage.setItem('dars_cached_real_estates', JSON.stringify(mapped));
+      } catch {}
     }
 
     setLoading(false);
@@ -290,6 +304,7 @@ export function RealEstatesPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
 
   const filtered = useMemo(() => {
     return items.filter(x => {

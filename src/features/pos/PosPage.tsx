@@ -367,15 +367,16 @@ export function PosPage() {
 
   // Fetch report data from Supabase
   const loadReport = useCallback(async () => {
-    if (!user?.organizationId) return;
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('pos_reports')
         .select('*')
-        .eq('organization_id', user.organizationId)
+        .eq('organization_id', orgId)
         .eq('date', selectedDate)
         .single();
+
 
       if (error && error.code !== 'PGRST116') {
         throw error;
@@ -534,7 +535,7 @@ export function PosPage() {
 
   // Save report data to Supabase
   const saveReport = async (updatedLeft: LeftRow[], updatedRight: RightRow[]) => {
-    if (!user?.organizationId) return;
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
     setSaving(true);
     try {
       // Clean empty rows before saving
@@ -545,7 +546,7 @@ export function PosPage() {
         .from('pos_reports')
         .upsert(
           {
-            organization_id: user.organizationId,
+            organization_id: orgId,
             date: selectedDate,
             left_table: cleanLeft,
             right_table: cleanRight,
@@ -553,6 +554,7 @@ export function PosPage() {
           },
           { onConflict: 'organization_id,date' }
         );
+
 
       if (error) throw error;
     } catch (error: any) {

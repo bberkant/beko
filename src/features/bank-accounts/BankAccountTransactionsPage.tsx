@@ -1,4 +1,5 @@
-import { useMemo, useState, useRef } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import {
   Building2,
@@ -69,9 +70,14 @@ const formatTRY = (n: number) =>
 export function BankAccountTransactionsPage() {
   const navigate = useNavigate();
   const { notify } = useToast();
-  const { accounts, transactions, addTransactions } = useBankAccounts();
+  const { accounts, transactions, addTransactions, loading, refresh } = useBankAccounts();
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   // Filter States
+
   const [q, setQ] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | 'giris' | 'cikis'>('all');
@@ -884,13 +890,19 @@ export function BankAccountTransactionsPage() {
             })}
           </tbody>
         </table>
-        {filteredTransactions.length === 0 && (
+        {loading && transactions.length === 0 ? (
+          <div className="py-20 flex flex-col items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-gray-400">Banka hareketleri yükleniyor...</p>
+          </div>
+        ) : filteredTransactions.length === 0 ? (
           <div className="py-20 text-center text-gray-400">
             <Building2 size={48} className="text-gray-300 mx-auto mb-3" />
             <span className="text-sm font-semibold">Filtrelere uygun hesap hareketi bulunamadı.</span>
           </div>
-        )}
+        ) : null}
       </div>
+
 
       {/* Upload Statement Modal */}
       <Modal

@@ -26,25 +26,36 @@ const getWatchDirs = () => {
   const validDirs = [];
   let netShareFound = false;
 
-  // 1. Try IP-based network path first, but check if IP is online to prevent Windows SMB connection hangs
-  if (isIpOnline('192.168.1.37')) {
-    const ipPath = `\\\\192.168.1.37\\f\\GİRİŞ-ÇIKIŞ GÜNLÜK\\${currentYear} YILI\\${currentMonthFolder}`;
-    try {
-      if (fs.existsSync(ipPath)) {
-        validDirs.push(ipPath);
-        netShareFound = true;
-      }
-    } catch (e) {}
+  // 1. Try IP-based network paths first (prevent Windows SMB hangs by checking isIpOnline)
+  const candidateIps = ['192.168.1.159', '192.168.1.37'];
+  for (const ip of candidateIps) {
+    if (isIpOnline(ip)) {
+      const ipPath = `\\\\${ip}\\f\\GİRİŞ-ÇIKIŞ GÜNLÜK\\${currentYear} YILI\\${currentMonthFolder}`;
+      try {
+        if (fs.existsSync(ipPath)) {
+          validDirs.push(ipPath);
+          netShareFound = true;
+          break;
+        }
+      } catch (e) {}
+    }
   }
 
-  // 2. Try hostname network path only if IP path failed, and only if host is online
-  if (!netShareFound && isIpOnline('Desktop-sjq3lnb')) {
-    const hostPath = `\\\\Desktop-sjq3lnb\\f\\GİRİŞ-ÇIKIŞ GÜNLÜK\\${currentYear} YILI\\${currentMonthFolder}`;
-    try {
-      if (fs.existsSync(hostPath)) {
-        validDirs.push(hostPath);
+  // 2. Try hostnames network paths if IP paths failed
+  if (!netShareFound) {
+    const candidateHosts = ['Desktop-sjq3lnb.local', 'Desktop-sjq3lnb'];
+    for (const host of candidateHosts) {
+      if (isIpOnline(host)) {
+        const hostPath = `\\\\${host}\\f\\GİRİŞ-ÇIKIŞ GÜNLÜK\\${currentYear} YILI\\${currentMonthFolder}`;
+        try {
+          if (fs.existsSync(hostPath)) {
+            validDirs.push(hostPath);
+            netShareFound = true;
+            break;
+          }
+        } catch (e) {}
       }
-    } catch (e) {}
+    }
   }
 
   // 3. Try Slaughterhouse paths
@@ -60,15 +71,28 @@ const getWatchDirs = () => {
     } catch (e) {}
   }
 
-  // Fallback to desktop if nothing found
-  if (validDirs.length === 0) {
-    const homeDir = os.homedir();
-    const onedriveDesktop = path.join(homeDir, 'OneDrive', 'Desktop');
-    if (fs.existsSync(onedriveDesktop)) {
-      validDirs.push(onedriveDesktop);
-    } else {
-      validDirs.push(path.join(homeDir, 'Desktop'));
-    }
+  // Always include local candidates to ensure backup and local-work sync
+  const homeDir = os.homedir();
+  const localCandidates = [
+    path.join(homeDir, 'OneDrive', 'Desktop', 'Araçlar'),
+    path.join(homeDir, 'OneDrive', 'Desktop'),
+    path.join(homeDir, 'Desktop', 'Araçlar'),
+    path.join(homeDir, 'Desktop'),
+    'C:\\Users\\berka\\OneDrive\\Desktop\\Araçlar',
+    'C:\\Users\\berka\\OneDrive\\Desktop',
+    'C:\\Users\\berka\\Desktop\\Araçlar',
+    'C:\\Users\\berka\\Desktop'
+  ];
+
+  for (const p of localCandidates) {
+    try {
+      if (fs.existsSync(p)) {
+        const resolved = path.resolve(p);
+        if (!validDirs.includes(resolved)) {
+          validDirs.push(resolved);
+        }
+      }
+    } catch (e) {}
   }
 
   return validDirs;
@@ -107,7 +131,7 @@ const formatExcelAmount = (val) => {
 };
 
 const matchLeftBankName = (name) => {
-  const norm = name.replace(/\s+/g, '').toUpperCase('tr-TR');
+  const norm = name.replace(/\s+/g, '').toLocaleUpperCase('tr-TR');
   if (norm.includes('ZİRAAT') && !norm.includes('Ö')) return 'ZİRAAT';
   if (norm.includes('Ö.ZİRAAT') || norm.includes('ÖZELZİRAAT')) return 'Ö. ZİRAAT';
   if (norm.includes('GARANTİ')) return 'GARANTİ';
@@ -122,31 +146,97 @@ const matchLeftBankName = (name) => {
 // KESİM LİSTESİ YARDIMCI FONKSİYONLARI
 // ==========================================
 
-const parseExcelDate = (val) => {
-  if (typeof val === 'number') {
-    const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+const parseYearMonthFromSheet = (sheetName) => {
+  const clean = sheetName.trim().toUpperCase().toLocaleUpperCase('tr-TR');
+  
+  const yearMatch = clean.match(/\b(20\d{2})\b/);
+  const year = yearMatch ? yearMatch[1] : String(new Date().getFullYear());
+  
+  const monthNamesTr = [
+    'OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN',
+    'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'
+  ];
+  
+  let month = null;
+  for (let i = 0; i < monthNamesTr.length; i++) {
+    if (clean.includes(monthNamesTr[i])) {
+      month = String(i + 1).padStart(2, '0');
+      break;
+    }
+  }
+  
+  if (!month) {
+    const numMatch = clean.match(/^(\d{2})/);
+    if (numMatch) {
+      month = numMatch[1];
+    } else {
+      month = String(new Date().getMonth() + 1).padStart(2, '0');
+    }
+  }
+  
+  return { year, month };
+};
+
+const getSlaughterRecordKey = (slaughter_date, supplier, carcass_weight, animal_type) => {
+  const dateStr = String(slaughter_date || '').trim();
+  const supplierStr = String(supplier || '').trim().toLocaleLowerCase('tr-TR');
+  const weightNum = Number(carcass_weight) || 0;
+  const typeStr = String(animal_type || '').trim().toLocaleLowerCase('tr-TR');
+  return `${dateStr}_${supplierStr}_${weightNum}_${typeStr}`;
+};
+
+const parseExcelDate = (val, selectedYear, selectedMonth) => {
+  if (val === undefined || val === null) return null;
+  
+  // 1. Check if it's an Excel Date Serial number
+  const num = typeof val === 'number' ? val : Number(String(val).trim());
+  if (!isNaN(num) && num > 30000 && num < 60000) {
+    const date = new Date(Math.round((num - 25569) * 86400 * 1000));
     const y = date.getUTCFullYear();
     const m = String(date.getUTCMonth() + 1).padStart(2, '0');
     const d = String(date.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   }
-  if (typeof val === 'string') {
-    const clean = val.trim();
+  
+  // 2. Check if it's a day number (1-31) and we have selectedYear and selectedMonth
+  if (!isNaN(num) && num >= 1 && num <= 31 && selectedYear && selectedMonth && selectedMonth !== 'all' && selectedMonth !== 'custom') {
+    const y = selectedYear;
+    const m = selectedMonth.padStart(2, '0');
+    const d = String(num).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  
+  // 3. String date parsing
+  const clean = String(val).trim();
+  if (clean) {
     const parts = clean.split('.');
     if (parts.length === 3) {
-      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      let year = parts[2];
+      if (year.length === 2) {
+        year = '20' + year;
+      }
+      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
     }
+    if (parts.length === 2 && selectedYear) {
+      return `${selectedYear}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+    
     if (clean.includes('-')) {
       const parts2 = clean.split('-');
       if (parts2.length === 3) {
         if (parts2[0].length === 4) {
           return `${parts2[0]}-${parts2[1].padStart(2, '0')}-${parts2[2].padStart(2, '0')}`;
         } else {
-          return `${parts2[2]}-${parts2[1].padStart(2, '0')}-${parts2[0].padStart(2, '0')}`;
+          let year = parts2[2];
+          if (year.length === 2) {
+            year = '20' + year;
+          }
+          return `${year}-${parts2[1].padStart(2, '0')}-${parts2[0].padStart(2, '0')}`;
         }
       }
     }
   }
+  
   return null;
 };
 
@@ -175,7 +265,8 @@ const parseAmount = (val) => {
 
 const processSlaughterSheet = async (sheetName, worksheet, existingRecordsMap) => {
   try {
-    console.log(`[Kesim] Sekme taranıyor: "${sheetName}"`);
+    const { year: sheetYear, month: sheetMonth } = parseYearMonthFromSheet(sheetName);
+    console.log(`[Kesim] Sekme taranıyor: "${sheetName}" (Tahmin edilen Yıl: ${sheetYear}, Ay: ${sheetMonth})`);
     const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
     if (rows.length < 3) {
       console.log(`[Kesim Atlandı] "${sheetName}": Satır sayısı yetersiz (${rows.length})`);
@@ -219,6 +310,7 @@ const processSlaughterSheet = async (sheetName, worksheet, existingRecordsMap) =
     }
 
     const payload = [];
+    let lastParsedDate = null;
     for (let i = headerIdx + 1; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length === 0) continue;
@@ -227,13 +319,23 @@ const processSlaughterSheet = async (sheetName, worksheet, existingRecordsMap) =
       const rawEl = row[colMap.el];
       const rawKg = row[colMap.kg];
 
-      if (!rawTarih || !rawEl || !rawKg) continue;
+      if (!rawEl || !rawKg) continue;
 
-      const parsedDate = parseExcelDate(rawTarih);
+      let parsedDate = parseExcelDate(rawTarih, sheetYear, sheetMonth);
+      if (parsedDate) {
+        lastParsedDate = parsedDate;
+      } else {
+        parsedDate = lastParsedDate;
+      }
+
+      if (!parsedDate) {
+        parsedDate = `${sheetYear}-${sheetMonth.padStart(2, '0')}-01`;
+      }
+
       const parsedSupplier = String(rawEl).trim();
       const parsedCarcassWeight = parseAmount(rawKg);
 
-      if (!parsedDate || !parsedSupplier || parsedCarcassWeight <= 0) continue;
+      if (!parsedSupplier || parsedCarcassWeight <= 0) continue;
 
       const parsedPricePerKg = colMap.fiyat !== -1 ? parseAmount(row[colMap.fiyat]) : 0;
       const parsedAnimalType = colMap.cinsi !== -1 ? String(row[colMap.cinsi] || 'Dana').trim() : 'Dana';
@@ -273,17 +375,17 @@ const processSlaughterSheet = async (sheetName, worksheet, existingRecordsMap) =
     const isDifferent = (r1, r2) => {
       return (
         r1.head_count !== r2.head_count ||
-        r1.price_per_kg !== r2.price_per_kg ||
-        r1.total_amount !== r2.total_amount ||
-        r1.pesinat !== r2.pesinat ||
-        r1.kalan_tutar !== r2.kalan_tutar ||
+        Math.abs(Number(r1.price_per_kg) - Number(r2.price_per_kg)) > 0.01 ||
+        Math.abs(Number(r1.total_amount) - Number(r2.total_amount)) > 0.01 ||
+        Math.abs(Number(r1.pesinat) - Number(r2.pesinat)) > 0.01 ||
+        Math.abs(Number(r1.kalan_tutar) - Number(r2.kalan_tutar)) > 0.01 ||
         (r1.notes || '') !== (r2.notes || '') ||
         (r1.payment_date || '') !== (r2.payment_date || '')
       );
     };
 
     for (const record of payload) {
-      const key = `${record.slaughter_date}_${String(record.supplier).trim()}_${record.carcass_weight}_${String(record.animal_type).trim()}`;
+      const key = getSlaughterRecordKey(record.slaughter_date, record.supplier, record.carcass_weight, record.animal_type);
       if (existingRecordsMap.has(key)) {
         const existing = existingRecordsMap.get(key);
         if (isDifferent(record, existing)) {
@@ -353,7 +455,8 @@ const processDayData = async (reportDate, worksheet, isMonthly = false) => {
 
     const allowedRightBanks = [
       'KUVEYT', 'Ö.ZİRAAT', 'Ö. ZİRAAT', 'DENİZ', 'DENIZ', 'YAPI', 'GARANTİ', 'GARANTI', 
-      'ZİRAAT', 'ZIRAAT', 'AKBANK', 'ALBARAKA', 'HALK', 'VAKIF', 'TEB', 'İŞBANK', 'İŞ', 'ISBANK'
+      'ZİRAAT', 'ZIRAAT', 'AKBANK', 'ALBARAKA', 'HALK', 'VAKIF', 'TEB', 'İŞBANK', 'İŞ', 'ISBANK',
+      'DEPO', 'MERKEZ', 'ÇIKIŞ', 'MERZİFON', 'ATAKUM', 'İLKADIM'
     ];
 
     for (let r = 4; r < 40; r++) {
@@ -363,14 +466,26 @@ const processDayData = async (reportDate, worksheet, isMonthly = false) => {
       const cellF = worksheet[cellRefF];
       if (cellE && cellE.v !== undefined && String(cellE.v).trim() !== '') {
         const name = String(cellE.v).trim().toUpperCase('tr-TR');
-        const amount = formatExcelAmount(cellF ? cellF.v : 0);
         
-        if (r >= 21) {
-          if (allowedRightBanks.includes(name)) {
+        // Parse numeric value to verify it is greater than 0
+        const rawVal = cellF ? cellF.v : 0;
+        let numVal = 0;
+        if (typeof rawVal === 'number') {
+          numVal = rawVal;
+        } else if (typeof rawVal === 'string') {
+          const clean = rawVal.replace(/\./g, '').replace(/,/g, '.').trim();
+          numVal = parseFloat(clean) || 0;
+        }
+
+        if (numVal > 0) {
+          const amount = formatExcelAmount(rawVal);
+          if (r >= 21) {
+            if (allowedRightBanks.includes(name)) {
+              rightTable.push({ name, amount });
+            }
+          } else {
             rightTable.push({ name, amount });
           }
-        } else {
-          rightTable.push({ name, amount });
         }
       }
     }
@@ -380,33 +495,50 @@ const processDayData = async (reportDate, worksheet, isMonthly = false) => {
       const cellRefC = XLSX.utils.encode_cell({ r, c: 2 + colOffset });
       const cellRefD = XLSX.utils.encode_cell({ r, c: 3 + colOffset });
       const cellRefE = XLSX.utils.encode_cell({ r, c: 4 + colOffset });
+      const cellRefF = XLSX.utils.encode_cell({ r, c: 5 + colOffset });
 
       const cellB = worksheet[cellRefB];
       const cellC = worksheet[cellRefC];
       const cellD = worksheet[cellRefD];
       const cellE = worksheet[cellRefE];
+      const cellF = worksheet[cellRefF];
 
       if (cellB && cellB.v !== undefined && String(cellB.v).trim() !== '') {
         const bankName = String(cellB.v).trim();
         const mappedName = matchLeftBankName(bankName);
         if (mappedName) {
-          let komVal = cellD ? cellD.v : 0;
+          const rawColB = cellC ? cellC.v : '';
+          const rawBankaGecen = cellD ? cellD.v : '';
+          const rawKom = cellE ? cellE.v : '';
+          const rawKes = cellF ? cellF.v : '';
+
+          let formattedColB = '';
+          if (rawColB !== undefined && rawColB !== null && rawColB !== '') {
+            formattedColB = typeof rawColB === 'number' ? formatExcelAmount(rawColB) : String(rawColB).trim();
+          }
+
+          let formattedBankaGecen = '';
+          if (rawBankaGecen !== undefined && rawBankaGecen !== null && rawBankaGecen !== '') {
+            formattedBankaGecen = typeof rawBankaGecen === 'number' ? formatExcelAmount(rawBankaGecen) : String(rawBankaGecen).trim();
+          }
+
+          let komVal = rawKom;
           if (typeof komVal === 'number' && komVal > 0 && komVal < 1) {
             komVal = komVal * 100;
           }
           let formattedKom = '';
-          if (typeof komVal === 'number' && komVal > 0) {
-            formattedKom = formatExcelAmount(komVal);
+          if (komVal !== undefined && komVal !== null && komVal !== '') {
+            formattedKom = typeof komVal === 'number' ? formatExcelAmount(komVal) : String(komVal).trim();
           }
 
-          let rawKes = cellE ? cellE.v : 0;
           let formattedKes = '';
-          if (typeof rawKes === 'number' && rawKes > 0) {
-            formattedKes = formatExcelAmount(rawKes);
+          if (rawKes !== undefined && rawKes !== null && rawKes !== '') {
+            formattedKes = typeof rawKes === 'number' ? formatExcelAmount(rawKes) : String(rawKes).trim();
           }
 
           leftTableMapping[mappedName] = {
-            banka_gecen: '',
+            colB: formattedColB,
+            banka_gecen: formattedBankaGecen,
             komisyon: formattedKom,
             kesinti: formattedKes
           };
@@ -429,9 +561,10 @@ const processDayData = async (reportDate, worksheet, isMonthly = false) => {
       if (mapping !== undefined) {
         return {
           ...row,
-          banka_gecen: mapping.banka_gecen,
-          komisyon: mapping.komisyon,
-          kesinti: mapping.kesinti
+          colB: mapping.colB || '',
+          banka_gecen: mapping.banka_gecen || '',
+          komisyon: mapping.komisyon || '',
+          kesinti: mapping.kesinti || ''
         };
       }
       return row;
@@ -453,10 +586,15 @@ const processDayData = async (reportDate, worksheet, isMonthly = false) => {
     if (existing) {
       const existingLeftTable = existing.left_table || [];
       const updatedLeftTable = finalLeftTable.map(row => {
-        const existingRow = existingLeftTable.find(r => r.bank === row.bank);
+        const existingRow = existingLeftTable.find(r => 
+          r.bank.trim().toLocaleUpperCase('tr-TR').replace(/\s+/g, '') === row.bank.trim().toLocaleUpperCase('tr-TR').replace(/\s+/g, '')
+        );
+        const existingVal = existingRow ? String(existingRow.banka_gecen || '').trim() : '';
+        // If the database has an existing value, ALWAYS keep it. Never clear or overwrite it.
+        const finalBankaGecen = (existingVal !== '' && existingVal !== '0,00' && existingVal !== '0') ? existingVal : (row.banka_gecen || '');
         return {
           ...row,
-          banka_gecen: existingRow ? existingRow.banka_gecen : ''
+          banka_gecen: finalBankaGecen
         };
       });
 
@@ -605,9 +743,44 @@ const processFile = async (filePath) => {
     const workbook = XLSX.readFile(filePath);
     console.log(`[DEBUG] "${fileName}" içindeki tüm sekmeler:`, workbook.SheetNames);
 
-    // Senaryo A: Kesim Listesi Excel Dosyası (Eski Kesim Listesi okuması mezbahadan yapıldığı için bu bilgisayarda devre dışı bırakıldı)
+    // Senaryo A: Kesim Listesi Excel Dosyası (Aktif edildi)
     if (fileName.toLowerCase().includes('kesim')) {
-      console.log(`[Kesim] Kesim Exceli tespit edildi fakat bu bilgisayarda devre dışı bırakıldığı için işlenmedi.`);
+      console.log(`[Kesim] Kesim Exceli tespit edildi, işleniyor: ${filePath}`);
+      
+      // Fetch all existing records to do update-or-insert matching
+      const existingRecordsMap = new Map();
+      let from = 0;
+      const step = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('kesim_listesi')
+          .select('*')
+          .eq('organization_id', orgId)
+          .range(from, from + step - 1);
+          
+        if (error) {
+          console.error(`[Kesim Hata] Mevcut kayıtlar çekilemedi:`, error.message);
+          return;
+        }
+        if (!data || data.length === 0) break;
+        
+        for (const r of data) {
+          const key = getSlaughterRecordKey(r.slaughter_date, r.supplier, r.carcass_weight, r.animal_type);
+          existingRecordsMap.set(key, r);
+        }
+        if (data.length < step) break;
+        from += step;
+      }
+      
+      console.log(`[Kesim] Veritabanından ${existingRecordsMap.size} adet mevcut kayıt yüklendi.`);
+
+      for (const sheetName of workbook.SheetNames) {
+        const worksheet = workbook.Sheets[sheetName];
+        if (worksheet) {
+          await processSlaughterSheet(sheetName, worksheet, existingRecordsMap);
+        }
+      }
+      console.log(`[Kesim Başarılı] "${fileName}" dosyasındaki kesim verileri eşitlendi.`);
       return;
     }
 
@@ -652,8 +825,18 @@ const processFile = async (filePath) => {
 const main = async () => {
   console.log(`[${new Date().toISOString()}] DARS POS & Kesim Ortak İzleyici Servisi Başlatıldı...`);
   
-  const email = process.env.SUPABASE_AUTH_EMAIL;
-  const password = process.env.SUPABASE_AUTH_PASSWORD;
+  let email = process.env.SUPABASE_AUTH_EMAIL;
+  let password = process.env.SUPABASE_AUTH_PASSWORD;
+  
+  if (!email || !password) {
+    const syncUser = process.env.EKAP_SYNC_USERNAME;
+    const syncPass = process.env.EKAP_SYNC_PASSWORD;
+    if (syncUser && syncPass) {
+      email = syncUser.includes('@') ? syncUser : (syncUser === 'berkant' ? 'berkant@dars.local' : `${syncUser}@ops360.local`);
+      password = syncPass;
+    }
+  }
+
   if (email && password) {
     console.log(`[Auth] Giriş yapılıyor: ${email}...`);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -680,8 +863,33 @@ const main = async () => {
           return (ext === '.xlsx' || ext === '.xls') && !f.startsWith('~$');
         });
 
-        for (const file of files) {
-          await processFile(path.join(dir, file));
+        // Collect all file paths to process
+        const pathsToProcess = new Set(files.map(f => path.join(dir, f)));
+
+        // Explicitly check for the current month's file to trigger OneDrive sync if virtual
+        const trMonthsFolder = [
+          'OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN',
+          'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK'
+        ];
+        const currentMonthName = trMonthsFolder[new Date().getMonth()];
+        const currentYear = new Date().getFullYear();
+        
+        const candidateFileNames = [
+          `${currentMonthName}-${currentYear}.xlsx`,
+          `${currentMonthName}-${currentYear}.xls`
+        ];
+
+        for (const candidateName of candidateFileNames) {
+          const fullPath = path.join(dir, candidateName);
+          try {
+            if (fs.existsSync(fullPath)) {
+              pathsToProcess.add(fullPath);
+            }
+          } catch (e) {}
+        }
+
+        for (const filePath of pathsToProcess) {
+          await processFile(filePath);
         }
       } catch (err) {
         console.error(`[Hata] Klasör taranırken hata: ${dir}`, err.message);
@@ -707,6 +915,12 @@ const main = async () => {
         debounceTimer = setTimeout(() => {
           processFile(path.join(dir, filename));
         }, 1500);
+      });
+      watcher.on('error', (err) => {
+        console.warn(`[İzleyici Uyarısı] ${dir} izlenirken hata oluştu (Watcher durduruluyor, Polling devam edecek):`, err.message);
+        try {
+          watcher.close();
+        } catch (e) {}
       });
       activeWatchers.push(watcher);
     } catch (e) {

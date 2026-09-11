@@ -82,7 +82,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
       const cached = localStorage.getItem('dars_cached_auth_user');
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed) {
+          if (!parsed.organizationId) {
+            parsed.organizationId = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+          }
+          return parsed;
+        }
+      }
     } catch {}
     return null;
   });

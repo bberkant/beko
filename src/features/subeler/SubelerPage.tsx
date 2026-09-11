@@ -205,13 +205,13 @@ export function SubelerPage() {
       }
 
       // 2. Fetch all checks for cross-referencing
-      if (user?.organizationId) {
-        const { data: checksData } = await supabase
-          .from('ebs_checks')
-          .select('*')
-          .eq('organization_id', user.organizationId);
-        setChecks(checksData || []);
-      }
+      const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+      const { data: checksData } = await supabase
+        .from('ebs_checks')
+        .select('*')
+        .eq('organization_id', orgId);
+      setChecks(checksData || []);
+
 
       // 3. Fetch Cari balance
       const carilerRes = await fetch(`${TUNNEL_URL}/api/cariler`);

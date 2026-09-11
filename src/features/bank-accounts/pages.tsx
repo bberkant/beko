@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Building2,
@@ -38,7 +39,7 @@ const statusCls: any = {
 };
 export function BankAccountListPage() {
   const nav = useNavigate();
-  const { accounts, deleteAccount, saveAccount } = useBankAccounts();
+  const { accounts, loading, refresh, deleteAccount, saveAccount } = useBankAccounts();
   const { notify } = useToast();
   const [q, setQ] = useState("");
   const [sortKey, setSortKey] = useState<string>("bank");
@@ -46,6 +47,11 @@ export function BankAccountListPage() {
   const [quickEditAccount, setQuickEditAccount] = useState<any | null>(null);
   const [editForm, setEditForm] = useState<BankAccountInput | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
 
   const openQuickEdit = (a: any) => {
     setQuickEditAccount(a);
@@ -291,12 +297,19 @@ export function BankAccountListPage() {
             ))}
           </tbody>
         </table>
-        {!list.length && (
+
+        {loading && accounts.length === 0 ? (
+          <div className="py-12 flex flex-col items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-gray-400">Banka hesapları yükleniyor...</p>
+          </div>
+        ) : !list.length ? (
           <p className="py-12 text-center text-sm text-gray-400">
             Hesap bulunamadı.
           </p>
-        )}
+        ) : null}
       </div>
+
 
       {/* Hızlı Düzenleme Modalı */}
       <Modal
@@ -556,8 +569,13 @@ export function BankAccountFormPage() {
 export function BankAccountDetailPage() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { getAccount, getTransactions, addTransaction } = useBankAccounts();
+  const { getAccount, getTransactions, addTransaction, loading, refresh } = useBankAccounts();
   const { notify } = useToast();
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
   const a = id ? getAccount(id) : undefined;
   const [open, setOpen] = useState(false);
   const [t, setT] = useState<BankTransactionInput>({
@@ -573,8 +591,27 @@ export function BankAccountDetailPage() {
     () => (id ? getTransactions(id) : []),
     [id, getTransactions],
   );
-  if (!a) return <p>Hesap yükleniyor...</p>;
+  if (!a) {
+    if (loading) {
+      return (
+        <div className="py-24 flex flex-col items-center justify-center gap-3">
+          <div className="w-7 h-7 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-gray-500 font-medium">Banka hesabı yükleniyor...</p>
+        </div>
+      );
+    }
+    return (
+      <div className="py-16 text-center text-gray-500">
+        <p className="text-base font-semibold">Hesap bulunamadı veya silinmiş olabilir.</p>
+        <button className="btn-secondary mt-3" onClick={() => nav('/finans/banka-hesaplari')}>
+          Banka Hesaplarına Dön
+        </button>
+      </div>
+    );
+  }
+
   return (
+
     <div className="mx-auto max-w-6xl">
       <PageHeader
         title={a.accountName}
