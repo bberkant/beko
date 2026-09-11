@@ -183,31 +183,31 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                   {/* MERKEZ */}
                   <div className="grid grid-cols-[55%_45%] h-[28px] items-center border-b border-gray-300">
                     <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">MERKEZ</span>
-                    <span className="font-black text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(merkezTotal)}</span>
+                    <span className="font-bold text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(merkezTotal)}</span>
                   </div>
 
                   {/* MERZİFON */}
                   <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300">
                     <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">MERZİFON</span>
-                    <span className="font-black text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(merzifonTotal)}</span>
+                    <span className="font-bold text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(merzifonTotal)}</span>
                   </div>
 
                   {/* ATAKUM */}
                   <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300">
                     <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">ATAKUM</span>
-                    <span className="font-black text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(atakumTotal)}</span>
+                    <span className="font-bold text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(atakumTotal)}</span>
                   </div>
 
                   {/* İLKADIM */}
                   <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-gray-300">
                     <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">İLKADIM</span>
-                    <span className="font-black text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(ilkadimTotal)}</span>
+                    <span className="font-bold text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(ilkadimTotal)}</span>
                   </div>
 
                   {/* DEPO */}
                   <div className="grid grid-cols-[55%_45%] h-[26px] items-center border-b border-black">
                     <span className="font-bold text-gray-900 pl-2 uppercase tracking-wide text-[13px] border-r border-black h-full flex items-center">DEPO</span>
-                    <span className="font-black text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(depoTotal)}</span>
+                    <span className="font-bold text-gray-950 pr-2 text-right text-[14.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(depoTotal)}</span>
                   </div>
                 </div>
 
@@ -630,8 +630,8 @@ export function RaporArkaSayfaCard({ data, onChange, isStaff, selectedDate, isSa
                   
                   {/* KASA KALAN in Red Bold (Row 28) */}
                   <div className="grid grid-cols-[48%_52%] h-[30px] items-center border-b border-gray-300 bg-white">
-                    <span className="font-black text-red-600 uppercase text-[13px] border-r border-black h-full flex items-center justify-center text-center tracking-wide">KASA KALAN</span>
-                    <span className="font-black text-black pr-2 text-right text-[15.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(depoKasaKalan)}</span>
+                    <span className="font-bold uppercase text-[13px] border-r border-black h-full flex items-center justify-center text-center tracking-wide" style={{ color: '#FF0000' }}>KASA KALAN</span>
+                    <span className="font-bold text-black pr-2 text-right text-[15.5px] h-full flex items-center justify-end tracking-tight">{formatTotal(depoKasaKalan)}</span>
                   </div>
 
                   {/* MERZİFON ŞUBE DEVİR (Row 29) */}

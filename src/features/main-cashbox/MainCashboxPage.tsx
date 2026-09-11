@@ -2097,8 +2097,8 @@ export function MainCashboxPage() {
 
           {/* Print-only Date Header */}
           <div className="hidden print:flex justify-between items-center w-full mb-6 border-b-2 border-black pb-2">
-            <div className="text-2xl font-black text-gray-900 uppercase font-serif">GÜNLÜK BANKA HAREKETLERİ</div>
-            <div className="text-3xl font-black text-red-650">{new Date(selectedDate).toLocaleDateString('tr-TR')}</div>
+            <div className="text-2xl font-bold text-gray-900 uppercase">GÜNLÜK BANKA HAREKETLERİ</div>
+            <div className="text-3xl font-bold" style={{ color: '#FF0000' }}>{new Date(selectedDate).toLocaleDateString('tr-TR')}</div>
           </div>
 
           {/* Cards Grid */}
@@ -2119,7 +2119,7 @@ export function MainCashboxPage() {
                       
                       {/* Centered Bank Header with border at the bottom */}
                       <div className="relative border-b-2 border-black bg-white py-3 text-center flex items-center justify-center">
-                        <h4 className="font-black text-gray-955 tracking-widest text-lg sm:text-xl uppercase" style={{ fontFamily: 'Calibri, sans-serif' }}>{bankName}</h4>
+                        <h4 className="font-bold text-gray-955 tracking-widest text-lg sm:text-xl uppercase" style={{ fontFamily: 'Calibri, sans-serif' }}>{bankName}</h4>
                         {isStaff && (
                           <button 
                             onClick={() => handleAddBankRow(bankName)}
@@ -2251,7 +2251,7 @@ export function MainCashboxPage() {
                       </div>
 
                       {/* Sum Footer Row */}
-                      <div className="grid grid-cols-10 divide-x divide-black border-t-2 border-black text-base font-black text-gray-955 bg-white h-[34px] items-center">
+                      <div className="grid grid-cols-10 divide-x divide-black border-t-2 border-black text-base font-bold text-gray-955 bg-white h-[34px] items-center">
                         <div className="col-span-5 grid grid-cols-5 divide-x divide-gray-300 h-full items-center">
                           <div className="col-span-2 px-3 text-right flex items-center justify-end h-full">
                             {formatExcelNumber(stats.totalOut) || '0'}
@@ -2270,13 +2270,16 @@ export function MainCashboxPage() {
 
                     {/* Centered difference badge under the black card box */}
                     <div className="mt-2 text-center">
-                      <span className={`inline-block px-8 py-2 text-lg font-black tracking-tight border-2 rounded-lg shadow-sm ${
-                        stats.diff < 0 
-                          ? 'bg-red-100 text-red-750 border-red-300' 
-                          : stats.diff > 0 
-                          ? 'bg-blue-100 text-blue-750 border-blue-300'
-                          : 'bg-red-100 text-red-750 border-red-300'
-                      }`}>
+                      <span 
+                        className={`inline-block px-8 py-2 text-lg font-bold tracking-tight border-2 rounded-lg shadow-sm ${
+                          stats.diff < 0 
+                            ? 'bg-red-50 border-red-200' 
+                            : stats.diff > 0 
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-red-50 border-red-200'
+                        }`}
+                        style={{ color: stats.diff <= 0 ? '#FF0000' : undefined }}
+                      >
                         {new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(stats.diff)} {stats.diffType}
                       </span>
                     </div>
