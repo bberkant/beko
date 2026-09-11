@@ -32,7 +32,6 @@ interface CariMovement {
   vade: string | null;
   type: string;
   amount: number;
-  // Joined company/cari name
   companyName?: string;
 }
 
@@ -47,6 +46,8 @@ interface StockSummary {
   lastMovementDate: string | null;
   movements: CariMovement[];
 }
+
+const DEFAULT_ORG_ID = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
 
 const turkishNormalize = (str: string): string => {
   if (!str) return '';
@@ -69,6 +70,47 @@ const turkishNormalize = (str: string): string => {
     .trim();
 };
 
+export const isMeatProduct = (name: string): boolean => {
+  if (!name) return false;
+  const norm = turkishNormalize(name);
+
+  // 1. Explicit other categories (poultry, grocery, cleaning, packaging etc.)
+  const nonMeatPatterns = [
+    'tavuk', 'pilic', 'hindi', 'yumurta', 'kanat', 'baget',
+    'pilic but', 'tavuk but', 'pilic goğus', 'pilic gogus', 'pilic kanat', 'pilic pirzola',
+    'mercimek', 'nohut', 'fasulye', 'pirinc', 'bulgur', 'bakliyat', 'makarna', 'seker', 'tuz',
+    'salca', 'zeytin', 'zeytinyagi', 'aycicek', 'aycicegi', 'misirozu', 'margarin',
+    'peynir', 'kasar', 'lor', 'yogurt', 'sut', 'ayran', 'tereyagi', 'tereyag', 'kaymak',
+    'deterjan', 'sabun', 'camasir', 'bulasik', 'pecete', 'havlu', 'poset', 'koli', 'strec', 'strech', 'ambalaj', 'kutu',
+    'baharat', 'karabiber', 'kimyon', 'kekik', 'pul biber', 'isot', 'nane', 'sarimsak', 'sogan', 'patates', 'domates', 'biber', 'salatalik',
+    'ekmek', 'lavas', 'pide', 'corek', 'tatli', 'baklava', 'helva', 'recel', 'bal',
+    'cay', 'kahve', 'maden suyu', 'kola', 'fanta', 'gazoz', 'mesrubat', 'meyve suyu'
+  ];
+
+  for (const nonMeat of nonMeatPatterns) {
+    if (norm.includes(nonMeat)) return false;
+  }
+
+  // 2. Positive Red Meat / Meat Products patterns
+  const meatPatterns = [
+    'dana', 'kuzu', 'karkas', 'kiyma', 'kusbasi', 'kus basi', 'bonfile', 'antrikot',
+    'biftek', 'pirzola', 'kontrfile', 'tranc', 'trans', 'dos', 'gulas', 'gerdan',
+    'incik', 'nuar', 'kontrnuar', 'sakatat', 'ciger', 'yurek', 'bobrek', 'dil',
+    'kelle', 'paca', 'iskembe', 'bagirsak', 'sucuk', 'salam', 'sosis', 'pastirma',
+    'kavurma', 'jambon', 'kofte', 'doner', 'mumbar', 'sirden', 'kaburga', 'kaski',
+    'fleto', 'steak', 'poc', 'haslama', 'kemik', 'ilik', 'kuyruk', 'donyagi', 'ic yagi',
+    'tosun', 'duve', 'buyukbas', 'kucukbas', 'ercec', 'oglak', 'koyun', 'koc', 'keci',
+    'et ', ' et', 'eti', 'etler', 'kiyma', 'kuzu kol', 'kuzu but', 'dana kol', 'dana but',
+    'tas kebap', 'sote', 'kavurmalik', 'cig et', 'haslamalik', 'kiymasi'
+  ];
+
+  for (const meat of meatPatterns) {
+    if (norm.includes(meat)) return true;
+  }
+
+  return false;
+};
+
 export function VegaArctosStokPage() {
   const { user } = useAuth();
   const { notify } = useToast();
@@ -80,6 +122,9 @@ export function VegaArctosStokPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [localSearch, setLocalSearch] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'inStock' | 'critical'>('all');
+  
+  // Category Group Filter (Default: 'meat' as requested)
+  const [productCategory, setProductCategory] = useState<'meat' | 'other' | 'all'>('meat');
 
   const [selectedProduct, setSelectedProduct] = useState<StockSummary | null>(null);
 
@@ -119,7 +164,7 @@ export function VegaArctosStokPage() {
   }, [localSearch]);
 
   const fetchMovements = async () => {
-    if (!user?.organizationId) return;
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
     try {
       setIsLoading(true);
       
@@ -127,7 +172,7 @@ export function VegaArctosStokPage() {
       const { data: rawMovements, error: movError } = await supabase
         .from('vega_cari_hareketler')
         .select('*')
-        .eq('organization_id', user.organizationId)
+        .eq('organization_id', orgId)
         .not('product_name', 'is', null)
         .neq('product_name', 'DEVIR')
         .order('date', { ascending: false });
@@ -138,7 +183,7 @@ export function VegaArctosStokPage() {
       const { data: cariler, error: cariError } = await supabase
         .from('vega_cariler')
         .select('code, name')
-        .eq('organization_id', user.organizationId);
+        .eq('organization_id', orgId);
 
       if (cariError) throw cariError;
 
@@ -177,9 +222,7 @@ export function VegaArctosStokPage() {
   };
 
   useEffect(() => {
-    if (user?.organizationId) {
-      fetchMovements();
-    }
+    fetchMovements();
   }, [user?.organizationId]);
 
   // Aggregate movements into products
@@ -198,8 +241,8 @@ export function VegaArctosStokPage() {
     movements.forEach((m) => {
       const pName = m.product_name || 'Bilinmeyen Ürün';
       const uName = m.unit_name || 'ADET';
-      const isPurchase = m.alacak > 0; // Credit = Purchase
-      const isSale = m.borc > 0; // Debit = Sale
+      const isPurchase = m.alacak > 0;
+      const isSale = m.borc > 0;
       
       // Calculate clean quantity
       let q = m.quantity;
@@ -273,21 +316,32 @@ export function VegaArctosStokPage() {
     }
   }, [selectedProductParam, stockSummaries]);
 
+  // Counts for Meat vs Other
+  const meatCount = useMemo(() => stockSummaries.filter(p => isMeatProduct(p.productName)).length, [stockSummaries]);
+  const otherCount = useMemo(() => stockSummaries.filter(p => !isMeatProduct(p.productName)).length, [stockSummaries]);
+
   // Filters
   const filteredProducts = useMemo(() => {
     return stockSummaries.filter(p => {
       const normQuery = turkishNormalize(searchQuery);
       const matchesSearch = turkishNormalize(p.productName).includes(normQuery);
+      if (!matchesSearch) return false;
 
+      // Group Category filter
+      const isMeat = isMeatProduct(p.productName);
+      if (productCategory === 'meat' && !isMeat) return false;
+      if (productCategory === 'other' && isMeat) return false;
+
+      // Stock status filter
       if (filterType === 'inStock') {
-        return matchesSearch && p.currentStock > 0;
+        return p.currentStock > 0;
       }
       if (filterType === 'critical') {
-        return matchesSearch && p.currentStock <= 0;
+        return p.currentStock <= 0;
       }
-      return matchesSearch;
+      return true;
     });
-  }, [stockSummaries, searchQuery, filterType]);
+  }, [stockSummaries, searchQuery, filterType, productCategory]);
 
   // Sorting
   const sortedProducts = useMemo(() => {
@@ -332,12 +386,19 @@ export function VegaArctosStokPage() {
 
   // Statistics
   const stats = useMemo(() => {
-    const totalDifferentItems = stockSummaries.length;
+    const activeList = stockSummaries.filter(p => {
+      const isMeat = isMeatProduct(p.productName);
+      if (productCategory === 'meat') return isMeat;
+      if (productCategory === 'other') return !isMeat;
+      return true;
+    });
+
+    const totalDifferentItems = activeList.length;
     let totalInQty = 0;
     let totalOutQty = 0;
     let totalStockValue = 0;
 
-    stockSummaries.forEach(p => {
+    activeList.forEach(p => {
       totalInQty += p.totalIn;
       totalOutQty += p.totalOut;
       if (p.currentStock > 0) {
@@ -351,7 +412,7 @@ export function VegaArctosStokPage() {
       totalOutQty,
       totalStockValue
     };
-  }, [stockSummaries]);
+  }, [stockSummaries, productCategory]);
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -406,10 +467,19 @@ export function VegaArctosStokPage() {
             >
               <span>&larr; Ürün Listesine Dön</span>
             </button>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              {selectedProduct.productName}
-            </h1>
-            <p className="text-sm text-gray-500">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                {selectedProduct.productName}
+              </h1>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                isMeatProduct(selectedProduct.productName)
+                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`}>
+                {isMeatProduct(selectedProduct.productName) ? '🥩 Et & Et Ürünleri' : '📦 Diğer Ürün'}
+              </span>
+            </div>
+            <p className="text-sm text-gray-500 mt-0.5">
               Ürün Fatura ve Hesap Hareketleri Geçmiş Detayı
             </p>
           </div>
@@ -789,7 +859,9 @@ export function VegaArctosStokPage() {
       <div className="grid gap-5 grid-cols-1 md:grid-cols-4">
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Farklı Ürün Sayısı</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              {productCategory === 'meat' ? 'Et Çeşidi Sayısı' : productCategory === 'other' ? 'Diğer Ürün Çeşidi' : 'Farklı Ürün Sayısı'}
+            </span>
             <div className="text-xl font-extrabold text-gray-900 mt-1">{stats.totalDifferentItems} Çeşit</div>
           </div>
           <div className="p-3 bg-brand-50 rounded-lg text-brand-600">
@@ -823,7 +895,7 @@ export function VegaArctosStokPage() {
 
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider font-medium">Öngörülen Stok Maliyet Değeri</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider font-medium">Öngörülen Stok Değeri</span>
             <div className="text-xl font-extrabold text-blue-600 mt-1">
               {stats.totalStockValue.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
             </div>
@@ -837,50 +909,108 @@ export function VegaArctosStokPage() {
       {/* Main List Table */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         {/* Filter Toolbar */}
-        <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          {/* Search bar */}
-          <div className="flex items-center gap-2 max-w-md w-full">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Ürün Adı Ara..."
-                value={localSearch}
-                onChange={(e) => setLocalSearch(e.target.value)}
-                className="pl-9 pr-10 py-2 w-full text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-brand-500"
-              />
-              {localSearch && (
-                <button
-                  onClick={() => setLocalSearch('')}
-                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X size={14} />
-                </button>
-              )}
+        <div className="p-5 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Search bar & Category Group Switcher */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 flex-wrap">
+            {/* Search Input & Clear Button */}
+            <div className="flex items-center gap-2 max-w-sm w-full">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Ürün Adı Ara..."
+                  value={localSearch}
+                  onChange={(e) => setLocalSearch(e.target.value)}
+                  className="pl-9 pr-10 py-2 w-full text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-brand-500"
+                />
+                {localSearch && (
+                  <button
+                    onClick={() => setLocalSearch('')}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 transition-colors"
+                    title="Aramayı Temizle"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setLocalSearch('')}
+                disabled={!localSearch}
+                className="px-3.5 py-2 text-xs font-semibold text-gray-500 hover:text-brand-600 border border-gray-200 hover:border-brand-300 rounded-lg bg-white transition-all shrink-0 shadow-sm disabled:opacity-50"
+              >
+                Temizle
+              </button>
             </div>
-            <button
-              onClick={() => setLocalSearch('')}
-              disabled={!localSearch}
-              className="px-3.5 py-2 text-xs font-semibold text-gray-500 hover:text-brand-600 border border-gray-200 hover:border-brand-300 rounded-lg bg-white transition-all shrink-0 shadow-sm disabled:opacity-50"
-            >
-              Temizle
-            </button>
+
+            {/* Product Category Group Buttons (Et Grubu vs Diğer Ürünler vs Tümü) */}
+            <div className="flex items-center bg-gray-100/90 p-1 rounded-xl gap-1 shrink-0 border border-gray-200/80 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setProductCategory('meat')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  productCategory === 'meat'
+                    ? 'bg-rose-700 text-white shadow-sm ring-1 ring-rose-800'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/70'
+                }`}
+              >
+                <span>🥩 Et & Et Ürünleri</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                  productCategory === 'meat' ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-600'
+                }`}>
+                  {meatCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setProductCategory('other')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  productCategory === 'other'
+                    ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-700'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/70'
+                }`}
+              >
+                <span>📦 Diğer Ürünler</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                  productCategory === 'other' ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-600'
+                }`}>
+                  {otherCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setProductCategory('all')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                  productCategory === 'all'
+                    ? 'bg-gray-900 text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-white/70'
+                }`}
+              >
+                <span>Tümü</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                  productCategory === 'all' ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-600'
+                }`}>
+                  {stockSummaries.length}
+                </span>
+              </button>
+            </div>
           </div>
 
-          {/* Filter badges */}
-          <div className="flex items-center gap-1.5 self-end sm:self-auto">
+          {/* Stock status filter badges */}
+          <div className="flex items-center gap-1.5 self-end lg:self-auto shrink-0">
             <button
               onClick={() => setFilterType('all')}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                filterType === 'all' ? 'bg-brand-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-150'
+                filterType === 'all' ? 'bg-brand-600 text-white shadow-sm' : 'bg-gray-50 text-gray-600 hover:bg-gray-150'
               }`}
             >
-              Tümü
+              Tüm Durumlar
             </button>
             <button
               onClick={() => setFilterType('inStock')}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                filterType === 'inStock' ? 'bg-brand-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-150'
+                filterType === 'inStock' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
               }`}
             >
               Stokta Olanlar
@@ -888,7 +1018,7 @@ export function VegaArctosStokPage() {
             <button
               onClick={() => setFilterType('critical')}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                filterType === 'critical' ? 'bg-brand-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-150'
+                filterType === 'critical' ? 'bg-rose-600 text-white shadow-sm' : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
               }`}
             >
               Tükenenler / Kritik
@@ -902,6 +1032,7 @@ export function VegaArctosStokPage() {
             <thead>
               <tr className="bg-gray-50/70 border-b border-gray-200 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
                 {renderSortHeader('Ürün Adı', 'productName', 'left', 'pl-5 pr-2')}
+                <th className="px-3 py-3 text-center">Grup</th>
                 {renderSortHeader('Toplam Giriş', 'totalIn', 'right')}
                 {renderSortHeader('Toplam Çıkış', 'totalOut', 'right')}
                 {renderSortHeader('Mevcut Stok', 'currentStock', 'right')}
@@ -915,7 +1046,7 @@ export function VegaArctosStokPage() {
             <tbody className="divide-y divide-gray-150 font-medium">
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-12 text-center text-sm text-gray-500">
+                  <td colSpan={10} className="px-5 py-12 text-center text-sm text-gray-500">
                     <div className="flex items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-brand-500 border-t-transparent"></div>
                       <span>Veriler derleniyor...</span>
@@ -923,57 +1054,73 @@ export function VegaArctosStokPage() {
                   </td>
                 </tr>
               ) : sortedProducts.length > 0 ? (
-                sortedProducts.map((p, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="pl-5 pr-2 py-2.5 text-sm font-bold text-gray-900 max-w-[280px] truncate">
-                      <span
-                        onClick={() => { setSelectedProduct(p); setSearchParams({ product: p.productName }); }}
-                        className="cursor-pointer hover:text-brand-600 hover:underline transition-colors"
-                        title={p.productName}
-                      >
-                        {p.productName}
-                      </span>
-                    </td>
-                    <td className="px-5 py-2.5 text-right text-emerald-600 font-semibold">
-                      {p.totalIn.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-5 py-2.5 text-right text-rose-600 font-semibold">
-                      {p.totalOut.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
-                    </td>
-                    <td className={`px-5 py-2.5 text-right font-black ${
-                      p.currentStock > 0 ? 'text-blue-700' : 'text-gray-400'
-                    }`}>
-                      {p.currentStock.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-3 py-2.5 text-center text-[10px] text-gray-400 font-bold">
-                      <span className="bg-gray-100 px-2 py-0.5 rounded">
-                        {p.unitName}
-                      </span>
-                    </td>
-                    <td className="px-5 py-2.5 text-right font-semibold text-slate-800">
-                      {p.avgPurchasePrice > 0 ? `${p.avgPurchasePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL` : '-'}
-                    </td>
-                    <td className="px-5 py-2.5 text-right font-semibold text-slate-800">
-                      {p.avgSalesPrice > 0 ? `${p.avgSalesPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL` : '-'}
-                    </td>
-                    <td className="px-5 py-2.5 text-right text-gray-500 font-semibold">
-                      {formatDate(p.lastMovementDate)}
-                    </td>
-                    <td className="px-5 py-2.5 text-center">
-                      <button
-                        onClick={() => { setSelectedProduct(p); setSearchParams({ product: p.productName }); }}
-                        className="p-1.5 text-gray-500 hover:text-brand-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Hareket Detayları"
-                      >
-                        <Eye size={15} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                sortedProducts.map((p, idx) => {
+                  const isMeat = isMeatProduct(p.productName);
+                  return (
+                    <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="pl-5 pr-2 py-2.5 text-sm font-bold text-gray-900 max-w-[280px] truncate">
+                        <span
+                          onClick={() => { setSelectedProduct(p); setSearchParams({ product: p.productName }); }}
+                          className="cursor-pointer hover:text-brand-600 hover:underline transition-colors"
+                          title={p.productName}
+                        >
+                          {p.productName}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                          isMeat 
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200' 
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}>
+                          {isMeat ? '🥩 Et Grubu' : '📦 Diğer'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-2.5 text-right text-emerald-600 font-semibold">
+                        {p.totalIn.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-5 py-2.5 text-right text-rose-600 font-semibold">
+                        {p.totalOut.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
+                      </td>
+                      <td className={`px-5 py-2.5 text-right font-black ${
+                        p.currentStock > 0 ? 'text-blue-700' : 'text-gray-400'
+                      }`}>
+                        {p.currentStock.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-3 py-2.5 text-center text-[10px] text-gray-400 font-bold">
+                        <span className="bg-gray-100 px-2 py-0.5 rounded">
+                          {p.unitName}
+                        </span>
+                      </td>
+                      <td className="px-5 py-2.5 text-right font-semibold text-slate-800">
+                        {p.avgPurchasePrice > 0 ? `${p.avgPurchasePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL` : '-'}
+                      </td>
+                      <td className="px-5 py-2.5 text-right font-semibold text-slate-800">
+                        {p.avgSalesPrice > 0 ? `${p.avgSalesPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL` : '-'}
+                      </td>
+                      <td className="px-5 py-2.5 text-right text-gray-500 font-semibold">
+                        {formatDate(p.lastMovementDate)}
+                      </td>
+                      <td className="px-5 py-2.5 text-center">
+                        <button
+                          onClick={() => { setSelectedProduct(p); setSearchParams({ product: p.productName }); }}
+                          className="p-1.5 text-gray-500 hover:text-brand-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Hareket Detayları"
+                        >
+                          <Eye size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={9} className="px-5 py-12 text-center text-sm text-gray-400">
-                    Arama kriterlerinize uygun stok kaydı bulunamadı.
+                  <td colSpan={10} className="px-5 py-12 text-center text-sm text-gray-400 font-medium">
+                    {productCategory === 'meat'
+                      ? 'Et ve et ürünleri grubunda aranan kriterlere uygun stok kaydı bulunamadı.'
+                      : productCategory === 'other'
+                        ? 'Diğer ürünler grubunda aranan kriterlere uygun stok kaydı bulunamadı.'
+                        : 'Arama kriterlerinize uygun stok kaydı bulunamadı.'}
                   </td>
                 </tr>
               )}
