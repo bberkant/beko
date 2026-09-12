@@ -283,7 +283,8 @@ export function SubelerPage() {
               balanceVal: runningBalance
             };
           });
-          setMovements(mapped);
+          // Reverse movements so the latest transactions appear first on Page 1
+          setMovements([...mapped].reverse());
         } else {
           setMovements([]);
         }
@@ -627,18 +628,6 @@ export function SubelerPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-150 font-medium">
-                {/* Devreden Row */}
-                {currentPage === 1 && (
-                  <tr className="bg-gray-50/50 text-gray-500">
-                    <td className="border-r border-gray-200 px-3 py-2 text-center font-bold">-</td>
-                    <td className="border-r border-gray-200 px-3 py-2 font-bold uppercase" colSpan={3}>Önceki Dönemden Devreden:</td>
-                    <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
-                    <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
-                    <td className="border-r border-gray-200 px-3 py-2 text-right font-bold">-</td>
-                    <td className="px-3 py-2 text-right font-bold">0.00 (-) TL</td>
-                  </tr>
-                )}
-
                 {paginatedMovements.map((m, idx) => {
                   const globalIdx = (currentPage - 1) * pageSize + idx;
                   const isInvoice = !!m.product_name && m.product_name !== 'DEVIR' && m.product_name !== 'DEVİR';
@@ -752,6 +741,18 @@ export function SubelerPage() {
                     </tr>
                   );
                 })}
+
+                {/* Devreden Row (Shown on the last page after oldest records) */}
+                {currentPage === totalPages && (
+                  <tr className="bg-gray-50/50 text-gray-500">
+                    <td className="border-r border-gray-200 px-3 py-2 text-center font-bold">-</td>
+                    <td className="border-r border-gray-200 px-3 py-2 font-bold uppercase" colSpan={3}>Önceki Dönemden Devreden:</td>
+                    <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
+                    <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
+                    <td className="border-r border-gray-200 px-3 py-2 text-right font-bold">-</td>
+                    <td className="px-3 py-2 text-right font-bold">0.00 (-) TL</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           )}
