@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const TELEGRAM_API = 'https://api.telegram.org';
-const REMINDER_DAYS = [2, 1] as const;
+const REMINDER_DAYS = [2, 1, 0] as const;
 const TIME_ZONE = 'Europe/Istanbul';
 
 interface CardRow {
@@ -24,6 +24,19 @@ interface StatementRow {
   statement_date: string;
   due_date: string;
   payment_status: string;
+}
+
+interface VehicleRow {
+  id: string;
+  organization_id: string;
+  plate: string;
+  brand: string;
+  model: string;
+  model_year: number;
+  insurance_date: string | null;
+  casco_date: string | null;
+  inspection_date: string | null;
+  status: string;
 }
 
 const fixedHolidayKeys = new Set(['01-01', '04-23', '05-01', '05-19', '07-15', '08-30', '10-29']);
@@ -72,11 +85,8 @@ function estimatedDueDate(card: CardRow, today: string) {
 }
 
 function money(value: number | string): string {
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency: 'TRY',
-    maximumFractionDigits: 2,
-  }).format(Number(value) || 0);
+  const num = Number(value) || 0;
+  return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(num) + ' ₺';
 }
 
 function displayDate(value: string): string {
@@ -89,114 +99,216 @@ function displayDate(value: string): string {
 }
 
 Deno.serve(async (request) => {
-  if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+  try {
+    if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const telegramToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
-  const telegramChatId = Deno.env.get('TELEGRAM_CHAT_ID');
-  if (!supabaseUrl || !serviceRoleKey || !telegramToken || !telegramChatId) {
-    return Response.json({ error: 'Gerekli sunucu secret de\u011ferleri eksik.' }, { status: 500 });
-  }
-
-  const body = await request.json().catch(() => ({}));
-  if (body?.test === true) {
-    const testResponse = await fetch(`${TELEGRAM_API}/bot${telegramToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: telegramChatId, text: '\u2705 OPS360 Telegram ba\u011flant\u0131s\u0131 ba\u015far\u0131yla kuruldu. Kredi kart\u0131 hat\u0131rlatmalar\u0131 bu sohbetten g\u00f6nderilecek.' }),
-    });
-    const testResult = await testResponse.json().catch(() => null);
-    return Response.json(testResult, { status: testResponse.ok ? 200 : 502 });
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const today = localDate(new Date());
-  const targetDueDates = REMINDER_DAYS.map((days) => addDays(today, days));
-  const reminderDaysByDueDate = new Map(REMINDER_DAYS.map((days) => [addDays(today, days), days]));
-
-  const { data: cardData, error: cardError } = await supabase
-    .from('credit_cards')
-    .select('id,organization_id,bank,card_name,last4,status,card_limit,current_debt,statement_day,due_day')
-    .eq('status', 'aktif')
-    .gt('card_limit', 0)
-    .gt('current_debt', 0);
-  if (cardError) return Response.json({ error: cardError.message }, { status: 500 });
-
-  const cards = (cardData ?? []) as CardRow[];
-  const cardIds = cards.map((card) => card.id);
-  let statements: StatementRow[] = [];
-  if (cardIds.length > 0) {
-    const { data: statementData, error: statementError } = await supabase
-      .from('statements')
-      .select('id,card_id,period,statement_date,due_date,payment_status')
-      .in('card_id', cardIds)
-      .neq('payment_status', 'odendi')
-      .order('statement_date', { ascending: false });
-    if (statementError) return Response.json({ error: statementError.message }, { status: 500 });
-    statements = (statementData ?? []) as StatementRow[];
-  }
-
-  const latestStatementByCard = new Map<string, StatementRow>();
-  for (const statement of statements) {
-    if (!latestStatementByCard.has(statement.card_id)) latestStatementByCard.set(statement.card_id, statement);
-  }
-
-  const candidates = cards.flatMap((card) => {
-    const statement = latestStatementByCard.get(card.id);
-    const dueDate = statement?.due_date?.slice(0, 10) || estimatedDueDate(card, today);
-    const reminderDays = reminderDaysByDueDate.get(dueDate);
-    return reminderDays ? [{ card, statement, dueDate, reminderDays }] : [];
-  });
-
-  let sent = 0;
-  let skipped = 0;
-  const failures: string[] = [];
-  for (const { card, statement, dueDate, reminderDays } of candidates) {
-    const { data: previous } = await supabase
-      .from('credit_card_reminder_logs')
-      .select('id')
-      .eq('card_id', card.id)
-      .eq('due_date', dueDate)
-      .eq('channel', 'telegram')
-      .eq('reminder_days', reminderDays)
-      .eq('recipient_ref', telegramChatId)
-      .maybeSingle();
-    if (previous) { skipped += 1; continue; }
-
-    const message = [
-      '\ud83d\udd14 Kredi Kart\u0131 Son \u00d6deme Hat\u0131rlatmas\u0131',
-      '',
-      `Kart: ${card.bank} ${card.card_name} \u2022\u2022\u2022\u2022 ${card.last4}`,
-      statement ? `Ekstre: ${statement.period}` : 'Ekstre: Hen\u00fcz y\u00fcklenmedi',
-      `G\u00fcncel bor\u00e7: ${money(card.current_debt)}`,
-      `Son \u00f6deme: ${displayDate(dueDate)}`,
-      `Kalan s\u00fcre: ${reminderDays} g\u00fcn`,
-    ].join('\n');
-
-    const telegramResponse = await fetch(`${TELEGRAM_API}/bot${telegramToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: telegramChatId, text: message }),
-    });
-    const telegramResult = await telegramResponse.json().catch(() => null);
-    if (!telegramResponse.ok || !telegramResult?.ok) {
-      failures.push(`${card.id}: ${telegramResult?.description ?? telegramResponse.statusText}`);
-      continue;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const telegramToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    const telegramChatId = Deno.env.get('TELEGRAM_CHAT_ID');
+    if (!supabaseUrl || !serviceRoleKey || !telegramToken || !telegramChatId) {
+      return Response.json({ error: 'Gerekli sunucu secret değerleri eksik (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SUPABASE_SERVICE_ROLE_KEY).' }, { status: 500 });
     }
 
-    const { error: logError } = await supabase.from('credit_card_reminder_logs').insert({
-      organization_id: card.organization_id,
-      card_id: card.id,
-      statement_id: statement?.id ?? null,
-      due_date: dueDate,
-      channel: 'telegram',
-      reminder_days: reminderDays,
-      recipient_ref: telegramChatId,
-    });
-    if (logError && logError.code !== '23505') failures.push(`${card.id}: ${logError.message}`);
-    sent += 1;
-  }
+    const body = await request.json().catch(() => ({}));
+    const forceResend = body?.forceResend === true;
+    if (body?.getUpdates === true) {
+      const res = await fetch(`${TELEGRAM_API}/bot${telegramToken}/getUpdates`);
+      const data = await res.json().catch(() => null);
+      return Response.json(data);
+    }
+    if (body?.test === true) {
+      const testResponse = await fetch(`${TELEGRAM_API}/bot${telegramToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chat_id: telegramChatId, text: '✅ DARS Telegram bağlantısı başarıyla kuruldu. Kredi kartı ve araç belge hatırlatmaları bu sohbetten gönderilecek.' }),
+      });
+      const testResult = await testResponse.json().catch(() => null);
+      return Response.json(testResult, { status: testResponse.ok ? 200 : 502 });
+    }
 
-  return Response.json({ date: today, targetDueDates, cards: cards.length, found: candidates.length, sent, skipped, failures });
+    const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const today = localDate(new Date());
+    const reminderDaysByDueDate = new Map(REMINDER_DAYS.map((days) => [addDays(today, days), days]));
+
+    const failures: string[] = [];
+
+    // --- 1. KREDİ KARTI HATIRLATMALARI ---
+    const { data: cardData, error: cardError } = await supabase
+      .from('credit_cards')
+      .select('id,organization_id,bank,card_name,last4,status,card_limit,current_debt,statement_day,due_day')
+      .eq('status', 'aktif')
+      .gt('card_limit', 0);
+    if (cardError) return Response.json({ error: cardError.message }, { status: 500 });
+
+    const cards = (cardData ?? []) as CardRow[];
+    const cardIds = cards.map((card) => card.id);
+    let statements: StatementRow[] = [];
+    if (cardIds.length > 0) {
+      const { data: statementData, error: statementError } = await supabase
+        .from('statements')
+        .select('id,card_id,period,statement_date,due_date,payment_status')
+        .in('card_id', cardIds)
+        .neq('payment_status', 'odendi')
+        .order('statement_date', { ascending: false });
+      if (statementError) return Response.json({ error: statementError.message }, { status: 500 });
+      statements = (statementData ?? []) as StatementRow[];
+    }
+
+    const latestStatementByCard = new Map<string, StatementRow>();
+    for (const statement of statements) {
+      if (!latestStatementByCard.has(statement.card_id)) latestStatementByCard.set(statement.card_id, statement);
+    }
+
+    const candidates = cards.flatMap((card) => {
+      const statement = latestStatementByCard.get(card.id);
+      let dueDate = statement?.due_date ? statement.due_date.slice(0, 10) : '';
+      if (!dueDate || (dueDate < today && Number(card.current_debt) <= 0)) {
+        dueDate = estimatedDueDate(card, today);
+      }
+      if (!dueDate) return [];
+      if (statement && statement.payment_status === 'odendi') return [];
+
+      const reminderDays = reminderDaysByDueDate.get(dueDate);
+      if (reminderDays === undefined) return [];
+
+      return [{ card, statement, dueDate, reminderDays }];
+    });
+
+    let sent = 0;
+    let skipped = 0;
+    for (const { card, statement, dueDate, reminderDays } of candidates) {
+      if (!forceResend) {
+        const { data: previous } = await supabase
+          .from('credit_card_reminder_logs')
+          .select('id')
+          .eq('card_id', card.id)
+          .eq('due_date', dueDate)
+          .eq('channel', 'telegram')
+          .eq('reminder_days', reminderDays)
+          .eq('recipient_ref', telegramChatId)
+          .maybeSingle();
+        if (previous) { skipped += 1; continue; }
+      }
+
+      const remainingText = reminderDays === 0 
+        ? '⚠️ BUGÜN SON ÖDEME GÜNÜ!' 
+        : reminderDays === 1 
+          ? '⏳ YARIN SON ÖDEME GÜNÜ! (1 gün kaldı)' 
+          : '⏳ Son ödemeye 2 gün kaldı!';
+
+      const message = [
+        '🔔 Kredi Kartı Son Ödeme Hatırlatması',
+        '',
+        `Kart: ${card.bank} ${card.card_name} •••• ${card.last4}`,
+        statement ? `Ekstre: ${statement.period}` : 'Ekstre: Henüz yüklenmedi',
+        `Son ödeme: ${displayDate(dueDate)}`,
+        remainingText,
+      ].join('\n');
+
+      const telegramResponse = await fetch(`${TELEGRAM_API}/bot${telegramToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chat_id: telegramChatId, text: message }),
+      });
+      const telegramResult = await telegramResponse.json().catch(() => null);
+      if (!telegramResponse.ok || !telegramResult?.ok) {
+        failures.push(`${card.id}: ${telegramResult?.description ?? telegramResponse.statusText}`);
+        continue;
+      }
+
+      const { error: logError } = await supabase.from('credit_card_reminder_logs').insert({
+        organization_id: card.organization_id,
+        card_id: card.id,
+        statement_id: statement?.id ?? null,
+        due_date: dueDate,
+        channel: 'telegram',
+        reminder_days: reminderDays,
+        recipient_ref: telegramChatId,
+      });
+      if (logError && logError.code !== '23505') failures.push(`${card.id}: ${logError.message}`);
+      sent += 1;
+    }
+
+    // --- 2. ARAÇ BELGE SÜRESİ HATIRLATMALARI (Son 1 Gün Kala) ---
+    const tomorrow = addDays(today, 1);
+    const { data: vehicleData, error: vehicleError } = await supabase
+      .from('vehicles')
+      .select('id,organization_id,plate,brand,model,model_year,insurance_date,casco_date,inspection_date,status')
+      .eq('status', 'aktif');
+    if (vehicleError) return Response.json({ error: vehicleError.message }, { status: 500 });
+
+    const vehicles = (vehicleData ?? []) as VehicleRow[];
+    let vehicleSent = 0;
+    let vehicleSkipped = 0;
+
+    for (const v of vehicles) {
+      const datesToCheck = [
+        { type: 'sigorta', date: v.insurance_date, label: 'Trafik Sigortası' },
+        { type: 'kasko', date: v.casco_date, label: 'Kasko' },
+        { type: 'muayene', date: v.inspection_date, label: 'Muayene' },
+      ];
+
+      for (const item of datesToCheck) {
+        if (!item.date) continue;
+        const formattedDate = item.date.slice(0, 10);
+        if (formattedDate !== tomorrow) continue;
+
+        // Daha önce gönderilip gönderilmediğini kontrol et
+        if (!forceResend) {
+          const { data: previous } = await supabase
+            .from('vehicle_reminder_logs')
+            .select('id')
+            .eq('vehicle_id', v.id)
+            .eq('document_type', item.type)
+            .eq('due_date', formattedDate)
+            .eq('channel', 'telegram')
+            .eq('recipient_ref', telegramChatId)
+            .maybeSingle();
+          if (previous) { vehicleSkipped += 1; continue; }
+        }
+
+        const message = [
+          '🔔 Araç Belge Geçerlilik Hatırlatması',
+          '',
+          `Plaka: ${v.plate}`,
+          `Araç: ${v.brand} ${v.model} (${v.model_year})`,
+          `Belge Türü: ${item.label}`,
+          `Son Tarih: ${displayDate(formattedDate)}`,
+          `Kalan Süre: 1 gün`,
+        ].join('\n');
+
+        const telegramResponse = await fetch(`${TELEGRAM_API}/bot${telegramToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ chat_id: telegramChatId, text: message }),
+        });
+        const telegramResult = await telegramResponse.json().catch(() => null);
+        if (!telegramResponse.ok || !telegramResult?.ok) {
+          failures.push(`vehicle-${v.id}-${item.type}: ${telegramResult?.description ?? telegramResponse.statusText}`);
+          continue;
+        }
+
+        const { error: logError } = await supabase.from('vehicle_reminder_logs').insert({
+          organization_id: v.organization_id,
+          vehicle_id: v.id,
+          document_type: item.type,
+          due_date: formattedDate,
+          channel: 'telegram',
+          recipient_ref: telegramChatId,
+        });
+        if (logError && logError.code !== '23505') failures.push(`vehicle-${v.id}-${item.type}: ${logError.message}`);
+        vehicleSent += 1;
+      }
+    }
+
+    return Response.json({
+      date: today,
+      cards: { total: cards.length, found: candidates.length, sent, skipped },
+      vehicles: { total: vehicles.length, sent: vehicleSent, skipped: vehicleSkipped },
+      failures
+    });
+  } catch (err: any) {
+    return Response.json({ error: err?.message, stack: err?.stack }, { status: 500 });
+  }
 });
