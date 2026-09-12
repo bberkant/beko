@@ -17,7 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  ListFilter
 } from 'lucide-react';
 import { useToast } from '../../lib/toast';
 import { supabase } from '../../lib/supabase';
@@ -147,6 +148,7 @@ export function SubelerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [checks, setChecks] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showAll, setShowAll] = useState(false);
   const pageSize = 50;
   
   // Custom branch settings states
@@ -334,13 +336,14 @@ export function SubelerPage() {
     setCurrentPage(1);
   }, [config.key, searchTerm]);
 
-  // Pagination logic (50 per page)
-  const totalPages = Math.max(1, Math.ceil(filteredMovements.length / pageSize));
+  // Pagination logic (50 per page or All)
+  const totalPages = showAll ? 1 : Math.max(1, Math.ceil(filteredMovements.length / pageSize));
 
   const paginatedMovements = useMemo(() => {
+    if (showAll) return filteredMovements;
     const start = (currentPage - 1) * pageSize;
     return filteredMovements.slice(start, start + pageSize);
-  }, [filteredMovements, currentPage, pageSize]);
+  }, [filteredMovements, currentPage, pageSize, showAll]);
 
   const pageNumbers = useMemo(() => {
     const pages: number[] = [];
@@ -588,7 +591,24 @@ export function SubelerPage() {
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                setShowAll(prev => !prev);
+                setCurrentPage(1);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all shadow-sm ${
+                showAll
+                  ? 'bg-[#f37021] text-white border-[#f37021] hover:bg-[#e05f10]'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+              title={showAll ? "50'lik sayfalama görünümüne dön" : "Tüm hareket kayıtlarını tek sayfada listele"}
+            >
+              <ListFilter size={14} />
+              {showAll ? 'Tümü (Aktif)' : 'Tümü'}
+            </button>
+
             <div className="relative">
               <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
               <input
@@ -742,8 +762,8 @@ export function SubelerPage() {
                   );
                 })}
 
-                {/* Devreden Row (Shown on the last page after oldest records) */}
-                {currentPage === totalPages && (
+                {/* Devreden Row (Shown on the last page or when showing all) */}
+                {(showAll || currentPage === totalPages) && (
                   <tr className="bg-gray-50/50 text-gray-500">
                     <td className="border-r border-gray-200 px-3 py-2 text-center font-bold">-</td>
                     <td className="border-r border-gray-200 px-3 py-2 font-bold uppercase" colSpan={3}>Önceki Dönemden Devreden:</td>
@@ -758,8 +778,8 @@ export function SubelerPage() {
           )}
         </div>
 
-        {/* Pagination Bar */}
-        {!loading && filteredMovements.length > pageSize && (
+        {/* Pagination Bar (When 50 per page view is active) */}
+        {!showAll && !loading && filteredMovements.length > pageSize && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 px-4 py-3 bg-gray-50/70 rounded-xl">
             <div className="text-xs text-gray-600">
               Toplam <span className="font-semibold text-gray-900">{filteredMovements.length}</span> hareket kaydından{' '}
@@ -831,6 +851,24 @@ export function SubelerPage() {
                 <ChevronsRight size={16} />
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Show All Info Bar (When Tümü is active) */}
+        {showAll && !loading && filteredMovements.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-gray-200 px-4 py-3 bg-gray-50/70 rounded-xl text-xs text-gray-600">
+            <div>
+              Toplam <span className="font-semibold text-gray-900">{filteredMovements.length}</span> hareket kaydının tümü listeleniyor.
+            </div>
+            <button
+              onClick={() => {
+                setShowAll(false);
+                setCurrentPage(1);
+              }}
+              className="text-[#f37021] hover:text-[#d05c10] font-bold underline cursor-pointer"
+            >
+              50'lik Sayfalama Görünümüne Dön
+            </button>
           </div>
         )}
 
