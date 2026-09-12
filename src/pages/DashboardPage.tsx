@@ -76,6 +76,56 @@ interface ActivityLogItem {
   old_data: any;
 }
 
+const DASHBOARD_CACHE_KEY = 'dars_dashboard_cache_v4';
+
+interface DashboardCachedData {
+  cashboxBalance: number;
+  cashboxReportDate: string;
+  thisWeekChecksTotal: number;
+  thisWeekChecksCount: number;
+  upcomingChecks: UpcomingCheck[];
+  branches: BranchSummary[];
+  totalBranchBalance: number;
+  totalDailyRevenue: number;
+  activeTendersCount: number;
+  activities: ActivityLogItem[];
+  lastUpdated: string;
+}
+
+const getDashboardCache = (): DashboardCachedData | null => {
+  try {
+    const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') return parsed;
+  } catch (e) {
+    console.warn('Dashboard cache read error:', e);
+  }
+  return null;
+};
+
+const saveDashboardCache = (data: Partial<DashboardCachedData>) => {
+  try {
+    const existing = getDashboardCache() || {
+      cashboxBalance: 0,
+      cashboxReportDate: '',
+      thisWeekChecksTotal: 0,
+      thisWeekChecksCount: 0,
+      upcomingChecks: [],
+      branches: BRANCH_CONFIGS,
+      totalBranchBalance: 0,
+      totalDailyRevenue: 0,
+      activeTendersCount: 0,
+      activities: [],
+      lastUpdated: '',
+    };
+    const merged = { ...existing, ...data };
+    localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(merged));
+  } catch (e) {
+    console.warn('Dashboard cache save error:', e);
+  }
+};
+
 export function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -102,29 +152,33 @@ export function DashboardPage() {
     return () => window.removeEventListener('sidebar-theme-changed', handleThemeChange);
   }, [user?.email]);
 
+  // Initial Cached SWR Data for 0ms Instant Render
+  const initialCache = useMemo(() => getDashboardCache(), []);
+
   // Live data states
-  const [loading, setLoading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(() => !initialCache);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastUpdated, setLastUpdated] = useState<string>(() => initialCache?.lastUpdated || '');
 
   // 1. Ana Kasa Balance
-  const [cashboxBalance, setCashboxBalance] = useState<number>(0);
-  const [cashboxReportDate, setCashboxReportDate] = useState<string>('');
+  const [cashboxBalance, setCashboxBalance] = useState<number>(() => initialCache?.cashboxBalance || 0);
+  const [cashboxReportDate, setCashboxReportDate] = useState<string>(() => initialCache?.cashboxReportDate || '');
 
   // 2. Checks data
-  const [thisWeekChecksTotal, setThisWeekChecksTotal] = useState<number>(0);
-  const [thisWeekChecksCount, setThisWeekChecksCount] = useState<number>(0);
-  const [upcomingChecks, setUpcomingChecks] = useState<UpcomingCheck[]>([]);
+  const [thisWeekChecksTotal, setThisWeekChecksTotal] = useState<number>(() => initialCache?.thisWeekChecksTotal || 0);
+  const [thisWeekChecksCount, setThisWeekChecksCount] = useState<number>(() => initialCache?.thisWeekChecksCount || 0);
+  const [upcomingChecks, setUpcomingChecks] = useState<UpcomingCheck[]>(() => initialCache?.upcomingChecks || []);
 
   // 3. Branches data
-  const [branches, setBranches] = useState<BranchSummary[]>(BRANCH_CONFIGS);
-  const [totalBranchBalance, setTotalBranchBalance] = useState<number>(0);
-  const [totalDailyRevenue, setTotalDailyRevenue] = useState<number>(0);
+  const [branches, setBranches] = useState<BranchSummary[]>(() => initialCache?.branches || BRANCH_CONFIGS);
+  const [totalBranchBalance, setTotalBranchBalance] = useState<number>(() => initialCache?.totalBranchBalance || 0);
+  const [totalDailyRevenue, setTotalDailyRevenue] = useState<number>(() => initialCache?.totalDailyRevenue || 0);
 
   // 4. Tenders data
-  const [activeTendersCount, setActiveTendersCount] = useState<number>(0);
+  const [activeTendersCount, setActiveTendersCount] = useState<number>(() => initialCache?.activeTendersCount || 0);
 
   // 5. Activity logs
-  const [activities, setActivities] = useState<ActivityLogItem[]>([]);
+  const [activities, setActivities] = useState<ActivityLogItem[]>(() => initialCache?.activities || []);
 
   // Helper to parse Turkish formatted money
   const parseMoneyNum = (v: any): number => {
@@ -206,15 +260,9 @@ export function DashboardPage() {
     return branchMap;
   };
 
-  // Fetch all live dashboard data
-  const fetchDashboardData = useCallback(async () => {
-    setLoading(true);
-    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
-
+  // Sub-routine: Fetch Cashbox & Calculate Branch Revenues
+  const fetchCashbox = useCallback(async (): Promise<Record<string, number>> => {
     try {
-      let branchRevenues: Record<string, number> = {};
-
-      // 1. Fetch Latest Ana Kasa Balance from cashbox_giris_cikis_reports
       const { data: latestCashbox } = await supabase
         .from('cashbox_giris_cikis_reports')
         .select('report_date, totals, ana_kasa_list, giris_list')
@@ -223,7 +271,9 @@ export function DashboardPage() {
         .maybeSingle();
 
       if (latestCashbox) {
-        setCashboxReportDate(latestCashbox.report_date || '');
+        const repDate = latestCashbox.report_date || '';
+        setCashboxReportDate(repDate);
+
         let totalVal = 0;
         if (latestCashbox.totals?.toplamKasaBakiye) {
           totalVal = Number(latestCashbox.totals.toplamKasaBakiye) || 0;
@@ -239,14 +289,33 @@ export function DashboardPage() {
         }
         setCashboxBalance(totalVal);
 
-        // Extract Branch Daily Revenues
-        branchRevenues = calculateBranchDailyRevenues(latestCashbox.giris_list || []);
+        const revMap = calculateBranchDailyRevenues(latestCashbox.giris_list || []);
         let totalRev = 0;
-        Object.values(branchRevenues).forEach(v => { totalRev += v; });
+        Object.values(revMap).forEach(v => { totalRev += v; });
         setTotalDailyRevenue(totalRev);
-      }
 
-      // 2. Fetch Checks (Upcoming and This Week)
+        setBranches(prev => prev.map(b => ({
+          ...b,
+          dailyRevenue: revMap[b.key] || 0
+        })));
+
+        saveDashboardCache({
+          cashboxBalance: totalVal,
+          cashboxReportDate: repDate,
+          totalDailyRevenue: totalRev,
+        });
+
+        return revMap;
+      }
+    } catch (e) {
+      console.warn('Cashbox fetch error:', e);
+    }
+    return {};
+  }, []);
+
+  // Sub-routine: Fetch Checks Data
+  const fetchChecks = useCallback(async (orgId: string) => {
+    try {
       const { data: checksData } = await supabase
         .from('ebs_checks')
         .select('id, amount, due_date, debtor, bank, status, check_number')
@@ -292,66 +361,94 @@ export function DashboardPage() {
           .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
           .slice(0, 5);
 
+        let finalUpcoming: UpcomingCheck[] = [];
         if (sortedUpcoming.length < 5) {
           const allSorted = unpaidChecks
             .sort((a, b) => new Date(b.due_date || 0).getTime() - new Date(a.due_date || 0).getTime())
             .slice(0, 5);
-          setUpcomingChecks(sortedUpcoming.length > 0 ? sortedUpcoming : allSorted);
+          finalUpcoming = sortedUpcoming.length > 0 ? sortedUpcoming : allSorted;
         } else {
-          setUpcomingChecks(sortedUpcoming);
+          finalUpcoming = sortedUpcoming;
         }
-      }
+        setUpcomingChecks(finalUpcoming);
 
-      // 3. Fetch Branches from Vega API
-      try {
-        const carilerRes = await fetch(`${TUNNEL_URL}/api/cariler`);
-        if (carilerRes.ok) {
-          const carilerData = await carilerRes.json();
-          if (Array.isArray(carilerData)) {
-            let sumBranches = 0;
-            const updatedBranches = BRANCH_CONFIGS.map(b => {
+        saveDashboardCache({
+          thisWeekChecksTotal: weekSum,
+          thisWeekChecksCount: weekCount,
+          upcomingChecks: finalUpcoming,
+        });
+      }
+    } catch (e) {
+      console.warn('Checks fetch error:', e);
+    }
+  }, []);
+
+  // Sub-routine: Fetch Vega Branches
+  const fetchVegaBranches = useCallback(async (currentRevenues?: Record<string, number>) => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const carilerRes = await fetch(`${TUNNEL_URL}/api/cariler`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (carilerRes.ok) {
+        const carilerData = await carilerRes.json();
+        if (Array.isArray(carilerData)) {
+          let sumBranches = 0;
+          setBranches(prev => {
+            const updated = prev.map(b => {
               const matched = carilerData.find(c => c.code === b.code);
-              const bBal = matched ? (matched.balance || 0) : 0;
+              const bBal = matched ? (matched.balance || 0) : b.balance;
               sumBranches += bBal;
               return {
                 ...b,
                 balance: bBal,
-                dailyRevenue: branchRevenues[b.key] || 0
+                dailyRevenue: currentRevenues?.[b.key] !== undefined ? currentRevenues[b.key] : b.dailyRevenue
               };
             });
-            setBranches(updatedBranches);
-            setTotalBranchBalance(sumBranches);
-          }
-        } else {
-          // If Vega is offline, still update with daily revenue
-          setBranches(prev => prev.map(b => ({
-            ...b,
-            dailyRevenue: branchRevenues[b.key] || 0
-          })));
+            saveDashboardCache({
+              branches: updated,
+              totalBranchBalance: sumBranches
+            });
+            return updated;
+          });
+          setTotalBranchBalance(sumBranches);
         }
-      } catch (err) {
-        console.warn('Vega API cariler verisi çekilemedi:', err);
-        setBranches(prev => prev.map(b => ({
-          ...b,
-          dailyRevenue: branchRevenues[b.key] || 0
-        })));
       }
+    } catch (err) {
+      console.warn('Vega API cariler verisi gecikti veya çekilemedi (önbellek korundu):', err);
+    }
+  }, []);
 
-      // 4. Fetch Tenders Count
-      const { count: tendersCount } = await supabase
-        .from('tenders')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', orgId);
+  // Sub-routine: Fetch Tenders Count
+  const fetchTenders = useCallback(async (orgId: string) => {
+    try {
+      const [{ count: tendersCount }, { count: candidatesCount }] = await Promise.all([
+        supabase
+          .from('tenders')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', orgId),
+        supabase
+          .from('ekap_candidates')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', orgId)
+          .eq('status', 'bekliyor')
+      ]);
 
-      const { count: candidatesCount } = await supabase
-        .from('ekap_candidates')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', orgId)
-        .eq('status', 'bekliyor');
+      const total = (tendersCount || 0) + (candidatesCount || 0);
+      setActiveTendersCount(total);
+      saveDashboardCache({ activeTendersCount: total });
+    } catch (e) {
+      console.warn('Tenders fetch error:', e);
+    }
+  }, []);
 
-      setActiveTendersCount((tendersCount || 0) + (candidatesCount || 0));
-
-      // 5. Fetch Activity Logs
+  // Sub-routine: Fetch Activity Logs
+  const fetchLogs = useCallback(async (orgId: string) => {
+    try {
       const { data: logsData } = await supabase
         .from('activity_logs')
         .select('*')
@@ -361,22 +458,83 @@ export function DashboardPage() {
 
       if (Array.isArray(logsData)) {
         setActivities(logsData);
+        saveDashboardCache({ activities: logsData });
       }
+    } catch (e) {
+      console.warn('Activity logs fetch error:', e);
+    }
+  }, []);
+
+  // Parallel, Non-blocking Dashboard Synchronizer
+  const fetchDashboardData = useCallback(async (silent = false) => {
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+    if (!silent) {
+      setIsSyncing(true);
+    }
+
+    try {
+      // Execute all primary database queries simultaneously
+      const results = await Promise.allSettled([
+        fetchCashbox(),
+        fetchChecks(orgId),
+        fetchTenders(orgId),
+        fetchLogs(orgId)
+      ]);
+
+      const cashboxResult = results[0];
+      const revMap = cashboxResult.status === 'fulfilled' ? cashboxResult.value : {};
+
+      // Trigger Vega Cariler in parallel
+      void fetchVegaBranches(revMap);
 
       const now = new Date();
-      setLastUpdated(
-        `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-      );
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      setLastUpdated(timeStr);
+      saveDashboardCache({ lastUpdated: timeStr });
     } catch (e) {
       console.error('Dashboard veri çekme hatası:', e);
     } finally {
       setLoading(false);
+      setIsSyncing(false);
     }
-  }, [user?.organizationId]);
+  }, [user?.organizationId, fetchCashbox, fetchChecks, fetchTenders, fetchLogs, fetchVegaBranches]);
 
   useEffect(() => {
-    void fetchDashboardData();
-  }, [fetchDashboardData]);
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+
+    // Initial background sync (silent if cache already hydrated)
+    void fetchDashboardData(!!initialCache);
+
+    // Supabase Realtime subscriptions (auto-sync when database changes)
+    const channel = supabase
+      .channel('dashboard-realtime-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cashbox_giris_cikis_reports' }, () => {
+        void fetchCashbox();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ebs_checks' }, () => {
+        void fetchChecks(orgId);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_logs' }, () => {
+        void fetchLogs(orgId);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenders' }, () => {
+        void fetchTenders(orgId);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ekap_candidates' }, () => {
+        void fetchTenders(orgId);
+      })
+      .subscribe();
+
+    // Background interval sync every 60 seconds
+    const interval = setInterval(() => {
+      void fetchDashboardData(true);
+    }, 60000);
+
+    return () => {
+      void supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [user?.organizationId, initialCache, fetchDashboardData, fetchCashbox, fetchChecks, fetchLogs, fetchTenders]);
 
   // Helpers
   const formatCurrency = (val: number) => {
@@ -542,20 +700,20 @@ export function DashboardPage() {
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 bg-emerald-50/70 border border-emerald-100 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-800">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isSyncing ? 'bg-amber-400' : 'bg-emerald-400'} opacity-75`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${isSyncing ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
             </span>
-            <span>Canlı Senkronize</span>
+            <span>{isSyncing ? 'Senkronize Ediliyor...' : 'Canlı Senkronize'}</span>
             {lastUpdated && <span className="text-gray-400 font-normal">({lastUpdated})</span>}
           </div>
 
           <button
-            onClick={() => void fetchDashboardData()}
-            disabled={loading}
+            onClick={() => void fetchDashboardData(false)}
+            disabled={isSyncing}
             className="btn-secondary flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-white hover:bg-slate-50 border-gray-200 text-gray-700 shadow-sm"
             title="Tüm verileri şimdi yenile"
           >
-            <RefreshCw className={loading ? 'animate-spin text-[#f37021]' : 'text-gray-500'} size={15} />
+            <RefreshCw className={isSyncing ? 'animate-spin text-[#f37021]' : 'text-gray-500'} size={15} />
             Canlı Verileri Yenile
           </button>
         </div>
@@ -584,7 +742,7 @@ export function DashboardPage() {
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold tracking-tight text-gray-900">
-                {loading ? (
+                {loading && !cashboxReportDate ? (
                   <div className="h-8 w-32 bg-gray-100 animate-pulse rounded-lg mt-0.5" />
                 ) : (
                   formatCurrency(cashboxBalance)
@@ -618,7 +776,7 @@ export function DashboardPage() {
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold tracking-tight text-gray-900">
-                {loading ? (
+                {loading && thisWeekChecksTotal === 0 && thisWeekChecksCount === 0 ? (
                   <div className="h-8 w-32 bg-gray-100 animate-pulse rounded-lg mt-0.5" />
                 ) : (
                   formatCurrency(thisWeekChecksTotal)
@@ -652,7 +810,7 @@ export function DashboardPage() {
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold tracking-tight text-gray-900">
-                {loading ? (
+                {loading && totalBranchBalance === 0 ? (
                   <div className="h-8 w-32 bg-gray-100 animate-pulse rounded-lg mt-0.5" />
                 ) : (
                   formatCurrency(totalBranchBalance)
@@ -686,7 +844,7 @@ export function DashboardPage() {
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold tracking-tight text-gray-900">
-                {loading ? (
+                {loading && activeTendersCount === 0 ? (
                   <div className="h-8 w-20 bg-gray-100 animate-pulse rounded-lg mt-0.5" />
                 ) : (
                   `${activeTendersCount} İhale / Aday`
@@ -758,7 +916,7 @@ export function DashboardPage() {
                       <TrendingUp size={12} className="text-emerald-600" />
                     </div>
                     <div className="text-sm sm:text-base font-extrabold text-emerald-700 mt-0.5 tracking-tight truncate">
-                      {loading ? (
+                      {loading && b.dailyRevenue === 0 ? (
                         <div className="h-5 w-20 bg-gray-200 animate-pulse rounded mt-0.5" />
                       ) : (
                         formatCurrency(b.dailyRevenue)
@@ -771,7 +929,7 @@ export function DashboardPage() {
                   <div className="truncate">
                     <span className="text-[10px] text-gray-400 font-medium mr-1">Cari:</span>
                     <span className={`font-semibold ${isBorc ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {loading ? '...' : formatCurrency(b.balance)}
+                      {loading && b.balance === 0 ? '...' : formatCurrency(b.balance)}
                     </span>
                   </div>
                   <ArrowUpRight size={13} className="text-gray-400 group-hover:text-[#f37021] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0 ml-1" />
@@ -804,7 +962,7 @@ export function DashboardPage() {
 
             {/* Checks Table */}
             <div className="mt-3 overflow-x-auto">
-              {loading ? (
+              {loading && upcomingChecks.length === 0 ? (
                 <div className="py-12 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2">
                   <RefreshCw className="animate-spin text-[#f37021]" size={20} />
                   <span>Çek portföyü yükleniyor...</span>
