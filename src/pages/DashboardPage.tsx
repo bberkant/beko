@@ -263,20 +263,24 @@ export function DashboardPage() {
   // Sub-routine: Fetch Cashbox & Calculate Branch Revenues
   const fetchCashbox = useCallback(async (): Promise<Record<string, number>> => {
     try {
-      const { data: latestCashbox } = await supabase
+      const { data: latestCashbox, error } = await supabase
         .from('cashbox_giris_cikis_reports')
-        .select('report_date, totals, ana_kasa_list, giris_list')
+        .select('report_date, ana_kasa_total, ana_kasa_list, giris_list, giris_total')
         .order('report_date', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      if (error) {
+        console.warn('Cashbox query error:', error);
+      }
 
       if (latestCashbox) {
         const repDate = latestCashbox.report_date || '';
         setCashboxReportDate(repDate);
 
         let totalVal = 0;
-        if (latestCashbox.totals?.toplamKasaBakiye) {
-          totalVal = Number(latestCashbox.totals.toplamKasaBakiye) || 0;
+        if (latestCashbox.ana_kasa_total !== undefined && latestCashbox.ana_kasa_total !== null) {
+          totalVal = Number(latestCashbox.ana_kasa_total) || 0;
         } else if (Array.isArray(latestCashbox.ana_kasa_list)) {
           for (const item of latestCashbox.ana_kasa_list) {
             if (item && item.gunSonu) {
@@ -872,8 +876,11 @@ export function DashboardPage() {
               <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
                 Şubelerimiz Günlük Hasılat & Canlı Cari Durumu
               </h2>
-              <p className="text-[11px] text-gray-400 font-medium">
-                Kasa gün sonu hasılatları ve Vega cari bakiyeleri canlı takip
+              <p className="text-[11px] text-gray-500 font-medium">
+                {cashboxReportDate 
+                  ? `Son Kasa Raporu (${new Date(cashboxReportDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}) hasılatları ve Vega cari bakiyeleri`
+                  : 'Kasa gün sonu hasılatları ve Vega cari bakiyeleri canlı takip'
+                }
               </p>
             </div>
           </div>
@@ -882,7 +889,7 @@ export function DashboardPage() {
               <TrendingUp size={15} className="text-emerald-600" />
               <span>Toplam Günlük Hasılat:</span>
               <span className="text-emerald-950 font-extrabold text-sm">
-                {loading ? '...' : formatCurrency(totalDailyRevenue)}
+                {formatCurrency(totalDailyRevenue)}
               </span>
             </div>
             <span className="hidden sm:inline-block text-[11px] text-gray-400 font-medium">
