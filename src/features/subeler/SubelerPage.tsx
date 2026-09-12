@@ -6,7 +6,6 @@ import {
   MapPin, 
   Phone, 
   Users, 
-  DollarSign, 
   RefreshCw, 
   Search, 
   ArrowUpRight, 
@@ -557,15 +556,6 @@ export function SubelerPage() {
           }`}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-500 uppercase">Net Cari Bakiye</span>
-              <span className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                loading
-                  ? 'bg-gray-50 text-gray-400 border border-gray-100'
-                  : (balance ?? 0) >= 0
-                    ? 'bg-red-50 text-red-600 border border-red-100'
-                    : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-              }`}>
-                <DollarSign size={16} />
-              </span>
             </div>
             <div className="mt-4">
               <h4 className={`text-xl font-bold ${
