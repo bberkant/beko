@@ -26,8 +26,11 @@ import {
 import * as XLSX from 'xlsx';
 import { Modal } from '../../components/ui/Modal';
 
+const statusCache = new Map<string, string>();
 const cleanStatus = (status: string | null | undefined): string => {
   if (!status) return '';
+  const cached = statusCache.get(status);
+  if (cached !== undefined) return cached;
   
   let cleaned = status;
   
@@ -61,12 +64,17 @@ const cleanStatus = (status: string | null | undefined): string => {
     .toLowerCase()
     .replace(/\u0307/g, '');
     
+  statusCache.set(status, cleaned);
   return cleaned;
 };
 
+const normalizeCache = new Map<string, string>();
 export const normalizeString = (str: string | null | undefined): string => {
   if (!str) return '';
-  return str
+  const cached = normalizeCache.get(str);
+  if (cached !== undefined) return cached;
+
+  const res = str
     .replace(/İ/g, 'i')
     .replace(/I/g, 'ı')
     .replace(/ı/g, 'i')
@@ -82,6 +90,9 @@ export const normalizeString = (str: string | null | undefined): string => {
     .replace(/ğ/g, 'g')
     .toLowerCase()
     .trim();
+
+  normalizeCache.set(str, res);
+  return res;
 };
 
 export const isHatirAlinan = (c: any): boolean => {
@@ -461,6 +472,7 @@ export function ChecksPage() {
   };
 
   const selectableChecks = useMemo(() => {
+    if (!modalOpen) return [];
     return checks.filter(c => {
       const status = (c.status || '').toLowerCase();
       return !status.includes('ödendi') && 
@@ -469,7 +481,7 @@ export function ChecksPage() {
              !status.includes('kayıp') &&
              !status.includes('iptal');
     });
-  }, [checks]);
+  }, [checks, modalOpen]);
 
   const filteredSelectableChecks = useMemo(() => {
     const s = modalSearchTerm.toLowerCase().trim();
@@ -575,7 +587,38 @@ export function ChecksPage() {
     const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
     setLoading(true);
     try {
-      // 1. Banka hesapları ve toplam çek adedini paralel olarak sorgula
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + 
+        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(today.getDate()).padStart(2, '0');
+
+      // 1. Takas Rotasındaysak SADECE güncel takas için gerekli kayıtları tek sorguda çek
+      if (isTakasRoute) {
+        const [accountsResult, initialChecksResult] = await Promise.all([
+          supabase
+            .from('bank_accounts')
+            .select('*')
+            .eq('organization_id', orgId)
+            .eq('status', 'aktif')
+            .order('bank', { ascending: true }),
+          supabase
+            .from('ebs_checks')
+            .select('*')
+            .eq('organization_id', orgId)
+            .or(`due_date.eq.${todayStr},debtor.eq.TAKSİT,debtor.ilike.%taksit%,status.ilike.%kayıp%,ozel_alan.ilike.%takas%,debtor.ilike.%hatir%,creditor.ilike.%hatir%,ozel_alan.ilike.%hatir%,check_no.is.null,check_no.eq.`)
+            .order('due_date', { ascending: true })
+        ]);
+
+        if (accountsResult.error) throw accountsResult.error;
+        if (initialChecksResult.error) throw initialChecksResult.error;
+
+        setBankAccounts(accountsResult.data || []);
+        setChecks(initialChecksResult.data || []);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Standart Çek Yönetimi Sayfasındaysak (Tüm Çekler/Raporlar)
       const [countResult, accountsResult] = await Promise.all([
         supabase
           .from('ebs_checks')
@@ -589,7 +632,6 @@ export function ChecksPage() {
           .order('bank', { ascending: true })
       ]);
 
-
       if (countResult.error) throw countResult.error;
       if (accountsResult.error) throw accountsResult.error;
 
@@ -597,27 +639,6 @@ export function ChecksPage() {
       const accounts = accountsResult.data || [];
       setBankAccounts(accounts);
 
-      const today = new Date();
-      const todayStr = today.getFullYear() + '-' + 
-        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-        String(today.getDate()).padStart(2, '0');
-
-      // 2. Hızlı Başlangıç Yüklemesi: Eğer takas sayfasındaysak, sadece gerekli olanları hemen çek
-      if (isTakasRoute) {
-        const { data: initialChecks, error: initialError } = await supabase
-          .from('ebs_checks')
-          .select('*')
-          .eq('organization_id', orgId)
-          .or(`due_date.eq.${todayStr},debtor.eq.TAKSİT,status.ilike.%kayıp%,ozel_alan.ilike.%takas%`)
-          .order('due_date', { ascending: true });
-
-        if (!initialError && initialChecks) {
-          setChecks(initialChecks);
-          setLoading(false); // Kullanıcıya yükleme ekranını hemen kapat!
-        }
-      }
-
-      // 3. Arka Planda tüm çekleri paralel sayfalar halinde çek (1000'erli paketler halinde)
       let allData: EbsCheck[] = [];
       const pageSize = 1000;
       const numPages = Math.ceil(totalCount / pageSize);
@@ -676,11 +697,9 @@ export function ChecksPage() {
     }
   };
 
-
-
   useEffect(() => {
     void fetchChecks();
-  }, [user?.organizationId]);
+  }, [user?.organizationId, isTakasRoute]);
 
   // Kalan gün hesaplama
   const calculateRemainingDays = (dueDateStr: string | null) => {
@@ -695,6 +714,7 @@ export function ChecksPage() {
 
   // Alınan Çek Sol Menü Durumları (EBS Birebir Uyumlu)
   const alinanSidebarFilters = useMemo(() => {
+    if (isTakasRoute) return [];
     const activeAlinan = checks.filter(c => c.check_type === 'alinan');
     
     const counts = {
@@ -730,10 +750,11 @@ export function ChecksPage() {
       { id: 'portfoyde_karsiliksiz', label: 'Portföyde Karşılıksız', count: counts.portfoyde_karsiliksiz },
       { id: 'bankada_karsiliksiz', label: 'Bankada Karşılıksız', count: counts.bankada_karsiliksiz }
     ];
-  }, [checks]);
+  }, [checks, isTakasRoute]);
 
   // Kesilen Çek Sol Menü Durumları (EBS Birebir Uyumlu)
   const kesilenSidebarFilters = useMemo(() => {
+    if (isTakasRoute) return [];
     const activeKesilen = checks.filter(c => c.check_type === 'kesilen');
     
     const counts = {
@@ -761,7 +782,7 @@ export function ChecksPage() {
       { id: 'yasakli', label: 'Yasaklı Çekler', count: counts.yasakli },
       { id: 'kayip', label: 'Kayıp Çekler', count: counts.kayip }
     ];
-  }, [checks]);
+  }, [checks, isTakasRoute]);
 
   const handleTabChange = (tab: 'alinan' | 'kesilen') => {
     setActiveTab(tab);
@@ -870,6 +891,7 @@ export function ChecksPage() {
 
   // Filtreleme mantığı
   const filteredChecks = useMemo(() => {
+    if (isTakasRoute) return [];
     return checks.filter(c => {
       if (c.check_type !== activeTab) return false;
       const isSenet = 
@@ -1037,14 +1059,12 @@ export function ChecksPage() {
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [checks, activeTab, selectedSidebarFilter, dateFilterType, startDate, endDate, searchTerm, columnFilters, sortField, sortDirection, documentTypeFilter]);
+  }, [checks, activeTab, selectedSidebarFilter, dateFilterType, startDate, endDate, searchTerm, columnFilters, sortField, sortDirection, documentTypeFilter, isTakasRoute]);
 
   // Finansal özet istatistikleri
   const stats = useMemo(() => {
+    if (isTakasRoute) return { count: 0, todayAmount: 0, tomorrowAmount: 0, thisWeekAmount: 0 };
     let activeChecks = checks.filter(c => c.check_type === activeTab);
-    if (isTakasRoute) {
-      activeChecks = activeChecks.filter(c => cleanStatus(c.status).includes('takasa'));
-    }
     const count = activeChecks.length;
 
     const getLocalDateString = (date: Date) => {
@@ -1647,7 +1667,7 @@ export function ChecksPage() {
 
     if (shouldNavigate) {
       const targetCol = cols[targetColIndex];
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         const nextInput = document.querySelector(
           `input[data-section="${section}"][data-col="${targetCol}"][data-row-index="${targetRow}"]`
         ) as HTMLInputElement | null;
@@ -1655,7 +1675,7 @@ export function ChecksPage() {
           nextInput.focus();
           nextInput.select();
         }
-      }, 50);
+      });
     }
   };
 
@@ -2455,6 +2475,7 @@ export function ChecksPage() {
                       <tr key={rowIndex} className={`h-[34px] hover:bg-gray-50/30 print:divide-x-0 ${isExtraPrintRow ? 'hidden print:table-row' : ''}`}>
                         <td className="p-0 border border-gray-200 print:border-0">
                           <input
+                            key={check ? (check.local_id ? `local-nontakas-cred-${check.local_id}` : `nontakas-cred-${check.id}`) : `empty-nontakas-cred-${rowIndex}`}
                             type="text"
                             className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 pl-2 text-[17px] font-normal text-gray-700 uppercase"
                             style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
@@ -2469,6 +2490,7 @@ export function ChecksPage() {
                         </td>
                         <td className="p-0 border border-gray-200 print:border-0">
                           <input
+                            key={check ? (check.local_id ? `local-nontakas-debt-${check.local_id}` : `nontakas-debt-${check.id}`) : `empty-nontakas-debt-${rowIndex}`}
                             type="text"
                             className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 pl-2 text-[17px] font-normal text-gray-700 uppercase"
                             style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
@@ -2484,6 +2506,7 @@ export function ChecksPage() {
                         <td className="p-0 border border-gray-200 print:border-0 relative group">
                           <div className="relative flex items-center w-full h-full">
                             <input
+                              key={check ? (check.local_id ? `local-nontakas-amt-${check.local_id}` : `nontakas-amt-${check.id}`) : `empty-nontakas-amt-${rowIndex}`}
                               type="text"
                               className={`w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-[17px] font-normal text-gray-900 pr-5 ${selectedCells[check?.id || `nontakas-${rowIndex}`] ? 'ring-2 ring-green-600 bg-green-50/50' : ''}`}
                               onClick={e => handleCellClick(e, check, check ? check.amount : 0, check?.id || `nontakas-${rowIndex}`)}
