@@ -30,7 +30,8 @@ import {
   Bell,
   Coins,
   Users,
-  FileText
+  FileText,
+  TrendingUp
 } from 'lucide-react';
 import { CalendarPage } from '../features/calendar/CalendarPage';
 
@@ -42,15 +43,16 @@ interface BranchSummary {
   code: string;
   to: string;
   balance: number;
+  dailyRevenue: number;
 }
 
 const BRANCH_CONFIGS: BranchSummary[] = [
-  { key: 'merkez', name: 'Merkez Şube', code: '685', to: '/subeler/merkez', balance: 0 },
-  { key: 'merzifon', name: 'Merzifon Şube', code: '686', to: '/subeler/merzifon', balance: 0 },
-  { key: 'ilkadim', name: 'İlkadım Şube', code: '688', to: '/subeler/ilkadim', balance: 0 },
-  { key: 'atakum', name: 'Atakum Şube', code: '687', to: '/subeler/atakum', balance: 0 },
-  { key: 'sucukhane', name: 'Sucukhane Şube', code: '1588', to: '/subeler/sucukhane', balance: 0 },
-  { key: 'depo', name: 'Depo Şube', code: '4', to: '/subeler/depo', balance: 0 },
+  { key: 'merkez', name: 'Merkez Şube', code: '685', to: '/subeler/merkez', balance: 0, dailyRevenue: 0 },
+  { key: 'merzifon', name: 'Merzifon Şube', code: '686', to: '/subeler/merzifon', balance: 0, dailyRevenue: 0 },
+  { key: 'ilkadim', name: 'İlkadım Şube', code: '688', to: '/subeler/ilkadim', balance: 0, dailyRevenue: 0 },
+  { key: 'atakum', name: 'Atakum Şube', code: '687', to: '/subeler/atakum', balance: 0, dailyRevenue: 0 },
+  { key: 'sucukhane', name: 'Sucukhane Şube', code: '1588', to: '/subeler/sucukhane', balance: 0, dailyRevenue: 0 },
+  { key: 'depo', name: 'Depo Şube', code: '4', to: '/subeler/depo', balance: 0, dailyRevenue: 0 },
 ];
 
 interface UpcomingCheck {
@@ -116,6 +118,7 @@ export function DashboardPage() {
   // 3. Branches data
   const [branches, setBranches] = useState<BranchSummary[]>(BRANCH_CONFIGS);
   const [totalBranchBalance, setTotalBranchBalance] = useState<number>(0);
+  const [totalDailyRevenue, setTotalDailyRevenue] = useState<number>(0);
 
   // 4. Tenders data
   const [activeTendersCount, setActiveTendersCount] = useState<number>(0);
@@ -123,16 +126,98 @@ export function DashboardPage() {
   // 5. Activity logs
   const [activities, setActivities] = useState<ActivityLogItem[]>([]);
 
+  // Helper to parse Turkish formatted money
+  const parseMoneyNum = (v: any): number => {
+    if (!v) return 0;
+    if (typeof v === 'number') return v;
+    const clean = String(v).replace(/\./g, '').replace(/,/g, '.').trim();
+    const n = parseFloat(clean);
+    return isNaN(n) ? 0 : n;
+  };
+
+  // Helper to extract branch daily revenue totals from giris_list
+  const calculateBranchDailyRevenues = (girisList: any[]): Record<string, number> => {
+    if (!Array.isArray(girisList)) return {};
+    
+    const branchMap: Record<string, number> = {
+      merkez: 0,
+      merzifon: 0,
+      ilkadim: 0,
+      atakum: 0,
+      sucukhane: 0,
+      depo: 0
+    };
+
+    let currentBranch: string | null = null;
+
+    for (const item of girisList) {
+      if (!item) continue;
+      const desc = (item.description || '').toUpperCase().trim();
+      const amt = parseMoneyNum(item.amount);
+
+      if (desc === 'DEVİR BAKİYE' || desc === 'DEVIR BAKIYE') {
+        currentBranch = null;
+        continue;
+      }
+      if (desc === 'MERKEZ') {
+        currentBranch = 'merkez';
+        branchMap.merkez += amt;
+        continue;
+      }
+      if (desc === 'MERZİFON' || desc === 'MERZIFON') {
+        currentBranch = 'merzifon';
+        branchMap.merzifon += amt;
+        continue;
+      }
+      if (desc === 'ATAKUM') {
+        currentBranch = 'atakum';
+        branchMap.atakum += amt;
+        continue;
+      }
+      if (desc === 'İLKADIM' || desc === 'ILKADIM') {
+        currentBranch = 'ilkadim';
+        branchMap.ilkadim += amt;
+        continue;
+      }
+      if (desc === 'DEPO') {
+        currentBranch = 'depo';
+        branchMap.depo += amt;
+        continue;
+      }
+      if (desc === 'SUCUKHANE') {
+        currentBranch = 'sucukhane';
+        branchMap.sucukhane += amt;
+        continue;
+      }
+
+      if (currentBranch) {
+        if (['ADİL AĞCIHAN', 'GAMZE YEKELER', 'MERVE KURT ÇALI', 'BEKE KÖY MUHTARI', 'SERKAN TAŞKIRAN', 'ERZURUM HINIS HAST.', 'YUSUF BATU', 'CEM TEKİN KARKAS SATIŞI', 'KUVYT ÇEK', 'ZİRAT KREDİ', 'KRAL DÜRÜM', 'YEKELER', 'KASABIN OĞLU', 'ÖZADANA'].includes(desc)) {
+          currentBranch = null;
+          continue;
+        }
+        
+        const posBanks = ['ÇIKIŞ', 'CIKIS', 'Ö.ZİRAAT', 'O.ZIRAAT', 'GARANTİ', 'GARANTI', 'ZİRAAT', 'AKBANK', 'KUVEYT', 'HALK', 'ALBARAKA', 'DENİZ', 'DENIZ', 'VAKIF', 'YAPI', 'ŞEKER', 'SEKER', 'POS'];
+        if (posBanks.includes(desc)) {
+          branchMap[currentBranch] += amt;
+        }
+      }
+    }
+
+    return branchMap;
+  };
+
   // Fetch all live dashboard data
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
 
     try {
+      let branchRevenues: Record<string, number> = {};
+
       // 1. Fetch Latest Ana Kasa Balance from cashbox_giris_cikis_reports
       const { data: latestCashbox } = await supabase
         .from('cashbox_giris_cikis_reports')
-        .select('report_date, totals, ana_kasa_list')
+        .select('report_date, totals, ana_kasa_list, giris_list')
         .order('report_date', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -153,6 +238,12 @@ export function DashboardPage() {
           }
         }
         setCashboxBalance(totalVal);
+
+        // Extract Branch Daily Revenues
+        branchRevenues = calculateBranchDailyRevenues(latestCashbox.giris_list || []);
+        let totalRev = 0;
+        Object.values(branchRevenues).forEach(v => { totalRev += v; });
+        setTotalDailyRevenue(totalRev);
       }
 
       // 2. Fetch Checks (Upcoming and This Week)
@@ -224,15 +315,26 @@ export function DashboardPage() {
               sumBranches += bBal;
               return {
                 ...b,
-                balance: bBal
+                balance: bBal,
+                dailyRevenue: branchRevenues[b.key] || 0
               };
             });
             setBranches(updatedBranches);
             setTotalBranchBalance(sumBranches);
           }
+        } else {
+          // If Vega is offline, still update with daily revenue
+          setBranches(prev => prev.map(b => ({
+            ...b,
+            dailyRevenue: branchRevenues[b.key] || 0
+          })));
         }
       } catch (err) {
         console.warn('Vega API cariler verisi çekilemedi:', err);
+        setBranches(prev => prev.map(b => ({
+          ...b,
+          dailyRevenue: branchRevenues[b.key] || 0
+        })));
       }
 
       // 4. Fetch Tenders Count
@@ -603,50 +705,76 @@ export function DashboardPage() {
         </Link>
       </div>
 
-      {/* 6 Branches Live Status Pill Strip */}
-      <div className="rounded-2xl border border-gray-200/90 bg-white p-5 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
+      {/* 6 Branches Live Status & Daily Revenue */}
+      <div className="rounded-2xl border border-gray-200/90 bg-white p-5 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Store className="text-[#f37021]" size={18} />
-            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-              Şubelerimiz Canlı Cari Durumu
-            </h2>
+            <Store className="text-[#f37021]" size={20} />
+            <div>
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                Şubelerimiz Günlük Hasılat & Canlı Cari Durumu
+              </h2>
+              <p className="text-[11px] text-gray-400 font-medium">
+                Kasa gün sonu hasılatları ve Vega cari bakiyeleri canlı takip
+              </p>
+            </div>
           </div>
-          <span className="text-[11px] text-gray-400 font-medium">
-            Vega Entegrasyonu · Otomatik Senkron
-          </span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-xs font-bold shadow-xs">
+              <TrendingUp size={15} className="text-emerald-600" />
+              <span>Toplam Günlük Hasılat:</span>
+              <span className="text-emerald-950 font-extrabold text-sm">
+                {loading ? '...' : formatCurrency(totalDailyRevenue)}
+              </span>
+            </div>
+            <span className="hidden sm:inline-block text-[11px] text-gray-400 font-medium">
+              Vega & Kasa Entegre
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-6">
           {branches.map((b) => {
             const isBorc = b.balance >= 0;
             return (
               <Link
                 key={b.key}
                 to={b.to}
-                className="group rounded-xl border border-gray-200/80 bg-gray-50/50 p-3 hover:bg-white hover:border-[#f37021]/50 hover:shadow-md transition-all flex flex-col justify-between"
+                className="group rounded-xl border border-gray-200/80 bg-gradient-to-b from-gray-50/70 to-white p-3.5 hover:bg-white hover:border-[#f37021]/50 hover:shadow-md transition-all flex flex-col justify-between"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-800 group-hover:text-[#f37021] transition-colors truncate">
-                    {b.name}
-                  </span>
-                  <span className="text-[10px] font-mono font-bold text-gray-600 bg-white px-1.5 py-0.5 rounded border border-gray-200">
-                    #{b.code}
-                  </span>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-800 group-hover:text-[#f37021] transition-colors truncate">
+                      {b.name}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-gray-500 bg-white px-1.5 py-0.5 rounded border border-gray-200 shadow-2xs">
+                      #{b.code}
+                    </span>
+                  </div>
+
+                  <div className="mt-2.5 pt-2 border-t border-gray-100">
+                    <div className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 flex items-center justify-between">
+                      <span>Günlük Hasılat</span>
+                      <TrendingUp size={12} className="text-emerald-600" />
+                    </div>
+                    <div className="text-sm sm:text-base font-extrabold text-emerald-700 mt-0.5 tracking-tight truncate">
+                      {loading ? (
+                        <div className="h-5 w-20 bg-gray-200 animate-pulse rounded mt-0.5" />
+                      ) : (
+                        formatCurrency(b.dailyRevenue)
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-2.5">
-                  <div className={`text-sm font-bold truncate ${isBorc ? 'text-red-700' : 'text-emerald-700'}`}>
-                    {loading ? (
-                      <div className="h-4 w-16 bg-gray-200 animate-pulse rounded" />
-                    ) : (
-                      formatCurrency(b.balance)
-                    )}
+                <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-[11px]">
+                  <div className="truncate">
+                    <span className="text-[10px] text-gray-400 font-medium mr-1">Cari:</span>
+                    <span className={`font-semibold ${isBorc ? 'text-red-600' : 'text-emerald-600'}`}>
+                      {loading ? '...' : formatCurrency(b.balance)}
+                    </span>
                   </div>
-                  <div className="flex items-center justify-between mt-1 text-[10px] text-gray-500 font-medium">
-                    <span>{isBorc ? 'Borçlu' : 'Alacaklı'}</span>
-                    <ArrowUpRight size={12} className="text-gray-400 group-hover:text-[#f37021] transition-colors" />
-                  </div>
+                  <ArrowUpRight size={13} className="text-gray-400 group-hover:text-[#f37021] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0 ml-1" />
                 </div>
               </Link>
             );
