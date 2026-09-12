@@ -439,15 +439,15 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
                     className="mt-0.5 shrink-0 text-gray-400 hover:text-brand-600 transition-colors"
                   >
                     {note.completed ? (
-                      <CheckSquare size={16} className="text-brand-600" />
+                      <CheckSquare size={18} className="text-brand-600" />
                     ) : (
-                      <Square size={16} />
+                      <Square size={18} />
                     )}
                   </button>
                   {editingNoteId === note.id ? (
                     <input
                       type="text"
-                      className="flex-1 input !py-0.5 !px-1.5 !text-xs"
+                      className="flex-1 input !py-1 !px-2 !text-sm font-medium"
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
                       onKeyDown={(e) => {
@@ -458,29 +458,29 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
                       autoFocus
                     />
                   ) : (
-                    <span className={`flex-1 text-xs font-medium text-gray-900 leading-relaxed break-words ${note.completed ? 'line-through text-gray-400 font-normal' : ''}`}>
+                    <span className={`flex-1 text-[13.5px] sm:text-sm font-semibold text-gray-800 leading-snug break-words ${note.completed ? 'line-through text-gray-400 font-normal' : ''}`}>
                       {note.content}
                     </span>
                   )}
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
                     <button 
                       type="button"
                       onClick={() => {
                         setEditingNoteId(note.id);
                         setEditContent(note.content);
                       }}
-                      className="text-gray-300 hover:text-brand-600 transition-colors p-0.5"
+                      className="text-gray-400 hover:text-brand-600 transition-colors p-1 rounded hover:bg-white"
                       title="Notu Düzenle"
                     >
-                      <Pencil size={13} />
+                      <Pencil size={14} />
                     </button>
                     <button 
                       type="button"
                       onClick={() => void handleDeleteNote(note.id)}
-                      className="text-gray-300 hover:text-red-500 transition-colors p-0.5"
+                      className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-white"
                       title="Notu Sil"
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
@@ -576,7 +576,7 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
                           {editingNoteId === note.id ? (
                             <input
                               type="text"
-                              className="input !py-0.5 !px-1.5 !text-xs w-full"
+                              className="input !py-1 !px-2 !text-sm w-full font-medium"
                               value={editContent}
                               onChange={(ev) => setEditContent(ev.target.value)}
                               onKeyDown={(ev) => {
@@ -587,7 +587,7 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
                               autoFocus
                             />
                           ) : (
-                            <div className={`truncate ${note.completed ? 'line-through text-gray-400 font-normal' : ''}`} title={note.content}>
+                            <div className={`truncate text-xs sm:text-[13px] font-semibold text-gray-900 ${note.completed ? 'line-through text-gray-400 font-normal' : ''}`} title={note.content}>
                               {note.content}
                             </div>
                           )}
