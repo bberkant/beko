@@ -276,7 +276,7 @@ export function SubelerPage() {
             };
           });
 
-          // Compute running balance
+          // Compute running balance in chronological order
           let runningBalance = 0;
           const mapped = processedMovements.map(inv => {
             runningBalance += (inv.borcVal - inv.alacakVal);
@@ -285,8 +285,7 @@ export function SubelerPage() {
               balanceVal: runningBalance
             };
           });
-          // Reverse movements so the latest transactions appear first on Page 1
-          setMovements([...mapped].reverse());
+          setMovements(mapped);
         } else {
           setMovements([]);
         }
@@ -336,13 +335,25 @@ export function SubelerPage() {
     setCurrentPage(1);
   }, [config.key, searchTerm]);
 
-  // Pagination logic (50 per page or All)
+  // Pagination logic:
+  // Pages are ordered so Page 1 shows the newest batch of records, but dates within each page remain chronological.
   const totalPages = showAll ? 1 : Math.max(1, Math.ceil(filteredMovements.length / pageSize));
 
-  const paginatedMovements = useMemo(() => {
-    if (showAll) return filteredMovements;
-    const start = (currentPage - 1) * pageSize;
-    return filteredMovements.slice(start, start + pageSize);
+  const { paginatedMovements, sliceStart, sliceEnd } = useMemo(() => {
+    if (showAll || filteredMovements.length === 0) {
+      return {
+        paginatedMovements: filteredMovements,
+        sliceStart: 0,
+        sliceEnd: filteredMovements.length
+      };
+    }
+    const end = filteredMovements.length - (currentPage - 1) * pageSize;
+    const start = Math.max(0, end - pageSize);
+    return {
+      paginatedMovements: filteredMovements.slice(start, end),
+      sliceStart: start,
+      sliceEnd: end
+    };
   }, [filteredMovements, currentPage, pageSize, showAll]);
 
   const pageNumbers = useMemo(() => {
@@ -648,8 +659,20 @@ export function SubelerPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-150 font-medium">
+                {/* Devreden Row (Shown before the oldest records on the last page or when showing all) */}
+                {(showAll || currentPage === totalPages) && (
+                  <tr className="bg-gray-50/50 text-gray-500">
+                    <td className="border-r border-gray-200 px-3 py-2 text-center font-bold">-</td>
+                    <td className="border-r border-gray-200 px-3 py-2 font-bold uppercase" colSpan={3}>Önceki Dönemden Devreden:</td>
+                    <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
+                    <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
+                    <td className="border-r border-gray-200 px-3 py-2 text-right font-bold">-</td>
+                    <td className="px-3 py-2 text-right font-bold">0.00 (-) TL</td>
+                  </tr>
+                )}
+
                 {paginatedMovements.map((m, idx) => {
-                  const globalIdx = (currentPage - 1) * pageSize + idx;
+                  const globalIdx = sliceStart + idx;
                   const isInvoice = !!m.product_name && m.product_name !== 'DEVIR' && m.product_name !== 'DEVİR';
                   const tutar = Math.abs(m.borcVal - m.alacakVal);
                   
@@ -761,18 +784,6 @@ export function SubelerPage() {
                     </tr>
                   );
                 })}
-
-                {/* Devreden Row (Shown on the last page or when showing all) */}
-                {(showAll || currentPage === totalPages) && (
-                  <tr className="bg-gray-50/50 text-gray-500">
-                    <td className="border-r border-gray-200 px-3 py-2 text-center font-bold">-</td>
-                    <td className="border-r border-gray-200 px-3 py-2 font-bold uppercase" colSpan={3}>Önceki Dönemden Devreden:</td>
-                    <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
-                    <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
-                    <td className="border-r border-gray-200 px-3 py-2 text-right font-bold">-</td>
-                    <td className="px-3 py-2 text-right font-bold">0.00 (-) TL</td>
-                  </tr>
-                )}
               </tbody>
             </table>
           )}
@@ -783,10 +794,8 @@ export function SubelerPage() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 px-4 py-3 bg-gray-50/70 rounded-xl">
             <div className="text-xs text-gray-600">
               Toplam <span className="font-semibold text-gray-900">{filteredMovements.length}</span> hareket kaydından{' '}
-              <span className="font-semibold text-gray-900">{(currentPage - 1) * pageSize + 1}</span> -{' '}
-              <span className="font-semibold text-gray-900">
-                {Math.min(currentPage * pageSize, filteredMovements.length)}
-              </span>{' '}
+              <span className="font-semibold text-gray-900">{filteredMovements.length === 0 ? 0 : sliceStart + 1}</span> -{' '}
+              <span className="font-semibold text-gray-900">{sliceEnd}</span>{' '}
               arası gösteriliyor{' '}
               <span className="text-gray-400 font-normal">
                 (Sayfa {currentPage} / {totalPages} • 50 kayıt/sayfa)
