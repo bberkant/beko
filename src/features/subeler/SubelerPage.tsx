@@ -13,7 +13,11 @@ import {
   ArrowDownLeft, 
   Info,
   Pencil,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { useToast } from '../../lib/toast';
 import { supabase } from '../../lib/supabase';
@@ -142,6 +146,8 @@ export function SubelerPage() {
   const [movements, setMovements] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [checks, setChecks] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
   
   // Custom branch settings states
   const [manager, setManager] = useState(config.manager);
@@ -321,6 +327,35 @@ export function SubelerPage() {
       (m.product_name && m.product_name.toLowerCase().includes(term))
     );
   }, [movements, searchTerm]);
+
+  // Reset page when branch or search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [config.key, searchTerm]);
+
+  // Pagination logic (50 per page)
+  const totalPages = Math.max(1, Math.ceil(filteredMovements.length / pageSize));
+
+  const paginatedMovements = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredMovements.slice(start, start + pageSize);
+  }, [filteredMovements, currentPage, pageSize]);
+
+  const pageNumbers = useMemo(() => {
+    const pages: number[] = [];
+    const maxVisiblePages = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let end = Math.min(totalPages, start + maxVisiblePages - 1);
+
+    if (end - start + 1 < maxVisiblePages) {
+      start = Math.max(1, end - maxVisiblePages + 1);
+    }
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }, [currentPage, totalPages]);
 
   // Open Edit Modal
   const openEditModal = () => {
@@ -593,16 +628,19 @@ export function SubelerPage() {
               </thead>
               <tbody className="divide-y divide-gray-150 font-medium">
                 {/* Devreden Row */}
-                <tr className="bg-gray-50/50 text-gray-500">
-                  <td className="border-r border-gray-200 px-3 py-2 text-center font-bold">-</td>
-                  <td className="border-r border-gray-200 px-3 py-2 font-bold uppercase" colSpan={3}>Önceki Dönemden Devreden:</td>
-                  <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
-                  <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
-                  <td className="border-r border-gray-200 px-3 py-2 text-right font-bold">-</td>
-                  <td className="px-3 py-2 text-right font-bold">0.00 (-) TL</td>
-                </tr>
+                {currentPage === 1 && (
+                  <tr className="bg-gray-50/50 text-gray-500">
+                    <td className="border-r border-gray-200 px-3 py-2 text-center font-bold">-</td>
+                    <td className="border-r border-gray-200 px-3 py-2 font-bold uppercase" colSpan={3}>Önceki Dönemden Devreden:</td>
+                    <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
+                    <td className="border-r border-gray-200 px-3 py-2 text-center">0.00</td>
+                    <td className="border-r border-gray-200 px-3 py-2 text-right font-bold">-</td>
+                    <td className="px-3 py-2 text-right font-bold">0.00 (-) TL</td>
+                  </tr>
+                )}
 
-                {filteredMovements.map((m, idx) => {
+                {paginatedMovements.map((m, idx) => {
+                  const globalIdx = (currentPage - 1) * pageSize + idx;
                   const isInvoice = !!m.product_name && m.product_name !== 'DEVIR' && m.product_name !== 'DEVİR';
                   const tutar = Math.abs(m.borcVal - m.alacakVal);
                   
@@ -683,7 +721,7 @@ export function SubelerPage() {
 
                   const bakiyeIndicator = m.balanceVal > 0 ? '(B)' : m.balanceVal < 0 ? '(A)' : '(-)';
                   const absoluteBalance = Math.abs(m.balanceVal);
-                  const isBlueRow = idx % 2 === 1;
+                  const isBlueRow = globalIdx % 2 === 1;
 
                   return (
                     <tr key={idx} className={`${isBlueRow ? 'bg-[#f0f7ff]' : 'bg-white'} hover:bg-gray-50/30 transition-colors text-[11px] leading-5`}>
@@ -718,6 +756,82 @@ export function SubelerPage() {
             </table>
           )}
         </div>
+
+        {/* Pagination Bar */}
+        {!loading && filteredMovements.length > pageSize && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 px-4 py-3 bg-gray-50/70 rounded-xl">
+            <div className="text-xs text-gray-600">
+              Toplam <span className="font-semibold text-gray-900">{filteredMovements.length}</span> hareket kaydından{' '}
+              <span className="font-semibold text-gray-900">{(currentPage - 1) * pageSize + 1}</span> -{' '}
+              <span className="font-semibold text-gray-900">
+                {Math.min(currentPage * pageSize, filteredMovements.length)}
+              </span>{' '}
+              arası gösteriliyor{' '}
+              <span className="text-gray-400 font-normal">
+                (Sayfa {currentPage} / {totalPages} • 50 kayıt/sayfa)
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* First Page */}
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+                title="İlk Sayfa"
+              >
+                <ChevronsLeft size={16} />
+              </button>
+
+              {/* Previous Page */}
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={14} />
+                Önceki
+              </button>
+
+              {/* Page Numbers */}
+              <div className="flex items-center gap-1">
+                {pageNumbers.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setCurrentPage(p)}
+                    className={`inline-flex h-8 min-w-[32px] items-center justify-center rounded-lg px-2 text-xs font-semibold transition-colors ${
+                      currentPage === p
+                        ? 'bg-[#f37021] text-white shadow-sm'
+                        : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              {/* Next Page */}
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+              >
+                Sonraki
+                <ChevronRight size={14} />
+              </button>
+
+              {/* Last Page */}
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+                title="Son Sayfa"
+              >
+                <ChevronsRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Genel Toplam footer */}
         {!loading && filteredMovements.length > 0 && (
