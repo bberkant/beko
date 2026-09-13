@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { MoreVertical, ExternalLink, CheckCircle2, RotateCcw, Plus, Pencil, Trash2 } from 'lucide-react';
@@ -23,11 +23,44 @@ export function BillRowMenu({
   const ref = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const calcPosition = useCallback(() => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const menuWidth = 208;
+    const menuHeight = 210;
+
+    const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
+    const shouldOpenUp = rect.bottom + menuHeight > window.innerHeight - 12;
+    const top = shouldOpenUp ? Math.max(8, rect.top - menuHeight - 4) : rect.bottom + 4;
+
+    return { top, left };
+  }, []);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open) {
+      const pos = calcPosition();
+      if (pos) {
+        setPosition(pos);
+      }
+      setOpen(true);
+    } else {
+      setOpen(false);
+    }
+  };
+
+  useLayoutEffect(() => {
     if (!open) return;
+
+    const update = () => {
+      const pos = calcPosition();
+      if (pos) setPosition(pos);
+    };
+
+    update();
 
     const onClick = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node) && !menuRef.current?.contains(e.target as Node)) {
@@ -35,30 +68,16 @@ export function BillRowMenu({
       }
     };
 
-    const place = () => {
-      const rect = buttonRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const menuWidth = 208;
-      const menuHeight = 210;
-
-      const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
-      const shouldOpenUp = rect.bottom + menuHeight > window.innerHeight - 12;
-      const top = shouldOpenUp ? Math.max(8, rect.top - menuHeight - 4) : rect.bottom + 4;
-
-      setPosition({ top, left });
-    };
-
-    place();
     window.addEventListener('mousedown', onClick);
-    window.addEventListener('resize', place);
-    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
 
     return () => {
       window.removeEventListener('mousedown', onClick);
-      window.removeEventListener('resize', place);
-      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
     };
-  }, [open]);
+  }, [open, calcPosition]);
 
   return (
     <div className="relative inline-block text-left" ref={ref}>
@@ -66,18 +85,18 @@ export function BillRowMenu({
         ref={buttonRef}
         type="button"
         className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleToggle}
         title="İşlemler"
         aria-label="İşlemler"
       >
         <MoreVertical size={16} />
       </button>
 
-      {open &&
+      {open && position &&
         createPortal(
           <div
             ref={menuRef}
-            className="fixed z-[100] w-52 rounded-xl border border-gray-200 bg-white p-1 shadow-lg ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-[100] w-52 rounded-xl border border-gray-200 bg-white p-1 shadow-lg ring-1 ring-black/5"
             style={{ top: position.top, left: position.left }}
           >
             <button
