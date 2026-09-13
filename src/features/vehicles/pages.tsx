@@ -26,9 +26,7 @@ import { BulkInspectionModalBody } from "./components/BulkInspectionModalBody";
 import { supabase } from "../../lib/supabase";
 import type { VehicleInput, VehicleExpenseInput } from "./types";
 const money = (n: number) =>
-  new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(
-    n,
-  );
+  `${new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)} ₺`;
 
 const getDaysDiff = (dateStr?: string) => {
   if (!dateStr) return Infinity;

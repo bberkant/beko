@@ -81,7 +81,7 @@ const emptyForm = (): FormState => ({
 });
 
 const formatMoney = (n: number) =>
-  new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(n);
+  `${new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)} ₺`;
 
 const formatDate = (dateStr?: string | null) => {
   if (!dateStr) return '—';
