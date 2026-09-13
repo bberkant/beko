@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../../../components/ui/Modal';
+import { formatNumberWithDots, parseFormattedNumber } from '../data/labels';
 import type { BillInvoice, InvoiceFormInput, InvoiceStatus } from '../types';
 
 interface InvoiceModalProps {
@@ -37,8 +38,8 @@ export function InvoiceModal({
       setInvoiceNo(invoice.invoiceNo || '');
       setInvoiceDate(invoice.invoiceDate || '');
       setDueDate(invoice.dueDate);
-      setAmount(String(invoice.amount));
-      setPaidAmount(String(invoice.paidAmount));
+      setAmount(formatNumberWithDots(invoice.amount));
+      setPaidAmount(formatNumberWithDots(invoice.paidAmount));
       setStatus(invoice.status);
       setPaidAt(invoice.paidAt || '');
       setPaymentMethod(invoice.paymentMethod || '');
@@ -65,8 +66,8 @@ export function InvoiceModal({
 
     setSubmitting(true);
     try {
-      const numAmount = parseFloat(amount) || 0;
-      const numPaid = status === 'odendi' ? numAmount : (parseFloat(paidAmount) || 0);
+      const numAmount = parseFormattedNumber(amount);
+      const numPaid = status === 'odendi' ? numAmount : parseFormattedNumber(paidAmount);
 
       await onSubmit({
         billId,
@@ -157,13 +158,13 @@ export function InvoiceModal({
               Fatura Tutarı (₺) <span className="text-red-500">*</span>
             </label>
             <input
-              type="number"
-              step="0.01"
+              type="text"
+              inputMode="numeric"
               required
               className="input w-full font-bold text-gray-900"
-              placeholder="0.00"
+              placeholder="0"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(formatNumberWithDots(e.target.value))}
             />
           </div>
 
@@ -184,8 +185,23 @@ export function InvoiceModal({
           </div>
         </div>
 
-        {status === 'odendi' && (
+        {(status === 'odendi' || status === 'kismi') && (
           <div className="grid grid-cols-2 gap-3 p-3 bg-emerald-50/60 rounded-xl border border-emerald-100">
+            {status === 'kismi' && (
+              <div>
+                <label className="block text-xs font-semibold text-emerald-900 mb-1">
+                  Ödenen Tutar (₺)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="input w-full bg-white font-bold text-gray-900"
+                  placeholder="0"
+                  value={paidAmount}
+                  onChange={(e) => setPaidAmount(formatNumberWithDots(e.target.value))}
+                />
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold text-emerald-900 mb-1">
                 Ödeme Tarihi
@@ -198,7 +214,7 @@ export function InvoiceModal({
               />
             </div>
 
-            <div>
+            <div className={status === 'kismi' ? 'col-span-2' : ''}>
               <label className="block text-xs font-semibold text-emerald-900 mb-1">
                 Ödeme Yöntemi / Kanalı
               </label>

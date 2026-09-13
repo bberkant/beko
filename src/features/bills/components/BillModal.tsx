@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../../../components/ui/Modal';
-import { billCategoryConfig } from '../data/labels';
+import { billCategoryConfig, formatNumberWithDots, parseFormattedNumber } from '../data/labels';
 import type { CompanyBill, BillFormInput, BillCategory, BillCompany, BillStatus } from '../types';
 
 interface BillModalProps {
@@ -29,7 +29,7 @@ export function BillModal({ open, onClose, onSubmit, bill }: BillModalProps) {
       setCategory(bill.category);
       setCompany(bill.company);
       setAutoPayment(bill.autoPayment);
-      setCurrentAmount(String(bill.currentAmount));
+      setCurrentAmount(formatNumberWithDots(bill.currentAmount));
       setDueDate(bill.dueDate);
       setBillStatus(bill.billStatus);
       setNotes(bill.notes || '');
@@ -58,7 +58,7 @@ export function BillModal({ open, onClose, onSubmit, bill }: BillModalProps) {
         category,
         company,
         autoPayment,
-        currentAmount: parseFloat(currentAmount) || 0,
+        currentAmount: parseFormattedNumber(currentAmount),
         dueDate,
         billStatus,
         notes: notes.trim()
@@ -161,12 +161,12 @@ export function BillModal({ open, onClose, onSubmit, bill }: BillModalProps) {
               Fatura Tutarı (₺)
             </label>
             <input
-              type="number"
-              step="0.01"
+              type="text"
+              inputMode="numeric"
               className="input w-full font-bold text-gray-900"
-              placeholder="0.00"
+              placeholder="0"
               value={currentAmount}
-              onChange={(e) => setCurrentAmount(e.target.value)}
+              onChange={(e) => setCurrentAmount(formatNumberWithDots(e.target.value))}
             />
           </div>
 

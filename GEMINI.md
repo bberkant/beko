@@ -163,12 +163,13 @@ Hem kullanıcı arayüzündeki (frontend) Excel yükleme modülünde hem de arka
    - Veritabanından gelen karkas ağırlığı (`carcass_weight`) gibi sayısal alanlar string olarak dönebileceğinden, karşılaştırma ve eşleştirme yapılmadan önce değerler mutlaka `Number()` ile sayıya dönüştürülmelidir.
    - Doğrudan string kıyaslaması yapılmamalı, virgülden sonraki ufak farklar (`Math.abs(dbVal - excelVal) < 0.01`) göz önüne alınarak kontrol edilmelidir.
 
-## Tutar Girişlerindeki Nokta/Binlik Ayracı Kuralları
+## Tutar Girişlerindeki Nokta/Binlik Ayracı Kuralları (Amount Input Formatting Standards)
 
-1. **Giriş Hücreleri Formatlanması (Real-time formatting):**
-   - Kullanıcıların borç tutarı, ödenen tutar veya herhangi bir parasal değeri girdiği tüm `<input>` alanlarında, kullanıcı yazarken binlik basamaklar otomatik olarak nokta (`.`) ayracı ile ayrılmalı, kuruş kısmı ise virgül (`,`) ile ayrılmalıdır (Örn: `1.500.000,00`).
-   - Bu amaçla giriş alanı `onChange` olayında `formatNumberString` yardımcı fonksiyonu kullanılmalıdır.
-   - Doğrudan formatlanmamış metin girişi (`cleanNumericInput` ile yalın sayı) yerine her zaman `formatNumberString` ile formatlanmış değerler ekranda tutulmalı ve gösterilmelidir.
+1. **Giriş Alanları ve Modallarda Canlı Nokta Ayracı (Real-time Thousand Separator):**
+   - Kullanıcıların borç tutarı, ödenen tutar, fatura tutarı veya herhangi bir parasal değeri girdiği tüm bileşenlerde (Modallar, Formlar, Tablo Hücreleri vb.) kesinlikle ham `<input type="number">` (spinner oklu ve noktasız düz sayı) kullanılmayacaktır.
+   - Tüm tutar girişleri `<input type="text" inputMode="numeric">` olarak tanımlanacak ve kullanıcı klavyeden rakam yazdıkça değer **anlık olarak binlik nokta (`.`) ayracı ile ayrılacaktır** (Örn: `94.207`, `1.500.000`, `1.500.000,00`).
+   - Bu standart için `formatNumberWithDots(val)` ve `parseFormattedNumber(str)` yardımcı fonksiyonları kullanılmalıdır.
+
 
 ## Tutar Yazı Tipi ve Para Birimi Simge Kuralları
 

@@ -32,6 +32,22 @@ export const formatPlainNumber = (val: number | null | undefined): string => {
   return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(Number(val));
 };
 
+export const formatNumberWithDots = (val: number | string | null | undefined): string => {
+  if (val === '' || val === undefined || val === null || val === 0) {
+    if (val === 0) return '0';
+    return '';
+  }
+  const str = String(val).replace(/[^0-9]/g, '');
+  if (!str) return '';
+  return str.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+
+export const parseFormattedNumber = (str: string): number => {
+  if (!str) return 0;
+  const clean = str.replace(/[^0-9]/g, '');
+  return Number(clean) || 0;
+};
+
 export const formatDateTR = (dateStr: string | null | undefined): string => {
   if (!dateStr) return '—';
   try {
@@ -42,3 +58,5 @@ export const formatDateTR = (dateStr: string | null | undefined): string => {
     return dateStr;
   }
 };
+
+
