@@ -513,8 +513,11 @@ export function BillListPage() {
                           </button>
                           <div className="flex items-center gap-2 mt-0.5">
                             {b.autoPayment && (
-                              <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1 rounded">
-                                Otomatik Ödeme
+                              <span
+                                className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100/70"
+                                title={b.autoPaymentBank ? `Talimat: ${b.autoPaymentBank}` : 'Otomatik Ödeme'}
+                              >
+                                Otomatik Ödeme{b.autoPaymentBank ? ` • ${b.autoPaymentBank}` : ''}
                               </span>
                             )}
                             {b.notes && (

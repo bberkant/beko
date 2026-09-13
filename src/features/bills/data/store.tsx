@@ -30,6 +30,7 @@ const initialSeedBills: CompanyBill[] = [
     category: 'elektrik',
     company: 'ETİK',
     autoPayment: false,
+    autoPaymentBank: '',
     currentAmount: 84081,
     dueDate: '2026-09-10',
     billStatus: 'odenecek',
@@ -42,6 +43,7 @@ const initialSeedBills: CompanyBill[] = [
     category: 'elektrik',
     company: 'MARİF',
     autoPayment: true,
+    autoPaymentBank: 'Kuveyt Türk',
     currentAmount: 42150,
     dueDate: '2026-09-15',
     billStatus: 'odenecek',
@@ -54,6 +56,7 @@ const initialSeedBills: CompanyBill[] = [
     category: 'su',
     company: 'ETİK',
     autoPayment: false,
+    autoPaymentBank: '',
     currentAmount: 9340,
     dueDate: '2026-09-12',
     billStatus: 'odenecek',
@@ -66,6 +69,7 @@ const initialSeedBills: CompanyBill[] = [
     category: 'dogalgaz',
     company: 'ETİK',
     autoPayment: false,
+    autoPaymentBank: '',
     currentAmount: 18750,
     dueDate: '2026-09-18',
     billStatus: 'odenecek',
@@ -78,6 +82,7 @@ const initialSeedBills: CompanyBill[] = [
     category: 'internet_telefon',
     company: 'ETİK',
     autoPayment: true,
+    autoPaymentBank: 'Ziraat Bankası',
     currentAmount: 4250,
     dueDate: '2026-09-08',
     billStatus: 'odendi',
@@ -206,6 +211,7 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     category: db.category || 'elektrik',
     company: db.company || 'ETİK',
     autoPayment: Boolean(db.auto_payment),
+    autoPaymentBank: db.auto_payment_bank || '',
     currentAmount: Number(db.current_amount) || 0,
     dueDate: db.due_date || '',
     billStatus: db.bill_status || 'odenecek',
@@ -257,6 +263,7 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               category: b.category,
               company: b.company,
               auto_payment: b.autoPayment,
+              auto_payment_bank: b.autoPaymentBank || '',
               current_amount: b.currentAmount,
               due_date: b.dueDate,
               bill_status: b.billStatus,
@@ -311,12 +318,13 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const addBill = async (input: BillFormInput): Promise<CompanyBill | null> => {
     try {
-      const dbPayload = {
+      const dbPayload: any = {
         name: input.name,
         subscriber_no: input.subscriberNo,
         category: input.category,
-        company: input.company,
+        company: input.company || 'GENEL',
         auto_payment: input.autoPayment,
+        auto_payment_bank: input.autoPayment ? (input.autoPaymentBank?.trim() || '') : '',
         current_amount: input.currentAmount,
         due_date: input.dueDate || null,
         bill_status: input.billStatus,
@@ -350,7 +358,13 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (input.subscriberNo !== undefined) dbPayload.subscriber_no = input.subscriberNo;
       if (input.category !== undefined) dbPayload.category = input.category;
       if (input.company !== undefined) dbPayload.company = input.company;
-      if (input.autoPayment !== undefined) dbPayload.auto_payment = input.autoPayment;
+      if (input.autoPayment !== undefined) {
+        dbPayload.auto_payment = input.autoPayment;
+        if (!input.autoPayment) {
+          dbPayload.auto_payment_bank = '';
+        }
+      }
+      if (input.autoPaymentBank !== undefined) dbPayload.auto_payment_bank = input.autoPaymentBank;
       if (input.currentAmount !== undefined) dbPayload.current_amount = input.currentAmount;
       if (input.dueDate !== undefined) dbPayload.due_date = input.dueDate || null;
       if (input.billStatus !== undefined) dbPayload.bill_status = input.billStatus;

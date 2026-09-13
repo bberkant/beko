@@ -155,8 +155,8 @@ export function BillDetailPage() {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-gray-500 font-medium">
               <span>Abone / Tesisat: <strong className="text-gray-800 font-mono">{bill.subscriberNo || '—'}</strong></span>
               {bill.autoPayment && (
-                <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded">
-                  Otomatik Ödeme Aktif
+                <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                  Otomatik Ödeme: {bill.autoPaymentBank ? bill.autoPaymentBank : 'Aktif'}
                 </span>
               )}
               {bill.notes && (

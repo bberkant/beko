@@ -8,8 +8,9 @@ export interface CompanyBill {
   name: string;
   subscriberNo: string;
   category: BillCategory;
-  company: BillCompany;
+  company?: BillCompany;
   autoPayment: boolean;
+  autoPaymentBank?: string;
   currentAmount: number;
   dueDate: string; // YYYY-MM-DD
   billStatus: BillStatus;
@@ -40,8 +41,9 @@ export interface BillFormInput {
   name: string;
   subscriberNo: string;
   category: BillCategory;
-  company: BillCompany;
+  company?: BillCompany;
   autoPayment: boolean;
+  autoPaymentBank?: string;
   currentAmount: number;
   dueDate: string;
   billStatus: BillStatus;

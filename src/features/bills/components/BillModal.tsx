@@ -14,8 +14,9 @@ export function BillModal({ open, onClose, onSubmit, bill }: BillModalProps) {
   const [name, setName] = useState('');
   const [subscriberNo, setSubscriberNo] = useState('');
   const [category, setCategory] = useState<BillCategory>('elektrik');
-  const [company, setCompany] = useState<BillCompany>('ETİK');
+  const [company, setCompany] = useState<BillCompany>('GENEL');
   const [autoPayment, setAutoPayment] = useState(false);
+  const [autoPaymentBank, setAutoPaymentBank] = useState('');
   const [currentAmount, setCurrentAmount] = useState<string>('0');
   const [dueDate, setDueDate] = useState('');
   const [billStatus, setBillStatus] = useState<BillStatus>('odenecek');
@@ -27,8 +28,9 @@ export function BillModal({ open, onClose, onSubmit, bill }: BillModalProps) {
       setName(bill.name);
       setSubscriberNo(bill.subscriberNo);
       setCategory(bill.category);
-      setCompany(bill.company);
+      setCompany(bill.company || 'GENEL');
       setAutoPayment(bill.autoPayment);
+      setAutoPaymentBank(bill.autoPaymentBank || '');
       setCurrentAmount(formatNumberWithDots(bill.currentAmount));
       setDueDate(bill.dueDate);
       setBillStatus(bill.billStatus);
@@ -37,8 +39,9 @@ export function BillModal({ open, onClose, onSubmit, bill }: BillModalProps) {
       setName('');
       setSubscriberNo('');
       setCategory('elektrik');
-      setCompany('ETİK');
+      setCompany('GENEL');
       setAutoPayment(false);
+      setAutoPaymentBank('');
       setCurrentAmount('0');
       setDueDate(new Date().toISOString().slice(0, 10));
       setBillStatus('odenecek');
@@ -58,6 +61,7 @@ export function BillModal({ open, onClose, onSubmit, bill }: BillModalProps) {
         category,
         company,
         autoPayment,
+        autoPaymentBank: autoPayment ? autoPaymentBank.trim() : '',
         currentAmount: parseFormattedNumber(currentAmount),
         dueDate,
         billStatus,
@@ -126,38 +130,6 @@ export function BillModal({ open, onClose, onSubmit, bill }: BillModalProps) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Şirket
-            </label>
-            <select
-              className="input w-full font-semibold"
-              value={company}
-              onChange={(e) => setCompany(e.target.value as BillCompany)}
-            >
-              <option value="ETİK">ETİK</option>
-              <option value="MARİF">MARİF</option>
-              <option value="GENEL">GENEL</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Durum
-            </label>
-            <select
-              className="input w-full font-semibold"
-              value={billStatus}
-              onChange={(e) => setBillStatus(e.target.value as BillStatus)}
-            >
-              <option value="odenecek">Ödenecek</option>
-              <option value="odendi">Ödendi</option>
-              <option value="gecikmede">Gecikmede</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
               Fatura Tutarı (₺)
             </label>
             <input
@@ -183,17 +155,54 @@ export function BillModal({ open, onClose, onSubmit, bill }: BillModalProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-1">
-          <input
-            type="checkbox"
-            id="autoPayment"
-            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-            checked={autoPayment}
-            onChange={(e) => setAutoPayment(e.target.checked)}
-          />
-          <label htmlFor="autoPayment" className="text-xs font-medium text-gray-700 select-none cursor-pointer">
-            Otomatik Ödeme Talimatı Var
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">
+            Durum
           </label>
+          <select
+            className="input w-full font-semibold"
+            value={billStatus}
+            onChange={(e) => setBillStatus(e.target.value as BillStatus)}
+          >
+            <option value="odenecek">Ödenecek</option>
+            <option value="odendi">Ödendi</option>
+            <option value="gecikmede">Gecikmede</option>
+          </select>
+        </div>
+
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="autoPayment"
+              className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+              checked={autoPayment}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setAutoPayment(checked);
+                if (!checked) setAutoPaymentBank('');
+              }}
+            />
+            <label htmlFor="autoPayment" className="text-xs font-medium text-gray-700 select-none cursor-pointer">
+              Otomatik Ödeme Talimatı Var
+            </label>
+          </div>
+
+          {autoPayment && (
+            <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-100 space-y-1">
+              <label className="block text-xs font-semibold text-blue-900">
+                Otomatik Ödeme Talimat Yeri / Banka Bilgisi
+              </label>
+              <input
+                type="text"
+                className="input w-full bg-white text-sm"
+                placeholder="Örn: Ziraat Bankası, Kuveyt Türk Şirket Kartı..."
+                value={autoPaymentBank}
+                onChange={(e) => setAutoPaymentBank(e.target.value)}
+                autoFocus
+              />
+            </div>
+          )}
         </div>
 
         <div>
