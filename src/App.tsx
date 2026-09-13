@@ -54,6 +54,7 @@ import { HukukiIslemlerPage } from './features/hukuk/HukukiIslemlerPage';
 import { SubelerPage } from './features/subeler/SubelerPage';
 import { WhatsAppOperasyonPage } from './features/whatsapp-operasyon/WhatsAppOperasyonPage';
 import { FindeksPage } from './features/findeks/pages/FindeksPage';
+import { BillsProvider, BillListPage, BillDetailPage } from './features/bills';
 
 function SuperAdminRoute() {
   const { user, loading } = useAuth();
@@ -88,7 +89,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route element={<ProtectedRoute />}>
-              <Route element={<StoreProvider><VehiclesProvider><BankAccountsProvider><AppLayout /></BankAccountsProvider></VehiclesProvider></StoreProvider>}>
+              <Route element={<StoreProvider><VehiclesProvider><BankAccountsProvider><BillsProvider><AppLayout /></BillsProvider></BankAccountsProvider></VehiclesProvider></StoreProvider>}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 
                 {/* WhatsApp Sohbetleri (Yeni WhatsApp Web) HERKESE AÇIKTIR */}
@@ -109,6 +110,11 @@ export default function App() {
                 <Route path="/finans/kredi-kartlari/:id" element={<CreditCardDetailPage />} />
                 <Route path="/finans/kredi-kartlari/:id/duzenle" element={<CreditCardFormPage />} />
                 <Route path="/finans/kredi-kartlari/:id/ekstreler/:statementId" element={<StatementDetailPage />} />
+                
+                {/* Şirket Kurum Faturaları & Cari Ekstreleri */}
+                <Route path="/finans/faturalar" element={<BillListPage />} />
+                <Route path="/finans/faturalar/:id" element={<BillDetailPage />} />
+
                 <Route path="/finans/cek-vade-hesaplama" element={<CheckValuationPage />} />
                 <Route path="/finans/pos-fark-hesaplama" element={<PosDifferencesPage />} />
                 <Route path="/kesim-listesi/acik-mal-odemeleri" element={<AcikMalOdemeleriPage />} />

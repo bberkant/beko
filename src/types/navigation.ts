@@ -51,6 +51,7 @@ export const navItems: NavItem[] = [
     icon: Landmark,
     children: [
       { label: 'Kredi Kartları', to: '/finans/kredi-kartlari' },
+      { label: 'Faturalar', to: '/finans/faturalar' },
       { label: 'ÇEKTEN Hesabı', to: '/finans/cekten-hesabi' },
       { label: 'Çek Vade Hesaplama', to: '/finans/cek-vade-hesaplama' },
       { label: 'POS Fark Hesaplama', to: '/finans/pos-fark-hesaplama' },
