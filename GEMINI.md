@@ -305,3 +305,17 @@ Takas çekleri tablosunun düzeni ve şirketlere göre banka dağıtımı için 
      3. Başarılı açılışta terminalde çıkması beklenen onay logu (`API servisi 5000 portunda başarıyla başladı...`).
    - Bu hatırlatma, sunucuyla ilgili her dosya güncellemesinde otomatik olarak yanıtın altında yer almalıdır; kullanıcıya asla "ne yazacaktım" dedirtilmeyecektir.
 
+## Para Birimi Formatı ve Simge Yerleşimi (Currency Formatting Standards)
+
+Projede Türk Lirası (₺) para birimi gösterimi yapılırken aşağıdaki kurala KESİNLİKLE uyulacaktır:
+
+1. **₺ Simgesi Her Zaman Tutarın Sağında Olmalıdır:**
+   - Para formatlama yardımcı fonksiyonlarında ve tüm kullanıcı arayüzü bileşenlerinde Türk Lirası simgesi (`₺`) tutarın solunda değil, **her zaman sağında** yer almalıdır.
+   - **Doğru Format:** `250.000,00 ₺`, `8.050.000,00 ₺`
+   - **Yanlış Format:** `₺250.000,00`, `₺ 250.000,00`
+   - Standart Formatlama Kodu:
+     ```ts
+     const formatMoney = (n: number) =>
+       `${new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)} ₺`;
+     ```
+
