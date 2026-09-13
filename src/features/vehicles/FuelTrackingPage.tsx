@@ -30,7 +30,7 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const money = (value: number) =>
-  new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value);
+  `${new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} ₺`;
 
 const formatNumber = (value: number, decimals: number = 2) =>
   new Intl.NumberFormat('tr-TR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(value);
@@ -698,7 +698,7 @@ export function FuelTrackingPage() {
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
-        title="Yakıt Takip Yönetimi"
+        title="Yakıt Tüketim"
         description="Araçların akaryakıt tüketimlerini, petrol istasyonu ve cari ekstrelerini (Excel / PDF) otomatik içe aktararak takip edin."
         actions={
           <div className="flex items-center gap-2">
