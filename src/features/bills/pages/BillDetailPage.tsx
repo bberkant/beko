@@ -1,9 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft, Plus, Pencil, CheckCircle2, RotateCcw,
-  Receipt, Wallet, Calendar, FileText, Trash2
-} from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { useBills } from '../data/store';
 import { billCategoryConfig, formatTRY, formatDateTR } from '../data/labels';
@@ -87,8 +84,7 @@ export function BillDetailPage() {
     );
   }
 
-  const CategoryIcon = billCategoryConfig[bill.category]?.icon || Receipt;
-  const catCfg = billCategoryConfig[bill.category] || billCategoryConfig.diger;
+  const catLabel = billCategoryConfig[bill.category]?.label || bill.category;
 
   const handleSaveBill = async (input: BillFormInput) => {
     if (bill) {
@@ -119,7 +115,7 @@ export function BillDetailPage() {
 
       <PageHeader
         title={`${bill.name} - Cari Ekstre & Fatura Geçmişi`}
-        description={`Abone No: ${bill.subscriberNo || 'Belirtilmedi'} | Şirket: ${bill.company} | Hizmet: ${catCfg.label}`}
+        description={`Abone No: ${bill.subscriberNo || 'Belirtilmedi'} | Şirket: ${bill.company} | Hizmet: ${catLabel}`}
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -143,49 +139,40 @@ export function BillDetailPage() {
         }
       />
 
-      {/* Subscription Summary Info Card */}
-      <div className="card p-5 bg-gradient-to-r from-gray-50 to-white border border-gray-200/80">
+      {/* Subscription Summary Info Card (Clean, Minimalist) */}
+      <div className="card p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className={`flex h-12 w-12 items-center justify-center rounded-xl border ${catCfg.bg}`}>
-              <CategoryIcon size={24} />
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h3 className="text-xl font-bold text-gray-900">{bill.name}</h3>
+              <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+                {catLabel}
+              </span>
+              <span className="text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
+                {bill.company}
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-bold text-gray-900">{bill.name}</h3>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${catCfg.bg}`}>
-                  {catCfg.label}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-gray-500 font-medium">
+              <span>Abone / Tesisat: <strong className="text-gray-800 font-mono">{bill.subscriberNo || '—'}</strong></span>
+              {bill.autoPayment && (
+                <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded">
+                  Otomatik Ödeme Aktif
                 </span>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${
-                  bill.company === 'ETİK' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
-                  bill.company === 'MARİF' ? 'bg-amber-50 text-amber-800 border border-amber-200' :
-                  'bg-gray-100 text-gray-700 border border-gray-200'
-                }`}>
-                  {bill.company}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-gray-500 font-medium">
-                <span>Abone / Tesisat: <strong className="text-gray-800 font-mono">{bill.subscriberNo || '—'}</strong></span>
-                {bill.autoPayment && (
-                  <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    Otomatik Ödeme Aktif
-                  </span>
-                )}
-                {bill.notes && (
-                  <span className="text-gray-400">Not: {bill.notes}</span>
-                )}
-              </div>
+              )}
+              {bill.notes && (
+                <span className="text-gray-400">Not: {bill.notes}</span>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
             <div className="text-right">
               <span className="text-[11px] font-semibold text-gray-400 block uppercase">Son Fatura Tutarı</span>
               <span className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Calibri, sans-serif' }}>
                 {formatTRY(bill.currentAmount)}
               </span>
             </div>
-            <div className="border-l border-gray-100 pl-3 text-right">
+            <div className="border-l border-gray-200 pl-4 text-right">
               <span className="text-[11px] font-semibold text-gray-400 block uppercase">Son Ödeme</span>
               <span className="text-sm font-bold text-gray-700 block">
                 {formatDateTR(bill.dueDate)}
@@ -195,47 +182,35 @@ export function BillDetailPage() {
         </div>
       </div>
 
-      {/* 4 KPI Summary Cards */}
+      {/* 4 KPI Summary Cards (Clean) */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div className="card p-4">
-          <div className="flex items-center justify-between text-gray-500">
-            <span className="text-xs font-semibold">Toplam Ödenen</span>
-            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600"><CheckCircle2 size={16} /></span>
-          </div>
-          <p className="mt-3 text-xl font-bold text-emerald-700" style={{ fontFamily: 'Calibri, sans-serif' }}>
+          <span className="text-xs font-medium text-gray-500 block">Toplam Ödenen</span>
+          <p className="mt-2 text-xl font-bold text-emerald-700" style={{ fontFamily: 'Calibri, sans-serif' }}>
             {formatTRY(stats.totalPaid)}
           </p>
           <p className="text-[11px] text-gray-400 mt-0.5">geçmiş ödemeler toplamı</p>
         </div>
 
         <div className="card p-4">
-          <div className="flex items-center justify-between text-gray-500">
-            <span className="text-xs font-semibold">Bekleyen Borç</span>
-            <span className="p-1.5 rounded-lg bg-red-50 text-red-600"><Wallet size={16} /></span>
-          </div>
-          <p className="mt-3 text-xl font-bold text-red-600" style={{ fontFamily: 'Calibri, sans-serif' }}>
+          <span className="text-xs font-medium text-gray-500 block">Bekleyen Borç</span>
+          <p className="mt-2 text-xl font-bold text-red-600" style={{ fontFamily: 'Calibri, sans-serif' }}>
             {formatTRY(stats.totalUnpaid)}
           </p>
           <p className="text-[11px] text-gray-400 mt-0.5">ödenmemiş cari bakiye</p>
         </div>
 
         <div className="card p-4">
-          <div className="flex items-center justify-between text-gray-500">
-            <span className="text-xs font-semibold">Toplam Fatura Hacmi</span>
-            <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600"><Receipt size={16} /></span>
-          </div>
-          <p className="mt-3 text-xl font-bold text-gray-900" style={{ fontFamily: 'Calibri, sans-serif' }}>
+          <span className="text-xs font-medium text-gray-500 block">Toplam Fatura Hacmi</span>
+          <p className="mt-2 text-xl font-bold text-gray-900" style={{ fontFamily: 'Calibri, sans-serif' }}>
             {formatTRY(stats.totalInvoiced)}
           </p>
           <p className="text-[11px] text-gray-400 mt-0.5">{stats.count} adet dönem faturası</p>
         </div>
 
         <div className="card p-4">
-          <div className="flex items-center justify-between text-gray-500">
-            <span className="text-xs font-semibold">Aylık Ortalama Tutar</span>
-            <span className="p-1.5 rounded-lg bg-purple-50 text-purple-600"><Calendar size={16} /></span>
-          </div>
-          <p className="mt-3 text-xl font-bold text-purple-700" style={{ fontFamily: 'Calibri, sans-serif' }}>
+          <span className="text-xs font-medium text-gray-500 block">Aylık Ortalama Tutar</span>
+          <p className="mt-2 text-xl font-bold text-gray-800" style={{ fontFamily: 'Calibri, sans-serif' }}>
             {formatTRY(stats.avgMonthly)}
           </p>
           <p className="text-[11px] text-gray-400 mt-0.5">dönem başı ortalama tüketim</p>
@@ -273,7 +248,7 @@ export function BillDetailPage() {
                 <th className="table-th text-center font-bold text-red-600 !text-sm">Son Ödeme Tarihi</th>
                 <th className="table-th text-right font-bold text-red-600 !text-sm">Fatura Tutarı</th>
                 <th className="table-th text-right font-bold text-red-600 !text-sm">Ödenen Tutar</th>
-                <th className="table-th text-center font-bold text-red-600 !text-sm">Durum & Hızlı Ödeme</th>
+                <th className="table-th text-center font-bold text-red-600 !text-sm">Durum & İşlem</th>
                 <th className="table-th text-left font-bold text-red-600 !text-sm">Ödeme Kanalı</th>
                 <th className="table-th w-20 text-center font-bold text-red-600 !text-sm">İşlem</th>
               </tr>
@@ -282,7 +257,6 @@ export function BillDetailPage() {
               {invoices.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-gray-400">
-                    <FileText size={32} className="mx-auto text-gray-300 mb-2" />
                     <p className="font-semibold text-gray-600">Henüz geçmiş fatura kaydı bulunmuyor.</p>
                     <p className="text-xs text-gray-400 mt-1">"Yeni Dönem Faturası Ekle" butonuna tıklayarak ilk faturayı girebilirsiniz.</p>
                   </td>
@@ -333,24 +307,14 @@ export function BillDetailPage() {
                       <td className="table-td text-center">
                         <button
                           onClick={() => toggleInvoiceStatus(inv.id)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                          className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
                             inv.status === 'odendi'
-                              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
-                              : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-300 shadow-sm'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
                           }`}
                           title="Ödendi / Ödenecek durumunu değiştir"
                         >
-                          {inv.status === 'odendi' ? (
-                            <>
-                              <CheckCircle2 size={13} className="text-emerald-700" />
-                              Ödendi
-                            </>
-                          ) : (
-                            <>
-                              <RotateCcw size={13} className="text-amber-600" />
-                              Ödenecek
-                            </>
-                          )}
+                          {inv.status === 'odendi' ? 'Ödendi' : 'Ödenecek'}
                         </button>
                       </td>
 
@@ -401,7 +365,7 @@ export function BillDetailPage() {
         </div>
       </div>
 
-      {/* Bill Modal (Edit Subscription) */}
+      {/* Bill Modal */}
       <BillModal
         open={billModalOpen}
         onClose={() => setBillModalOpen(false)}
@@ -409,7 +373,7 @@ export function BillDetailPage() {
         bill={bill}
       />
 
-      {/* Invoice Modal (Add/Edit Period Invoice) */}
+      {/* Invoice Modal */}
       <InvoiceModal
         open={invoiceModalOpen}
         onClose={() => {

@@ -1,10 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Plus, Search, Download, ChevronDown,
-  Receipt, Wallet, Clock, AlertTriangle, CheckCircle2,
-  Filter, Pencil, RotateCcw, Building2
-} from 'lucide-react';
+import { Plus, Search, Download, ChevronDown, Filter, Pencil } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { useToast } from '../../../lib/toast';
@@ -117,7 +113,7 @@ export function BillListPage() {
   const [editingBill, setEditingBill] = useState<CompanyBill | null>(null);
   const [invoiceModalBill, setInvoiceModalBill] = useState<CompanyBill | null>(null);
 
-  // Filtering & Sorting (Like Credit Cards: Overdue & Unpaid first, then by Due Date ascending, paid at bottom)
+  // Filtering & Sorting
   const filteredBills = useMemo(() => {
     return bills.filter((b) => {
       if (search) {
@@ -133,16 +129,13 @@ export function BillListPage() {
       if (selectedStatus !== 'all' && b.billStatus !== selectedStatus) return false;
       return true;
     }).sort((a, b) => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
       // 1. Unpaid first, Paid last
       const isPaidA = a.billStatus === 'odendi';
       const isPaidB = b.billStatus === 'odendi';
       if (!isPaidA && isPaidB) return -1;
       if (isPaidA && !isPaidB) return 1;
 
-      // 2. Sort by Due Date ascending (urgent / near dates first)
+      // 2. Sort by Due Date ascending
       const dateA = a.dueDate ? new Date(`${a.dueDate}T00:00:00`).getTime() : 9999999999999;
       const dateB = b.dueDate ? new Date(`${b.dueDate}T00:00:00`).getTime() : 9999999999999;
 
@@ -220,7 +213,7 @@ export function BillListPage() {
     }
   };
 
-  // PDF Export (Print Window)
+  // PDF Export
   const exportToPdf = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -359,71 +352,42 @@ export function BillListPage() {
         }
       />
 
-      {/* KPI Cards (Credit Card Style) */}
+      {/* KPI Cards (Clean, Minimalist Design) */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <div className="card p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500">Toplam Fatura</span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-600">
-              <Receipt size={16} />
-            </span>
-          </div>
-          <div className="mt-3">
-            <p className="text-xl font-bold text-gray-900">{kpis.totalCount} Kurum</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">kayıtlı abonelik</p>
-          </div>
+        <div className="card p-4">
+          <span className="text-xs font-medium text-gray-500 block">Toplam Fatura</span>
+          <p className="mt-2 text-xl font-bold text-gray-900">{kpis.totalCount} Kurum</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">kayıtlı abonelik</p>
         </div>
 
-        <div className="card p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500">Ödenecek Tutar</span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600">
-              <Wallet size={16} />
-            </span>
-          </div>
-          <div className="mt-3">
-            <p className="text-xl font-bold text-red-600">{formatTRY(kpis.totalUnpaidAmount)}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">bekleyen faturalar</p>
-          </div>
+        <div className="card p-4">
+          <span className="text-xs font-medium text-gray-500 block">Ödenecek Tutar</span>
+          <p className="mt-2 text-xl font-bold text-red-600" style={{ fontFamily: 'Calibri, sans-serif' }}>
+            {formatTRY(kpis.totalUnpaidAmount)}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">bekleyen faturalar</p>
         </div>
 
-        <div className="card p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500">Bu Ay Ödenen</span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-              <CheckCircle2 size={16} />
-            </span>
-          </div>
-          <div className="mt-3">
-            <p className="text-xl font-bold text-emerald-700">{formatTRY(kpis.paidThisMonth)}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">ödenmiş faturalar</p>
-          </div>
+        <div className="card p-4">
+          <span className="text-xs font-medium text-gray-500 block">Bu Ay Ödenen</span>
+          <p className="mt-2 text-xl font-bold text-emerald-700" style={{ fontFamily: 'Calibri, sans-serif' }}>
+            {formatTRY(kpis.paidThisMonth)}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">ödenmiş faturalar</p>
         </div>
 
-        <div className="card p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500">7 Gün İçinde Vade</span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-              <Clock size={16} />
-            </span>
-          </div>
-          <div className="mt-3">
-            <p className="text-xl font-bold text-amber-700">{formatTRY(kpis.in7DaysAmount)}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">{kpis.in7DaysCount} fatura yaklaşıyor</p>
-          </div>
+        <div className="card p-4">
+          <span className="text-xs font-medium text-gray-500 block">7 Gün İçinde Vade</span>
+          <p className="mt-2 text-xl font-bold text-amber-700" style={{ fontFamily: 'Calibri, sans-serif' }}>
+            {formatTRY(kpis.in7DaysAmount)}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">{kpis.in7DaysCount} fatura yaklaşıyor</p>
         </div>
 
-        <div className="card p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500">Gecikmiş Fatura</span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600">
-              <AlertTriangle size={16} />
-            </span>
-          </div>
-          <div className="mt-3">
-            <p className="text-xl font-bold text-red-700">{kpis.overdueCount} Adet</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">vadesi geçmiş</p>
-          </div>
+        <div className="card p-4">
+          <span className="text-xs font-medium text-gray-500 block">Gecikmiş Fatura</span>
+          <p className="mt-2 text-xl font-bold text-red-700">{kpis.overdueCount} Adet</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">vadesi geçmiş</p>
         </div>
       </div>
 
@@ -457,7 +421,6 @@ export function BillListPage() {
             </div>
 
             <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5">
-              <Building2 size={14} className="text-gray-400" />
               <select
                 className="bg-transparent text-xs font-semibold text-gray-700 focus:outline-none cursor-pointer"
                 value={selectedCompany}
@@ -486,7 +449,7 @@ export function BillListPage() {
         </div>
       </div>
 
-      {/* Main Table */}
+      {/* Main Table (Clean, Corporate, Minimalist) */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -526,8 +489,7 @@ export function BillListPage() {
                 </tr>
               ) : (
                 filteredBills.map((b, index) => {
-                  const CategoryIcon = billCategoryConfig[b.category]?.icon || Receipt;
-                  const catCfg = billCategoryConfig[b.category] || billCategoryConfig.diger;
+                  const catLabel = billCategoryConfig[b.category]?.label || b.category;
 
                   return (
                     <tr
@@ -539,32 +501,27 @@ export function BillListPage() {
                         {index + 1}
                       </td>
 
-                      {/* Name with clickable blue link to cari details */}
-                      <td className="table-td !py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`flex h-8 w-8 items-center justify-center rounded-lg border shrink-0 ${catCfg.bg}`}>
-                            <CategoryIcon size={16} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <button
-                              onClick={() => navigate(`/finans/faturalar/${b.id}`)}
-                              className="font-bold text-blue-600 hover:text-blue-800 hover:underline text-left block truncate text-[15px]"
-                              title="Cari hareketlerini ve geçmiş faturaları görüntüle"
-                            >
-                              {b.name}
-                            </button>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              {b.autoPayment && (
-                                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  Otomatik Ödeme
-                                </span>
-                              )}
-                              {b.notes && (
-                                <span className="text-[11px] text-gray-400 truncate max-w-[200px]" title={b.notes}>
-                                  {b.notes}
-                                </span>
-                              )}
-                            </div>
+                      {/* Name with clickable blue link */}
+                      <td className="table-td !py-2.5">
+                        <div className="min-w-0">
+                          <button
+                            onClick={() => navigate(`/finans/faturalar/${b.id}`)}
+                            className="font-bold text-blue-600 hover:text-blue-800 hover:underline text-left block truncate text-[15px]"
+                            title="Cari hareketlerini ve geçmiş faturaları görüntüle"
+                          >
+                            {b.name}
+                          </button>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {b.autoPayment && (
+                              <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1 rounded">
+                                Otomatik Ödeme
+                              </span>
+                            )}
+                            {b.notes && (
+                              <span className="text-[11px] text-gray-400 truncate max-w-[240px]" title={b.notes}>
+                                {b.notes}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -580,29 +537,24 @@ export function BillListPage() {
                         onSave={(val) => updateBill(b.id, { subscriberNo: val })}
                         className="text-center"
                         inputClassName="text-center font-mono"
-                        placeholder="Abone no gir..."
+                        placeholder="Abone no..."
                       />
 
                       {/* Category */}
                       <td className="table-td text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${catCfg.bg}`}>
-                          <CategoryIcon size={12} />
-                          {catCfg.label}
+                        <span className="text-xs font-medium text-gray-700">
+                          {catLabel}
                         </span>
                       </td>
 
                       {/* Company */}
                       <td className="table-td text-center">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${
-                          b.company === 'ETİK' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
-                          b.company === 'MARİF' ? 'bg-amber-50 text-amber-800 border border-amber-200' :
-                          'bg-gray-100 text-gray-700 border border-gray-200'
-                        }`}>
+                        <span className="text-xs font-bold text-gray-800">
                           {b.company}
                         </span>
                       </td>
 
-                      {/* Due Date with smart badge */}
+                      {/* Due Date */}
                       <td className="table-td text-center !px-2">
                         <BillDueDateCell
                           dueDate={b.dueDate}
@@ -611,7 +563,7 @@ export function BillListPage() {
                         />
                       </td>
 
-                      {/* Amount with inline edit, right-aligned, Calibri font */}
+                      {/* Amount */}
                       <InlineTextCell
                         value={String(b.currentAmount)}
                         displayValue={
@@ -628,28 +580,18 @@ export function BillListPage() {
                         inputClassName="text-right font-bold"
                       />
 
-                      {/* Status & Quick Toggle Button */}
+                      {/* Status Button */}
                       <td className="table-td text-center !px-2">
                         <button
                           onClick={() => toggleBillStatus(b.id)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                          className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
                             b.billStatus === 'odendi'
-                              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
-                              : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-300 shadow-sm'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
                           }`}
                           title="Durumu değiştirmek için tıklayın"
                         >
-                          {b.billStatus === 'odendi' ? (
-                            <>
-                              <CheckCircle2 size={13} className="text-emerald-700" />
-                              Ödendi
-                            </>
-                          ) : (
-                            <>
-                              <RotateCcw size={13} className="text-amber-600" />
-                              Ödenecek
-                            </>
-                          )}
+                          {b.billStatus === 'odendi' ? 'Ödendi' : 'Ödenecek'}
                         </button>
                       </td>
 
@@ -675,7 +617,7 @@ export function BillListPage() {
         </div>
       </div>
 
-      {/* Bill Modal (Add / Edit) */}
+      {/* Bill Modal */}
       <BillModal
         open={billModalOpen}
         onClose={() => {
@@ -686,7 +628,7 @@ export function BillListPage() {
         bill={editingBill}
       />
 
-      {/* Invoice Modal (Add quick period invoice) */}
+      {/* Invoice Modal */}
       {invoiceModalBill && (
         <InvoiceModal
           open={Boolean(invoiceModalBill)}
