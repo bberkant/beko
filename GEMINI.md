@@ -319,3 +319,11 @@ Projede Türk Lirası (₺) para birimi gösterimi yapılırken aşağıdaki kur
        `${new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)} ₺`;
      ```
 
+## POS Komisyon Farkı Hesaplama Kalıcılık ve Veri Koruma Standartları (POS Differences Persistence Standards)
+
+POS Komisyon Farkı Hesaplama modülünde (`/finans/pos-fark-hesaplama` - `PosDifferencesPage.tsx`) girilen veriler için aşağıdaki kalıcılık kurallarına KESİNLİKLE uyulacaktır:
+
+1. **Manuel Silinmedikçe Verilerin Korunması (Zero Auto-Reset / Persistence Invariant):**
+   - Sayfada bulunan tüm POS kartlarındaki **POS Başlığı** (`title`), **Toplam POS Tutarı** (`pos`), **Anlaşma Oranı** (`baseRate`) ve **Uygulanan Oran** (`appliedRate`) verileri kalıcıdır.
+   - Kullanıcı ilgili giriş alanını kendisi manuel olarak silmediği veya değiştirmediği sürece; sayfa yenilemelerinde, oturum açılıp kapanışlarında veya yeni geliştirmelerde bu veriler ASLA varsayılan değerlerle sıfırlanmayacak, üzerine yazılmayacak veya temizlenmeyecektir.
+   - Geliştirme ve bakım süreçlerinde bu alanların sıfırlanmasına ya da başlangıç durumuna dönmesine neden olacak herhangi bir otomatik temizleme veya sabit mock veri ataması yapılamaz.
