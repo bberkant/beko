@@ -1344,6 +1344,15 @@ export function VehiclePricesPage() {
       <PageHeader
         title="Araç Listesi"
         description="Araçların marka, model, kilometre, alış ve güncel piyasa değerlerini listeleyin ve yönetin."
+        actions={
+          <button
+            className="btn-primary flex items-center gap-1.5"
+            onClick={() => nav("/arac-yonetimi/yeni")}
+          >
+            <Plus size={16} />
+            Yeni Araç Ekle
+          </button>
+        }
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
