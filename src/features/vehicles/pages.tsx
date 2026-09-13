@@ -526,7 +526,7 @@ export function VehicleListPage() {
             {list.map((v, idx) => (
               <tr key={v.id} className="border-t hover:bg-gray-50/50 transition-colors">
                 <td className="table-td text-center font-medium text-gray-400 !px-1.5 !py-2.5">{idx + 1}</td>
-                <td className="table-td font-bold text-brand-600 w-24 whitespace-nowrap !px-1.5 !py-2.5">
+                <td className="table-td font-bold w-24 whitespace-nowrap !px-1.5 !py-2.5">
                   {editingCell && editingCell.vehicleId === v.id && editingCell.field === "plate" ? (
                     <input
                       type="text"
@@ -544,7 +544,7 @@ export function VehicleListPage() {
                     <div className="flex items-center justify-between gap-1 group/item">
                       <button
                         onClick={() => nav(`/arac-yonetimi/${v.id}`)}
-                        className="hover:underline"
+                        className="text-blue-600 hover:text-blue-800 hover:underline font-bold transition-colors cursor-pointer text-left"
                       >
                         {v.plate}
                       </button>
@@ -553,7 +553,7 @@ export function VehicleListPage() {
                           setEditingCell({ vehicleId: v.id, field: "plate" });
                           setEditValue(v.plate);
                         }}
-                        className="p-0.5 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded opacity-0 group-hover/item:opacity-100 transition-opacity"
+                        className="p-0.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded opacity-0 group-hover/item:opacity-100 transition-opacity"
                         title="Plakayı Düzenle"
                       >
                         <Pencil size={11} />
@@ -1395,11 +1395,11 @@ export function VehiclePricesPage() {
             {list.map((v, idx) => (
               <tr key={v.id} className="border-t hover:bg-gray-50/50 transition-colors">
                 <td className="table-td text-center font-medium text-gray-400 !px-1.5 !py-2.5">{idx + 1}</td>
-                <td className="table-td font-bold text-brand-600 w-24 whitespace-nowrap !px-1.5 !py-2.5">
+                <td className="table-td font-bold w-24 whitespace-nowrap !px-1.5 !py-2.5">
                   <div className="flex items-center justify-between gap-1 group/item">
                     <button
                       onClick={() => nav(`/arac-yonetimi/${v.id}`)}
-                      className="hover:underline"
+                      className="text-blue-600 hover:text-blue-800 hover:underline font-bold transition-colors cursor-pointer text-left"
                     >
                       {v.plate}
                     </button>
