@@ -594,7 +594,7 @@ export function ChecksPage() {
 
       // 1. Takas Rotasındaysak SADECE güncel takas için gerekli kayıtları tek sorguda çek
       if (isTakasRoute) {
-        const [accountsResult, initialChecksResult] = await Promise.all([
+        const [accountsResult, initialChecksResult, todayChecksResult] = await Promise.all([
           supabase
             .from('bank_accounts')
             .select('*')
@@ -605,15 +605,34 @@ export function ChecksPage() {
             .from('ebs_checks')
             .select('*')
             .eq('organization_id', orgId)
+            .neq('status', 'Ödendi')
+            .neq('status', 'Tahsil Edildi')
+            .neq('status', 'İptal')
             .or(`due_date.eq.${todayStr},debtor.eq.TAKSİT,debtor.ilike.%taksit%,status.ilike.%kayıp%,ozel_alan.ilike.%takas%,debtor.ilike.%hatir%,creditor.ilike.%hatir%,ozel_alan.ilike.%hatir%,check_no.is.null,check_no.eq.`)
-            .order('due_date', { ascending: true })
+            .order('due_date', { ascending: true }),
+          supabase
+            .from('ebs_checks')
+            .select('*')
+            .eq('organization_id', orgId)
+            .eq('due_date', todayStr)
         ]);
 
         if (accountsResult.error) throw accountsResult.error;
         if (initialChecksResult.error) throw initialChecksResult.error;
 
+        const combinedChecks = [...(initialChecksResult.data || [])];
+        const existingIds = new Set(combinedChecks.map(c => c.id));
+        if (todayChecksResult.data) {
+          todayChecksResult.data.forEach(c => {
+            if (!existingIds.has(c.id)) {
+              combinedChecks.push(c);
+              existingIds.add(c.id);
+            }
+          });
+        }
+
         setBankAccounts(accountsResult.data || []);
-        setChecks(initialChecksResult.data || []);
+        setChecks(combinedChecks);
         setLoading(false);
         return;
       }
