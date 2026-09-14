@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Pencil, Upload, CreditCard as CreditCardIcon, Wallet, Clock, Gauge,
@@ -35,6 +35,10 @@ export function CreditCardDetailPage() {
   const { notify } = useToast();
   const { user } = useAuth();
   const { getCard, getStatementsByCard, getPaymentsByCard, addStatement, addPayment, getTransactionsByCard, refresh, deleteStatement, loading } = useStore();
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   const [activeTab, setActiveTab] = useState('overview');
   const [uploadOpen, setUploadOpen] = useState(false);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, FileText, Download, CreditCard as CreditCardIcon, Clock, Wallet, Filter, ChevronDown, FileSpreadsheet, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -22,6 +22,10 @@ export function StatementDetailPage() {
   const { notify } = useToast();
   const { user } = useAuth();
   const { getCard, getStatement, getTransactionsByStatement, refresh } = useStore();
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   const [activeTab, setActiveTab] = useState('summary');
   const [selectedCategories, setSelectedCategories] = useState<string[]>(['yakit', 'market', 'seyahat', 'konaklama', 'malzeme', 'bakim', 'diger', 'yemek', 'fatura', 'telefon', 'odeme']);

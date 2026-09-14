@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Upload, Download, SlidersHorizontal, Search,
@@ -119,7 +119,11 @@ function InlineTextCell({
 export function CreditCardListPage() {
   const navigate = useNavigate();
   const { notify } = useToast();
-  const { cards, statements, loading, addStatement, addPayment, updateCard } = useStore();
+  const { cards, statements, loading, refresh, addStatement, addPayment, updateCard } = useStore();
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Filters>(emptyFilters);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Download, Search, Trash2, Eye } from 'lucide-react';
 import { PageHeader } from '../../../components/ui/PageHeader';
@@ -18,7 +18,11 @@ import {
 export function StatementsPage() {
   const navigate = useNavigate();
   const { notify } = useToast();
-  const { statements, cards, deleteStatement, addStatement, loading } = useStore();
+  const { statements, cards, deleteStatement, addStatement, loading, refresh } = useStore();
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   const [search, setSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);

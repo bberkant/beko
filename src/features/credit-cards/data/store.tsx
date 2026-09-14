@@ -125,6 +125,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     const targetOrg = orgId || DEFAULT_ORG_ID;
+    setLoading(true);
     setError(null);
     try {
       const [cardRes, statementRes, transactionRes, paymentRes] = await Promise.all([
