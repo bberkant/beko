@@ -115,7 +115,7 @@ export function BillDetailPage() {
 
       <PageHeader
         title={`${bill.name} - Cari Ekstre & Fatura Geçmişi`}
-        description={`Abone No: ${bill.subscriberNo || 'Belirtilmedi'} | Şirket: ${bill.company} | Hizmet: ${catLabel}`}
+        description={`Abone No: ${bill.subscriberNo || 'Belirtilmedi'} | Hizmet: ${catLabel}`}
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -148,15 +148,16 @@ export function BillDetailPage() {
               <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
                 {catLabel}
               </span>
-              <span className="text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
-                {bill.company}
-              </span>
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-gray-500 font-medium">
               <span>Abone / Tesisat: <strong className="text-gray-800 font-mono">{bill.subscriberNo || '—'}</strong></span>
-              {bill.autoPayment && (
+              {bill.autoPayment ? (
                 <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                  Otomatik Ödeme: {bill.autoPaymentBank ? bill.autoPaymentBank : 'Aktif'}
+                  Otomatik Talimat: {bill.autoPaymentBank ? bill.autoPaymentBank : 'Aktif'}
+                </span>
+              ) : (
+                <span className="text-gray-400 font-medium">
+                  Otomatik Talimat: Yok
                 </span>
               )}
               {bill.notes && (

@@ -104,7 +104,7 @@ export function BillListPage() {
 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedCompany, setSelectedCompany] = useState<string>('all');
+  const [selectedAutoPayment, setSelectedAutoPayment] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
 
@@ -121,11 +121,13 @@ export function BillListPage() {
         const match =
           b.name.toLocaleLowerCase('tr-TR').includes(q) ||
           b.subscriberNo.toLocaleLowerCase('tr-TR').includes(q) ||
+          (b.autoPaymentBank || '').toLocaleLowerCase('tr-TR').includes(q) ||
           (b.notes || '').toLocaleLowerCase('tr-TR').includes(q);
         if (!match) return false;
       }
       if (selectedCategory !== 'all' && b.category !== selectedCategory) return false;
-      if (selectedCompany !== 'all' && b.company !== selectedCompany) return false;
+      if (selectedAutoPayment === 'auto' && !b.autoPayment) return false;
+      if (selectedAutoPayment === 'manual' && b.autoPayment) return false;
       if (selectedStatus !== 'all' && b.billStatus !== selectedStatus) return false;
       return true;
     }).sort((a, b) => {
@@ -144,7 +146,7 @@ export function BillListPage() {
       // 3. By amount descending
       return b.currentAmount - a.currentAmount;
     });
-  }, [bills, search, selectedCategory, selectedCompany, selectedStatus]);
+  }, [bills, search, selectedCategory, selectedAutoPayment, selectedStatus]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -195,11 +197,10 @@ export function BillListPage() {
         'Fatura / Kurum Adı': b.name,
         'Abone / Tesisat No': b.subscriberNo,
         'Hizmet Türü': billCategoryConfig[b.category]?.label || b.category,
-        'Şirket': b.company,
+        'Otomatik Talimat': b.autoPayment ? (b.autoPaymentBank || 'Var') : 'Yok',
         'Son Ödeme Tarihi': formatDateTR(b.dueDate),
         'Fatura Tutarı': b.currentAmount,
         'Durum': billStatusLabels[b.billStatus]?.label || b.billStatus,
-        'Otomatik Ödeme': b.autoPayment ? 'Evet' : 'Hayır',
         'Notlar': b.notes || ''
       }));
 
@@ -245,7 +246,7 @@ export function BillListPage() {
                 <th>Kurum / Fatura Adı</th>
                 <th>Abone No</th>
                 <th>Tür</th>
-                <th>Şirket</th>
+                <th class="text-center">Otomatik Talimat</th>
                 <th class="text-center">Son Ödeme</th>
                 <th class="text-right">Tutar</th>
                 <th class="text-center">Durum</th>
@@ -258,7 +259,7 @@ export function BillListPage() {
                   <td class="font-bold">${b.name}</td>
                   <td>${b.subscriberNo || '—'}</td>
                   <td>${billCategoryConfig[b.category]?.label || b.category}</td>
-                  <td>${b.company}</td>
+                  <td class="text-center">${b.autoPayment ? (b.autoPaymentBank || 'Var') : 'Yok'}</td>
                   <td class="text-center">${formatDateTR(b.dueDate)}</td>
                   <td class="text-right font-bold">${formatTRY(b.currentAmount)}</td>
                   <td class="text-center">${billStatusLabels[b.billStatus]?.label || b.billStatus}</td>
@@ -423,13 +424,12 @@ export function BillListPage() {
             <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5">
               <select
                 className="bg-transparent text-xs font-semibold text-gray-700 focus:outline-none cursor-pointer"
-                value={selectedCompany}
-                onChange={(e) => setSelectedCompany(e.target.value)}
+                value={selectedAutoPayment}
+                onChange={(e) => setSelectedAutoPayment(e.target.value)}
               >
-                <option value="all">Tüm Şirketler</option>
-                <option value="ETİK">ETİK</option>
-                <option value="MARİF">MARİF</option>
-                <option value="GENEL">GENEL</option>
+                <option value="all">Tüm Talimatlar</option>
+                <option value="auto">Otomatik Talimatlı</option>
+                <option value="manual">Talimatsız (Manuel)</option>
               </select>
             </div>
 
@@ -459,7 +459,7 @@ export function BillListPage() {
                 <th className="table-th text-left font-bold text-red-600 !text-sm">Fatura / Kurum Adı</th>
                 <th className="table-th text-center font-bold text-red-600 !text-sm">Abone / Tesisat No</th>
                 <th className="table-th text-center font-bold text-red-600 !text-sm">Hizmet Türü</th>
-                <th className="table-th text-center font-bold text-red-600 !text-sm">Şirket</th>
+                <th className="table-th text-center font-bold text-red-600 !text-sm">Otomatik Talimat</th>
                 <th className="table-th text-center font-bold text-red-600 !text-sm">Son Ödeme Tarihi</th>
                 <th className="table-th text-right font-bold text-red-600 !text-sm">Fatura Tutarı</th>
                 <th className="table-th text-center font-bold text-red-600 !text-sm">Durum & İşlem</th>
@@ -474,7 +474,7 @@ export function BillListPage() {
                     <td className="table-td"><div className="h-4 w-36 bg-gray-200 rounded" /></td>
                     <td className="table-td text-center"><div className="h-4 w-24 bg-gray-100 rounded mx-auto" /></td>
                     <td className="table-td text-center"><div className="h-4 w-16 bg-gray-100 rounded mx-auto" /></td>
-                    <td className="table-td text-center"><div className="h-4 w-12 bg-gray-100 rounded mx-auto" /></td>
+                    <td className="table-td text-center"><div className="h-4 w-20 bg-gray-100 rounded mx-auto" /></td>
                     <td className="table-td text-center"><div className="h-4 w-20 bg-gray-100 rounded mx-auto" /></td>
                     <td className="table-td text-right"><div className="h-4 w-20 bg-gray-200 rounded ml-auto" /></td>
                     <td className="table-td text-center"><div className="h-5 w-20 bg-gray-100 rounded-full mx-auto" /></td>
@@ -511,21 +511,11 @@ export function BillListPage() {
                           >
                             {b.name}
                           </button>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {b.autoPayment && (
-                              <span
-                                className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100/70"
-                                title={b.autoPaymentBank ? `Talimat: ${b.autoPaymentBank}` : 'Otomatik Ödeme'}
-                              >
-                                Otomatik Ödeme{b.autoPaymentBank ? ` • ${b.autoPaymentBank}` : ''}
-                              </span>
-                            )}
-                            {b.notes && (
-                              <span className="text-[11px] text-gray-400 truncate max-w-[240px]" title={b.notes}>
-                                {b.notes}
-                              </span>
-                            )}
-                          </div>
+                          {b.notes && (
+                            <div className="text-[11px] text-gray-400 truncate max-w-[240px] mt-0.5" title={b.notes}>
+                              {b.notes}
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -550,12 +540,31 @@ export function BillListPage() {
                         </span>
                       </td>
 
-                      {/* Company */}
-                      <td className="table-td text-center">
-                        <span className="text-xs font-bold text-gray-800">
-                          {b.company}
-                        </span>
-                      </td>
+                      {/* Otomatik Talimat */}
+                      <InlineTextCell
+                        value={b.autoPayment ? (b.autoPaymentBank || 'Var') : ''}
+                        displayValue={
+                          b.autoPayment ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/60">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                              <span className="truncate max-w-[140px]">{b.autoPaymentBank || 'Talimatlı'}</span>
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400 font-medium">Yok</span>
+                          )
+                        }
+                        onSave={(val) => {
+                          const trimmed = val.trim();
+                          if (!trimmed || trimmed.toLocaleLowerCase('tr-TR') === 'yok' || trimmed === '-') {
+                            updateBill(b.id, { autoPayment: false, autoPaymentBank: '' });
+                          } else {
+                            updateBill(b.id, { autoPayment: true, autoPaymentBank: trimmed.toLocaleLowerCase('tr-TR') === 'var' ? '' : trimmed });
+                          }
+                        }}
+                        className="text-center"
+                        inputClassName="text-center text-xs font-medium"
+                        placeholder="Talimat bankası..."
+                      />
 
                       {/* Due Date */}
                       <td className="table-td text-center !px-2">
