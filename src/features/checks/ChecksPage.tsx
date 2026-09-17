@@ -2066,14 +2066,19 @@ export function ChecksPage() {
     const selectedTotal = selectedValues.reduce((sum, item) => sum + item.amount, 0);
     const selectedAverage = selectedCount > 0 ? selectedTotal / selectedCount : 0;
 
+    const maxTakasColsLength = Math.max(
+      0,
+      ...Object.keys(dashboardData.columns).map(k => dashboardData.columns[k]?.length || 0)
+    );
+
     const screenTakasRows = Math.max(
       12,
-      ...Object.keys(dashboardData.columns).map(k => dashboardData.columns[k].length)
+      maxTakasColsLength + 2
     );
 
     const printTakasRows = Math.max(
       15,
-      ...Object.keys(dashboardData.columns).map(k => dashboardData.columns[k].length)
+      maxTakasColsLength + 2
     );
 
     const screenNonTakasRows = Math.max(7, dashboardData.nonTakasChecks.length + 2);
