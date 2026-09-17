@@ -99,10 +99,12 @@ export const isHatirAlinan = (c: any): boolean => {
   if (!c || c.check_type !== 'alinan') return false;
   const debtor = normalizeString(c.debtor);
   const creditor = normalizeString(c.creditor);
+  const kesideci = normalizeString(c.kesideci);
   const note = normalizeString(c.ozel_alan || c.notlar || '');
-  return debtor.includes('hatir bizim borcumuz') || debtor.includes('hatir bizim borc') || debtor.includes('hatir oldu') || debtor.includes('hatir ol') ||
-         creditor.includes('hatir bizim borcumuz') || creditor.includes('hatir bizim borc') || creditor.includes('hatir oldu') || creditor.includes('hatir ol') ||
-         note.includes('hatir oldu') || note.includes('hatir ol');
+  return debtor.includes('hatir') ||
+         creditor.includes('hatir') ||
+         kesideci.includes('hatir') ||
+         note.includes('hatir');
 };
 
 
@@ -235,9 +237,60 @@ const FIXED_KAYIP_CHECKS = [
   { creditor: 'MUSTAFA UYUMAZ', bank_name: 'M.ZİRAAT', amountText: '346.398', due_dateText: '30.09.2025' },
 ];
 
+export const fixCorruptedText = (str: string | null | undefined): string => {
+  if (!str) return '';
+  return str
+    // Fix ÇEK becoming ıEK / IEK / İEK
+    .replace(/ıEKLER/g, 'ÇEKLER')
+    .replace(/ıEK/g, 'ÇEK')
+    .replace(/IEKLER/g, 'ÇEKLER')
+    .replace(/İEKLER/g, 'ÇEKLER')
+    .replace(/(^|[^a-zA-ZçÇğĞıİöÖşŞüÜ])IEK($|[^a-zA-ZçÇğĞıİöÖşŞüÜ])/g, '$1ÇEK$2')
+    .replace(/(^|[^a-zA-ZçÇğĞıİöÖşŞüÜ])İEK($|[^a-zA-ZçÇğĞıİöÖşŞüÜ])/g, '$1ÇEK$2')
+    // Common mappings for the Vega sync corruption
+    .replace(/KARİILIKLI/g, 'KARŞILIKLI')
+    .replace(/OİUZ/g, 'OĞUZ')
+    .replace(/OİLU/g, 'OĞLU')
+    .replace(/İOİULLARI/g, 'İOĞULLARI')
+    .replace(/İULLARI/g, 'ĞULLARI')
+    .replace(/DOİU/g, 'DOĞU')
+    .replace(/DOİAL/g, 'DOĞAL')
+    .replace(/DİRT MEVSİM/g, 'DÖRT MEVSİM')
+    .replace(/GİLER/g, 'GÜLER')
+    .replace(/GİNEK/g, 'GÖNEK')
+    .replace(/GİKMEN/g, 'GÖKMEN')
+    .replace(/BAİYURT/g, 'BAŞYURT')
+    .replace(/ATEı/g, 'ATEŞ')
+    .replace(/ıNİAAT/g, 'İNŞAAT')
+    .replace(/ıNSAL/g, 'ÜNSAL')
+    .replace(/ıMER /g, 'ÖMER ')
+    .replace(/AKKOı/g, 'AKKOÇ')
+    .replace(/YEııL/g, 'YEŞİL')
+    .replace(/ CARı/g, ' CARİ')
+    .replace(/LTD\.ıTı/g, 'LTD.ŞTİ')
+    .replace(/LTD ıTı/g, 'LTD ŞTİ')
+    .replace(/ ıTı/g, ' ŞTİ')
+    .replace(/ıLHAMı/g, 'İLHAMİ')
+    .replace(/ERDOİAN/g, 'ERDOĞAN')
+    .replace(/ıENGİL/g, 'ŞENGİL')
+    .replace(/CANDAı/g, 'CANDAŞ')
+    .replace(/BAııUVAN/g, 'BAŞÇIVAN')
+    .replace(/KAYIı/g, 'KAYIŞ')
+    .replace(/ALPTUı/g, 'ALPTUĞ')
+    .replace(/ıAHİN/g, 'ŞAHİN')
+    .replace(/HİSEYİN/g, 'HÜSEYİN')
+    .replace(/ERTİRK/g, 'ERTÜRK')
+    .replace(/İİIK/g, 'IŞIK')
+    .replace(/IİIK/g, 'IŞIK')
+    .replace(/ALTINIİIK/g, 'ALTINIŞIK')
+    .replace(/TÜRKİYE İİ BANKASI/g, 'TÜRKİYE İŞ BANKASI')
+    .replace(/İİ BANKASI/g, 'İŞ BANKASI')
+    .replace(/İİBANK/g, 'İŞBANK');
+};
+
 const formatTaksitDesc = (desc: string | null | undefined): string => {
   if (!desc) return '';
-  const clean = desc.trim();
+  const clean = fixCorruptedText(desc.trim());
   const idx = clean.indexOf('-');
   if (idx !== -1) {
     const left = clean.substring(0, idx).trim();
@@ -608,7 +661,7 @@ export function ChecksPage() {
             .neq('status', 'Ödendi')
             .neq('status', 'Tahsil Edildi')
             .neq('status', 'İptal')
-            .or(`due_date.eq.${todayStr},debtor.eq.TAKSİT,debtor.ilike.%taksit%,status.ilike.%kayıp%,ozel_alan.ilike.%takas%,debtor.ilike.%hatir%,creditor.ilike.%hatir%,ozel_alan.ilike.%hatir%,check_no.is.null,check_no.eq.`)
+            .or(`due_date.eq.${todayStr},debtor.eq.TAKSİT,debtor.ilike.%taksit%,status.ilike.%kayıp%,ozel_alan.ilike.%takas%,debtor.ilike.%hatir%,debtor.ilike.%hatır%,creditor.ilike.%hatir%,creditor.ilike.%hatır%,kesideci.ilike.%hatir%,kesideci.ilike.%hatır%,ozel_alan.ilike.%hatir%,ozel_alan.ilike.%hatır%,check_no.is.null,check_no.eq.`)
             .order('due_date', { ascending: true }),
           supabase
             .from('ebs_checks')
@@ -977,9 +1030,9 @@ export function ChecksPage() {
       if (searchTerm.trim() !== '') {
         const query = searchTerm.toLowerCase();
         const checkNo = (c.check_no || '').toLowerCase();
-        const debtor = (c.debtor || '').toLowerCase();
-        const creditor = (c.creditor || '').toLowerCase();
-        const bank = (c.bank_name || '').toLowerCase();
+        const debtor = fixCorruptedText(c.debtor || '').toLowerCase();
+        const creditor = fixCorruptedText(c.creditor || '').toLowerCase();
+        const bank = fixCorruptedText(c.bank_name || '').toLowerCase();
         if (!(checkNo.includes(query) || debtor.includes(query) || creditor.includes(query) || bank.includes(query))) {
           return false;
         }
@@ -996,15 +1049,15 @@ export function ChecksPage() {
         if (!checkVal.includes(columnFilters.remaining_days)) return false;
       }
       if (columnFilters.debtor) {
-        const checkVal = (c.debtor || '').toLowerCase();
+        const checkVal = fixCorruptedText(c.debtor || '').toLowerCase();
         if (!checkVal.includes(columnFilters.debtor.toLowerCase())) return false;
       }
       if (columnFilters.kesideci) {
-        const checkVal = (c.kesideci || '').toLowerCase();
+        const checkVal = fixCorruptedText(c.kesideci || '').toLowerCase();
         if (!checkVal.includes(columnFilters.kesideci.toLowerCase())) return false;
       }
       if (columnFilters.creditor) {
-        const checkVal = (c.creditor || '').toLowerCase();
+        const checkVal = fixCorruptedText(c.creditor || '').toLowerCase();
         if (!checkVal.includes(columnFilters.creditor.toLowerCase())) return false;
       }
       if (columnFilters.check_no) {
@@ -2977,8 +3030,8 @@ export function ChecksPage() {
                             ) : '-'}
                           </td>
                           {/* Keşideci */}
-                          <td className="px-3 py-1.5 text-gray-700 font-semibold uppercase whitespace-nowrap truncate max-w-[200px]" title={check.kesideci || check.creditor || ''}>
-                            {check.kesideci || check.creditor || '-'}
+                          <td className="px-3 py-1.5 text-gray-700 font-semibold uppercase whitespace-nowrap truncate max-w-[200px]" title={fixCorruptedText(check.kesideci) || fixCorruptedText(check.creditor) || ''}>
+                            {fixCorruptedText(check.kesideci) || fixCorruptedText(check.creditor) || '-'}
                           </td>
                           {/* Evrak Türü */}
                           <td className="px-3 py-1.5 text-center whitespace-nowrap">
@@ -3011,8 +3064,8 @@ export function ChecksPage() {
                             </span>
                           </td>
                           {/* Açıklama / Özel Alan */}
-                          <td className="px-3 py-1.5 text-gray-500 font-medium text-xs uppercase whitespace-nowrap truncate max-w-[250px]" title={check.ozel_alan || ''}>
-                            {check.ozel_alan || '-'}
+                          <td className="px-3 py-1.5 text-gray-500 font-medium text-xs uppercase whitespace-nowrap truncate max-w-[250px]" title={fixCorruptedText(check.ozel_alan) || ''}>
+                            {fixCorruptedText(check.ozel_alan) || '-'}
                           </td>
                         </tr>
                       );
@@ -4265,8 +4318,8 @@ export function ChecksPage() {
                               )}
                             </td>
                             <td className="px-1.5 py-1.5 text-gray-600 font-medium">{check.debtor || '-'}</td>
-                            <td className="px-1.5 py-1.5 text-gray-600 font-medium">{check.kesideci || '-'}</td>
-                            <td className="px-1.5 py-1.5 text-gray-600 font-medium">{check.creditor || '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-600 font-medium">{fixCorruptedText(check.kesideci) || '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-600 font-medium">{fixCorruptedText(check.creditor) || '-'}</td>
                             <td className="px-1.5 py-1.5 font-semibold text-gray-800">
                               <div className="flex items-center gap-1.5">
                                 {isRecordSenet ? (
@@ -4304,7 +4357,7 @@ export function ChecksPage() {
                             <td className="px-1.5 py-1.5 text-gray-500 font-medium">{check.keside_yeri || '-'}</td>
                             <td className="px-1.5 py-1.5 text-center text-gray-600 font-medium">{formatDate(check.issue_date || check.created_at)}</td>
                             <td className="px-1.5 py-1.5 text-gray-600 font-medium">{check.ciro_edilen || '-'}</td>
-                            <td className="px-1.5 py-1.5 text-gray-500 font-semibold">{check.ozel_alan || (isRecordSenet ? 'SENET' : 'ÇEK')}</td>
+                            <td className="px-1.5 py-1.5 text-gray-500 font-semibold">{fixCorruptedText(check.ozel_alan) || (isRecordSenet ? 'SENET' : 'ÇEK')}</td>
                           </>
                         ) : (
                           <>
@@ -4357,7 +4410,7 @@ export function ChecksPage() {
                                 {displayStatus(check.status, check.check_type)}
                               </span>
                             </td>
-                            <td className="px-1.5 py-1.5 text-gray-500 font-semibold">{check.ozel_alan || (isRecordSenet ? 'SENET' : 'ÇEK')}</td>
+                            <td className="px-1.5 py-1.5 text-gray-500 font-semibold">{fixCorruptedText(check.ozel_alan) || (isRecordSenet ? 'SENET' : 'ÇEK')}</td>
                           </>
                         )}
                       </tr>

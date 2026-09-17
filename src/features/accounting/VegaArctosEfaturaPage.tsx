@@ -190,9 +190,29 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         throw new Error(msg);
       }
       if (Array.isArray(data) && data.length > 0) {
-        setInvoices(data);
-        const hasIncoming = data.some((i: any) => (i.direction || 'gelen') === 'gelen');
-        const hasOutgoing = data.some((i: any) => (i.direction || 'gelen') === 'giden');
+        let finalData = data;
+        
+        // WORKAROUND: Mezbaha API'si Mikrokom parametre güncellemesi nedeniyle gelen faturaları 0 döndürebiliyor.
+        // Bu durumda arka plandaki senkronizasyon scriptimizin (sync-marif-inbox.mjs) doldurduğu Supabase önbelleğinden gelenleri birleştiriyoruz.
+        if (company === 'marif') {
+           try {
+                const { data: supaCache } = await supabase.from('vega_efatura_cache').select('invoices').eq('company', 'marif').single();
+                if (supaCache?.invoices && Array.isArray(supaCache.invoices)) {
+                    const supaGelen = supaCache.invoices.filter((i: any) => (i.direction || 'gelen') === 'gelen');
+                    if (supaGelen.length > 0) {
+                        const map = new Map(finalData.map((i: any) => [i.invoiceNo, i]));
+                        for (const g of supaGelen) map.set(g.invoiceNo, g);
+                        finalData = Array.from(map.values()).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                    }
+                }
+              } catch (e) {
+                console.warn('Supabase Marif gelen önbellek birleştirme hatası:', e);
+              }
+        }
+        
+        setInvoices(finalData);
+        const hasIncoming = finalData.some((i: any) => (i.direction || 'gelen') === 'gelen');
+        const hasOutgoing = finalData.some((i: any) => (i.direction || 'gelen') === 'giden');
         if (!hasIncoming && hasOutgoing) {
           setActiveTab('giden');
         }
@@ -204,12 +224,12 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         setCooldownSeconds(10);
 
         // Save immediately to local IndexedDB
-        void setLocalCache(company, data, nowIso);
+        void setLocalCache(company, finalData, nowIso);
         // Backup to Supabase
-        void saveSupabaseCache(company, data, user?.email);
+        void saveSupabaseCache(company, finalData, user?.email);
 
         if (showNotification) {
-          notify(`${company === 'etik' ? 'Etik' : 'Marif'} e-Fatura kayıtları güncellendi. (${data.length} kayıt)`, 'success');
+          notify(`${company === 'etik' ? 'Etik' : 'Marif'} e-Fatura kayıtları güncellendi. (${finalData.length} kayıt)`, 'success');
         }
       }
     } catch (err: any) {
