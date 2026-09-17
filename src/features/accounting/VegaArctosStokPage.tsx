@@ -994,7 +994,7 @@ export function VegaArctosStokPage() {
 
         {/* Table View */}
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs text-gray-700">
+          <table className="w-full border-collapse text-left text-sm text-gray-700">
             <thead>
               <tr className="bg-gray-50/70 border-b border-gray-200 text-[13px] font-bold text-gray-500 uppercase tracking-wider">
                 {renderSortHeader('Ürün Adı', 'productName', 'left', 'pl-5 pr-2')}
@@ -1030,13 +1030,13 @@ export function VegaArctosStokPage() {
                         {p.productName}
                       </span>
                     </td>
-                    <td className="px-5 py-2.5 text-center text-rose-600 font-semibold">
+                    <td className="px-5 py-2.5 text-center text-[13.5px] text-rose-600 font-bold">
                       {p.totalOut.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
                     </td>
-                    <td className="px-5 py-2.5 text-center text-emerald-600 font-semibold">
+                    <td className="px-5 py-2.5 text-center text-[13.5px] text-emerald-600 font-bold">
                       {p.totalIn.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
                     </td>
-                    <td className={`px-5 py-2.5 text-center font-bold ${
+                    <td className={`px-5 py-2.5 text-center text-[13.5px] font-bold ${
                       p.currentStock > 0 ? 'text-gray-900' : 'text-gray-400'
                     }`}>
                       {p.currentStock.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
@@ -1046,13 +1046,13 @@ export function VegaArctosStokPage() {
                         {p.unitName}
                       </span>
                     </td>
-                    <td className="px-5 py-2.5 text-center font-semibold text-gray-900">
+                    <td className="px-5 py-2.5 text-center text-[13.5px] font-semibold text-gray-900">
                       {p.avgPurchasePrice > 0 ? `${p.avgPurchasePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL` : '-'}
                     </td>
-                    <td className="px-5 py-2.5 text-center font-semibold text-gray-900">
+                    <td className="px-5 py-2.5 text-center text-[13.5px] font-semibold text-gray-900">
                       {p.avgSalesPrice > 0 ? `${p.avgSalesPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL` : '-'}
                     </td>
-                    <td className="px-5 py-2.5 text-center text-gray-500 font-semibold">
+                    <td className="px-5 py-2.5 text-center text-[13px] text-gray-500 font-semibold">
                       {formatDate(p.lastMovementDate)}
                     </td>
                     <td className="px-5 py-2.5 text-center">
@@ -1061,7 +1061,7 @@ export function VegaArctosStokPage() {
                         className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded-lg transition-colors"
                         title="Hareket Detayları"
                       >
-                        <Eye size={15} />
+                        <Eye size={16} />
                       </button>
                     </td>
                   </tr>
