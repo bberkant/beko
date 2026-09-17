@@ -698,7 +698,7 @@ app.get(['/api/:company/efaturalar', '/api/efaturalar'], async (req, res) => {
       return res.json(Array.from(invoiceMap.values()));
     }
 
-    // Default Vega Flow
+    // Default Vega Flow (Etik)
     const config = companyPrefixes[company] || companyPrefixes.etik;
     const pool = await getVegaPool();
     const result = await pool.request().query(`
@@ -711,14 +711,29 @@ app.get(['/api/:company/efaturalar', '/api/efaturalar'], async (req, res) => {
           ISNULL(SUM(h.GERCEKTOPLAM), 0) AS [matrah],
           ISNULL(SUM(h.KDVTUTAR), 0) AS [kdv],
           ISNULL(SUM(h.GERCEKTOPLAM + h.KDVTUTAR), 0) AS [amount],
-          CASE WHEN b.BELGETIPI IN (21, 27, 33, 34, 104, 105, 151) THEN 'giden' ELSE 'gelen' END AS [direction]
+          'giden' AS [direction],
+          CASE WHEN b.BELGENO LIKE 'ETS%' OR b.BELGENO LIKE 'EVF%' THEN 'e-Fatura' ELSE 'e-Arşiv' END AS [type]
       FROM ${config.db}${config.baslik} b
       LEFT JOIN ${config.db}${config.hareket} h ON b.IND = h.EVRAKNO
       LEFT JOIN ${config.cari} c ON b.FIRMANO = c.IND
+      WHERE b.BELGETIPI IN (21, 27, 33, 34, 104, 105, 151)
       GROUP BY b.IND, b.BELGENO, b.TARIH, b.FIRMANO, c.UNVAN, c.FIRMAKODU, c.ADI, b.BELGETIPI
       ORDER BY b.TARIH DESC, b.IND DESC;
     `);
-    res.json(result.recordset);
+    const gidenInvoices = result.recordset || [];
+
+    // Gerçek gelen e-faturaları yerel önbellek dosyasından yükle
+    let incomingInvoices = [];
+    const etikCacheFile = path.join(__dirname, 'etik_incoming_cache.json');
+    if (fs.existsSync(etikCacheFile)) {
+      try {
+        incomingInvoices = JSON.parse(fs.readFileSync(etikCacheFile, 'utf8')) || [];
+      } catch (e) {}
+    }
+
+    const allInvoices = [...gidenInvoices, ...incomingInvoices];
+    allInvoices.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    res.json(allInvoices);
   } catch (err) {
     console.error('[API /api/efaturalar HATASI]:', err.message);
     res.status(500).json({ error: 'SQL Hatası', details: err.message });

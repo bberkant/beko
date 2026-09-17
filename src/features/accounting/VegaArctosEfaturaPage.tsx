@@ -192,22 +192,21 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
       if (Array.isArray(data) && data.length > 0) {
         let finalData = data;
         
-        // WORKAROUND: Mezbaha API'si Mikrokom parametre güncellemesi nedeniyle gelen faturaları 0 döndürebiliyor.
-        // Bu durumda arka plandaki senkronizasyon scriptimizin (sync-marif-inbox.mjs) doldurduğu Supabase önbelleğinden gelenleri birleştiriyoruz.
-        if (company === 'marif') {
-           try {
-                const { data: supaCache } = await supabase.from('vega_efatura_cache').select('invoices').eq('company', 'marif').single();
-                if (supaCache?.invoices && Array.isArray(supaCache.invoices)) {
-                    const supaGelen = supaCache.invoices.filter((i: any) => (i.direction || 'gelen') === 'gelen');
-                    if (supaGelen.length > 0) {
-                        const map = new Map(finalData.map((i: any) => [i.invoiceNo, i]));
-                        for (const g of supaGelen) map.set(g.invoiceNo, g);
-                        finalData = Array.from(map.values()).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                    }
-                }
-              } catch (e) {
-                console.warn('Supabase Marif gelen önbellek birleştirme hatası:', e);
-              }
+        // Gerçek Gelen GİB e-Faturalarını Supabase önbelleğinden birleştiriyoruz (hem Etik hem Marif için)
+        try {
+          const { data: supaCache } = await supabase.from('vega_efatura_cache').select('invoices').eq('company', company).single();
+          if (supaCache?.invoices && Array.isArray(supaCache.invoices)) {
+            const supaGelen = supaCache.invoices.filter((i: any) => (i.direction || 'gelen') === 'gelen');
+            if (supaGelen.length > 0) {
+              const liveGiden = finalData.filter((i: any) => (i.direction || 'giden') === 'giden');
+              const map = new Map();
+              for (const g of liveGiden) map.set(g.invoiceNo, g);
+              for (const g of supaGelen) map.set(g.invoiceNo, g);
+              finalData = Array.from(map.values()).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            }
+          }
+        } catch (e) {
+          console.warn(`Supabase ${company} gelen önbellek birleştirme hatası:`, e);
         }
         
         setInvoices(finalData);
