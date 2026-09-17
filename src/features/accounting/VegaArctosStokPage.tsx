@@ -424,15 +424,15 @@ export function VegaArctosStokPage() {
     return (
       <th 
         onClick={() => handleSort(field)}
-        className={`${customClass} py-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-gray-700 transition-colors select-none group ${
+        className={`${customClass} py-3 text-[13px] font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-gray-800 transition-colors select-none group ${
           align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'
         }`}
       >
-        <div className={`flex items-center gap-1 ${
+        <div className={`flex items-center gap-1.5 ${
           align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'
         }`}>
           <span>{label}</span>
-          <span className="text-gray-300 group-hover:text-gray-400 transition-colors text-[9px] ml-0.5">
+          <span className="text-gray-300 group-hover:text-gray-400 transition-colors text-[10px] ml-0.5">
             {isSorted ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
           </span>
         </div>
@@ -996,7 +996,7 @@ export function VegaArctosStokPage() {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs text-gray-700">
             <thead>
-              <tr className="bg-gray-50/70 border-b border-gray-200 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+              <tr className="bg-gray-50/70 border-b border-gray-200 text-[13px] font-bold text-gray-500 uppercase tracking-wider">
                 {renderSortHeader('Ürün Adı', 'productName', 'left', 'pl-5 pr-2')}
                 {renderSortHeader('Toplam Çıkış', 'totalOut', 'center')}
                 {renderSortHeader('Toplam Giriş', 'totalIn', 'center')}
@@ -1005,7 +1005,7 @@ export function VegaArctosStokPage() {
                 {renderSortHeader('Ort. Alış Fiyatı', 'avgPurchasePrice', 'center')}
                 {renderSortHeader('Ort. Satış Fiyatı', 'avgSalesPrice', 'center')}
                 {renderSortHeader('Son İşlem Tarihi', 'lastMovementDate', 'center')}
-                <th className="px-5 py-3 text-center">İşlemler</th>
+                <th className="px-5 py-3 text-center text-[13px] font-bold text-gray-500 uppercase tracking-wider">İşlemler</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-150 font-medium">
@@ -1041,8 +1041,8 @@ export function VegaArctosStokPage() {
                     }`}>
                       {p.currentStock.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
                     </td>
-                    <td className="px-3 py-2.5 text-center text-[10px] text-gray-500 font-semibold">
-                      <span className="bg-gray-100 px-2 py-0.5 rounded">
+                    <td className="px-3 py-2.5 text-center text-[12px] text-gray-600 font-semibold">
+                      <span className="bg-gray-100 px-2.5 py-0.5 rounded text-[12px] font-bold">
                         {p.unitName}
                       </span>
                     </td>
