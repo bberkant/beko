@@ -486,15 +486,15 @@ export function VegaArctosStokPage() {
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Ürün Stok Özeti</h3>
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Toplam Giriş</span>
-                <div className="text-sm font-bold text-emerald-600 mt-1">
-                  {selectedProduct.totalIn.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} {selectedProduct.unitName}
-                </div>
-              </div>
-              <div>
                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Toplam Çıkış</span>
                 <div className="text-sm font-bold text-rose-600 mt-1">
                   {selectedProduct.totalOut.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} {selectedProduct.unitName}
+                </div>
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Toplam Giriş</span>
+                <div className="text-sm font-bold text-emerald-600 mt-1">
+                  {selectedProduct.totalIn.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} {selectedProduct.unitName}
                 </div>
               </div>
               <div>
@@ -856,18 +856,6 @@ export function VegaArctosStokPage() {
 
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider font-medium">Toplam Giriş Hareketi</span>
-            <div className="text-xl font-extrabold text-emerald-600 mt-1">
-              {stats.totalInQty.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} Miktar
-            </div>
-          </div>
-          <div className="p-3 bg-emerald-50 rounded-lg text-emerald-600">
-            <TrendingUp size={20} />
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-          <div>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider font-medium">Toplam Çıkış Hareketi</span>
             <div className="text-xl font-extrabold text-rose-600 mt-1">
               {stats.totalOutQty.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} Miktar
@@ -875,6 +863,18 @@ export function VegaArctosStokPage() {
           </div>
           <div className="p-3 bg-rose-50 rounded-lg text-rose-600">
             <TrendingDown size={20} />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider font-medium">Toplam Giriş Hareketi</span>
+            <div className="text-xl font-extrabold text-emerald-600 mt-1">
+              {stats.totalInQty.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} Miktar
+            </div>
+          </div>
+          <div className="p-3 bg-emerald-50 rounded-lg text-emerald-600">
+            <TrendingUp size={20} />
           </div>
         </div>
 
@@ -998,8 +998,8 @@ export function VegaArctosStokPage() {
             <thead>
               <tr className="bg-gray-50/70 border-b border-gray-200 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
                 {renderSortHeader('Ürün Adı', 'productName', 'left', 'pl-5 pr-2')}
-                {renderSortHeader('Toplam Giriş', 'totalIn', 'right')}
                 {renderSortHeader('Toplam Çıkış', 'totalOut', 'right')}
+                {renderSortHeader('Toplam Giriş', 'totalIn', 'right')}
                 {renderSortHeader('Mevcut Stok', 'currentStock', 'right')}
                 {renderSortHeader('Birim', 'productName', 'center', 'px-3')}
                 {renderSortHeader('Ort. Alış Fiyatı', 'avgPurchasePrice', 'right')}
@@ -1030,11 +1030,11 @@ export function VegaArctosStokPage() {
                         {p.productName}
                       </span>
                     </td>
-                    <td className="px-5 py-2.5 text-right text-emerald-600 font-semibold">
-                      {p.totalIn.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
-                    </td>
                     <td className="px-5 py-2.5 text-right text-rose-600 font-semibold">
                       {p.totalOut.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-5 py-2.5 text-right text-emerald-600 font-semibold">
+                      {p.totalIn.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
                     </td>
                     <td className={`px-5 py-2.5 text-right font-bold ${
                       p.currentStock > 0 ? 'text-gray-900' : 'text-gray-400'
