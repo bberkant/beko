@@ -1347,7 +1347,7 @@ export function ChecksPage() {
       if (!isForced) {
         if (!c.due_date) return false;
         const due = c.due_date.substring(0, 10);
-        if (due > todayStr) return false;
+        if (due !== todayStr) return false;
       }
 
       return isForced || isHatirAlinan(c);
