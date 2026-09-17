@@ -196,18 +196,29 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         try {
           const { data: supaCache } = await supabase.from('vega_efatura_cache').select('invoices').eq('company', company).single();
           if (supaCache?.invoices && Array.isArray(supaCache.invoices)) {
-            const supaGelen = supaCache.invoices.filter((i: any) => (i.direction || 'gelen') === 'gelen');
-            if (supaGelen.length > 0) {
-              const liveGiden = finalData.filter((i: any) => (i.direction || 'giden') === 'giden');
-              const map = new Map();
-              for (const g of liveGiden) map.set(g.invoiceNo, g);
-              for (const g of supaGelen) map.set(g.invoiceNo, g);
-              finalData = Array.from(map.values()).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            }
+            const supaGelen = supaCache.invoices.filter((i: any) => {
+              if ((i.direction || 'gelen') !== 'gelen') return false;
+              const invNo = (i.invoiceNo || '').trim().toUpperCase();
+              return !invNo.startsWith('A000') && !invNo.startsWith('A00');
+            });
+            const liveGiden = finalData.filter((i: any) => (i.direction || 'giden') === 'giden');
+            const map = new Map();
+            for (const g of liveGiden) map.set(g.invoiceNo, g);
+            for (const g of supaGelen) map.set(g.invoiceNo, g);
+            finalData = Array.from(map.values()).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
           }
         } catch (e) {
           console.warn(`Supabase ${company} gelen önbellek birleştirme hatası:`, e);
         }
+
+        // Dahili ERP fişlerini (A000...) gelen faturalardan kesin olarak ayıkla
+        finalData = finalData.filter((i: any) => {
+          if ((i.direction || 'gelen') === 'gelen') {
+            const invNo = (i.invoiceNo || '').trim().toUpperCase();
+            return !invNo.startsWith('A000') && !invNo.startsWith('A00');
+          }
+          return true;
+        });
         
         setInvoices(finalData);
         const hasIncoming = finalData.some((i: any) => (i.direction || 'gelen') === 'gelen');

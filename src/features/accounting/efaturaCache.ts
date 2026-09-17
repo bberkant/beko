@@ -56,13 +56,28 @@ export async function getLocalCache(company: string): Promise<EfaturaCacheEntry 
 }
 
 /**
+ * Sanitize invoices list: ensure no internal ERP purchase vouchers (A000...) leak into incoming e-invoices.
+ */
+function sanitizeInvoices(invoices: any[]): any[] {
+  if (!Array.isArray(invoices)) return [];
+  return invoices.filter((i: any) => {
+    if ((i.direction || 'gelen') === 'gelen') {
+      const invNo = (i.invoiceNo || '').trim().toUpperCase();
+      return !invNo.startsWith('A000') && !invNo.startsWith('A00');
+    }
+    return true;
+  });
+}
+
+/**
  * Save invoices into browser IndexedDB.
  */
 export async function setLocalCache(company: string, invoices: any[], updatedAt: string): Promise<void> {
+  const cleanInvoices = sanitizeInvoices(invoices);
   const entry: EfaturaCacheEntry = {
     company,
-    invoices,
-    recordCount: invoices.length,
+    invoices: cleanInvoices,
+    recordCount: cleanInvoices.length,
     updatedAt,
   };
 
@@ -78,7 +93,7 @@ export async function setLocalCache(company: string, invoices: any[], updatedAt:
   } catch (err) {
     console.warn('IndexedDB write error, falling back to localStorage if small:', err);
     try {
-      if (invoices.length < 1000) {
+      if (cleanInvoices.length < 1000) {
         localStorage.setItem(`dars_efatura_${company}`, JSON.stringify(entry));
       }
     } catch {}
@@ -105,10 +120,13 @@ export async function getSupabaseCache(company: string): Promise<EfaturaCacheEnt
       return null;
     }
 
+    const rawInvoices = Array.isArray(data.invoices) ? data.invoices : [];
+    const cleanInvoices = sanitizeInvoices(rawInvoices);
+
     return {
       company: data.company,
-      invoices: Array.isArray(data.invoices) ? data.invoices : [],
-      recordCount: data.record_count || (Array.isArray(data.invoices) ? data.invoices.length : 0),
+      invoices: cleanInvoices,
+      recordCount: cleanInvoices.length,
       updatedAt: data.updated_at,
     };
   } catch (err) {
@@ -122,13 +140,14 @@ export async function getSupabaseCache(company: string): Promise<EfaturaCacheEnt
  */
 export async function saveSupabaseCache(company: string, invoices: any[], userName?: string): Promise<boolean> {
   try {
+    const cleanInvoices = sanitizeInvoices(invoices);
     const nowIso = new Date().toISOString();
     const { error } = await supabase
       .from('vega_efatura_cache')
       .upsert({
         company,
-        invoices,
-        record_count: invoices.length,
+        invoices: cleanInvoices,
+        record_count: cleanInvoices.length,
         updated_at: nowIso,
         updated_by: userName || 'Kullanıcı',
       });
