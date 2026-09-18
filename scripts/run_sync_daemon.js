@@ -511,7 +511,12 @@ function parseArkaSayfa(sheet) {
   const val = (cell) => {
     if (!sheet[cell]) return 0;
     const v = sheet[cell].v;
-    const n = parseFloat(v);
+    if (v === null || v === undefined || v === '') return 0;
+    if (typeof v === 'number') return isNaN(v) ? 0 : v;
+    let s = String(v).trim().replace(/₺|TL/g, '').trim();
+    if (s.includes('.') && s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    else if (s.includes(',')) s = s.replace(',', '.');
+    const n = parseFloat(s);
     return isNaN(n) ? 0 : n;
   };
   const str = (cell) => {
@@ -519,55 +524,78 @@ function parseArkaSayfa(sheet) {
     return String(sheet[cell].v || '').trim();
   };
 
-  const isColB = !!sheet['B3'];
+  const isColB = !!sheet['B3'] || !!sheet['E3'] || !!sheet['B4'];
   const nameCol = isColB ? 'B' : 'A';
   const valCol = isColB ? 'C' : 'B';
   const mValCol = isColB ? 'F' : 'E';
   const rValCol = isColB ? 'I' : 'H';
 
   const cariler = [];
-  for (let r = 9; r <= 40; r++) {
-    let name = str(nameCol + r);
-    let amount = val(valCol + r);
-    if (name && !name.includes('TOPLAM') && amount > 0) {
-      cariler.push({ name, amount });
+  const ignoredKeywords = ['MERKEZ', 'MERZİFON', 'ATAKUM', 'İLKADIM', 'DEPO', 'TOPLAM', 'DEVİR', 'KASA', 'ÇIKIŞ', 'GİRİŞ', 'POS', 'TARİH'];
+  
+  for (let r = 8; r <= 45; r++) {
+    const name = str(nameCol + r);
+    const amount = val(valCol + r);
+    const upperName = name.toUpperCase();
+    if (name && amount > 0) {
+      if (!ignoredKeywords.some(kw => upperName.includes(kw))) {
+        cariler.push({ name, amount });
+      }
     }
   }
 
+  const merkez = {
+    nakit: val(mValCol + '4'),
+    cikis: val(mValCol + '5'),
+    pos: val(mValCol + '6')
+  };
+
+  const merzifon = {
+    nakit: val(rValCol + '4'),
+    garanti: val(rValCol + '5'),
+    ziraat: val(rValCol + '6'),
+    akbank: val(rValCol + '7')
+  };
+
+  const atakum = {
+    nakit: val(mValCol + '13'),
+    kuveyt: val(mValCol + '14'),
+    halk: val(mValCol + '15'),
+    garanti: val(mValCol + '16'),
+    albaraka: val(mValCol + '17'),
+    ziraat: val(mValCol + '18')
+  };
+
+  const ilkadim = {
+    nakit: val(rValCol + '13'),
+    ziraat: val(rValCol + '14'),
+    deniz: val(rValCol + '15'),
+    kuveyt: val(rValCol + '16')
+  };
+
+  const depoGiris = val(rValCol + '22');
+  const depoCikis = val(rValCol + '23');
+  const depoDevir = val(rValCol + '24');
+  const depoMerzifonDevir = val(rValCol + '29');
+  const depoAnaKasaDevir = val(rValCol + '30');
+  const depoToplamCell = val(rValCol + '31');
+  const depoToplam = depoToplamCell > 0 ? depoToplamCell : (depoGiris - depoMerzifonDevir - depoAnaKasaDevir);
+
+  const depo = {
+    giris: depoGiris,
+    cikis: depoCikis,
+    devir: depoDevir,
+    merzifonSubeDevir: depoMerzifonDevir,
+    anaKasaDevir: depoAnaKasaDevir,
+    toplam: depoToplam
+  };
+
   return {
-    merkez: {
-      nakit: val(mValCol + '4'),
-      cikis: val(mValCol + '5'),
-      pos: val(mValCol + '6')
-    },
-    merzifon: {
-      nakit: val(rValCol + '4'),
-      garanti: val(rValCol + '5'),
-      ziraat: val(rValCol + '6'),
-      akbank: val(rValCol + '7')
-    },
-    atakum: {
-      nakit: val(mValCol + '13'),
-      kuveyt: val(mValCol + '14'),
-      halk: val(mValCol + '15'),
-      garanti: val(mValCol + '16'),
-      albaraka: val(mValCol + '17'),
-      ziraat: val(mValCol + '18')
-    },
-    ilkadim: {
-      nakit: val(rValCol + '13'),
-      ziraat: val(rValCol + '14'),
-      deniz: val(rValCol + '15'),
-      kuveyt: val(rValCol + '16')
-    },
-    depo: {
-      giris: val(rValCol + '22'),
-      cikis: val(rValCol + '23'),
-      devir: val(rValCol + '24'),
-      merzifonSubeDevir: val(rValCol + '29'),
-      anaKasaDevir: val(rValCol + '30'),
-      toplam: val(rValCol + '31')
-    },
+    merkez,
+    merzifon,
+    atakum,
+    ilkadim,
+    depo,
     cariler
   };
 }
@@ -594,12 +622,11 @@ async function processAnaKasaWorkbook(wb, filePath) {
   let arkaSayfaData = null;
   const arkaSheetName = wb.SheetNames.find(n => {
     const u = n.toUpperCase();
-    return u.includes('ARKA') || u.includes('SAYFA') || u.includes('SHEET2') || u.includes('SAYFA 2');
-  });
+    return u.includes('ARKA') || u.includes('ŞUBE') || u.includes('SHEET2') || u.includes('SAYFA 2') || u.includes('SAYFA2');
+  }) || (wb.SheetNames.length > 1 ? wb.SheetNames[1] : null);
+
   if (arkaSheetName && wb.Sheets[arkaSheetName]) {
     arkaSayfaData = parseArkaSayfa(wb.Sheets[arkaSheetName]);
-  } else if (wb.SheetNames.length > 1) {
-    arkaSayfaData = parseArkaSayfa(wb.Sheets[wb.SheetNames[1]]);
   }
 
   const payloadData = { rows: data };
