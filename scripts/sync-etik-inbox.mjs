@@ -1,6 +1,7 @@
-import https from 'https';
+﻿import https from 'https';
 import crypto from 'crypto';
 import fs from 'fs';
+import path from 'path';
 
 const config = {
   username: 'admin_005857',
@@ -13,13 +14,13 @@ const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_Izgkp
 function soapRequest(action, body, host = 'integration.vegayazilim.com.tr') {
   return new Promise((resolve, reject) => {
     const postData = body;
-    const path = '/integration.asmx';
+    const p = '/integration.asmx';
     const soapAction = `http://tempuri.org/${action}`;
     
     const options = {
       hostname: host,
       port: 443,
-      path: path,
+      path: p,
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
@@ -30,9 +31,12 @@ function soapRequest(action, body, host = 'integration.vegayazilim.com.tr') {
     };
 
     const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => { resolve({ statusCode: res.statusCode, data }); });
+      const chunks = [];
+      res.on('data', (chunk) => { chunks.push(chunk); });
+      res.on('end', () => {
+        const full = Buffer.concat(chunks).toString('utf8');
+        resolve({ statusCode: res.statusCode, data: full });
+      });
     });
 
     req.on('error', (e) => { reject(e); });
@@ -65,11 +69,22 @@ async function getVegaSession() {
   const ipNumberMatch = loginResponse.match(/<IP_Number>(.*?)<\/IP_Number>/);
 
   session = {
-    sessionId: sessionIdMatch[1],
-    securityKey: securityKeyMatch[1],
+    sessionId: sessionIdMatch ? sessionIdMatch[1] : null,
+    securityKey: securityKeyMatch ? securityKeyMatch[1] : null,
     ipNumber: ipNumberMatch ? ipNumberMatch[1] : ''
   };
   return session;
+}
+
+function extractTag(text, tag) {
+  const open = `<${tag}`;
+  const oIdx = text.indexOf(open);
+  if (oIdx === -1) return '';
+  const closeBracket = text.indexOf('>', oIdx);
+  if (closeBracket === -1) return '';
+  const cIdx = text.indexOf(`</${tag}>`, closeBracket);
+  if (cIdx === -1) return '';
+  return (' ' + text.substring(closeBracket + 1, cIdx)).slice(1).trim();
 }
 
 function parseInvoicesFromXml(xmlStr) {
@@ -84,34 +99,23 @@ function parseInvoicesFromXml(xmlStr) {
     const chunk = xmlStr.substring(startIdx + 9, endIdx);
     pos = endIdx + 10;
 
-    const getField = (tag) => {
-      const openTag = `<${tag}`;
-      const oIdx = chunk.indexOf(openTag);
-      if (oIdx === -1) return '';
-      const closeBracket = chunk.indexOf('>', oIdx);
-      if (closeBracket === -1) return '';
-      const cIdx = chunk.indexOf(`</${tag}>`, closeBracket);
-      if (cIdx === -1) return '';
-      return chunk.substring(closeBracket + 1, cIdx);
-    };
-
-    const invNo = getField('ID');
+    const invNo = extractTag(chunk, 'ID');
     if (invNo) {
       list.push({
         invoiceNo: invNo,
-        ettn: getField('UUID'),
-        cariName: getField('SUPPLIER') || 'Bilinmeyen Cari',
-        vkn: getField('SENDER'),
-        cariCode: getField('SENDER'),
-        date: getField('ISSUE_DATE') || getField('CDATE'),
-        receivedDate: getField('CDATE'),
-        amount: parseFloat(getField('PAYABLE_AMOUNT') || '0'),
-        matrah: parseFloat(getField('PAYABLE_AMOUNT') || '0'),
+        ettn: extractTag(chunk, 'UUID'),
+        cariName: extractTag(chunk, 'SUPPLIER') || 'Bilinmeyen Cari',
+        vkn: extractTag(chunk, 'SENDER'),
+        cariCode: extractTag(chunk, 'SENDER'),
+        date: extractTag(chunk, 'ISSUE_DATE') || extractTag(chunk, 'CDATE'),
+        receivedDate: extractTag(chunk, 'CDATE'),
+        amount: parseFloat(extractTag(chunk, 'PAYABLE_AMOUNT') || '0'),
+        matrah: parseFloat(extractTag(chunk, 'PAYABLE_AMOUNT') || '0'),
         kdv: 0,
         direction: 'gelen',
-        type: getField('PROFILEID') || 'e-Fatura',
-        profile: getField('PROFILEID') || 'TEMELFATURA',
-        status: getField('GIB_STATUS_DESCRIPTION') || 'Alındı'
+        type: extractTag(chunk, 'PROFILEID') || 'e-Fatura',
+        profile: extractTag(chunk, 'PROFILEID') || 'TEMELFATURA',
+        status: extractTag(chunk, 'GIB_STATUS_DESCRIPTION') || 'Alındı'
       });
     }
   }
@@ -150,63 +154,98 @@ async function fetchChunk(startDate, endDate) {
 </soap:Envelope>`;
 
   const res = await soapRequest('GetInvoice', searchXml);
-  return parseInvoicesFromXml(res.data);
+  const items = parseInvoicesFromXml(res.data);
+  res.data = null;
+  return items;
 }
 
-export async function syncEtikIncomingInvoices() {
-  console.log('🔄 Etik Gelen Faturalari Vega SOAP Entegratöründen güncelleniyor...');
+export async function syncEtikIncomingInvoices(isFull = false) {
+  console.log('🔄 Etik Gelen Faturaları Vega SOAP Entegratöründen güncelleniyor...');
   const now = new Date();
   
-  // Recent 60 days
   const chunks = [];
   const yr = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
-  const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-  const prevYear = currentMonth === 1 ? yr - 1 : yr;
 
-  chunks.push([`${prevYear}-${String(prevMonth).padStart(2, '0')}-01`, `${prevYear}-${String(prevMonth).padStart(2, '0')}-15`]);
-  chunks.push([`${prevYear}-${String(prevMonth).padStart(2, '0')}-16`, `${prevYear}-${String(prevMonth).padStart(2, '0')}-${new Date(prevYear, prevMonth, 0).getDate()}`]);
-  chunks.push([`${yr}-${String(currentMonth).padStart(2, '0')}-01`, `${yr}-${String(currentMonth).padStart(2, '0')}-15`]);
-  chunks.push([`${yr}-${String(currentMonth).padStart(2, '0')}-16`, `${yr}-${String(currentMonth).padStart(2, '0')}-${new Date(yr, currentMonth, 0).getDate()}`]);
+  if (isFull) {
+    // 2026 all months
+    for (let m = currentMonth; m >= 1; m--) {
+      const mStr = String(m).padStart(2, '0');
+      const lastDay = new Date(yr, m, 0).getDate();
+      chunks.push([`${yr}-${mStr}-01`, `${yr}-${mStr}-15`]);
+      chunks.push([`${yr}-${mStr}-16`, `${yr}-${mStr}-${lastDay}`]);
+    }
+    // 2025 all months
+    for (let m = 12; m >= 1; m--) {
+      const mStr = String(m).padStart(2, '0');
+      const lastDay = new Date(2025, m, 0).getDate();
+      chunks.push([`2025-${mStr}-01`, `2025-${mStr}-15`]);
+      chunks.push([`2025-${mStr}-16`, `2025-${mStr}-${lastDay}`]);
+    }
+  } else {
+    // Recent 90 days
+    for (let i = 0; i < 3; i++) {
+      let m = currentMonth - i;
+      let y = yr;
+      if (m <= 0) {
+        m += 12;
+        y -= 1;
+      }
+      const mStr = String(m).padStart(2, '0');
+      const lastDay = new Date(y, m, 0).getDate();
+      chunks.push([`${y}-${mStr}-01`, `${y}-${mStr}-15`]);
+      chunks.push([`${y}-${mStr}-16`, `${y}-${mStr}-${lastDay}`]);
+    }
+  }
 
   const newInvoices = [];
   for (const [start, end] of chunks) {
     try {
       const items = await fetchChunk(start, end);
+      console.log(`  [${start} .. ${end}] -> ${items.length} fatura`);
       newInvoices.push(...items);
     } catch (e) {
       console.warn(`Etik chunk ${start}..${end} error:`, e.message);
     }
   }
 
-  if (newInvoices.length > 0) {
-    // Get existing Supabase cache
-    const getRes = await fetch(`${SUPABASE_URL}/rest/v1/vega_efatura_cache?company=eq.etik&select=invoices`, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`
-      }
-    });
+  // Load existing local cache
+  let existingInvoices = [];
+  const localCachePaths = [
+    path.join(process.cwd(), 'vega-api-service', 'etik_incoming_cache.json'),
+    path.join(process.cwd(), 'etik_incoming_cache.json')
+  ];
+  for (const p of localCachePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+        if (Array.isArray(data) && data.length > existingInvoices.length) {
+          existingInvoices = data;
+        }
+      } catch (e) {}
+    }
+  }
 
-    let currentInvoices = [];
+  const map = new Map();
+  for (const inv of existingInvoices) {
+    if (inv && inv.invoiceNo) map.set(inv.invoiceNo, inv);
+  }
+  for (const inv of newInvoices) {
+    if (inv && inv.invoiceNo) map.set(inv.invoiceNo, inv);
+  }
+
+  const merged = Array.from(map.values()).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+
+  // Save to local JSON files
+  for (const p of localCachePaths) {
     try {
-      const json = await getRes.json();
-      if (json && json[0] && Array.isArray(json[0].invoices)) {
-        currentInvoices = json[0].invoices;
-      }
+      fs.writeFileSync(p, JSON.stringify(merged, null, 2), 'utf8');
     } catch (e) {}
+  }
 
-    const map = new Map();
-    for (const inv of currentInvoices) {
-      if (inv.invoiceNo) map.set(inv.invoiceNo, inv);
-    }
-    for (const inv of newInvoices) {
-      if (inv.invoiceNo) map.set(inv.invoiceNo, inv);
-    }
-
-    const merged = Array.from(map.values()).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-
-    await fetch(`${SUPABASE_URL}/rest/v1/vega_efatura_cache`, {
+  // Save to Supabase vega_efatura_cache
+  try {
+    const sRes = await fetch(`${SUPABASE_URL}/rest/v1/vega_efatura_cache`, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_KEY,
@@ -218,14 +257,22 @@ export async function syncEtikIncomingInvoices() {
         company: 'etik',
         invoices: merged,
         record_count: merged.length,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        updated_by: 'SOAP Sync Service'
       })
     });
-
-    console.log(`✅ Etik Gelen Faturalar senkronize edildi. Toplam: ${merged.length}`);
+    console.log(`✅ Etik Gelen Faturalar senkronize edildi. Toplam: ${merged.length} (Supabase HTTP: ${sRes.status})`);
+  } catch (err) {
+    console.warn('Supabase kayıt uyarısı:', err.message);
   }
+
+  return merged;
 }
 
 if (process.argv[1]?.includes('sync-etik-inbox')) {
-  syncEtikIncomingInvoices();
+  const isFull = process.argv.includes('--full');
+  syncEtikIncomingInvoices(isFull).then(() => process.exit(0)).catch(e => {
+    console.error(e);
+    process.exit(1);
+  });
 }

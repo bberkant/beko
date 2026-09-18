@@ -75,13 +75,10 @@ function getInvoicePdfUrl(company: string, invoice: VegaEfatura): string {
   if (LOCAL_PDF_INVOICES.includes(invoiceNo)) {
     return `/invoices/${invoiceNo}.pdf`;
   }
-  if (company === 'marif') {
-    const uuid = invoice.ettn || invoice.id || '';
-    const direction = invoice.direction || 'gelen';
-    const date = invoice.date || '';
-    return `${TUNNEL_URL}/api/marif/efaturalar/${invoiceNo}/pdf?uuid=${encodeURIComponent(uuid)}&direction=${encodeURIComponent(direction)}&date=${encodeURIComponent(date)}`;
-  }
-  return `${TUNNEL_URL}/api/${company}/efaturalar/${invoiceNo}/pdf`;
+  const uuid = invoice.ettn || invoice.id || '';
+  const direction = invoice.direction || 'gelen';
+  const date = invoice.date || '';
+  return `${TUNNEL_URL}/api/${company}/efaturalar/${invoiceNo}/pdf?uuid=${encodeURIComponent(uuid)}&direction=${encodeURIComponent(direction)}&date=${encodeURIComponent(date)}`;
 }
 
 
