@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct MainTabView: View {
     @State private var selectedTab: Int = 0
@@ -85,3 +86,4 @@ struct MainTabView_Previews: PreviewProvider {
         MainTabView()
     }
 }
+
