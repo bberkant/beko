@@ -31,6 +31,16 @@ jobs:
         run: |
           brew install xcodegen
 
+      - name: Install Apple Certificate and Provisioning Profile
+        run: |
+          # Import certificate to the default login keychain
+          security import ios/certs/ios_distribution.p12 -P "Apple123!" -A -t cert -f pkcs12 -k ~/Library/Keychains/login.keychain-db
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" ~/Library/Keychains/login.keychain-db
+
+          # Apply provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp ios/certs/EtasEt_AppStore_Profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
       - name: Run Fastlane Beta
         run: |
           fastlane ios beta
