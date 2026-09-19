@@ -1,0 +1,37 @@
+name: MarifEt
+options:
+  bundleIdPrefix: com.amasyaetas
+  deploymentTarget:
+    iOS: "16.0"
+  defaultConfig: Release
+packages:
+  Supabase:
+    url: https://github.com/supabase-community/supabase-swift.git
+    from: 2.5.0
+targets:
+  MarifEt:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: App
+      - path: Core
+      - path: Models
+      - path: ViewModels
+      - path: Views
+    dependencies:
+      - package: Supabase
+        product: Supabase
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.amasyaetas.mobile
+        PRODUCT_NAME: "Etaş Et"
+        DEVELOPMENT_TEAM: WGARWL7QZ4
+        INFOPLIST_FILE: App/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_BITCODE: NO
+        SWIFT_VERSION: "5.9"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"

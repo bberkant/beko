@@ -1,0 +1,48 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build and upload iOS app to Apple TestFlight automatically"
+  lane :beta do
+    api_key = app_store_connect_api_key(
+      key_id: "T7BGJ39HPK",
+      issuer_id: "6025c8a1-87c2-474e-aa8d-8b6b07a6d268",
+      key_filepath: "./AuthKey_T7BGJ39HPK.p8",
+      in_house: false
+    )
+
+    # Generate Xcode Project via XcodeGen
+    sh("xcodegen generate")
+
+    # Automatic signing and provisioning via Apple API
+    get_certificates(
+      api_key: api_key,
+      development: false
+    )
+    get_provisioning_profile(
+      api_key: api_key,
+      app_identifier: "com.amasyaetas.mobile",
+      development: false
+    )
+
+    # Build IPA
+    build_app(
+      project: "MarifEt.xcodeproj",
+      scheme: "MarifEt",
+      export_method: "app-store",
+      clean: true,
+      export_options: {
+        signingStyle: "manual",
+        provisioningProfiles: {
+          "com.amasyaetas.mobile" => "com.amasyaetas.mobile AppStore"
+        }
+      }
+    )
+
+    # Upload to TestFlight
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+      distribute_external: false
+    )
+  end
+end

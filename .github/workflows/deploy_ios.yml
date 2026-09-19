@@ -1,0 +1,40 @@
+name: Deploy iOS App to TestFlight
+
+on:
+  push:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/deploy_ios.yml'
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-and-upload:
+    name: Build & Upload to Apple TestFlight
+    runs-on: macos-14
+
+    defaults:
+      run:
+        working-directory: ios
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobachev/setup-xcode@v1
+        with:
+          xcode-version: '15.4'
+
+      - name: Install Tools
+        run: |
+          brew install xcodegen
+          gem install fastlane
+
+      - name: Build and Upload to TestFlight
+        run: |
+          fastlane beta
+        env:
+          APP_STORE_CONNECT_API_KEY_KEY_ID: "T7BGJ39HPK"
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: "6025c8a1-87c2-474e-aa8d-8b6b07a6d268"
+          APP_STORE_CONNECT_API_KEY_KEY_FILEPATH: "./AuthKey_T7BGJ39HPK.p8"
