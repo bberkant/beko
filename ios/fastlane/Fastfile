@@ -36,9 +36,7 @@ platform :ios do
     # 2. Fetch or create Distribution Certificate & Profile via Apple REST API
     get_certificates(
       api_key: api_key,
-      development: false,
-      keychain_path: keychain_name,
-      keychain_password: keychain_password
+      development: false
     )
 
     get_provisioning_profile(
