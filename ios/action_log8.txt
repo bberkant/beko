@@ -1,0 +1,195 @@
+﻿2026-09-19T17:59:33.6991260Z Current runner version: '2.337.0'
+2026-09-19T17:59:33.7011390Z ##[group]Runner Image Provisioner
+2026-09-19T17:59:33.7012090Z Hosted Compute Agent
+2026-09-19T17:59:33.7012460Z Version: 20260828.587
+2026-09-19T17:59:33.7012860Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+2026-09-19T17:59:33.7013330Z Build Date: 2026-08-28T16:44:25Z
+2026-09-19T17:59:33.7013760Z Worker ID: {eb0d5645-34be-44b9-9ad6-c47516277ab7}
+2026-09-19T17:59:33.7014220Z Azure Region: westus
+2026-09-19T17:59:33.7014610Z ##[endgroup]
+2026-09-19T17:59:33.7016040Z ##[group]Operating System
+2026-09-19T17:59:33.7016510Z macOS
+2026-09-19T17:59:33.7016890Z 15.7.9
+2026-09-19T17:59:33.7017250Z 24G830
+2026-09-19T17:59:33.7017620Z ##[endgroup]
+2026-09-19T17:59:33.7018090Z ##[group]Runner Image
+2026-09-19T17:59:33.7018480Z Image: macos-15-arm64
+2026-09-19T17:59:33.7018920Z Version: 20260907.0337.1
+2026-09-19T17:59:33.7019910Z Included Software: https://github.com/actions/runner-images/blob/macos-15-arm64/20260907.0337/images/macos/macos-15-arm64-Readme.md
+2026-09-19T17:59:33.7020990Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-15-arm64%2F20260907.0337
+2026-09-19T17:59:33.7021740Z ##[endgroup]
+2026-09-19T17:59:33.7022680Z ##[group]GITHUB_TOKEN Permissions
+2026-09-19T17:59:33.7024190Z Contents: read
+2026-09-19T17:59:33.7024560Z Metadata: read
+2026-09-19T17:59:33.7024930Z Packages: read
+2026-09-19T17:59:33.7025280Z ##[endgroup]
+2026-09-19T17:59:33.7026870Z Secret source: Actions
+2026-09-19T17:59:33.7027420Z Cache mode: write
+2026-09-19T17:59:33.7027850Z Prepare workflow directory
+2026-09-19T17:59:33.7424130Z Prepare all required actions
+2026-09-19T17:59:33.7462690Z Getting action download info
+2026-09-19T17:59:34.1338500Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-09-19T17:59:34.4953050Z Complete job name: Build & Upload to Apple TestFlight
+2026-09-19T17:59:34.5494120Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-19T17:59:34.5500710Z ##[group]Run actions/checkout@v4
+2026-09-19T17:59:34.5501190Z with:
+2026-09-19T17:59:34.5501520Z   repository: bberkant/beko
+2026-09-19T17:59:34.5504280Z   token: ***
+2026-09-19T17:59:34.5504600Z   ssh-strict: true
+2026-09-19T17:59:34.5504920Z   ssh-user: git
+2026-09-19T17:59:34.5505310Z   persist-credentials: true
+2026-09-19T17:59:34.5505670Z   clean: true
+2026-09-19T17:59:34.5506010Z   sparse-checkout-cone-mode: true
+2026-09-19T17:59:34.5506390Z   fetch-depth: 1
+2026-09-19T17:59:34.5506710Z   fetch-tags: false
+2026-09-19T17:59:34.5507030Z   show-progress: true
+2026-09-19T17:59:34.5507360Z   lfs: false
+2026-09-19T17:59:34.5507690Z   submodules: false
+2026-09-19T17:59:34.5508030Z   set-safe-directory: true
+2026-09-19T17:59:34.5508400Z   allow-unsafe-pr-checkout: false
+2026-09-19T17:59:34.5508880Z env:
+2026-09-19T17:59:34.5509210Z   FASTLANE_SKIP_UPDATE_CHECK: true
+2026-09-19T17:59:34.5509600Z   FASTLANE_HIDE_CHANGELOG: true
+2026-09-19T17:59:34.5510010Z   FASTLANE_DISABLE_ANIMATION: true
+2026-09-19T17:59:34.5510380Z   CI: true
+2026-09-19T17:59:34.5510680Z ##[endgroup]
+2026-09-19T17:59:34.8941890Z Syncing repository: bberkant/beko
+2026-09-19T17:59:34.8943280Z ##[group]Getting Git version info
+2026-09-19T17:59:34.8943850Z Working directory is '/Users/runner/work/beko/beko'
+2026-09-19T17:59:34.8944610Z [command]/opt/homebrew/bin/git version
+2026-09-19T17:59:34.9444210Z git version 2.55.0
+2026-09-19T17:59:34.9455870Z ##[endgroup]
+2026-09-19T17:59:34.9462660Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/223d8121-149c-4a89-9028-8c8ce31c955a/.gitconfig'
+2026-09-19T17:59:34.9470110Z Temporarily overriding HOME='/Users/runner/work/_temp/223d8121-149c-4a89-9028-8c8ce31c955a' before making global git config changes
+2026-09-19T17:59:34.9471330Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-19T17:59:34.9473580Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/beko/beko
+2026-09-19T17:59:34.9566370Z Deleting the contents of '/Users/runner/work/beko/beko'
+2026-09-19T17:59:34.9572070Z ##[group]Initializing the repository
+2026-09-19T17:59:34.9575240Z [command]/opt/homebrew/bin/git init /Users/runner/work/beko/beko
+2026-09-19T17:59:34.9763570Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-19T17:59:34.9764460Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-09-19T17:59:34.9765160Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-09-19T17:59:34.9765810Z hint: call:
+2026-09-19T17:59:34.9766200Z hint:
+2026-09-19T17:59:34.9766700Z hint: 	git config --global init.defaultBranch <name>
+2026-09-19T17:59:34.9767180Z hint:
+2026-09-19T17:59:34.9767660Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-19T17:59:34.9768360Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-19T17:59:34.9768980Z hint:
+2026-09-19T17:59:34.9769390Z hint: 	git branch -m <name>
+2026-09-19T17:59:34.9769780Z hint:
+2026-09-19T17:59:34.9770420Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-09-19T17:59:34.9771280Z Initialized empty Git repository in /Users/runner/work/beko/beko/.git/
+2026-09-19T17:59:34.9780190Z [command]/opt/homebrew/bin/git remote add origin https://github.com/bberkant/beko
+2026-09-19T17:59:34.9890000Z ##[endgroup]
+2026-09-19T17:59:34.9936360Z ##[group]Disabling automatic garbage collection
+2026-09-19T17:59:34.9947470Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+2026-09-19T17:59:35.0063510Z ##[endgroup]
+2026-09-19T17:59:35.0067920Z ##[group]Setting up auth
+2026-09-19T17:59:35.0071510Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-19T17:59:35.0080770Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-19T17:59:35.1093780Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-19T17:59:35.1164430Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-19T17:59:35.1990990Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-19T17:59:35.2048800Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-19T17:59:35.3568940Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-19T17:59:35.3756320Z ##[endgroup]
+2026-09-19T17:59:35.3757080Z ##[group]Fetching the repository
+2026-09-19T17:59:35.3758600Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +2e77f0fe251359f4e1d24b47763e0596304de8e6:refs/remotes/origin/main
+2026-09-19T17:59:36.1398030Z From https://github.com/bberkant/beko
+2026-09-19T17:59:36.1407150Z  * [new ref]         2e77f0fe251359f4e1d24b47763e0596304de8e6 -> origin/main
+2026-09-19T17:59:36.1419880Z ##[endgroup]
+2026-09-19T17:59:36.1420580Z ##[group]Determining the checkout info
+2026-09-19T17:59:36.1421380Z ##[endgroup]
+2026-09-19T17:59:36.1421910Z [command]/opt/homebrew/bin/git sparse-checkout disable
+2026-09-19T17:59:36.1477700Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+2026-09-19T17:59:36.1557770Z ##[group]Checking out the ref
+2026-09-19T17:59:36.1559030Z [command]/opt/homebrew/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-09-19T17:59:36.2288240Z Switched to a new branch 'main'
+2026-09-19T17:59:36.2293120Z branch 'main' set up to track 'origin/main'.
+2026-09-19T17:59:36.2298780Z ##[endgroup]
+2026-09-19T17:59:36.2379310Z [command]/opt/homebrew/bin/git log -1 --format=%H
+2026-09-19T17:59:36.2434370Z 2e77f0fe251359f4e1d24b47763e0596304de8e6
+2026-09-19T17:59:36.2629190Z ##[group]Run brew install xcodegen
+2026-09-19T17:59:36.2629850Z [36;1mbrew install xcodegen[0m
+2026-09-19T17:59:36.2675040Z shell: /bin/bash -e {0}
+2026-09-19T17:59:36.2675580Z env:
+2026-09-19T17:59:36.2675970Z   FASTLANE_SKIP_UPDATE_CHECK: true
+2026-09-19T17:59:36.2676520Z   FASTLANE_HIDE_CHANGELOG: true
+2026-09-19T17:59:36.2677010Z   FASTLANE_DISABLE_ANIMATION: true
+2026-09-19T17:59:36.2677520Z   CI: true
+2026-09-19T17:59:36.2677900Z ##[endgroup]
+2026-09-19T17:59:38.5279330Z [32m==>[0m [1mDownloading bottle manifests[0m
+2026-09-19T17:59:38.5468870Z ✔︎ Bottle Manifest xcodegen (2.46.0)
+2026-09-19T17:59:38.5469480Z [34m==>[0m [1mWould install 1 formula:[0m
+2026-09-19T17:59:38.5568340Z [32m==>[0m [1mFetching downloads for: [32mxcodegen[39m[0m
+2026-09-19T17:59:38.5568720Z xcodegen
+2026-09-19T17:59:38.8337100Z ✔︎ Bottle xcodegen (2.46.0)
+2026-09-19T17:59:38.8701440Z [34m==>[0m [1mPouring xcodegen--2.46.0.arm64_sequoia.bottle.1.tar.gz[0m
+2026-09-19T17:59:38.9921920Z 🍺  /opt/homebrew/Cellar/xcodegen/2.46.0: 38 files, 7.5MB
+2026-09-19T17:59:39.0051090Z ##[group]Run # Import certificate to the default login keychain
+2026-09-19T17:59:39.0051700Z [36;1m# Import certificate to the default login keychain[0m
+2026-09-19T17:59:39.0052330Z [36;1msecurity import certs/ios_distribution.p12 -P "Apple123!" -A -t cert -f pkcs12 -k ~/Library/Keychains/login.keychain-db[0m
+2026-09-19T17:59:39.0053050Z [36;1msecurity set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" ~/Library/Keychains/login.keychain-db[0m
+2026-09-19T17:59:39.0053570Z [36;1m[0m
+2026-09-19T17:59:39.0053760Z [36;1m# Apply provisioning profile[0m
+2026-09-19T17:59:39.0054120Z [36;1mmkdir -p ~/Library/MobileDevice/Provisioning\ Profiles[0m
+2026-09-19T17:59:39.0054730Z [36;1mcp certs/EtasEt_AppStore_Profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/[0m
+2026-09-19T17:59:39.0110180Z shell: /bin/bash -e {0}
+2026-09-19T17:59:39.0110930Z env:
+2026-09-19T17:59:39.0111610Z   FASTLANE_SKIP_UPDATE_CHECK: true
+2026-09-19T17:59:39.0112030Z   FASTLANE_HIDE_CHANGELOG: true
+2026-09-19T17:59:39.0112320Z   FASTLANE_DISABLE_ANIMATION: true
+2026-09-19T17:59:39.0112580Z   CI: true
+2026-09-19T17:59:39.0112830Z ##[endgroup]
+2026-09-19T17:59:39.1383350Z security: SecKeychainItemSetAccessWithPassword: The user name or passphrase you entered is not correct.
+2026-09-19T17:59:39.1384220Z keychain: "/Users/runner/Library/Keychains/login.keychain-db"
+2026-09-19T17:59:39.1384750Z version: 512
+2026-09-19T17:59:39.1384940Z class: 0x00000010 
+2026-09-19T17:59:39.1385130Z attributes:
+2026-09-19T17:59:39.1385320Z     0x00000000 <uint32>=0x00000010 
+2026-09-19T17:59:39.1385610Z     0x00000001 <blob>="<key>"
+2026-09-19T17:59:39.1385970Z     0x00000002 <blob>=<NULL>
+2026-09-19T17:59:39.1386220Z     0x00000003 <uint32>=0x00000001 
+2026-09-19T17:59:39.1386460Z     0x00000004 <uint32>=0x00000000 
+2026-09-19T17:59:39.1386710Z     0x00000005 <uint32>=0x00000000 
+2026-09-19T17:59:39.1387230Z     0x00000006 <blob>=0x95BF7022850F7D5B8F1EDE8ACDF96FD4336D49A8  "\225\277p"\205\017}[\217\036\336\212\315\371o\3243mI\250"
+2026-09-19T17:59:39.1387700Z     0x00000007 <blob>=<NULL>
+2026-09-19T17:59:39.1388230Z     0x00000008 <blob>=0x7B38373139316361322D306663392D313164342D383439612D3030303530326235323132327D00  "{87191ca2-0fc9-11d4-849a-000502b52122}\000"
+2026-09-19T17:59:39.1388790Z     0x00000009 <uint32>=0x0000002A  "\000\000\000*"
+2026-09-19T17:59:39.1389120Z     0x0000000A <uint32>=0x00000800 
+2026-09-19T17:59:39.1389350Z     0x0000000B <uint32>=0x00000800 
+2026-09-19T17:59:39.1389600Z     0x0000000C <blob>=0x0000000000000000 
+2026-09-19T17:59:39.1389840Z     0x0000000D <blob>=0x0000000000000000 
+2026-09-19T17:59:39.1390640Z     0x0000000E <uint32>=0x00000000 
+2026-09-19T17:59:39.1391030Z     0x0000000F <uint32>=0x00000000 
+2026-09-19T17:59:39.1391310Z     0x00000010 <uint32>=0x00000001 
+2026-09-19T17:59:39.1391620Z     0x00000011 <uint32>=0x00000000 
+2026-09-19T17:59:39.1391930Z     0x00000012 <uint32>=0x00000000 
+2026-09-19T17:59:39.1392260Z     0x00000013 <uint32>=0x00000001 
+2026-09-19T17:59:39.1392560Z     0x00000014 <uint32>=0x00000001 
+2026-09-19T17:59:39.1392790Z     0x00000015 <uint32>=0x00000001 
+2026-09-19T17:59:39.1393020Z     0x00000016 <uint32>=0x00000000 
+2026-09-19T17:59:39.1393320Z     0x00000017 <uint32>=0x00000000 
+2026-09-19T17:59:39.1393590Z     0x00000018 <uint32>=0x00000000 
+2026-09-19T17:59:39.1393830Z     0x00000019 <uint32>=0x00000000 
+2026-09-19T17:59:39.1394070Z     0x0000001A <uint32>=0x00000001 
+2026-09-19T17:59:39.1404260Z ##[error]Process completed with exit code 1.
+2026-09-19T17:59:39.1676460Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-19T17:59:39.1677730Z Post job cleanup.
+2026-09-19T17:59:39.2521460Z [command]/opt/homebrew/bin/git version
+2026-09-19T17:59:39.2579180Z git version 2.55.0
+2026-09-19T17:59:39.2596830Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/725f574d-4173-43b5-a112-580a0cc8cc1d/.gitconfig'
+2026-09-19T17:59:39.2604600Z Temporarily overriding HOME='/Users/runner/work/_temp/725f574d-4173-43b5-a112-580a0cc8cc1d' before making global git config changes
+2026-09-19T17:59:39.2605480Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-19T17:59:39.2608500Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/beko/beko
+2026-09-19T17:59:39.2676100Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-19T17:59:39.2738700Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-19T17:59:39.3555990Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-19T17:59:39.3598190Z http.https://github.com/.extraheader
+2026-09-19T17:59:39.3604160Z [command]/opt/homebrew/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-09-19T17:59:39.3659180Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-19T17:59:39.4389090Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-19T17:59:39.4444350Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-19T17:59:39.5253310Z Cleaning up orphan processes
+2026-09-19T17:59:39.7630460Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

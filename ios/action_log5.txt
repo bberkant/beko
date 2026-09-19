@@ -1,0 +1,332 @@
+﻿2026-09-19T17:54:11.2546370Z Current runner version: '2.337.0'
+2026-09-19T17:54:11.2562970Z ##[group]Runner Image Provisioner
+2026-09-19T17:54:11.2563640Z Hosted Compute Agent
+2026-09-19T17:54:11.2564010Z Version: 20260828.587
+2026-09-19T17:54:11.2564440Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+2026-09-19T17:54:11.2564900Z Build Date: 2026-08-28T16:44:25Z
+2026-09-19T17:54:11.2565330Z Worker ID: {be10747a-cccc-46c1-9931-b6d2c5e7da85}
+2026-09-19T17:54:11.2565780Z Azure Region: westus
+2026-09-19T17:54:11.2566140Z ##[endgroup]
+2026-09-19T17:54:11.2567020Z ##[group]Operating System
+2026-09-19T17:54:11.2567410Z macOS
+2026-09-19T17:54:11.2567740Z 15.7.9
+2026-09-19T17:54:11.2568060Z 24G830
+2026-09-19T17:54:11.2568380Z ##[endgroup]
+2026-09-19T17:54:11.2568830Z ##[group]Runner Image
+2026-09-19T17:54:11.2569220Z Image: macos-15-arm64
+2026-09-19T17:54:11.2569700Z Version: 20260907.0337.1
+2026-09-19T17:54:11.2570600Z Included Software: https://github.com/actions/runner-images/blob/macos-15-arm64/20260907.0337/images/macos/macos-15-arm64-Readme.md
+2026-09-19T17:54:11.2573250Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-15-arm64%2F20260907.0337
+2026-09-19T17:54:11.2573960Z ##[endgroup]
+2026-09-19T17:54:11.2574910Z ##[group]GITHUB_TOKEN Permissions
+2026-09-19T17:54:11.2576190Z Contents: read
+2026-09-19T17:54:11.2576570Z Metadata: read
+2026-09-19T17:54:11.2576950Z Packages: read
+2026-09-19T17:54:11.2577310Z ##[endgroup]
+2026-09-19T17:54:11.2578880Z Secret source: Actions
+2026-09-19T17:54:11.2579470Z Cache mode: write
+2026-09-19T17:54:11.2579920Z Prepare workflow directory
+2026-09-19T17:54:11.2894390Z Prepare all required actions
+2026-09-19T17:54:11.2936140Z Getting action download info
+2026-09-19T17:54:11.6926720Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-09-19T17:54:11.9576080Z Complete job name: Build & Upload to Apple TestFlight
+2026-09-19T17:54:12.0017500Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-19T17:54:12.0024250Z ##[group]Run actions/checkout@v4
+2026-09-19T17:54:12.0024770Z with:
+2026-09-19T17:54:12.0025120Z   repository: bberkant/beko
+2026-09-19T17:54:12.0027780Z   token: ***
+2026-09-19T17:54:12.0028120Z   ssh-strict: true
+2026-09-19T17:54:12.0028470Z   ssh-user: git
+2026-09-19T17:54:12.0028840Z   persist-credentials: true
+2026-09-19T17:54:12.0029210Z   clean: true
+2026-09-19T17:54:12.0029550Z   sparse-checkout-cone-mode: true
+2026-09-19T17:54:12.0029950Z   fetch-depth: 1
+2026-09-19T17:54:12.0030270Z   fetch-tags: false
+2026-09-19T17:54:12.0030600Z   show-progress: true
+2026-09-19T17:54:12.0030940Z   lfs: false
+2026-09-19T17:54:12.0031300Z   submodules: false
+2026-09-19T17:54:12.0031650Z   set-safe-directory: true
+2026-09-19T17:54:12.0032030Z   allow-unsafe-pr-checkout: false
+2026-09-19T17:54:12.0032640Z env:
+2026-09-19T17:54:12.0033050Z   FASTLANE_SKIP_UPDATE_CHECK: true
+2026-09-19T17:54:12.0033460Z   FASTLANE_HIDE_CHANGELOG: true
+2026-09-19T17:54:12.0033890Z   FASTLANE_DISABLE_ANIMATION: true
+2026-09-19T17:54:12.0034270Z   CI: true
+2026-09-19T17:54:12.0034580Z ##[endgroup]
+2026-09-19T17:54:12.3520070Z Syncing repository: bberkant/beko
+2026-09-19T17:54:12.3521780Z ##[group]Getting Git version info
+2026-09-19T17:54:12.3522430Z Working directory is '/Users/runner/work/beko/beko'
+2026-09-19T17:54:12.3523440Z [command]/opt/homebrew/bin/git version
+2026-09-19T17:54:12.3947840Z git version 2.55.0
+2026-09-19T17:54:12.3960700Z ##[endgroup]
+2026-09-19T17:54:12.3966630Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/6323adaf-c217-4b9c-a0ee-915fd629d1bc/.gitconfig'
+2026-09-19T17:54:12.3973460Z Temporarily overriding HOME='/Users/runner/work/_temp/6323adaf-c217-4b9c-a0ee-915fd629d1bc' before making global git config changes
+2026-09-19T17:54:12.3974460Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-19T17:54:12.3976490Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/beko/beko
+2026-09-19T17:54:12.4078150Z Deleting the contents of '/Users/runner/work/beko/beko'
+2026-09-19T17:54:12.4081560Z ##[group]Initializing the repository
+2026-09-19T17:54:12.4085070Z [command]/opt/homebrew/bin/git init /Users/runner/work/beko/beko
+2026-09-19T17:54:12.4280960Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-19T17:54:12.4281880Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-09-19T17:54:12.4282710Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-09-19T17:54:12.4283540Z hint: call:
+2026-09-19T17:54:12.4283920Z hint:
+2026-09-19T17:54:12.4284390Z hint: 	git config --global init.defaultBranch <name>
+2026-09-19T17:54:12.4284850Z hint:
+2026-09-19T17:54:12.4285360Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-19T17:54:12.4286060Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-19T17:54:12.4286620Z hint:
+2026-09-19T17:54:12.4286960Z hint: 	git branch -m <name>
+2026-09-19T17:54:12.4287350Z hint:
+2026-09-19T17:54:12.4287850Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-09-19T17:54:12.4288590Z Initialized empty Git repository in /Users/runner/work/beko/beko/.git/
+2026-09-19T17:54:12.4290390Z [command]/opt/homebrew/bin/git remote add origin https://github.com/bberkant/beko
+2026-09-19T17:54:12.4356510Z ##[endgroup]
+2026-09-19T17:54:12.4357310Z ##[group]Disabling automatic garbage collection
+2026-09-19T17:54:12.4358420Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+2026-09-19T17:54:12.4416290Z ##[endgroup]
+2026-09-19T17:54:12.4416950Z ##[group]Setting up auth
+2026-09-19T17:54:12.4421510Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-19T17:54:12.4478340Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-19T17:54:12.5260040Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-19T17:54:12.5309850Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-19T17:54:12.6112940Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-19T17:54:12.6170840Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-19T17:54:12.7246760Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-19T17:54:12.7248640Z ##[endgroup]
+2026-09-19T17:54:12.7249400Z ##[group]Fetching the repository
+2026-09-19T17:54:12.7250480Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +90540dc6fc610facd71a5946d4a43506690ea979:refs/remotes/origin/main
+2026-09-19T17:54:13.5975850Z From https://github.com/bberkant/beko
+2026-09-19T17:54:13.5976790Z  * [new ref]         90540dc6fc610facd71a5946d4a43506690ea979 -> origin/main
+2026-09-19T17:54:13.5979610Z ##[endgroup]
+2026-09-19T17:54:13.5980530Z ##[group]Determining the checkout info
+2026-09-19T17:54:13.5981380Z ##[endgroup]
+2026-09-19T17:54:13.5983000Z [command]/opt/homebrew/bin/git sparse-checkout disable
+2026-09-19T17:54:13.6061310Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+2026-09-19T17:54:13.6192020Z ##[group]Checking out the ref
+2026-09-19T17:54:13.6192970Z [command]/opt/homebrew/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-09-19T17:54:13.6823280Z Switched to a new branch 'main'
+2026-09-19T17:54:13.6828860Z branch 'main' set up to track 'origin/main'.
+2026-09-19T17:54:13.6833630Z ##[endgroup]
+2026-09-19T17:54:13.6928130Z [command]/opt/homebrew/bin/git log -1 --format=%H
+2026-09-19T17:54:13.6987130Z 90540dc6fc610facd71a5946d4a43506690ea979
+2026-09-19T17:54:13.7199400Z ##[group]Run brew install xcodegen
+2026-09-19T17:54:13.7200470Z [36;1mbrew install xcodegen[0m
+2026-09-19T17:54:13.7246920Z shell: /bin/bash -e {0}
+2026-09-19T17:54:13.7247780Z env:
+2026-09-19T17:54:13.7248510Z   FASTLANE_SKIP_UPDATE_CHECK: true
+2026-09-19T17:54:13.7249420Z   FASTLANE_HIDE_CHANGELOG: true
+2026-09-19T17:54:13.7250200Z   FASTLANE_DISABLE_ANIMATION: true
+2026-09-19T17:54:13.7250950Z   CI: true
+2026-09-19T17:54:13.7251600Z ##[endgroup]
+2026-09-19T17:54:15.5995700Z [32m==>[0m [1mDownloading bottle manifests[0m
+2026-09-19T17:54:15.6196010Z ✔︎ Bottle Manifest xcodegen (2.46.0)
+2026-09-19T17:54:15.6196560Z [34m==>[0m [1mWould install 1 formula:[0m
+2026-09-19T17:54:15.6298830Z [32m==>[0m [1mFetching downloads for: [32mxcodegen[39m[0m
+2026-09-19T17:54:15.6299270Z xcodegen
+2026-09-19T17:54:15.8710520Z ✔︎ Bottle xcodegen (2.46.0)
+2026-09-19T17:54:15.9013250Z [34m==>[0m [1mPouring xcodegen--2.46.0.arm64_sequoia.bottle.1.tar.gz[0m
+2026-09-19T17:54:15.9785250Z 🍺  /opt/homebrew/Cellar/xcodegen/2.46.0: 38 files, 7.5MB
+2026-09-19T17:54:15.9883390Z ##[group]Run fastlane ios beta
+2026-09-19T17:54:15.9883780Z [36;1mfastlane ios beta[0m
+2026-09-19T17:54:15.9919840Z shell: /bin/bash -e {0}
+2026-09-19T17:54:15.9920090Z env:
+2026-09-19T17:54:15.9920350Z   FASTLANE_SKIP_UPDATE_CHECK: true
+2026-09-19T17:54:15.9920630Z   FASTLANE_HIDE_CHANGELOG: true
+2026-09-19T17:54:15.9920940Z   FASTLANE_DISABLE_ANIMATION: true
+2026-09-19T17:54:15.9921250Z   CI: true
+2026-09-19T17:54:15.9921450Z ##[endgroup]
+2026-09-19T17:54:16.8942830Z [17:54:16]: [33mGet started using a Gemfile for fastlane https://docs.fastlane.tools/getting-started/ios/setup/#use-a-gemfile[0m
+2026-09-19T17:54:17.4596350Z [17:54:17]: Sending anonymous analytics information
+2026-09-19T17:54:17.4596770Z [17:54:17]: Learn more at https://docs.fastlane.tools/#metrics
+2026-09-19T17:54:17.4597110Z [17:54:17]: No personal or sensitive data is sent.
+2026-09-19T17:54:17.4597580Z [17:54:17]: You can disable this by adding `opt_out_usage` at the top of your Fastfile
+2026-09-19T17:54:17.4665360Z Fastfile:58: warning: encountered \r in middle of line, treated as a mere space
+2026-09-19T17:54:17.4667310Z [17:54:17]: [32m------------------------------[0m
+2026-09-19T17:54:17.4667690Z [17:54:17]: [32m--- Step: default_platform ---[0m
+2026-09-19T17:54:17.4668180Z [17:54:17]: [32m------------------------------[0m
+2026-09-19T17:54:17.4669450Z [17:54:17]: [32mDriving the lane 'ios beta' 🚀[0m
+2026-09-19T17:54:17.4672050Z [17:54:17]: [32m---------------------------------------[0m
+2026-09-19T17:54:17.4672520Z [17:54:17]: [32m--- Step: app_store_connect_api_key ---[0m
+2026-09-19T17:54:17.4673020Z [17:54:17]: [32m---------------------------------------[0m
+2026-09-19T17:54:17.4705390Z [17:54:17]: [32m--------------------------------[0m
+2026-09-19T17:54:17.4706350Z [17:54:17]: [32m--- Step: import_certificate ---[0m
+2026-09-19T17:54:17.4706780Z [17:54:17]: [32m--------------------------------[0m
+2026-09-19T17:54:17.5117680Z [17:54:17]: [31msecurity: SecKeychainItemImport: MAC verification failed during PKCS12 import (wrong password?)[0m
+2026-09-19T17:54:17.5119600Z [17:54:17]: [32m------------------------------------------[0m
+2026-09-19T17:54:17.5120300Z [17:54:17]: [32m--- Step: install_provisioning_profile ---[0m
+2026-09-19T17:54:17.5120840Z [17:54:17]: [32m------------------------------------------[0m
+2026-09-19T17:54:17.5121290Z [17:54:17]: Installing provisioning profile...
+2026-09-19T17:54:17.6145730Z [17:54:17]: [32m----------------------------------------[0m
+2026-09-19T17:54:17.6158300Z [17:54:17]: [32m--- Step: cd .. && xcodegen generate ---[0m
+2026-09-19T17:54:17.6160420Z [17:54:17]: [32m----------------------------------------[0m
+2026-09-19T17:54:17.6161790Z [17:54:17]: [36m$ cd .. && xcodegen generate[0m
+2026-09-19T17:54:17.6326280Z [17:54:17]: ▸ [35m⚙️  Generating plists...[0m
+2026-09-19T17:54:17.6409880Z [17:54:17]: ▸ [35m⚙️  Generating project...[0m
+2026-09-19T17:54:17.6410350Z [17:54:17]: ▸ [35m⚙️  Writing project...[0m
+2026-09-19T17:54:17.6475000Z [17:54:17]: ▸ [35mCreated project at /Users/runner/work/beko/beko/ios/MarifEt.xcodeproj[0m
+2026-09-19T17:54:17.6481760Z [17:54:17]: [32m-----------------------------------------[0m
+2026-09-19T17:54:17.6482230Z [17:54:17]: [32m--- Step: update_project_provisioning ---[0m
+2026-09-19T17:54:17.6482610Z [17:54:17]: [32m-----------------------------------------[0m
+2026-09-19T17:54:17.6483280Z [17:54:17]: You’re updating provisioning profiles directly in your project, but have you considered easier ways to do code signing?
+2026-09-19T17:54:17.6483840Z [17:54:17]: https://docs.fastlane.tools/codesigning/GettingStarted/
+2026-09-19T17:54:17.6484510Z [17:54:17]: Downloading root certificate from (https://www.apple.com/appleca/AppleIncRootCertificate.cer) to path '/tmp/AppleIncRootCertificate.cer'
+2026-09-19T17:54:17.7282360Z [17:54:17]: Parsing mobile provisioning profile from '/Users/runner/work/beko/beko/ios/certs/EtasEt_AppStore_Profile.mobileprovision'
+2026-09-19T17:54:17.7296400Z [17:54:17]: [32mGoing to update project '/Users/runner/work/beko/beko/ios/MarifEt.xcodeproj' with UUID[0m
+2026-09-19T17:54:17.7830450Z [17:54:17]: [32mUpdating target MarifEt...[0m
+2026-09-19T17:54:17.7831160Z [17:54:17]: [33mSkipping configuration Debug as it doesn't match the filter 'Release'[0m
+2026-09-19T17:54:17.7831800Z [17:54:17]: [32mUpdating configuration Release...[0m
+2026-09-19T17:54:17.7885910Z [17:54:17]: [32mSuccessfully updated project settings in '/Users/runner/work/beko/beko/ios/MarifEt.xcodeproj'[0m
+2026-09-19T17:54:17.7973980Z [17:54:17]: [32m-----------------------[0m
+2026-09-19T17:54:17.7974690Z [17:54:17]: [32m--- Step: build_app ---[0m
+2026-09-19T17:54:17.7975150Z [17:54:17]: [32m-----------------------[0m
+2026-09-19T17:54:17.8002880Z [17:54:17]: [33mResolving Swift Package Manager dependencies...[0m
+2026-09-19T17:54:17.8003660Z [17:54:17]: [36m$ xcodebuild -resolvePackageDependencies -scheme MarifEt -project /Users/runner/work/beko/beko/ios/MarifEt.xcodeproj[0m
+2026-09-19T17:54:18.6274980Z [17:54:18]: ▸ [35mCommand line invocation:[0m
+2026-09-19T17:54:18.6275980Z [17:54:18]: ▸ [35m    /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/xcodebuild -resolvePackageDependencies -scheme MarifEt -project /Users/runner/work/beko/beko/ios/MarifEt.xcodeproj[0m
+2026-09-19T17:54:19.6644580Z [17:54:19]: ▸ [35mresolved source packages: [0m
+2026-09-19T17:54:19.6704450Z [17:54:19]: [36m$ xcodebuild -showBuildSettings -scheme MarifEt -project /Users/runner/work/beko/beko/ios/MarifEt.xcodeproj 2>&1[0m
+2026-09-19T17:54:21.7613780Z [17:54:21]: Detected provisioning profile mapping: {:"com.amasyaetas.mobile"=>"EtasEt_AppStore_Profile"}
+2026-09-19T17:54:21.8099400Z 
+2026-09-19T17:54:21.8127210Z +-----------------------------------------------------------------------------------------------------------------------+
+2026-09-19T17:54:21.8128350Z |                                                [32mSummary for gym 2.239.0[0m                                                |
+2026-09-19T17:54:21.8129210Z +-----------------------------------------------------------+-----------------------------------------------------------+
+2026-09-19T17:54:21.8130010Z | project                                                   | /Users/runner/work/beko/beko/ios/MarifEt.xcodeproj        |
+2026-09-19T17:54:21.8132980Z | scheme                                                    | MarifEt                                                   |
+2026-09-19T17:54:21.8133740Z | export_method                                             | app-store                                                 |
+2026-09-19T17:54:21.8134590Z | clean                                                     | true                                                      |
+2026-09-19T17:54:21.8143550Z | export_options.signingStyle                               | manual                                                    |
+2026-09-19T17:54:21.8144100Z | export_options.teamID                                     | WGARWL7QZ4                                                |
+2026-09-19T17:54:21.8144890Z | export_options.provisioningProfiles.com.amasyaetas.mobile | EtasEt_AppStore_Profile                                   |
+2026-09-19T17:54:21.8145500Z | output_directory                                          | .                                                         |
+2026-09-19T17:54:21.8146280Z | output_name                                               | Etaş Et                                                   |
+2026-09-19T17:54:21.8146750Z | silent                                                    | false                                                     |
+2026-09-19T17:54:21.8147380Z | skip_package_ipa                                          | false                                                     |
+2026-09-19T17:54:21.8163440Z | skip_package_pkg                                          | false                                                     |
+2026-09-19T17:54:21.8164370Z | build_path                                                | /Users/runner/Library/Developer/Xcode/Archives/2026-09-19 |
+2026-09-19T17:54:21.8164930Z | result_bundle                                             | false                                                     |
+2026-09-19T17:54:21.8165430Z | buildlog_path                                             | ~/Library/Logs/gym                                        |
+2026-09-19T17:54:21.8165930Z | destination                                               | generic/platform=iOS                                      |
+2026-09-19T17:54:21.8166410Z | xcodebuild_formatter                                      | xcbeautify                                                |
+2026-09-19T17:54:21.8166930Z | build_timing_summary                                      | false                                                     |
+2026-09-19T17:54:21.8167480Z | skip_profile_detection                                    | false                                                     |
+2026-09-19T17:54:21.8168090Z | xcodebuild_command                                        | xcodebuild                                                |
+2026-09-19T17:54:21.8168600Z | skip_package_dependencies_resolution                      | false                                                     |
+2026-09-19T17:54:21.8169140Z | disable_package_automatic_updates                         | false                                                     |
+2026-09-19T17:54:21.8169680Z | skip_package_repository_fetches                           | false                                                     |
+2026-09-19T17:54:21.8170160Z | use_system_scm                                            | false                                                     |
+2026-09-19T17:54:21.8170630Z | generate_appstore_info                                    | false                                                     |
+2026-09-19T17:54:21.8171100Z | xcode_path                                                | /Applications/Xcode_16.4.app                              |
+2026-09-19T17:54:21.8171640Z +-----------------------------------------------------------+-----------------------------------------------------------+
+2026-09-19T17:54:21.8171970Z 
+2026-09-19T17:54:21.8173190Z [17:54:21]: [36m$ set -o pipefail && xcodebuild -scheme MarifEt -project /Users/runner/work/beko/beko/ios/MarifEt.xcodeproj -destination 'generic/platform=iOS' -archivePath /Users/runner/Library/Developer/Xcode/Archives/2026-09-19/Eta\ş\ Et\ 2026-09-19\ 17.54.21.xcarchive clean archive | tee /Users/runner/Library/Logs/gym/Eta\ş\ Et-MarifEt.log | xcbeautify[0m
+2026-09-19T17:54:21.8459540Z [17:54:21]: ▸ [35m----- xcbeautify -----[0m
+2026-09-19T17:54:21.8460260Z [17:54:21]: ▸ [35mVersion: 3.2.1[0m
+2026-09-19T17:54:21.8461250Z [17:54:21]: ▸ [35m----------------------[0m
+2026-09-19T17:54:23.2130890Z [17:54:23]: ▸ [35m[32;1mClean Succeeded[0m
+2026-09-19T17:54:23.2700660Z [17:54:23]: ▸ [35m[36;1mnote: [0mBuilding targets in dependency order[0m
+2026-09-19T17:54:23.2714410Z [17:54:23]: ▸ [35m[36;1mnote: [0mTarget dependency graph (1 target)[0m
+2026-09-19T17:54:26.6965600Z [17:54:26]: ▸ [35m** ARCHIVE FAILED **[0m
+2026-09-19T17:54:26.6989380Z [17:54:26]: ▸ [35mThe following build commands failed:[0m
+2026-09-19T17:54:26.6990030Z [17:54:26]: ▸ [35m	Archiving project MarifEt with scheme MarifEt[0m
+2026-09-19T17:54:26.6990450Z [17:54:26]: ▸ [35m(1 failure)[0m
+2026-09-19T17:54:26.6995670Z [17:54:26]: ▸ [35m::error file=/Users/runner/work/beko/beko/ios/MarifEt.xcodeproj::No signing certificate "iOS Distribution" found: No "iOS Distribution" signing certificate matching team ID "WGARWL7QZ4" with a private key was found. (in target 'MarifEt' from project 'MarifEt')[0m
+2026-09-19T17:54:26.6997200Z [17:54:26]: ▸ [35mnote: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'MarifEt' from project 'MarifEt')[0m
+2026-09-19T17:54:26.6997810Z [17:54:26]: [31mExit status: 65[0m
+2026-09-19T17:54:26.7091020Z [17:54:26]: 
+2026-09-19T17:54:26.7092060Z [17:54:26]: [33mMaybe the error shown is caused by using the wrong version of Xcode[0m
+2026-09-19T17:54:26.7092700Z [17:54:26]: [33mFound multiple versions of Xcode in '/Applications/'[0m
+2026-09-19T17:54:26.7093280Z [17:54:26]: [33mMake sure you selected the right version for your project[0m
+2026-09-19T17:54:26.7093920Z [17:54:26]: [33mThis build process was executed using '/Applications/Xcode_16.4.app'[0m
+2026-09-19T17:54:26.7094530Z [17:54:26]: [33mIf you want to update your Xcode path, either[0m
+2026-09-19T17:54:26.7094970Z [17:54:26]: 
+2026-09-19T17:54:26.7095360Z [17:54:26]: - Specify the Xcode version in your Fastfile
+2026-09-19T17:54:26.7095890Z [17:54:26]: ▸ [35mxcversion(version: "8.1") # Selects Xcode 8.1.0[0m
+2026-09-19T17:54:26.7096340Z [17:54:26]: 
+2026-09-19T17:54:26.7096690Z [17:54:26]: - Specify an absolute path to your Xcode installation in your Fastfile
+2026-09-19T17:54:26.7097210Z [17:54:26]: ▸ [35mxcode_select "/Applications/Xcode8.app"[0m
+2026-09-19T17:54:26.7097540Z [17:54:26]: 
+2026-09-19T17:54:26.7097790Z [17:54:26]: - Manually update the path using
+2026-09-19T17:54:26.7098190Z [17:54:26]: ▸ [35msudo xcode-select -s /Applications/Xcode.app[0m
+2026-09-19T17:54:26.7098550Z [17:54:26]: 
+2026-09-19T17:54:26.7143020Z 
+2026-09-19T17:54:26.7148150Z +----------------------------------------------+
+2026-09-19T17:54:26.7148740Z |              [32m[33mBuild environment[0m               |
+2026-09-19T17:54:26.7149150Z +---------------+------------------------------+
+2026-09-19T17:54:26.7149570Z | xcode_path    | /Applications/Xcode_16.4.app |
+2026-09-19T17:54:26.7149950Z | gym_version   | 2.239.0                      |
+2026-09-19T17:54:26.7150340Z | export_method | app-store                    |
+2026-09-19T17:54:26.7150840Z | sdk           | iPhoneOS18.5.sdk             |
+2026-09-19T17:54:26.7151250Z +---------------+------------------------------+
+2026-09-19T17:54:26.7151530Z 
+2026-09-19T17:54:26.7158560Z [17:54:26]: ▸ [35mBuild description signature: a217c8d837a62a59752594bee734aa17[0m
+2026-09-19T17:54:26.7159890Z [17:54:26]: ▸ [35mBuild description path: /Users/runner/Library/Developer/Xcode/DerivedData/MarifEt-alttruxcfwtivfblhsforusetjnr/Build/Intermediates.noindex/ArchiveIntermediates/MarifEt/IntermediateBuildFilesPath/XCBuildData/a217c8d837a62a59752594bee734aa17.xcbuilddata[0m
+2026-09-19T17:54:26.7162050Z [17:54:26]: ▸ [35m/Users/runner/work/beko/beko/ios/MarifEt.xcodeproj: error: No signing certificate "iOS Distribution" found: No "iOS Distribution" signing certificate matching team ID "WGARWL7QZ4" with a private key was found. (in target 'MarifEt' from project 'MarifEt')[0m
+2026-09-19T17:54:26.7163480Z [17:54:26]: ▸ [35mnote: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'MarifEt' from project 'MarifEt')[0m
+2026-09-19T17:54:26.7164550Z [17:54:26]: 
+2026-09-19T17:54:26.7165350Z [17:54:26]: [31m⬆️  Check out the few lines of raw `xcodebuild` output above for potential hints on how to solve this error[0m
+2026-09-19T17:54:26.7166230Z [17:54:26]: [33m📋  For the complete and more detailed error log, check the full log at:[0m
+2026-09-19T17:54:26.7166910Z [17:54:26]: [33m📋  /Users/runner/Library/Logs/gym/Etaş Et-MarifEt.log[0m
+2026-09-19T17:54:26.7167450Z [17:54:26]: 
+2026-09-19T17:54:26.7167880Z [17:54:26]: [31mLooks like fastlane ran into a build/archive error with your project[0m
+2026-09-19T17:54:26.7168770Z [17:54:26]: [31mIt's hard to tell what's causing the error, so we wrote some guides on how[0m
+2026-09-19T17:54:26.7169560Z [17:54:26]: [31mto troubleshoot build and signing issues: https://docs.fastlane.tools/codesigning/getting-started/[0m
+2026-09-19T17:54:26.7170270Z [17:54:26]: [31mBefore submitting an issue on GitHub, please follow the guide above and make[0m
+2026-09-19T17:54:26.7170800Z [17:54:26]: [31msure your project is set up correctly.[0m
+2026-09-19T17:54:26.7171330Z [17:54:26]: [31mfastlane uses `xcodebuild` commands to generate your binary, you can see the[0m
+2026-09-19T17:54:26.7172060Z [17:54:26]: [31mthe full commands printed out in yellow in the above log.[0m
+2026-09-19T17:54:26.7172650Z [17:54:26]: [31mMake sure to inspect the output above, as usually you'll find more error information there[0m
+2026-09-19T17:54:26.7173030Z [17:54:26]: 
+2026-09-19T17:54:26.7173170Z +-----------------------------+
+2026-09-19T17:54:26.7173480Z |        [33mLane Context[0m         |
+2026-09-19T17:54:26.7173700Z +------------------+----------+
+2026-09-19T17:54:26.7173880Z | DEFAULT_PLATFORM | ios      |
+2026-09-19T17:54:26.7174080Z | PLATFORM_NAME    | ios      |
+2026-09-19T17:54:26.7174270Z | LANE_NAME        | ios beta |
+2026-09-19T17:54:26.7174450Z +------------------+----------+
+2026-09-19T17:54:26.7190020Z [17:54:26]: [31mCalled from Fastfile at line 36[0m
+2026-09-19T17:54:26.7190780Z [17:54:26]: [31m```[0m
+2026-09-19T17:54:26.7191090Z [17:54:26]: [31m    34:	[0m
+2026-09-19T17:54:26.7191600Z [17:54:26]: [31m    35:	    # 4. Build IPA[0m
+2026-09-19T17:54:26.7191980Z [17:54:26]: [31m => 36:	    build_app([0m
+2026-09-19T17:54:26.7192470Z [17:54:26]: [31m    37:	      project: File.expand_path("../MarifEt.xcodeproj", __dir__),[0m
+2026-09-19T17:54:26.7192930Z [17:54:26]: [31m    38:	      scheme: "MarifEt",[0m
+2026-09-19T17:54:26.7193250Z [17:54:26]: [31m```[0m
+2026-09-19T17:54:26.7298170Z 
+2026-09-19T17:54:26.7304020Z +---------------------------------------------------+
+2026-09-19T17:54:26.7304440Z |                 [32mfastlane summary[0m                  |
+2026-09-19T17:54:26.7304860Z +------+------------------------------+-------------+
+2026-09-19T17:54:26.7305180Z | Step | Action                       | Time (in s) |
+2026-09-19T17:54:26.7305700Z [31m
+2026-09-19T17:54:26.7305900Z +------+------------------------------+-------------+
+2026-09-19T17:54:26.7306490Z [!] Error building the application - see the log above[0m
+2026-09-19T17:54:26.7306850Z | 1    | default_platform             | 0           |
+2026-09-19T17:54:26.7307280Z | 2    | app_store_connect_api_key    | 0           |
+2026-09-19T17:54:26.7307650Z | 3    | import_certificate           | 0           |
+2026-09-19T17:54:26.7308050Z | 4    | install_provisioning_profile | 0           |
+2026-09-19T17:54:26.7308410Z | 5    | cd .. && xcodegen generate   | 0           |
+2026-09-19T17:54:26.7308770Z | 6    | update_project_provisioning  | 0           |
+2026-09-19T17:54:26.7309210Z | 💥   | [31mbuild_app[0m                    | 8           |
+2026-09-19T17:54:26.7309590Z +------+------------------------------+-------------+
+2026-09-19T17:54:26.7309850Z 
+2026-09-19T17:54:26.7310050Z [17:54:26]: [31mfastlane finished with errors[0m
+2026-09-19T17:54:26.9525580Z ##[error]Process completed with exit code 1.
+2026-09-19T17:54:26.9631420Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-19T17:54:26.9632610Z Post job cleanup.
+2026-09-19T17:54:27.4815710Z [command]/opt/homebrew/bin/git version
+2026-09-19T17:54:27.5315560Z git version 2.55.0
+2026-09-19T17:54:27.5338700Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/76b1b1a4-de15-41f6-8ead-10731eeced71/.gitconfig'
+2026-09-19T17:54:27.5346880Z Temporarily overriding HOME='/Users/runner/work/_temp/76b1b1a4-de15-41f6-8ead-10731eeced71' before making global git config changes
+2026-09-19T17:54:27.5347600Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-19T17:54:27.5349320Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/beko/beko
+2026-09-19T17:54:27.5477280Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-19T17:54:27.5574400Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-19T17:54:27.6475800Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-19T17:54:27.6498810Z http.https://github.com/.extraheader
+2026-09-19T17:54:27.6506430Z [command]/opt/homebrew/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-09-19T17:54:27.6611120Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-19T17:54:27.7231190Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-19T17:54:27.7282890Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-19T17:54:27.8316460Z Cleaning up orphan processes
+2026-09-19T17:54:28.0444690Z Terminate orphan process: pid (15196) (ibtoold)
+2026-09-19T17:54:28.2985410Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
