@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>tr</string>
 	<key>CFBundleDisplayName</key>
-	<string>Eta� Et</string>
+	<string>Etaş Et</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -25,11 +25,11 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>Findeks karekodlu çek tarama ve makbuz yükleme işlemleri için kamera erişimi gereklidir.</string>
+	<string>Findeks karekodlu Ã§ek tarama ve makbuz yÃ¼kleme iÅŸlemleri iÃ§in kamera eriÅŸimi gereklidir.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Çek ve fatura fotoğraflarını seçip sisteme yüklemek için fotoğraf galerisi erişimi gereklidir.</string>
+	<string>Ã‡ek ve fatura fotoÄŸraflarÄ±nÄ± seÃ§ip sisteme yÃ¼klemek iÃ§in fotoÄŸraf galerisi eriÅŸimi gereklidir.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Hesaplama ve ekstre raporlarını galerinize kaydetmek için izin gereklidir.</string>
+	<string>Hesaplama ve ekstre raporlarÄ±nÄ± galerinize kaydetmek iÃ§in izin gereklidir.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
