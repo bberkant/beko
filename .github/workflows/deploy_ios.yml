@@ -23,13 +23,9 @@ jobs:
 
       - name: Install XcodeGen
         run: |
-          brew install xcodegen || true
-          xcodegen generate
+          brew install xcodegen
 
-      - name: Run Fastlane Beta
+      - name: Build and Upload to TestFlight
         run: |
-          bundle exec fastlane beta || fastlane beta
-        env:
-          APP_STORE_CONNECT_API_KEY_KEY_ID: "T7BGJ39HPK"
-          APP_STORE_CONNECT_API_KEY_ISSUER_ID: "6025c8a1-87c2-474e-aa8d-8b6b07a6d268"
-          APP_STORE_CONNECT_API_KEY_KEY_FILEPATH: "./AuthKey_T7BGJ39HPK.p8"
+          chmod +x build_and_upload.sh
+          ./build_and_upload.sh
