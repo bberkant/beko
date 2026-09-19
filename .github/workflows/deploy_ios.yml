@@ -50,3 +50,14 @@ jobs:
         with:
           name: build-logs
           path: ~/Library/Logs/gym/*.log
+      - name: Push logs to branch
+        if: failure()
+        run: |
+          mkdir -p build_logs
+          cp ~/Library/Logs/gym/*.log build_logs/ || echo "No gym logs" > build_logs/error.log
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git checkout -B debug-logs
+          git add build_logs/
+          git commit -m "ci: dump build logs"
+          git push -f origin debug-logs
