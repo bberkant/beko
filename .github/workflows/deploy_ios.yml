@@ -34,6 +34,6 @@ jobs:
       - name: Run Fastlane Beta
         env:
           FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: "vjhd-ddhu-qrin-mnme"
-          FASTLANE_USER: "berkantkaplan@gmail.com"
+          FASTLANE_USER: "etaseturunleri@gmail.com"
         run: |
           fastlane ios beta
