@@ -46,7 +46,7 @@ jobs:
 
       - name: Upload logs
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-logs
           path: ~/Library/Logs/gym/*.log
@@ -61,3 +61,4 @@ jobs:
           git add build_logs/
           git commit -m "ci: dump build logs"
           git push -f origin debug-logs
+
