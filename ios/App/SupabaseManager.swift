@@ -136,3 +136,4 @@ class SupabaseManager: ObservableObject {
         ]
     }
 }
+

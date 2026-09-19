@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct TendersView: View {
     @ObservedObject var manager = SupabaseManager.shared
@@ -95,3 +96,4 @@ struct TendersView: View {
         return "\(parts[2]).\(parts[1]).\(parts[0])"
     }
 }
+

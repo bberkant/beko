@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct RealEstatesView: View {
     @ObservedObject var manager = SupabaseManager.shared
@@ -63,3 +64,4 @@ struct RealEstatesView: View {
         return "₺" + NumberFormatter.localizedString(from: NSNumber(value: amount), number: .decimal)
     }
 }
+

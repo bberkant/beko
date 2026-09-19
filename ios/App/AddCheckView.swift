@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct AddCheckView: View {
     @Environment(\.presentationMode) var presentationMode
@@ -259,3 +260,4 @@ struct AddCheckView_Previews: PreviewProvider {
         AddCheckView()
     }
 }
+

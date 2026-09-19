@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CarisView: View {
     @ObservedObject var manager = SupabaseManager.shared
@@ -283,3 +284,4 @@ struct CarisView_Previews: PreviewProvider {
         CarisView()
     }
 }
+

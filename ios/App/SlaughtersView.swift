@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SlaughtersView: View {
     @ObservedObject var manager = SupabaseManager.shared
@@ -88,3 +89,4 @@ struct SlaughtersView: View {
         return "\(parts[2]).\(parts[1]).\(parts[0])"
     }
 }
+

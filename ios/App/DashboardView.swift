@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct DashboardView: View {
     @Binding var selectedTab: Int
@@ -370,3 +371,4 @@ struct DashboardView_Previews: PreviewProvider {
         DashboardView(selectedTab: .constant(0))
     }
 }
+

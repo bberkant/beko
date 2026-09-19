@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ChecksView: View {
     @ObservedObject var manager = SupabaseManager.shared
@@ -139,3 +140,4 @@ struct ChecksView_Previews: PreviewProvider {
         ChecksView()
     }
 }
+

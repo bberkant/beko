@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct LegalCasesView: View {
     @ObservedObject var manager = SupabaseManager.shared
@@ -55,3 +56,4 @@ struct LegalCasesView: View {
         .navigationBarTitle("Hukuki İşlemler", displayMode: .inline)
     }
 }
+

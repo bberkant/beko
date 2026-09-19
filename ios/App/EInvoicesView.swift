@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct EInvoicesView: View {
     @ObservedObject var manager = SupabaseManager.shared
@@ -77,3 +78,4 @@ struct EInvoicesView: View {
         return "\(parts[2]).\(parts[1]).\(parts[0])"
     }
 }
+

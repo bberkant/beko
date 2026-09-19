@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct VehiclesView: View {
     @ObservedObject var manager = SupabaseManager.shared
@@ -70,3 +71,4 @@ struct VehiclesView: View {
         .navigationBarTitle("Araç Yönetimi", displayMode: .inline)
     }
 }
+

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct LoginView: View {
     @Binding var isAuthenticated: Bool
@@ -128,3 +129,4 @@ struct VCornerDecorations: View {
         EmptyView()
     }
 }
+

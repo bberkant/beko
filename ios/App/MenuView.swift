@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct MenuView: View {
     @ObservedObject var manager = SupabaseManager.shared
@@ -109,3 +110,4 @@ struct MenuRow: View {
         .background(Color(.systemBackground))
     }
 }
+
