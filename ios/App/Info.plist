@@ -19,17 +19,17 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>Findeks karekodlu ÃƒÂ§ek tarama ve makbuz yÃƒÂ¼kleme iÃ…Å¸lemleri iÃƒÂ§in kamera eriÃ…Å¸imi gereklidir.</string>
+	<string>Karekod taramak ve makbuz yuklemek icin kamera izni gereklidir.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Ãƒâ€¡ek ve fatura fotoÃ„Å¸raflarÃ„Â±nÃ„Â± seÃƒÂ§ip sisteme yÃƒÂ¼klemek iÃƒÂ§in fotoÃ„Å¸raf galerisi eriÃ…Å¸imi gereklidir.</string>
+	<string>Fatura fotograflarini yuklemek icin galeri izni gereklidir.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Hesaplama ve ekstre raporlarÃ„Â±nÃ„Â± galerinize kaydetmek iÃƒÂ§in izin gereklidir.</string>
+	<string>Raporlari kaydetmek icin galeri izni gereklidir.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -56,4 +56,3 @@
 	<string>Light</string>
 </dict>
 </plist>
-
