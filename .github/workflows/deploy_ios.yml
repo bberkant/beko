@@ -21,20 +21,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Select Xcode Version
+      - name: Install XcodeGen
         run: |
-          sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
-          xcodebuild -version
-
-      - name: Install Dependencies
-        run: |
-          brew install xcodegen
+          brew install xcodegen || true
           xcodegen generate
 
-      - name: Build and Upload with Fastlane
+      - name: Run Fastlane Beta
         run: |
-          gem install fastlane --no-document
-          fastlane beta --verbose
+          bundle exec fastlane beta || fastlane beta
         env:
           APP_STORE_CONNECT_API_KEY_KEY_ID: "T7BGJ39HPK"
           APP_STORE_CONNECT_API_KEY_ISSUER_ID: "6025c8a1-87c2-474e-aa8d-8b6b07a6d268"
