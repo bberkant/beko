@@ -42,7 +42,7 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           
           # Import certificate
-          security import certs/ios_distribution.p12 -k $KEYCHAIN_PATH -P "Apple123!" -T /usr/bin/codesign
+          security import certs/ios_distribution.p12 -k $KEYCHAIN_PATH -P 'Apple123!' -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           
           # Add to keychain search list without overriding existing keychains
