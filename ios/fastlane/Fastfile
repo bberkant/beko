@@ -3,13 +3,13 @@ default_platform(:ios)
 platform :ios do
   desc "Build and upload iOS app to Apple TestFlight automatically"
   lane :beta do
-    key_path = File.expand_path("./AuthKey_T7BGJ39HPK.p8", __dir__)
+    key_path = File.expand_path("./AuthKey_JV8VX2GN8V.p8", __dir__)
     unless File.exist?(key_path)
-      key_path = File.expand_path("../AuthKey_T7BGJ39HPK.p8", __dir__)
+      key_path = File.expand_path("../AuthKey_JV8VX2GN8V.p8", __dir__)
     end
 
     api_key = app_store_connect_api_key(
-      key_id: "T7BGJ39HPK",
+      key_id: "JV8VX2GN8V",
       issuer_id: "6025c8a1-87c2-474e-aa8d-8b6b07a6d268",
       key_filepath: key_path,
       in_house: false
