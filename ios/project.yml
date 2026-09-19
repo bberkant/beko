@@ -4,10 +4,6 @@ options:
   deploymentTarget:
     iOS: "16.0"
   defaultConfig: Release
-packages:
-  Supabase:
-    url: https://github.com/supabase-community/supabase-swift.git
-    from: 2.5.0
 targets:
   MarifEt:
     type: application
@@ -19,9 +15,6 @@ targets:
       - path: Models
       - path: ViewModels
       - path: Views
-    dependencies:
-      - package: Supabase
-        product: Supabase
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.amasyaetas.mobile

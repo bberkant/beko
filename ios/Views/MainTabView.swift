@@ -24,7 +24,7 @@ public struct MainTabView: View {
             }
             .tag(TabItem.dashboard)
             
-            CektenView()
+            CektenHesabiView()
                 .tabItem {
                     Label("Çekten Hesap", systemImage: "banknote.fill")
                 }

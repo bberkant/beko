@@ -68,7 +68,7 @@ public struct TakasMatrixView: View {
                             Text(col.total > 0 ? Formatters.number(col.total) : "-")
                                 .font(.system(size: 11, weight: .black))
                                 .frame(width: 80, height: 34)
-                                .background(col.isHighlighted ? Color.amber.opacity(0.15) : AppColors.divider)
+                                .background(col.isHighlighted ? AppColors.warning.opacity(0.15) : AppColors.divider)
                                 .foregroundColor(col.isHighlighted ? Color(hex: "#78350F") : AppColors.textPrimary)
                                 .border(AppColors.border, width: 0.5)
                         }
