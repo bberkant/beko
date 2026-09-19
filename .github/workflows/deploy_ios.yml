@@ -8,6 +8,12 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  FASTLANE_SKIP_UPDATE_CHECK: "true"
+  FASTLANE_HIDE_CHANGELOG: "true"
+  FASTLANE_DISABLE_ANIMATION: "true"
+  CI: "true"
+
 jobs:
   build-and-upload:
     name: Build & Upload to Apple TestFlight
@@ -27,4 +33,4 @@ jobs:
 
       - name: Run Fastlane Beta
         run: |
-          bundle exec fastlane ios beta || fastlane ios beta
+          fastlane ios beta
