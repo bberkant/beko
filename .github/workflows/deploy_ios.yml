@@ -41,5 +41,6 @@ jobs:
           FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: "vjhd-ddhu-qrin-mnme"
           FASTLANE_USER: "etaseturunleri@gmail.com"
         run: |
-          fastlane ios beta || (cat ~/Library/Logs/gym/*.log; exit 1)
+          fastlane ios beta || (grep -A 5 -B 5 'error:' ~/Library/Logs/gym/*.log; exit 1)
+
 
