@@ -23,14 +23,10 @@ xcodebuild clean archive \
   -configuration Release \
   -destination 'generic/platform=iOS' \
   -archivePath build/MarifEt.xcarchive \
-  -allowProvisioningUpdates \
-  -authenticationKeyPath "$KEY_PATH" \
-  -authenticationKeyID T7BGJ39HPK \
-  -authenticationKeyIssuerID 6025c8a1-87c2-474e-aa8d-8b6b07a6d268 \
-  CODE_SIGN_STYLE="Automatic" \
-  DEVELOPMENT_TEAM="WGARWL7QZ4"
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO
 
-echo "=== 4. Exporting IPA ==="
+echo "=== 4. Exporting IPA with App Store Distribution Signing ==="
 xcodebuild -exportArchive \
   -archivePath build/MarifEt.xcarchive \
   -exportPath build/export \
