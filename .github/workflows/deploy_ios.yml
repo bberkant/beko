@@ -32,5 +32,8 @@ jobs:
           brew install xcodegen
 
       - name: Run Fastlane Beta
+        env:
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: "vjhd-ddhu-qrin-mnme"
+          FASTLANE_USER: "berkantkaplan@gmail.com"
         run: |
           fastlane ios beta
