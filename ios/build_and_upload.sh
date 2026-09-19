@@ -16,7 +16,7 @@ security set-keychain-settings -lut 21600 ~/Library/Keychains/login.keychain-db 
 echo "=== 2. Generating Xcode Project via XcodeGen ==="
 xcodegen generate
 
-echo "=== 3. Archiving iOS Application with Xcode 15 ==="
+echo "=== 3. Archiving iOS Application with Xcode ==="
 xcodebuild clean archive \
   -project MarifEt.xcodeproj \
   -scheme MarifEt \
