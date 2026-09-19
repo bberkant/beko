@@ -3,9 +3,9 @@ default_platform(:ios)
 platform :ios do
   desc "Build and upload iOS app to Apple TestFlight automatically"
   lane :beta do
-    key_path = File.expand_path("../AuthKey_T7BGJ39HPK.p8", __dir__)
+    key_path = File.expand_path("./AuthKey_T7BGJ39HPK.p8", __dir__)
     unless File.exist?(key_path)
-      key_path = File.expand_path("./AuthKey_T7BGJ39HPK.p8", __dir__)
+      key_path = File.expand_path("../AuthKey_T7BGJ39HPK.p8", __dir__)
     end
 
     api_key = app_store_connect_api_key(
@@ -15,7 +15,7 @@ platform :ios do
       in_house: false
     )
 
-    # 1. Create temporary keychain for CI
+    # 1. Create temporary keychain for CI code signing
     keychain_name = "fastlane_tmp_keychain"
     keychain_password = "temporary_ci_password_123"
     
@@ -33,7 +33,7 @@ platform :ios do
       lock_when_sleeps: false
     )
 
-    # 2. Fetch/Create Distribution Certificate & Profile from Apple API
+    # 2. Fetch or create Distribution Certificate & Profile via Apple REST API
     get_certificates(
       api_key: api_key,
       development: false,
@@ -62,7 +62,7 @@ platform :ios do
       }
     )
 
-    # 5. Upload directly to TestFlight
+    # 5. Upload directly to Apple TestFlight
     upload_to_testflight(
       api_key: api_key,
       skip_waiting_for_build_processing: true,
