@@ -8,7 +8,7 @@ struct VehiclesView: View {
         ScrollView {
             VStack(spacing: 12) {
                 ForEach(manager.vehicles) { vehicle in
-                    VStack(alignment: .left, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             // Plate styled as a real Turkish plate
                             Text(vehicle.plate)
@@ -33,7 +33,7 @@ struct VehiclesView: View {
                         Divider()
                         
                         HStack {
-                            VStack(alignment: .left, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text("MARKA / MODEL")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundColor(.gray)
@@ -44,7 +44,7 @@ struct VehiclesView: View {
                             
                             Spacer()
                             
-                            VStack(alignment: .right, spacing: 4) {
+                            VStack(alignment: .trailing, spacing: 4) {
                                 Text("AKTİF SÜRÜCÜ")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundColor(.gray)
@@ -71,4 +71,6 @@ struct VehiclesView: View {
         .navigationBarTitle("Araç Yönetimi", displayMode: .inline)
     }
 }
+
+
 

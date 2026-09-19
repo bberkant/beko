@@ -8,7 +8,7 @@ struct LegalCasesView: View {
         ScrollView {
             VStack(spacing: 12) {
                 ForEach(manager.legalCases) { legalCase in
-                    VStack(alignment: .left, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text(legalCase.caseNo)
                                 .font(.system(size: 13, weight: .bold))
@@ -30,7 +30,7 @@ struct LegalCasesView: View {
                         
                         Divider()
                         
-                        VStack(alignment: .left, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text("DAVA KONUSU")
                                 .font(.system(size: 8, weight: .bold))
                                 .foregroundColor(.gray)
@@ -56,4 +56,5 @@ struct LegalCasesView: View {
         .navigationBarTitle("Hukuki İşlemler", displayMode: .inline)
     }
 }
+
 

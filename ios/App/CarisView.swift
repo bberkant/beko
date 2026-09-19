@@ -48,19 +48,19 @@ struct CarisView: View {
                             .padding(.top, 40)
                     } else {
                         ForEach(list) { cari in
-                            Button(action: { selectedCari = cari }) {
+                            Button(action: { selectedCari = cari }, label: {
                                 HStack {
-                                    VStack(alignment: .left, spacing: 4) {
+                                    VStack(alignment: .leading, spacing: 4) {
                                         Text(cari.supplier)
                                             .font(.system(size: 14, weight: .bold))
                                             .foregroundColor(.brandGreen) // Green color style matching Kuveyt Turk
-                                            .multilineTextAlignment(.left)
+                                            .multilineTextAlignment(.leading)
                                         Text("Cari Hesap Bakiyesi")
                                             .font(.system(size: 10))
                                             .foregroundColor(.gray)
                                     }
                                     Spacer()
-                                    VStack(alignment: .right, spacing: 4) {
+                                    VStack(alignment: .trailing, spacing: 4) {
                                         Text(formatCurrency(cari.kalanTutar))
                                             .font(.system(size: 14, weight: .black))
                                             .foregroundColor(Color(.label))
@@ -78,7 +78,7 @@ struct CarisView: View {
                                         .stroke(Color(.systemGray5), lineWidth: 1)
                                 )
                                 .padding(.horizontal, 24)
-                            }
+                            })
                         }
                     }
                 }
@@ -113,7 +113,7 @@ struct CariDetailSheet: View {
             
             // Header Title
             HStack {
-                VStack(alignment: .left, spacing: 4) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("TEDARİKÇİ CARİ HESAP")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.gray)
@@ -138,7 +138,7 @@ struct CariDetailSheet: View {
             GridStatsView(cari: cari)
             
             // Trends mock bar chart (Exact Kuveyt Turk style Gold/Green layout)
-            VStack(alignment: .left, spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
                 Text("Kesim & Bakiye Eğilimi")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(.gray)
@@ -284,4 +284,8 @@ struct CarisView_Previews: PreviewProvider {
         CarisView()
     }
 }
+
+
+
+
 

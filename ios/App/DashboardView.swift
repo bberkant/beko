@@ -22,7 +22,7 @@ struct DashboardView: View {
                         )
                     
                     // Center title
-                    VStack(alignment: .left, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Marif Et Ve Et Ürünleri")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(Color(.label))
@@ -110,7 +110,7 @@ struct DashboardView: View {
                             .frame(width: 36, height: 36)
                             .foregroundColor(subTabSelected == 0 ? .orange : .brandGreen)
                         
-                        VStack(alignment: .left, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(subTabSelected == 0 ? "ONE DARS KASA" : "SAĞLAM BUSINESS FİNANSMAN")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(Color(.label))
@@ -178,7 +178,7 @@ struct DashboardView: View {
                             Text("Tüm Hesaplarım")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.brandGreen)
-                            Image(systemName: "chevron.right")
+                            Image(systemName: "chevron.trailing")
                                 .font(.caption)
                                 .foregroundColor(.brandGreen)
                         }
@@ -214,7 +214,7 @@ struct DashboardView: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "doc.text.fill")
                                     .foregroundColor(.brandGreen)
-                                VStack(alignment: .left) {
+                                VStack(alignment: .leading) {
                                     Text("Çek Ekle")
                                         .font(.system(size: 12, weight: .bold))
                                         .foregroundColor(Color(.label))
@@ -239,7 +239,7 @@ struct DashboardView: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "person.2.fill")
                                     .foregroundColor(.brandGreen)
-                                VStack(alignment: .left) {
+                                VStack(alignment: .leading) {
                                     Text("Cariler")
                                         .font(.system(size: 12, weight: .bold))
                                         .foregroundColor(Color(.label))
@@ -278,7 +278,7 @@ struct DashboardView: View {
                     }
                     
                     if let firstCheck = manager.checks.first {
-                        VStack(alignment: .left, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Text(formatDateString(firstCheck.dueDate))
                                     .font(.system(size: 11, weight: .bold))
@@ -290,7 +290,7 @@ struct DashboardView: View {
                             }
                             
                             HStack(alignment: .top) {
-                                VStack(alignment: .left, spacing: 4) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text("Gönderen: \(firstCheck.kesideci)")
                                         .font(.system(size: 12, weight: .bold))
                                         .foregroundColor(Color(.label))
@@ -316,7 +316,7 @@ struct DashboardView: View {
                 .padding(.top, 8)
                 
                 // Campaign banner image simulation
-                VStack(alignment: .left, spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("Size Özel")
                             .font(.system(size: 14, weight: .bold))
@@ -328,7 +328,7 @@ struct DashboardView: View {
                     
                     // Banner card
                     HStack {
-                        VStack(alignment: .left, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text("CebimPOS'ta")
                                 .font(.system(size: 14, weight: .black))
                                 .foregroundColor(.brandGreen)
@@ -371,4 +371,6 @@ struct DashboardView_Previews: PreviewProvider {
         DashboardView(selectedTab: .constant(0))
     }
 }
+
+
 

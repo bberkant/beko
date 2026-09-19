@@ -101,7 +101,7 @@ struct MenuRow: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(Color(.label))
             Spacer()
-            Image(systemName: "chevron.right")
+            Image(systemName: "chevron.trailing")
                 .font(.caption)
                 .foregroundColor(.gray)
         }
@@ -110,4 +110,8 @@ struct MenuRow: View {
         .background(Color(.systemBackground))
     }
 }
+
+
+
+struct SettingsView: View { var body: some View { Text("Ayarlar") } }
 

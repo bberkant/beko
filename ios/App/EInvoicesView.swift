@@ -8,7 +8,7 @@ struct EInvoicesView: View {
         ScrollView {
             VStack(spacing: 12) {
                 ForEach(manager.eInvoices) { invoice in
-                    VStack(alignment: .left, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text(invoice.invoiceNo)
                                 .font(.system(size: 13, weight: .bold))
@@ -31,7 +31,7 @@ struct EInvoicesView: View {
                         Divider()
                         
                         HStack {
-                            VStack(alignment: .left, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text("FATURA TARİHİ")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundColor(.gray)
@@ -41,7 +41,7 @@ struct EInvoicesView: View {
                             
                             Spacer()
                             
-                            VStack(alignment: .right, spacing: 4) {
+                            VStack(alignment: .trailing, spacing: 4) {
                                 Text("FATURA TUTARI")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundColor(.gray)
@@ -78,4 +78,6 @@ struct EInvoicesView: View {
         return "\(parts[2]).\(parts[1]).\(parts[0])"
     }
 }
+
+
 

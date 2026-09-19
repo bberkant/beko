@@ -60,7 +60,7 @@ struct ChecksView: View {
                     } else {
                         ForEach(filtered) { check in
                             HStack {
-                                VStack(alignment: .left, spacing: 4) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text(check.kesideci)
                                         .font(.system(size: 13, weight: .bold))
                                         .foregroundColor(Color(.label))
@@ -73,7 +73,7 @@ struct ChecksView: View {
                                         .fontDesign(.monospaced)
                                 }
                                 Spacer()
-                                VStack(alignment: .right, spacing: 4) {
+                                VStack(alignment: .trailing, spacing: 4) {
                                     Text(formatCurrency(check.amount))
                                         .font(.system(size: 14, weight: .black))
                                         .foregroundColor(Color(.label))
@@ -140,4 +140,6 @@ struct ChecksView_Previews: PreviewProvider {
         ChecksView()
     }
 }
+
+
 

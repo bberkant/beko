@@ -8,7 +8,7 @@ struct TendersView: View {
         ScrollView {
             VStack(spacing: 12) {
                 ForEach(manager.tenders) { tender in
-                    VStack(alignment: .left, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text(tender.name)
                                 .font(.system(size: 13, weight: .bold))
@@ -33,7 +33,7 @@ struct TendersView: View {
                         Divider()
                         
                         HStack {
-                            VStack(alignment: .left, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text("İHALE TARİHİ")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundColor(.gray)
@@ -43,7 +43,7 @@ struct TendersView: View {
                             
                             Spacer()
                             
-                            VStack(alignment: .right, spacing: 4) {
+                            VStack(alignment: .trailing, spacing: 4) {
                                 Text("TUTAR")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundColor(.gray)
@@ -96,4 +96,6 @@ struct TendersView: View {
         return "\(parts[2]).\(parts[1]).\(parts[0])"
     }
 }
+
+
 

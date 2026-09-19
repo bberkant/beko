@@ -107,7 +107,7 @@ struct AddCheckView: View {
                     // 2. Input Form fields
                     VStack(spacing: 16) {
                         // Cari list selection
-                        VStack(alignment: .left, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text("KEŞİDECİ (CARİ HESAP)")
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.gray)
@@ -127,7 +127,7 @@ struct AddCheckView: View {
                         
                         // Date + Amount row
                         HStack(spacing: 12) {
-                            VStack(alignment: .left, spacing: 6) {
+                            VStack(alignment: .leading, spacing: 6) {
                                 Text("VADE TARİHİ")
                                     .font(.system(size: 9, weight: .bold))
                                     .foregroundColor(.gray)
@@ -139,7 +139,7 @@ struct AddCheckView: View {
                             }
                             .frame(maxWidth: .infinity)
                             
-                            VStack(alignment: .left, spacing: 6) {
+                            VStack(alignment: .leading, spacing: 6) {
                                 Text("TUTAR (₺)")
                                     .font(.system(size: 9, weight: .bold))
                                     .foregroundColor(.gray)
@@ -155,7 +155,7 @@ struct AddCheckView: View {
                         }
                         
                         // Bank Name
-                        VStack(alignment: .left, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text("BANKA / ŞUBE")
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.gray)
@@ -168,7 +168,7 @@ struct AddCheckView: View {
                         }
                         
                         // Check Serial Number
-                        VStack(alignment: .left, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text("ÇEK SERİ NO")
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.gray)
@@ -260,4 +260,5 @@ struct AddCheckView_Previews: PreviewProvider {
         AddCheckView()
     }
 }
+
 

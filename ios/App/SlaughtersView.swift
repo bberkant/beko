@@ -8,7 +8,7 @@ struct SlaughtersView: View {
         ScrollView {
             VStack(spacing: 12) {
                 ForEach(manager.records) { record in
-                    VStack(alignment: .left, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text(record.supplier)
                                 .font(.system(size: 14, weight: .bold))
@@ -22,7 +22,7 @@ struct SlaughtersView: View {
                         Divider()
                         
                         HStack {
-                            VStack(alignment: .left, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text("CİNSİ / ADET")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundColor(.gray)
@@ -38,7 +38,7 @@ struct SlaughtersView: View {
                                     .font(.system(size: 12, weight: .bold))
                             }
                             Spacer()
-                            VStack(alignment: .right, spacing: 4) {
+                            VStack(alignment: .trailing, spacing: 4) {
                                 Text("TOPLAM TUTAR")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundColor(.gray)
@@ -89,4 +89,6 @@ struct SlaughtersView: View {
         return "\(parts[2]).\(parts[1]).\(parts[0])"
     }
 }
+
+
 

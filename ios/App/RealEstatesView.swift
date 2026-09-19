@@ -8,7 +8,7 @@ struct RealEstatesView: View {
         ScrollView {
             VStack(spacing: 12) {
                 ForEach(manager.realEstates) { property in
-                    VStack(alignment: .left, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text(property.title)
                                 .font(.system(size: 13, weight: .bold))
@@ -33,7 +33,7 @@ struct RealEstatesView: View {
                         
                         HStack {
                             Spacer()
-                            VStack(alignment: .right, spacing: 4) {
+                            VStack(alignment: .trailing, spacing: 4) {
                                 Text("TAHMİNİ DEĞER")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundColor(.gray)
@@ -64,4 +64,6 @@ struct RealEstatesView: View {
         return "₺" + NumberFormatter.localizedString(from: NSNumber(value: amount), number: .decimal)
     }
 }
+
+
 
