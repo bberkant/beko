@@ -10,35 +10,49 @@ platform :ios do
       in_house: false
     )
 
-    # Generate Xcode Project via XcodeGen
-    sh("xcodegen generate")
+    # 1. Create temporary keychain for CI
+    keychain_name = "fastlane_tmp_keychain"
+    keychain_password = "temporary_ci_password_123"
+    
+    create_keychain(
+      name: keychain_name,
+      password: keychain_password,
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600,
+      lock_when_sleeps: false
+    )
 
-    # Automatic signing and provisioning via Apple API
+    # 2. Fetch/Create Distribution Certificate & Profile from Apple API
     get_certificates(
       api_key: api_key,
-      development: false
+      development: false,
+      keychain_path: keychain_name,
+      keychain_password: keychain_password
     )
+
     get_provisioning_profile(
       api_key: api_key,
       app_identifier: "com.amasyaetas.mobile",
       development: false
     )
 
-    # Build IPA
+    # 3. Generate Xcode Project
+    sh("xcodegen generate")
+
+    # 4. Build IPA with automatic code signing
     build_app(
       project: "MarifEt.xcodeproj",
       scheme: "MarifEt",
       export_method: "app-store",
       clean: true,
       export_options: {
-        signingStyle: "manual",
-        provisioningProfiles: {
-          "com.amasyaetas.mobile" => "com.amasyaetas.mobile AppStore"
-        }
+        signingStyle: "automatic",
+        teamID: "WGARWL7QZ4"
       }
     )
 
-    # Upload to TestFlight
+    # 5. Upload directly to TestFlight
     upload_to_testflight(
       api_key: api_key,
       skip_waiting_for_build_processing: true,
