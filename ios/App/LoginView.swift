@@ -122,3 +122,9 @@ struct LoginView: View {
         }
     }
 }
+
+struct VCornerDecorations: View {
+    var body: some View {
+        EmptyView()
+    }
+}
