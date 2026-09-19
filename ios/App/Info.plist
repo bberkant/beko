@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>tr</string>
 	<key>CFBundleDisplayName</key>
-	<string>Etaş Et</string>
+	<string>Etas Et</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -25,11 +25,11 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>Findeks karekodlu Ã§ek tarama ve makbuz yÃ¼kleme iÅŸlemleri iÃ§in kamera eriÅŸimi gereklidir.</string>
+	<string>Findeks karekodlu ÃƒÂ§ek tarama ve makbuz yÃƒÂ¼kleme iÃ…Å¸lemleri iÃƒÂ§in kamera eriÃ…Å¸imi gereklidir.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Ã‡ek ve fatura fotoÄŸraflarÄ±nÄ± seÃ§ip sisteme yÃ¼klemek iÃ§in fotoÄŸraf galerisi eriÅŸimi gereklidir.</string>
+	<string>Ãƒâ€¡ek ve fatura fotoÃ„Å¸raflarÃ„Â±nÃ„Â± seÃƒÂ§ip sisteme yÃƒÂ¼klemek iÃƒÂ§in fotoÃ„Å¸raf galerisi eriÃ…Å¸imi gereklidir.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Hesaplama ve ekstre raporlarÄ±nÄ± galerinize kaydetmek iÃ§in izin gereklidir.</string>
+	<string>Hesaplama ve ekstre raporlarÃ„Â±nÃ„Â± galerinize kaydetmek iÃƒÂ§in izin gereklidir.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
