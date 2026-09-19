@@ -1,12 +1,20 @@
 #!/bin/bash
 set -e
 
-echo "=== 1. Generating Xcode Project via XcodeGen ==="
-xcodegen generate
+echo "=== 1. Setting up Environment and Keychain ==="
+KEY_PATH="$(pwd)/AuthKey_T7BGJ39HPK.p8"
+echo "Absolute Key Path: $KEY_PATH"
 
-echo "=== 2. Creating private key directory for Apple auth ==="
-mkdir -p ~/.appstoreconnect/private_keys
-cp AuthKey_T7BGJ39HPK.p8 ~/.appstoreconnect/private_keys/
+mkdir -p ~/.appstoreconnect/private_keys ~/.private_keys
+cp "$KEY_PATH" ~/.appstoreconnect/private_keys/
+cp "$KEY_PATH" ~/.private_keys/
+
+# Unlock default login keychain on macOS runner
+security unlock-keychain -p "" ~/Library/Keychains/login.keychain-db || true
+security set-keychain-settings -lut 21600 ~/Library/Keychains/login.keychain-db || true
+
+echo "=== 2. Generating Xcode Project via XcodeGen ==="
+xcodegen generate
 
 echo "=== 3. Archiving iOS Application with Xcode 15 ==="
 xcodebuild clean archive \
@@ -16,7 +24,7 @@ xcodebuild clean archive \
   -destination 'generic/platform=iOS' \
   -archivePath build/MarifEt.xcarchive \
   -allowProvisioningUpdates \
-  -authenticationKeyPath ./AuthKey_T7BGJ39HPK.p8 \
+  -authenticationKeyPath "$KEY_PATH" \
   -authenticationKeyID T7BGJ39HPK \
   -authenticationKeyIssuerID 6025c8a1-87c2-474e-aa8d-8b6b07a6d268 \
   CODE_SIGN_STYLE="Automatic" \
@@ -28,7 +36,7 @@ xcodebuild -exportArchive \
   -exportPath build/export \
   -exportOptionsPlist ExportOptions.plist \
   -allowProvisioningUpdates \
-  -authenticationKeyPath ./AuthKey_T7BGJ39HPK.p8 \
+  -authenticationKeyPath "$KEY_PATH" \
   -authenticationKeyID T7BGJ39HPK \
   -authenticationKeyIssuerID 6025c8a1-87c2-474e-aa8d-8b6b07a6d268
 
