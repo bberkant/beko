@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>tr</string>
 	<key>CFBundleDisplayName</key>
-	<string>Etas Et</string>
+	<string>DARS Portal</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,16 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0.0</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>3</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Karekod taramak ve makbuz yuklemek icin kamera izni gereklidir.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
