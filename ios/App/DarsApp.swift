@@ -10,10 +10,14 @@ struct PrototypeWebView: UIViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.isOpaque = false
         webView.backgroundColor = .white
-        webView.scrollView.bounces = false
+        webView.scrollView.bounces = true
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         
-        if let url = Bundle.main.url(forResource: "ios_prototype", withExtension: "html") {
+        if let url = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "www") {
+            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent().deletingLastPathComponent())
+        } else if let url = Bundle.main.url(forResource: "index", withExtension: "html") {
+            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        } else if let url = Bundle.main.url(forResource: "ios_prototype", withExtension: "html") {
             webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         }
         return webView
