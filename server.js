@@ -729,12 +729,10 @@ app.get(['/api/:company/efaturalar', '/api/efaturalar'], async (req, res) => {
 
     // Gerçek gelen e-faturaları yerel önbellek dosyasından yükle
     let incomingInvoices = [];
-    const etikCacheFile = path.join(__dirname, 'vega-api-service', 'etik_incoming_cache.json');
-    const localEtikCacheFile = path.join(__dirname, 'etik_incoming_cache.json');
-    const targetFile = fs.existsSync(etikCacheFile) ? etikCacheFile : localEtikCacheFile;
-    if (fs.existsSync(targetFile)) {
+    const etikCacheFile = path.join(__dirname, 'etik_incoming_cache.json');
+    if (fs.existsSync(etikCacheFile)) {
       try {
-        const raw = JSON.parse(fs.readFileSync(targetFile, 'utf8')) || [];
+        const raw = JSON.parse(fs.readFileSync(etikCacheFile, 'utf8')) || [];
         incomingInvoices = raw.filter(i => {
           if (!i || !i.invoiceNo) return false;
           const no = String(i.invoiceNo).trim().toUpperCase();
@@ -937,7 +935,39 @@ const handlePdfRequest = async (req, res) => {
       return res.sendFile(cachedFile);
     }
 
-    // 2. SOAP Entegratörden Resmi PDF Al
+    // 2. Marif için Mikrokom Portal REST API üzerinden indir
+    if (company === 'marif') {
+      try {
+        let uuid = req.query.uuid;
+        let direction = req.query.direction || 'gelen';
+        let date = req.query.date;
+
+        if (!uuid && fs.existsSync(CACHE_FILE_PATH)) {
+          const cachedList = JSON.parse(fs.readFileSync(CACHE_FILE_PATH, 'utf8')) || [];
+          const found = cachedList.find(i => i.invoiceNo === invoiceNo);
+          if (found) {
+            uuid = found.ettn || found.id;
+            direction = found.direction || 'gelen';
+            date = found.date;
+          }
+        }
+
+        if (uuid) {
+          const token = await getMikrokomToken();
+          const media = await fetchMikrokomMedia(token, uuid, direction, date, 'pdf');
+          if (media.status === 200 && media.buffer && media.buffer.length > 0) {
+            try { fs.writeFileSync(cachedFile, media.buffer); } catch (e) {}
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${invoiceNo}.pdf"`);
+            return res.send(media.buffer);
+          }
+        }
+      } catch (mikroErr) {
+        console.warn('[MİKROKOM PDF HATASI]:', mikroErr.message);
+      }
+    }
+
+    // 3. Etik için SOAP Entegratörden Resmi PDF Al
     try {
       const { sessionId, securityKey, ipNumber } = await getVegaSession(config);
       let uuid = req.query.uuid || null;
@@ -1009,7 +1039,7 @@ const handlePdfRequest = async (req, res) => {
       }
     } catch (soapErr) {}
 
-    // 3. Fallback: Veritabanı XML / HTML Viewer
+    // 4. Fallback: Veritabanı XML / HTML Viewer
     const pool = await getVegaPool();
     const xmlRes = await pool.request()
       .input('invNo', sql.NVarChar, invoiceNo)
@@ -1057,10 +1087,51 @@ const handlePdfRequest = async (req, res) => {
   }
 };
 
+// HTML İndirme / Görüntüleme (Marif için)
+const handleHtmlRequest = async (req, res) => {
+  try {
+    const company = (req.params.company || 'etik').toLowerCase();
+    const { invoiceNo } = req.params;
+
+    if (company === 'marif') {
+      let uuid = req.query.uuid;
+      let direction = req.query.direction || 'gelen';
+      let date = req.query.date;
+
+      if (!uuid && fs.existsSync(CACHE_FILE_PATH)) {
+        const cachedList = JSON.parse(fs.readFileSync(CACHE_FILE_PATH, 'utf8')) || [];
+        const found = cachedList.find(i => i.invoiceNo === invoiceNo);
+        if (found) {
+          uuid = found.ettn || found.id;
+          direction = found.direction || 'gelen';
+          date = found.date;
+        }
+      }
+
+      if (uuid) {
+        const token = await getMikrokomToken();
+        const media = await fetchMikrokomMedia(token, uuid, direction, date, 'html');
+        if (media.status === 200 && media.buffer && media.buffer.length > 0) {
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('Content-Disposition', `inline; filename="${invoiceNo}.html"`);
+          return res.send(media.buffer);
+        }
+      }
+    }
+
+    res.status(404).json({ error: `HTML bulunamadı: ${invoiceNo}` });
+  } catch (err) {
+    console.error('[HTML YÜKLEME HATASI]:', err.message);
+    res.status(500).json({ error: 'HTML indirme hatası', details: err.message });
+  }
+};
+
 app.get('/api/:company/efaturalar/:invoiceNo/pdf', handlePdfRequest);
 app.get('/api/efaturalar/:invoiceNo/pdf', handlePdfRequest);
 app.get('/api/:company/efaturalar/:invoiceNo/viewer', handlePdfRequest);
 app.get('/api/efaturalar/:invoiceNo/viewer', handlePdfRequest);
+app.get('/api/:company/efaturalar/:invoiceNo/html', handleHtmlRequest);
+app.get('/api/efaturalar/:invoiceNo/html', handleHtmlRequest);
 
 // 10. EBS Firebird Çek/Senet (Finans ofisinde veya yerelde varsa)
 app.get('/api/checks', (req, res) => {
@@ -1301,137 +1372,296 @@ app.get('/api/kesim/sync', async (req, res) => {
   }
 });
 
-// Akıllı EDM Senkronizasyon Kilidi ve İstek Sınırlayıcı (Rate Limiter)
+// ==========================================
+// 6. MİKROKOM PORTAL REST SENKRONİZASYONU (MARİF GELEN E-FATURALAR)
+// ==========================================
+let cachedMikrokomToken = null;
+let tokenExpiresAt = 0;
+
+function getMikrokomToken() {
+  if (cachedMikrokomToken && Date.now() < tokenExpiresAt) {
+    return Promise.resolve(cachedMikrokomToken);
+  }
+  return new Promise((resolve, reject) => {
+    const dataStr = JSON.stringify({
+      username: 'admin_007408',
+      password: 'rvkDAuKh'
+    });
+    const req = https.request({
+      hostname: 'portal.mikrokomdonusum.com',
+      port: 443,
+      path: '/accounting/api/auth/signin',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json;charset=UTF-8',
+        'User-Agent': 'Mozilla/5.0',
+        'Content-Length': Buffer.byteLength(dataStr)
+      },
+      secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
+    }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try {
+          const j = JSON.parse(data);
+          cachedMikrokomToken = j.token ? (j.token.accessToken || j.token) : j.accessToken;
+          tokenExpiresAt = Date.now() + 3600000;
+          resolve(cachedMikrokomToken);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(dataStr);
+    req.end();
+  });
+}
+
+function fetchMikrokomMedia(token, uuid, direction, dateStr, mediaType = 'pdf') {
+  return new Promise((resolve, reject) => {
+    const d = dateStr ? new Date(dateStr) : new Date();
+    const year = isNaN(d.getFullYear()) ? new Date().getFullYear() : d.getFullYear();
+    const month = isNaN(d.getMonth()) ? 12 : d.getMonth();
+
+    const path = direction === 'gelen' ? `/inbox/downloadMedia/${mediaType}` : `/outbox/downloadMedia/${mediaType}`;
+    const postData = JSON.stringify({
+      documentUuid: uuid,
+      year: year,
+      month: month
+    });
+
+    const req = https.request({
+      hostname: 'portal.mikrokomdonusum.com',
+      port: 443,
+      path: `/accounting/api${path}`,
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json;charset=UTF-8',
+        'User-Agent': 'Mozilla/5.0',
+        'Content-Length': Buffer.byteLength(postData)
+      },
+      secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
+    }, (res) => {
+      const chunks = [];
+      res.on('data', c => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+      res.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        resolve({ status: res.statusCode || 500, buffer: buf });
+      });
+    });
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
+  });
+}
+
 let lastSyncAttempt = 0;
-let syncLockUntil = 0;
-const SYNC_INTERVAL_MS = 60 * 60 * 1000;
+let isSyncingMarif = false;
+const SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 dakikada bir
 
 async function syncMarifIncomingInvoices(force = false) {
   const now = Date.now();
-  if (!force && syncLockUntil > now) {
-    return [];
-  }
+  if (isSyncingMarif) return [];
   if (!force && (now - lastSyncAttempt < SYNC_INTERVAL_MS)) {
+    if (fs.existsSync(CACHE_FILE_PATH)) {
+      try {
+        return JSON.parse(fs.readFileSync(CACHE_FILE_PATH, 'utf8')) || [];
+      } catch (e) {}
+    }
     return [];
   }
+
+  isSyncingMarif = true;
   lastSyncAttempt = now;
 
   try {
-    const actionDate = new Date().toISOString();
-    const loginXml = `<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
-   <soapenv:Header/>
-   <soapenv:Body>
-      <tem:LoginRequest>
-         <tem:REQUEST_HEADER>
-            <tem:ACTION_DATE>${actionDate}</tem:ACTION_DATE>
-            <tem:REASON>Login</tem:REASON>
-            <tem:APPLICATION_NAME>GMSNet</tem:APPLICATION_NAME>
-            <tem:HOSTNAME>GMSNet</tem:HOSTNAME>
-            <tem:CHANNEL_NAME>GMSNet</tem:CHANNEL_NAME>
-            <tem:COMPRESSED>N</tem:COMPRESSED>
-         </tem:REQUEST_HEADER>
-         <tem:USER_NAME>admin_007408</tem:USER_NAME>
-         <tem:PASSWORD>rvkDAuKh</tem:PASSWORD>
-      </tem:LoginRequest>
-   </soapenv:Body>
-</soapenv:Envelope>`;
+    console.log('[MİKROKOM] Marif gelen ve giden faturaları Mikrokom Portal REST API üzerinden senkronize ediliyor...');
+    const token = await getMikrokomToken();
+    const invoiceMap = new Map();
 
-    const loginResponse = await soapRequest('LoginRequest', loginXml, 'portal1.edmbilisim.com.tr');
-    const sessionIdMatch = loginResponse.data.match(/<SESSION_ID>(.*?)<\/SESSION_ID>/) || loginResponse.data.match(/<SESSION_ID[^>]*>(.*?)<\/SESSION_ID>/);
-    
-    if (!sessionIdMatch) {
-      if (loginResponse.data.includes('askıya') || loginResponse.data.includes('Hatalı istek')) {
-        syncLockUntil = Date.now() + 60 * 60 * 1000;
-      }
-      return [];
-    }
-    const sessionId = sessionIdMatch[1];
-
-    let existingInvoices = [];
+    // Mevcut önbellek varsa yükle
     if (fs.existsSync(CACHE_FILE_PATH)) {
       try {
-        existingInvoices = JSON.parse(fs.readFileSync(CACHE_FILE_PATH, 'utf8')) || [];
+        const prev = JSON.parse(fs.readFileSync(CACHE_FILE_PATH, 'utf8')) || [];
+        prev.forEach(inv => {
+          if (inv && inv.invoiceNo) {
+            invoiceMap.set(inv.invoiceNo, inv);
+          }
+        });
       } catch (e) {}
     }
-    const invMap = new Map();
-    existingInvoices.forEach(inv => {
-      if (inv && inv.invoiceNo) invMap.set(inv.invoiceNo, inv);
-    });
 
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 120);
-    const startDateStr = startDate.toISOString().split('T')[0];
-    const endDateStr = new Date().toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
+    const yearsToScan = force ? [currentYear, currentYear - 1, 2024, 2023] : [currentYear, currentYear - 1];
 
-    for (const dir of ['IN', 'OUT']) {
-      const getInvoiceXml = `<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
-   <soapenv:Header/>
-   <soapenv:Body>
-      <tem:GetInvoiceRequest>
-         <tem:REQUEST_HEADER>
-            <tem:SESSION_ID>${sessionId}</tem:SESSION_ID>
-            <tem:ACTION_DATE>${actionDate}</tem:ACTION_DATE>
-            <tem:REASON>GetInvoices</tem:REASON>
-            <tem:APPLICATION_NAME>GMSNet</tem:APPLICATION_NAME>
-            <tem:HOSTNAME>GMSNet</tem:HOSTNAME>
-            <tem:CHANNEL_NAME>GMSNet</tem:CHANNEL_NAME>
-            <tem:COMPRESSED>N</tem:COMPRESSED>
-         </tem:REQUEST_HEADER>
-         <tem:INVOICE_SEARCH_KEY>
-            <tem:LIMIT>100</tem:LIMIT>
-            <tem:START_DATE>${startDateStr}</tem:START_DATE>
-            <tem:END_DATE>${endDateStr}</tem:END_DATE>
-            <tem:READ_INCLUDED>true</tem:READ_INCLUDED>
-            <tem:DIRECTION>${dir}</tem:DIRECTION>
-         </tem:INVOICE_SEARCH_KEY>
-         <tem:HEADER_ONLY>Y</tem:HEADER_ONLY>
-      </tem:GetInvoiceRequest>
-   </soapenv:Body>
-</soapenv:Envelope>`;
+    // 1. INBOX (GELEN FATURALAR)
+    for (const yr of yearsToScan) {
+      for (let mo = 0; mo <= 11; mo++) {
+        let page = 0;
+        let hasMore = true;
 
-      const invoiceResponse = await soapRequest('GetInvoiceRequest', getInvoiceXml, 'portal1.edmbilisim.com.tr');
-      const invoiceMatches = invoiceResponse.data.match(/<INVOICE>([\s\S]*?)<\/INVOICE>/g);
-      if (invoiceMatches) {
-        for (const invXml of invoiceMatches) {
-          const uuidMatch = invXml.match(/<UUID[^>]*>(.*?)<\/UUID>/);
-          const invoiceNoMatch = invXml.match(/<ID[^>]*>(.*?)<\/ID>/) || invXml.match(/<INVOICE_NUMBER[^>]*>(.*?)<\/INVOICE_NUMBER>/);
-          const dateMatch = invXml.match(/<ISSUE_DATE[^>]*>(.*?)<\/ISSUE_DATE>/);
-          const cariNameMatch = dir === 'IN'
-            ? (invXml.match(/<SENDER_NAME[^>]*>(.*?)<\/SENDER_NAME>/) || invXml.match(/<SENDER_TITLE[^>]*>(.*?)<\/SENDER_TITLE>/))
-            : (invXml.match(/<RECEIVER_NAME[^>]*>(.*?)<\/RECEIVER_NAME>/) || invXml.match(/<RECEIVER_TITLE[^>]*>(.*?)<\/RECEIVER_TITLE>/));
-          const cariCodeMatch = dir === 'IN'
-            ? (invXml.match(/<SENDER_VKN[^>]*>(.*?)<\/SENDER_VKN>/) || invXml.match(/<SENDER_TCKN[^>]*>(.*?)<\/SENDER_TCKN>/))
-            : (invXml.match(/<RECEIVER_VKN[^>]*>(.*?)<\/RECEIVER_VKN>/) || invXml.match(/<RECEIVER_TCKN[^>]*>(.*?)<\/RECEIVER_TCKN>/));
-          const amountMatch = invXml.match(/<PAYABLE_AMOUNT[^>]*>(.*?)<\/PAYABLE_AMOUNT>/);
-          const kdvMatch = invXml.match(/<TAX_AMOUNT[^>]*>(.*?)<\/TAX_AMOUNT>/) || [0, '0'];
-          
-          if (uuidMatch && invoiceNoMatch) {
-            const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
-            const kdv = kdvMatch ? parseFloat(kdvMatch[1]) : 0;
-            const invObj = {
-              id: uuidMatch[1],
-              invoiceNo: invoiceNoMatch[1],
-              date: dateMatch ? dateMatch[1] : new Date().toISOString(),
-              cariCode: cariCodeMatch ? cariCodeMatch[1] : '',
-              cariName: cariNameMatch ? cariNameMatch[1] : 'Bilinmeyen Cari',
-              matrah: amount - kdv,
-              kdv: kdv,
-              amount: amount,
-              direction: dir === 'IN' ? 'gelen' : 'giden',
-              type: invoiceNoMatch[1].startsWith('MAR') ? 'e-Fatura' : 'e-Arşiv'
-            };
-            invMap.set(invObj.invoiceNo, invObj);
+        while (hasMore) {
+          const qs = `/accounting/api/inbox/getInboxes?year=${yr}&month=${mo}&headerSearch=&notInList=false&documentIds=&multipleVkn=&chemistWarehouseFilter=ALL&page=${page}&size=100&sort=receivedDate,desc&isArchive=0`;
+
+          const res = await new Promise((resolve) => {
+            const req = https.request({
+              hostname: 'portal.mikrokomdonusum.com',
+              port: 443,
+              path: qs,
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json;charset=UTF-8',
+                'User-Agent': 'Mozilla/5.0'
+              },
+              secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
+            }, (response) => {
+              let d = '';
+              response.on('data', c => d += c);
+              response.on('end', () => resolve({ statusCode: response.statusCode, data: d }));
+            });
+            req.on('error', () => resolve({ statusCode: 500, data: '' }));
+            req.end();
+          });
+
+          if (res.statusCode === 200) {
+            try {
+              const j = JSON.parse(res.data);
+              const items = j.content || [];
+              for (const item of items) {
+                const invObj = {
+                  id: item.recordId,
+                  invoiceNo: item.documentId,
+                  ettn: item.documentUuid,
+                  year: yr,
+                  date: item.documentIssueDate || item.receivedDate,
+                  receivedDate: item.receivedDate,
+                  cariCode: item.sourceId || '',
+                  vkn: item.sourceId || '',
+                  cariName: item.sourceTitle || 'Bilinmeyen Cari',
+                  matrah: item.taxExclusiveAmount != null ? Number(item.taxExclusiveAmount) : (Number(item.invoiceTotal || 0) - Number(item.taxTotalAmount || 0)),
+                  kdv: Number(item.taxTotalAmount || 0),
+                  amount: Number(item.taxInclusiveAmount || item.invoiceTotal || 0),
+                  direction: 'gelen',
+                  type: item.documentProfile || 'e-Fatura',
+                  profile: item.documentProfile || 'TEMELFATURA',
+                  status: item.responseCode || (item.responseValidationState === 2 ? 'KABUL' : 'Alındı')
+                };
+                if (invObj.invoiceNo) {
+                  invoiceMap.set(invObj.invoiceNo, invObj);
+                }
+              }
+              if (items.length < 100 || (page + 1) * 100 >= (j.totalElements || 0)) {
+                hasMore = false;
+              } else {
+                page++;
+              }
+            } catch (e) {
+              hasMore = false;
+            }
+          } else {
+            hasMore = false;
           }
         }
       }
     }
 
-    const allInvoices = Array.from(invMap.values());
-    fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(allInvoices, null, 2), 'utf8');
-    return allInvoices;
+    // 2. OUTBOX (GİDEN FATURALAR)
+    for (const yr of yearsToScan) {
+      for (let mo = 0; mo <= 11; mo++) {
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const qs = `/accounting/api/outbox/getOutboxes?year=${yr}&month=${mo}&page=${page}&size=100`;
+
+          const res = await new Promise((resolve) => {
+            const req = https.request({
+              hostname: 'portal.mikrokomdonusum.com',
+              port: 443,
+              path: qs,
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json;charset=UTF-8',
+                'User-Agent': 'Mozilla/5.0'
+              },
+              secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
+            }, (response) => {
+              let d = '';
+              response.on('data', c => d += c);
+              response.on('end', () => resolve({ statusCode: response.statusCode, data: d }));
+            });
+            req.on('error', () => resolve({ statusCode: 500, data: '' }));
+            req.end();
+          });
+
+          if (res.statusCode === 200) {
+            try {
+              const j = JSON.parse(res.data);
+              const items = j.content || [];
+              for (const item of items) {
+                const invObj = {
+                  id: item.recordId,
+                  invoiceNo: item.documentId,
+                  ettn: item.documentUuid,
+                  year: yr,
+                  date: item.documentIssueDate || item.receivedDate,
+                  receivedDate: item.receivedDate,
+                  cariCode: item.destinationId || '',
+                  vkn: item.destinationId || '',
+                  cariName: item.destinationTitle || 'Bilinmeyen Cari',
+                  matrah: item.taxExclusiveAmount != null ? Number(item.taxExclusiveAmount) : (Number(item.invoiceTotal || 0) - Number(item.taxTotalAmount || 0)),
+                  kdv: Number(item.taxTotalAmount || 0),
+                  amount: Number(item.taxInclusiveAmount || item.invoiceTotal || 0),
+                  direction: 'giden',
+                  type: item.documentProfile || 'e-Fatura',
+                  profile: item.documentProfile || 'TEMELFATURA',
+                  status: item.resultExplanation || item.responseCode || (item.processState === 500 ? 'Başarılı' : 'Gönderildi')
+                };
+                if (invObj.invoiceNo) {
+                  invoiceMap.set(invObj.invoiceNo, invObj);
+                }
+              }
+              if (items.length < 100 || (page + 1) * 100 >= (j.totalElements || 0)) {
+                hasMore = false;
+              } else {
+                page++;
+              }
+            } catch (e) {
+              hasMore = false;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+      }
+    }
+
+    const finalInvoices = Array.from(invoiceMap.values());
+    finalInvoices.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.invoiceNo || '').localeCompare(a.invoiceNo || ''));
+    console.log(`[MİKROKOM] Senkronizasyon tamamlandı: Toplam ${finalInvoices.length} adet Marif faturası kaydedildi.`);
+    try {
+      fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(finalInvoices, null, 2), 'utf8');
+    } catch (e) {}
+
+    // Supabase Önbelleğine de aktar
+    try {
+      await postToSupabaseRest('/rest/v1/vega_efatura_cache', {
+        company: 'marif',
+        invoices: finalInvoices,
+        record_count: finalInvoices.length,
+        updated_at: new Date().toISOString()
+      });
+    } catch (supaErr) {}
+
+    isSyncingMarif = false;
+    return finalInvoices;
   } catch (err) {
+    console.error('[MİKROKOM SENKRONİZASYON HATASI]:', err.message);
+    isSyncingMarif = false;
     return [];
   }
 }
@@ -1452,8 +1682,8 @@ async function syncEtikIncomingInvoices(force = false) {
   lastEtikSyncAttempt = now;
 
   try {
-    const etikCacheFile = path.join(__dirname, 'vega-api-service', 'etik_incoming_cache.json');
-    const localEtikCacheFile = path.join(__dirname, 'etik_incoming_cache.json');
+    const etikCacheFile = path.join(__dirname, 'etik_incoming_cache.json');
+    const localEtikCacheFile = path.join(__dirname, '..', 'etik_incoming_cache.json');
     const targetFile = fs.existsSync(etikCacheFile) ? etikCacheFile : localEtikCacheFile;
 
     let existingInvoices = [];
@@ -1568,10 +1798,11 @@ async function syncEtikIncomingInvoices(force = false) {
 
     const allInvoices = Array.from(invMap.values()).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
     try {
-      if (fs.existsSync(path.join(__dirname, 'vega-api-service'))) {
-        fs.writeFileSync(path.join(__dirname, 'vega-api-service', 'etik_incoming_cache.json'), JSON.stringify(allInvoices, null, 2), 'utf8');
-      }
       fs.writeFileSync(path.join(__dirname, 'etik_incoming_cache.json'), JSON.stringify(allInvoices, null, 2), 'utf8');
+      const rootCache = path.join(__dirname, '..', 'etik_incoming_cache.json');
+      if (fs.existsSync(path.dirname(rootCache))) {
+        fs.writeFileSync(rootCache, JSON.stringify(allInvoices, null, 2), 'utf8');
+      }
     } catch (e) {}
 
     // Supabase vega_efatura_cache tablosunu da güncelle

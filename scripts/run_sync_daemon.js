@@ -8,6 +8,8 @@ import path from 'path';
 import { execSync } from 'child_process';
 import * as XLSX from 'xlsx';
 import { createClient } from '@supabase/supabase-js';
+import { syncMarifIncomingInvoices } from './sync-marif-inbox.mjs';
+import { syncEtikIncomingInvoices } from './sync-etik-inbox.mjs';
 
 const SUPABASE_URL = "https://zubhjybqzcpplultpsgt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG";
@@ -992,15 +994,40 @@ async function runSyncCycle() {
   }
 }
 
-async function startDaemon() {
-  log("🚀 One DARS Kasa Senkronizasyon Servisi Başlatıldı (V5).");
-  log("👀 Klasörler her 60 saniyede bir otomatik taranıp Supabase ile eşitleniyor...");
+let lastEfaturaSyncTime = 0;
+const EFATURA_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 dakikada bir
 
+async function triggerEfaturaSync(force = false) {
+  const now = Date.now();
+  if (!force && (now - lastEfaturaSyncTime < EFATURA_SYNC_INTERVAL_MS)) {
+    return;
+  }
+  lastEfaturaSyncTime = now;
+  try {
+    log('🔄 [E-FATURA] Marif & Etik e-Faturaları otomatik senkronize ediliyor...');
+    await syncMarifIncomingInvoices(false).catch(e => log(`⚠️ Marif e-Fatura hatası: ${e.message}`));
+    await syncEtikIncomingInvoices(false).catch(e => log(`⚠️ Etik e-Fatura hatası: ${e.message}`));
+    log('✔️ [E-FATURA] Marif & Etik e-Faturaları başarıyla eşitlendi.');
+  } catch (err) {
+    log(`⚠️ [E-FATURA] Senkronizasyon genel hatası: ${err.message}`);
+  }
+}
+
+async function startDaemon() {
+  log("🚀 One DARS Kasa & e-Fatura Senkronizasyon Servisi Başlatıldı (V5).");
+  log("👀 Klasörler her 60 saniyede bir, e-Faturalar her 10 dakikada bir otomatik taranıp Supabase ile eşitleniyor...");
+
+  // İlk açılışta kasa ve e-fatura senkronizasyonunu başlat
   await runSyncCycle();
+  triggerEfaturaSync(true).catch(() => {});
 
   setInterval(async () => {
     await runSyncCycle();
   }, 60 * 1000); // 1 dakika
+
+  setInterval(async () => {
+    await triggerEfaturaSync(false);
+  }, 60 * 1000); // Her dakika kontrol et (10 dakika dolunca çalışır)
 }
 
 startDaemon();

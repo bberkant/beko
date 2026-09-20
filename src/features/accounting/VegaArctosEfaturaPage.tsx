@@ -220,7 +220,9 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         setInvoices(finalData);
         const hasIncoming = finalData.some((i: any) => (i.direction || 'gelen') === 'gelen');
         const hasOutgoing = finalData.some((i: any) => (i.direction || 'gelen') === 'giden');
-        if (!hasIncoming && hasOutgoing) {
+        if (hasIncoming) {
+          setActiveTab('gelen');
+        } else if (hasOutgoing) {
           setActiveTab('giden');
         }
         const now = new Date();
@@ -293,13 +295,19 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         if (isMounted && supaData && Array.isArray(supaData.invoices) && supaData.invoices.length > 0) {
           const localTime = localData?.updatedAt ? new Date(localData.updatedAt).getTime() : 0;
           const supaTime = supaData.updatedAt ? new Date(supaData.updatedAt).getTime() : 0;
+          const localCount = localData?.invoices?.length || 0;
+          const supaCount = supaData.invoices.length;
+          const localHasGelen = localData?.invoices?.some((i: any) => (i.direction || 'gelen') === 'gelen');
+          const supaHasGelen = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
 
-          // If local had no data or Supabase has newer data, update state & local cache
-          if (!localData || supaTime > localTime) {
+          // If local had no data, Supabase is newer, Supabase has more invoices, or local is missing gelen invoices
+          if (!localData || supaTime > localTime || supaCount > localCount || (!localHasGelen && supaHasGelen)) {
             setInvoices(supaData.invoices);
             const hasIncoming = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
             const hasOutgoing = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'giden');
-            if (!hasIncoming && hasOutgoing) {
+            if (hasIncoming) {
+              setActiveTab('gelen');
+            } else if (hasOutgoing) {
               setActiveTab('giden');
             }
             setCacheSource('Supabase');
@@ -309,8 +317,6 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
             );
             // Save to IndexedDB for next instant load
             void setLocalCache(company, supaData.invoices, supaData.updatedAt);
-
-            // Kısa bekleme süresi
             setCooldownSeconds(0);
           } else if (localData && company === 'marif') {
             setCooldownSeconds(0);
