@@ -79,14 +79,25 @@
       transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
     }
 
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      margin: 0;
+      padding: 0;
+      background-color: var(--kt-bg-page);
+      overflow: hidden;
+    }
+
     .iphone-viewport {
       width: 100%;
-      max-width: 416px;
-      height: 874px;
+      max-width: 100%;
+      height: 100%;
+      height: 100dvh;
       position: relative;
       background-color: var(--kt-bg-page);
-      border-radius: 48px;
-      box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.4), 0 0 0 12px #1E293B, 0 0 0 14px #475569;
+      border-radius: 0;
+      box-shadow: none;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -206,28 +217,10 @@
     }
   </style>
 </head>
-<body class="bg-slate-900 flex items-center justify-center min-h-screen py-6 select-none">
+<body class="bg-[#F8FAFC] w-full h-full select-none overflow-hidden" style="padding-top: env(safe-area-inset-top);">
 
   <!-- ==================== MAIN MOBILE VIEWPORT ==================== -->
   <div class="iphone-viewport text-slate-800 flex flex-col">
-    
-    <!-- Dynamic Island -->
-    <div class="dynamic-island flex items-center justify-between px-3">
-      <div class="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-700"></div>
-      <div class="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-700"></div>
-    </div>
-
-    <!-- iOS Status Bar -->
-    <div class="ios-status-bar bg-white px-7 pt-3 flex justify-between items-center text-xs font-semibold shrink-0 z-50">
-      <span class="font-bold text-slate-900 text-[13px] tracking-tight" id="live-clock">23:00</span>
-      <div class="flex items-center gap-1.5 text-slate-900">
-        <svg class="w-4 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M2 22h20V2z"/></svg>
-        <svg class="w-4 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg>
-        <div class="w-5 h-2.5 border border-slate-900 rounded-[3px] p-[1px] flex items-center">
-          <div class="bg-slate-900 h-full w-4/5 rounded-[1px]"></div>
-        </div>
-      </div>
-    </div>
 
     <!-- ==================== SCREEN CONTAINER ==================== -->
     <div class="flex-1 flex flex-col overflow-hidden relative">
@@ -238,7 +231,7 @@
       <!-- ============================================================ -->
       <!-- 1. LOGIN SCREEN                                              -->
       <!-- ============================================================ -->
-      <div id="screen-login" class="absolute inset-0 bg-[#F8FAFC] flex flex-col justify-between p-5 z-40 screen-fade">
+      <div id="screen-login" class="absolute inset-0 bg-[#F8FAFC] flex flex-col justify-between px-5 pt-3 z-40 screen-fade" style="padding-bottom: max(20px, env(safe-area-inset-bottom));">
         <div class="flex justify-between items-center mt-2 px-1">
           <button class="w-9 h-9 rounded-full bg-[#EEF4FF] flex items-center justify-center text-kt-primary">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
@@ -281,7 +274,7 @@
           </div>
 
           <div class="w-full max-w-[280px] mt-1 space-y-3">
-            <input type="password" placeholder="Şifre giriniz" value="••••••" class="w-full bg-white border-2 border-blue-500 text-center py-2.5 px-4 rounded-full text-sm font-[600] text-slate-800 focus:outline-none shadow-xs tracking-widest" />
+            <input type="password" placeholder="Şifre giriniz" value="123456" class="w-full bg-white border-2 border-blue-500 text-center py-2.5 px-4 rounded-full text-sm font-[600] text-slate-800 focus:outline-none shadow-xs tracking-widest" />
             <button onclick="handleLoginAndSync()" class="w-full bg-kt-primary hover:opacity-95 text-white font-[600] py-2.5 rounded-full text-[13px] shadow-md hover:shadow-lg transition-all tracking-tight flex items-center justify-center">
               Giriş Yap
             </button>
@@ -1247,7 +1240,7 @@
 
                               <!-- KUVEYT TÜRK EXACT BOTTOM TAB BAR (5 Tabs: Ana Sayfa, Çekten Hesap, Takas Çekleri, Cariler, Menü) -->
       <!-- ============================================================ -->
-      <div id="app-footer" class="hidden bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-1 pt-2 pb-1.5 flex items-center justify-between text-center shrink-0 z-30 select-none">
+      <div id="app-footer" class="hidden bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-1 pt-2 flex items-center justify-between text-center shrink-0 z-30 select-none" style="padding-bottom: max(12px, env(safe-area-inset-bottom));">
         <button onclick="changeScreen('dashboard')" id="tab-dashboard" style="width: 17.5%;" class="nav-tab active flex flex-col items-center gap-0.5 min-w-0 transition-opacity active:opacity-70">
           <svg class="w-[21px] h-[21px] fill-none stroke-current shrink-0" stroke-width="1.65" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>
           <span class="tracking-tight whitespace-nowrap truncate block">Ana Sayfa</span>

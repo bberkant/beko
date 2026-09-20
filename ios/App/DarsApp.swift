@@ -30,7 +30,7 @@ struct DarsApp: App {
                 Color(red: 0.97, green: 0.98, blue: 0.99)
                     .ignoresSafeArea()
                 PrototypeWebView()
-                    .ignoresSafeArea(.all, edges: .bottom)
+                    .ignoresSafeArea(.all)
             }
         }
     }
