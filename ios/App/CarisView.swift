@@ -10,6 +10,10 @@ struct CarisView: View {
         VStack(spacing: 0) {
             // Header Search Input
             VStack(spacing: 12) {
+                // Top SafeArea Padding equivalent
+                Color.clear.frame(height: 1)
+                    .padding(.top, 40)
+                    
                 HStack {
                     Text("Cari Hesaplar")
                         .font(.system(size: 20, weight: .black))
@@ -53,7 +57,7 @@ struct CarisView: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(cari.supplier)
                                             .font(.system(size: 14, weight: .bold))
-                                            .foregroundColor(.brandGreen) // Green color style matching Kuveyt Turk
+                                            .foregroundColor(.brandGreen)
                                             .multilineTextAlignment(.leading)
                                         Text("Cari Hesap Bakiyesi")
                                             .font(.system(size: 10))
@@ -284,8 +288,3 @@ struct CarisView_Previews: PreviewProvider {
         CarisView()
     }
 }
-
-
-
-
-

@@ -6,10 +6,17 @@ struct ChecksView: View {
     @State private var activeTab: String = "Portföy"
     @State private var showingAddCheck = false
     
+    // Kuveyt Turk Blue
+    let ktPrimary = Color(red: 0.0, green: 0.176, blue: 0.349)
+    
     var body: some View {
         VStack(spacing: 0) {
             // Header panel with Title and Action
             VStack(spacing: 16) {
+                // Top SafeArea Padding equivalent
+                Color.clear.frame(height: 1)
+                    .padding(.top, 40)
+                    
                 HStack {
                     Text("Çek & Senet Portföyü")
                         .font(.system(size: 20, weight: .black))
@@ -21,20 +28,20 @@ struct ChecksView: View {
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.white)
                             .frame(width: 32, height: 32)
-                            .background(Color.brandGreen)
+                            .background(ktPrimary)
                             .clipShape(Circle())
                     }
                 }
                 
                 // Segments Tab Selector (Matches Kuveyt Turk Segmented Control style)
                 HStack(spacing: 4) {
-                    TabButton(title: "Portföydekiler", isSelected: activeTab == "Portföy") {
+                    TabButton(title: "Portföydekiler", isSelected: activeTab == "Portföy", activeColor: ktPrimary) {
                         activeTab = "Portföy"
                     }
-                    TabButton(title: "Tahsildekiler", isSelected: activeTab == "Tahsilde") {
+                    TabButton(title: "Tahsildekiler", isSelected: activeTab == "Tahsilde", activeColor: ktPrimary) {
                         activeTab = "Tahsilde"
                     }
-                    TabButton(title: "Ciro Edilenler", isSelected: activeTab == "Ciro Edildi") {
+                    TabButton(title: "Ciro Edilenler", isSelected: activeTab == "Ciro Edildi", activeColor: ktPrimary) {
                         activeTab = "Ciro Edildi"
                     }
                 }
@@ -78,7 +85,7 @@ struct ChecksView: View {
                                         .foregroundColor(Color(.label))
                                     Text(formatDate(check.dueDate))
                                         .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(.brandGreen)
+                                        .foregroundColor(ktPrimary)
                                 }
                             }
                             .padding(16)
@@ -118,6 +125,7 @@ struct ChecksView: View {
 struct TabButton: View {
     let title: String
     let isSelected: Bool
+    let activeColor: Color
     let action: () -> Void
     
     var body: some View {
@@ -127,7 +135,7 @@ struct TabButton: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
                 .background(isSelected ? Color(.systemBackground) : Color.clear)
-                .foregroundColor(isSelected ? .brandGreen : .gray)
+                .foregroundColor(isSelected ? activeColor : .gray)
                 .cornerRadius(10)
                 .shadow(color: isSelected ? Color.black.opacity(0.04) : Color.clear, radius: 2)
         }
@@ -139,7 +147,3 @@ struct ChecksView_Previews: PreviewProvider {
         ChecksView()
     }
 }
-
-
-
-

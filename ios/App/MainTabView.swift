@@ -18,9 +18,9 @@ struct MainTabView: View {
                     case 0:
                         DashboardView(selectedTab: $selectedTab)
                     case 1:
-                        ChecksView() // Temporary stand-in for ekten Hesap
+                        CektenHesabiView()
                     case 2:
-                        Text("Takas ekleri Ekran") // Stand-in
+                        TakasCekleriView()
                     case 3:
                         CarisView()
                     default:

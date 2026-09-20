@@ -2,9 +2,10 @@ import Foundation
 import SwiftUI
 import UIKit
 
-// MARK: - Color Extension (Kuveyt Turk Brand Green)
+// MARK: - Color Extension (Kuveyt Turk Brand Primary)
 extension Color {
-    static let brandGreen = Color(red: 0.0, green: 0.53, blue: 0.35) // #008556
+    // Changed to Kuveyt Turk Blue to match prototype
+    static let brandGreen = Color(red: 0.0, green: 0.176, blue: 0.349) // #002D59
     static let systemLightGray = Color(red: 0.96, green: 0.97, blue: 0.98)
 }
 
@@ -174,4 +175,3 @@ struct EInvoiceRecord: Identifiable, Codable {
         case status
     }
 }
-
