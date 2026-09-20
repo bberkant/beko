@@ -1,380 +1,340 @@
 import SwiftUI
-import UIKit
 
 struct DashboardView: View {
     @Binding var selectedTab: Int
-    @ObservedObject var manager = SupabaseManager.shared
-    @State private var subTabSelected = 0 // 0: Hesabım, 1: Kartım
-    @State private var isBalanceMasked = false
+    
+    let ktPrimary = Color(red: 0.0, green: 0.176, blue: 0.349) // #002D59
+    let bgF8FAFC = Color(red: 0.973, green: 0.980, blue: 0.988)
     
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 16) {
-                // Top SafeArea Padding equivalent
-                Color.clear.frame(height: 1)
-                    .padding(.top, 40)
-                    
-                // Header (Exact Kuveyt Turk Header)
-                HStack(spacing: 12) {
-                    // Circle Logo
-                    Circle()
-                        .fill(Color(.systemGray5))
-                        .frame(width: 40, height: 40)
+        VStack(spacing: 0) {
+            // APP HEADER (Always visible on Dashboard)
+            HStack(spacing: 12) {
+                // Left Icon
+                Circle()
+                    .fill(Color(red: 0.945, green: 0.957, blue: 0.976)) // slate-100
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Circle().stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                    )
+                    .overlay(
+                        Image(systemName: "building.2")
+                            .foregroundColor(.gray)
+                    )
+                
+                // Titles
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("Marif Et Ve Et Ürünleri")
+                            .font(.system(size: 13, weight: .heavy))
+                            .foregroundColor(Color(.darkText))
+                            .lineLimit(1)
+                        
+                        // Live badge
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 6, height: 6)
+                            Text("Canlı")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(Color(red: 0.0, green: 0.4, blue: 0.2))
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(4)
                         .overlay(
-                            Image(systemName: "building.columns.fill")
-                                .foregroundColor(.gray)
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.green.opacity(0.2), lineWidth: 1)
+                        )
+                    }
+                    
+                    Text("Gıda Tarım Hayvancılık A.Ş.")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                // Right Icons
+                HStack(spacing: 8) {
+                    Button(action: {}) {
+                        Circle()
+                            .fill(Color(red: 0.933, green: 0.957, blue: 1.0))
+                            .frame(width: 36, height: 36)
+                            .overlay(
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(ktPrimary)
+                            )
+                    }
+                    
+                    Circle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Circle().stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                        )
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .foregroundColor(.white)
                         )
                     
-                    // Center title
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Marif Et Ve Et Ürünleri")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(Color(.label))
-                        Text("Gıda Tarım Hayvancılık...")
-                            .font(.system(size: 11))
-                            .foregroundColor(.gray)
-                    }
-                    
-                    Spacer()
-                    
-                    // Icons right
-                    HStack(spacing: 14) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.gray)
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.gray)
-                        Image(systemName: "bell")
-                            .foregroundColor(.gray)
+                    Button(action: {}) {
+                        ZStack(alignment: .topTrailing) {
+                            Circle()
+                                .fill(Color(red: 0.933, green: 0.957, blue: 1.0))
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    Image(systemName: "bell")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(ktPrimary)
+                                )
+                            
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 10, height: 10)
+                                .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                                .offset(x: -2, y: 2)
+                        }
                     }
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 12)
-                
-                // Helper Banner ("Size yardımcı olabilmek için buradayım.")
-                HStack {
-                    Text("Size yardımcı olabilmek için buradayım.")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
-                    Spacer()
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 16)
-                .background(Color(red: 0.0, green: 0.176, blue: 0.349).opacity(0.05))
-                .cornerRadius(10)
-                .padding(.horizontal, 24)
-                
-                // Sub-tabs ("Hesabım", "Kartım")
-                HStack(spacing: 24) {
-                    VStack(spacing: 6) {
-                        Text("Hesabım")
-                            .font(.system(size: 15, weight: subTabSelected == 0 ? .bold : .medium))
-                            .foregroundColor(subTabSelected == 0 ? Color(red: 0.0, green: 0.176, blue: 0.349) : .gray)
-                        if subTabSelected == 0 {
-                            Rectangle()
-                                .fill(Color(red: 0.0, green: 0.176, blue: 0.349))
-                                .frame(height: 2)
-                                .cornerRadius(1)
-                        } else {
-                            Rectangle()
-                                .fill(Color.clear)
-                                .frame(height: 2)
-                        }
-                    }
-                    .onTapGesture { subTabSelected = 0 }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 40) // Status bar safe area padding
+            .padding(.bottom, 12)
+            .background(Color.white)
+            .overlay(
+                Rectangle().frame(height: 1).foregroundColor(Color.gray.opacity(0.1)),
+                alignment: .bottom
+            )
+            
+            // MAIN DASHBOARD CONTENT
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 16) {
                     
-                    VStack(spacing: 6) {
-                        Text("Kartım")
-                            .font(.system(size: 15, weight: subTabSelected == 1 ? .bold : .medium))
-                            .foregroundColor(subTabSelected == 1 ? Color(red: 0.0, green: 0.176, blue: 0.349) : .gray)
-                        if subTabSelected == 1 {
-                            Rectangle()
-                                .fill(Color(red: 0.0, green: 0.176, blue: 0.349))
-                                .frame(height: 2)
-                                .cornerRadius(1)
-                        } else {
-                            Rectangle()
-                                .fill(Color.clear)
-                                .frame(height: 2)
-                        }
-                    }
-                    .onTapGesture { subTabSelected = 1 }
-                    
-                    Spacer()
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
-                
-                // Accounts/Kasa Card container
-                VStack(spacing: 0) {
-                    HStack(alignment: .top) {
-                        Image(systemName: subTabSelected == 0 ? "wallet.pass.fill" : "creditcard.fill")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 36, height: 36)
-                            .foregroundColor(subTabSelected == 0 ? .orange : Color(red: 0.0, green: 0.176, blue: 0.349))
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(subTabSelected == 0 ? "ONE DARS KASA" : "SAĞLAM BUSINESS FİNANSMAN")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(Color(.label))
-                            Text(subTabSelected == 0 ? "98645477 - 1" : "9792 •••• •••• 3678")
-                                .font(.system(size: 11))
-                                .foregroundColor(.gray)
-                        }
-                        
-                        Spacer()
-                        
-                        HStack(spacing: 12) {
-                            Button(action: {
-                                isBalanceMasked.toggle()
-                            }) {
-                                Image(systemName: isBalanceMasked ? "eye.slash" : "eye")
-                            }
-                            Image(systemName: "square.and.arrow.up")
-                            Image(systemName: "ellipsis")
-                        }
-                        .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
-                        .font(.system(size: 14))
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                    
-                    // Main Balance
-                    HStack(alignment: .firstTextBaseline) {
-                        Spacer()
-                        Text(subTabSelected == 0 ? "Bakiye:" : "Borç:")
-                            .font(.system(size: 14))
-                            .foregroundColor(.gray)
-                        Text(isBalanceMasked ? "••••••" : (subTabSelected == 0 ? "₺44.922.400,00" : "₺771.672,20"))
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(Color(.label))
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
-                    
-                    if subTabSelected == 1 {
-                        Divider()
-                            .padding(.top, 10)
-                        HStack {
-                            Text("Kullanılabilir Limit: ")
-                                .foregroundColor(.gray) +
-                            Text("₺2.472,25")
-                                .fontWeight(.bold)
-                                .foregroundColor(Color(.label))
-                            Spacer()
-                            Text("Son Ödeme: 02.09.2026")
-                                .foregroundColor(.red)
-                                .fontWeight(.semibold)
-                        }
-                        .font(.system(size: 10))
-                        .padding(.horizontal, 20)
-                        .padding(.top, 10)
-                    }
-                    
-                    // Footer Link
-                    Divider()
-                        .padding(.top, 20)
-                    
-                    Button(action: { selectedTab = 1 }) {
-                        HStack {
-                            Spacer()
-                            Text("Tüm Hesaplarım")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
-                            Image(systemName: "chevron.trailing")
-                                .font(.caption)
-                                .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
-                        }
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 20)
-                    }
-                }
-                .background(Color(.systemBackground))
-                .cornerRadius(20)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color(.systemGray5), lineWidth: 1)
-                )
-                .padding(.horizontal, 24)
-                
-                // Hızlı İşlemler Section
-                VStack(spacing: 12) {
+                    // Assistant Banner
                     HStack {
-                        Text("Hızlı İşlemler")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(Color(.label))
+                        HStack(spacing: 8) {
+                            Text("👋")
+                                .font(.system(size: 12))
+                            Text("Size yardımcı olabilmek için buradayım.")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.white)
+                        }
                         Spacer()
                         Button(action: {}) {
-                            Text("Düzenle")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
-                        }
-                    }
-                    
-                    HStack(spacing: 12) {
-                        // Quick Action 1
-                        Button(action: { selectedTab = 1 }) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "doc.text.fill")
-                                    .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
-                                VStack(alignment: .leading) {
-                                    Text("Çek Ekle")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(Color(.label))
-                                    Text("Yeni Kayıt")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, 14)
-                            .background(Color(.systemBackground))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color(.systemGray5), lineWidth: 1)
-                            )
-                        }
-                        
-                        // Quick Action 2
-                        Button(action: { selectedTab = 3 }) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "person.2.fill")
-                                    .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
-                                VStack(alignment: .leading) {
-                                    Text("Cariler")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(Color(.label))
-                                    Text("Hesap Arama")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, 14)
-                            .background(Color(.systemBackground))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color(.systemGray5), lineWidth: 1)
-                            )
-                        }
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
-                
-                // Son İşlem Section
-                VStack(spacing: 12) {
-                    HStack {
-                        Text("Son İşlem")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(Color(.label))
-                        Spacer()
-                        Button(action: { selectedTab = 1 }) {
-                            Text("Tümünü Gör")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
-                        }
-                    }
-                    
-                    if let firstCheck = manager.checks.first {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text(formatDateString(firstCheck.dueDate))
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.gray)
-                                Spacer()
-                                Text("-\(formatCurrencyString(firstCheck.amount))")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.red)
-                            }
-                            
-                            HStack(alignment: .top) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Gönderen: \(firstCheck.kesideci)")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(Color(.label))
-                                    Text(firstCheck.checkNo)
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.gray)
-                                }
-                                Spacer()
-                                Image(systemName: "doc.text.fill")
-                                    .foregroundColor(.orange)
-                            }
-                        }
-                        .padding(16)
-                        .background(Color(.systemBackground))
-                        .cornerRadius(16)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color(.systemGray5), lineWidth: 1)
-                        )
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
-                
-                // Campaign banner image simulation
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Size Özel")
-                            .font(.system(size: 14, weight: .bold))
-                        Spacer()
-                        Text("Tümünü Gör")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
-                    }
-                    
-                    // Banner card
-                    HStack {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("CebimPOS'ta")
-                                .font(.system(size: 14, weight: .black))
-                                .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
-                            Text("Kuveyt Türk Kartlarına\nTaksit Fırsatı!")
+                            Text("Soru Sor")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(Color(.label))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.white.opacity(0.2))
+                                .cornerRadius(6)
                         }
-                        Spacer()
-                        Image(systemName: "creditcard.circle.fill")
-                            .resizable()
-                            .frame(width: 44, height: 44)
-                            .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                     }
-                    .padding(16)
-                    .background(Color(red: 0.0, green: 0.176, blue: 0.349).opacity(0.04))
-                    .cornerRadius(16)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        LinearGradient(colors: [Color(red: 0.07, green: 0.29, blue: 0.47), Color(red: 0.0, green: 0.17, blue: 0.29)], startPoint: .leading, endPoint: .trailing)
+                    )
+                    .cornerRadius(12)
+                    .shadow(color: .black.opacity(0.05), radius: 2)
+                    
+                    // Hızlı İşlemler
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text("Hızlı İşlemler")
+                                .font(.system(size: 13.5, weight: .bold))
+                                .foregroundColor(Color(.darkText))
+                            Spacer()
+                            Button(action: {}) {
+                                Text("Tüm Menü")
+                                    .font(.system(size: 12.5, weight: .medium))
+                                    .foregroundColor(ktPrimary)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                        
+                        // Grid
+                        VStack(spacing: 12) {
+                            HStack(spacing: 12) {
+                                QuickActionCard(icon: "arrow.triangle.2.circlepath", title: "Takas Çekleri", subtitle: "6.421.881 TL", action: { selectedTab = 2 })
+                                QuickActionCard(icon: "person.2.fill", title: "Cari Kartlar", subtitle: "Bakiye & Mutabakat", action: { selectedTab = 3 })
+                            }
+                            HStack(spacing: 12) {
+                                QuickActionCard(icon: "list.bullet.clipboard.fill", title: "Kesim Listesi", subtitle: "60 Kesim Kaydı", action: {})
+                                QuickActionCard(icon: "building.columns.fill", title: "ÇEKTEN Hesabı", subtitle: "Açık Mal Ödemeleri", action: { selectedTab = 1 })
+                            }
+                        }
+                    }
+                    
+                    // DARS Finansal Takvim
+                    VStack(spacing: 10) {
+                        HStack {
+                            Text("DARS Finansal Takvim")
+                                .font(.system(size: 13.5, weight: .bold))
+                                .foregroundColor(Color(.darkText))
+                            Spacer()
+                            Button(action: {}) {
+                                HStack(spacing: 2) {
+                                    Text("Tümünü Gör")
+                                        .font(.system(size: 12.5, weight: .medium))
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                                .foregroundColor(ktPrimary)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                        
+                        VStack(spacing: 8) {
+                            CalendarWidgetRow(title: "Ödenecek Çekler (Bu Hafta)", amount: "1.250.000 TL", date: "15 Haz")
+                            CalendarWidgetRow(title: "Tahsil Edilecek Kesimler", amount: "450.000 TL", date: "16 Haz")
+                        }
+                    }
+                    .padding(.top, 4)
+                    
+                    // Son İşlemler
+                    VStack(spacing: 10) {
+                        HStack {
+                            HStack(spacing: 6) {
+                                Text("Son İşlemler")
+                                    .font(.system(size: 13.5, weight: .bold))
+                                    .foregroundColor(Color(.darkText))
+                                Text("Son 10 İşlem")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(Color.gray.opacity(0.2))
+                                    .foregroundColor(Color(.darkGray))
+                                    .cornerRadius(10)
+                            }
+                            Spacer()
+                            Button(action: {}) {
+                                Text("Tümünü Gör >")
+                                    .font(.system(size: 12.5, weight: .medium))
+                                    .foregroundColor(ktPrimary)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                        
+                        VStack(spacing: 8) {
+                            TransactionRow(title: "Marif Et - Dana Kesim", subtitle: "Karkas: 340kg", amount: "+ 120.000 TL", isPositive: true)
+                            TransactionRow(title: "Çek Ödemesi", subtitle: "Garanti Bankası - 1241512", amount: "- 45.000 TL", isPositive: false)
+                        }
+                    }
+                    .padding(.top, 4)
+                    
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
-                .padding(.bottom, 90)
+                .padding(20)
+                .padding(.bottom, 80)
             }
+            .background(bgF8FAFC)
         }
-        .background(Color(red: 0.96, green: 0.97, blue: 0.98))
-    }
-    
-    // Format helpers
-    private func formatCurrencyString(_ amount: Double) -> String {
-        return NumberFormatter.localizedString(from: NSNumber(value: amount), number: .decimal) + " TL"
-    }
-    
-    private func formatDateString(_ dateStr: String) -> String {
-        let parts = dateStr.split(separator: "-")
-        guard parts.count == 3 else { return dateStr }
-        return "\(parts[2]).\(parts[1]).\(parts[0])"
     }
 }
 
-struct DashboardView_Previews: PreviewProvider {
-    static var previews: some View {
-        DashboardView(selectedTab: .constant(0))
+struct QuickActionCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let action: () -> Void
+    let ktPrimary = Color(red: 0.0, green: 0.176, blue: 0.349)
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(red: 0.933, green: 0.957, blue: 1.0)) // #EEF4FF
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Image(systemName: icon)
+                            .font(.system(size: 14))
+                            .foregroundColor(ktPrimary)
+                    )
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Color(.darkText))
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(14)
+            .background(Color.white)
+            .cornerRadius(12)
+            .shadow(color: .black.opacity(0.04), radius: 2)
+        }
     }
 }
 
+struct CalendarWidgetRow: View {
+    let title: String
+    let amount: String
+    let date: String
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Color(.darkText))
+                Text(date)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+            Text(amount)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
+        }
+        .padding(14)
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.04), radius: 2)
+    }
+}
 
-
+struct TransactionRow: View {
+    let title: String
+    let subtitle: String
+    let amount: String
+    let isPositive: Bool
+    
+    var body: some View {
+        HStack {
+            Circle()
+                .fill(isPositive ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
+                .frame(width: 36, height: 36)
+                .overlay(
+                    Image(systemName: isPositive ? "arrow.down.left" : "arrow.up.right")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(isPositive ? .green : .red)
+                )
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(Color(.darkText))
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+            Text(amount)
+                .font(.system(size: 13, weight: .heavy))
+                .foregroundColor(isPositive ? .green : .red)
+        }
+        .padding(14)
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.04), radius: 2)
+    }
+}

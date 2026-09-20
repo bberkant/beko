@@ -15,11 +15,28 @@ struct CarisView: View {
                     .padding(.top, 40)
                     
                 HStack {
-                    Text("Cari Hesaplar")
-                        .font(.system(size: 20, weight: .black))
+                    Button(action: {}) {
+                        Text("Menü")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Color(.darkGray))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color(red: 0.945, green: 0.957, blue: 0.976)) // slate-100
+                            .cornerRadius(20)
+                    }
+                    Spacer()
+                    Text("Cari Kartlar & Listesi")
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Color(.label))
                         .tracking(-0.5)
                     Spacer()
+                    Button(action: {}) {
+                        Image(systemName: "slider.horizontal.3")
+                            .foregroundColor(Color(.darkGray))
+                            .padding(8)
+                            .background(Color(red: 0.945, green: 0.957, blue: 0.976))
+                            .clipShape(Circle())
+                    }
                 }
                 
                 // Search Input Field (Kuveyt Turk style)

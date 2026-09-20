@@ -9,29 +9,38 @@ struct ChecksView: View {
     // Kuveyt Turk Blue
     let ktPrimary = Color(red: 0.0, green: 0.176, blue: 0.349)
     
+    var isTakasMode: Bool = false
+    
     var body: some View {
         VStack(spacing: 0) {
             // Header panel with Title and Action
-            VStack(spacing: 16) {
-                // Top SafeArea Padding equivalent
-                Color.clear.frame(height: 1)
-                    .padding(.top, 40)
-                    
-                HStack {
-                    Text("Çek & Senet Portföyü")
-                        .font(.system(size: 20, weight: .black))
-                        .foregroundColor(Color(.label))
-                        .tracking(-0.5)
-                    Spacer()
-                    Button(action: { showingAddCheck = true }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(width: 32, height: 32)
-                            .background(ktPrimary)
-                            .clipShape(Circle())
+            if !isTakasMode {
+                VStack(spacing: 16) {
+                    // Top SafeArea Padding equivalent
+                    Color.clear.frame(height: 1)
+                        .padding(.top, 40)
+                        
+                    HStack {
+                        Text("Çek & Senet Portföyü")
+                            .font(.system(size: 20, weight: .black))
+                            .foregroundColor(Color(.label))
+                            .tracking(-0.5)
+                        Spacer()
+                        Button(action: { showingAddCheck = true }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 32, height: 32)
+                                .background(ktPrimary)
+                                .clipShape(Circle())
+                        }
                     }
                 }
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+                .background(Color(.systemBackground))
+            }
                 
                 // Segments Tab Selector (Matches Kuveyt Turk Segmented Control style)
                 HStack(spacing: 4) {
