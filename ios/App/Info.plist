@@ -5,11 +5,11 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>tr</string>
 	<key>CFBundleDisplayName</key>
-	<string>DARS Portal</string>
+	<string>DARS</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.amasyaetas.mobile</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -17,24 +17,21 @@
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>12</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Karekod taramak ve makbuz yuklemek icin kamera izni gereklidir.</string>
+	<string>Findeks karekodlu çek tarama ve makbuz yükleme işlemleri için kamera erişimi gereklidir.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Fatura fotograflarini yuklemek icin galeri izni gereklidir.</string>
+	<string>Çek ve fatura fotoğraflarını seçip sisteme yüklemek için fotoğraf galerisi erişimi gereklidir.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Raporlari kaydetmek icin galeri izni gereklidir.</string>
+	<string>Hesaplama ve ekstre raporlarını galerinize kaydetmek için izin gereklidir.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Uygulamaya güvenli ve hızlı giriş yapmak için Face ID doğrulaması gereklidir.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -47,12 +44,8 @@
 	</dict>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
-	<key>UIRequiresFullScreen</key>
-	<true/>
-	<key>CFBundleIconName</key>
-	<string>AppIcon</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
