@@ -9,7 +9,7 @@ struct PrototypeWebView: UIViewRepresentable {
         
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.isOpaque = false
-        webView.backgroundColor = UIColor(red: 0.97, green: 0.98, blue: 0.99, alpha: 1.0)
+        webView.backgroundColor = .white
         webView.scrollView.bounces = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         
@@ -27,10 +27,10 @@ struct DarsApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                Color(red: 0.97, green: 0.98, blue: 0.99)
+                Color.white
                     .ignoresSafeArea()
                 PrototypeWebView()
-                    .ignoresSafeArea(.all)
+                    .ignoresSafeArea(.container, edges: .bottom)
             }
         }
     }
