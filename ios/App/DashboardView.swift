@@ -10,6 +10,10 @@ struct DashboardView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 16) {
+                // Top SafeArea Padding equivalent
+                Color.clear.frame(height: 1)
+                    .padding(.top, 40)
+                    
                 // Header (Exact Kuveyt Turk Header)
                 HStack(spacing: 12) {
                     // Circle Logo
@@ -51,12 +55,12 @@ struct DashboardView: View {
                 HStack {
                     Text("Size yardımcı olabilmek için buradayım.")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.brandGreen)
+                        .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                     Spacer()
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 16)
-                .background(Color.brandGreen.opacity(0.05))
+                .background(Color(red: 0.0, green: 0.176, blue: 0.349).opacity(0.05))
                 .cornerRadius(10)
                 .padding(.horizontal, 24)
                 
@@ -65,10 +69,10 @@ struct DashboardView: View {
                     VStack(spacing: 6) {
                         Text("Hesabım")
                             .font(.system(size: 15, weight: subTabSelected == 0 ? .bold : .medium))
-                            .foregroundColor(subTabSelected == 0 ? .brandGreen : .gray)
+                            .foregroundColor(subTabSelected == 0 ? Color(red: 0.0, green: 0.176, blue: 0.349) : .gray)
                         if subTabSelected == 0 {
                             Rectangle()
-                                .fill(Color.brandGreen)
+                                .fill(Color(red: 0.0, green: 0.176, blue: 0.349))
                                 .frame(height: 2)
                                 .cornerRadius(1)
                         } else {
@@ -82,10 +86,10 @@ struct DashboardView: View {
                     VStack(spacing: 6) {
                         Text("Kartım")
                             .font(.system(size: 15, weight: subTabSelected == 1 ? .bold : .medium))
-                            .foregroundColor(subTabSelected == 1 ? .brandGreen : .gray)
+                            .foregroundColor(subTabSelected == 1 ? Color(red: 0.0, green: 0.176, blue: 0.349) : .gray)
                         if subTabSelected == 1 {
                             Rectangle()
-                                .fill(Color.brandGreen)
+                                .fill(Color(red: 0.0, green: 0.176, blue: 0.349))
                                 .frame(height: 2)
                                 .cornerRadius(1)
                         } else {
@@ -108,7 +112,7 @@ struct DashboardView: View {
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 36, height: 36)
-                            .foregroundColor(subTabSelected == 0 ? .orange : .brandGreen)
+                            .foregroundColor(subTabSelected == 0 ? .orange : Color(red: 0.0, green: 0.176, blue: 0.349))
                         
                         VStack(alignment: .leading, spacing: 4) {
                             Text(subTabSelected == 0 ? "ONE DARS KASA" : "SAĞLAM BUSINESS FİNANSMAN")
@@ -130,7 +134,7 @@ struct DashboardView: View {
                             Image(systemName: "square.and.arrow.up")
                             Image(systemName: "ellipsis")
                         }
-                        .foregroundColor(.brandGreen)
+                        .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                         .font(.system(size: 14))
                     }
                     .padding(.horizontal, 20)
@@ -177,10 +181,10 @@ struct DashboardView: View {
                             Spacer()
                             Text("Tüm Hesaplarım")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.brandGreen)
+                                .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                             Image(systemName: "chevron.trailing")
                                 .font(.caption)
-                                .foregroundColor(.brandGreen)
+                                .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                         }
                         .padding(.vertical, 14)
                         .padding(.horizontal, 20)
@@ -204,7 +208,7 @@ struct DashboardView: View {
                         Button(action: {}) {
                             Text("Düzenle")
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.brandGreen)
+                                .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                         }
                     }
                     
@@ -213,7 +217,7 @@ struct DashboardView: View {
                         Button(action: { selectedTab = 1 }) {
                             HStack(spacing: 8) {
                                 Image(systemName: "doc.text.fill")
-                                    .foregroundColor(.brandGreen)
+                                    .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                                 VStack(alignment: .leading) {
                                     Text("Çek Ekle")
                                         .font(.system(size: 12, weight: .bold))
@@ -238,7 +242,7 @@ struct DashboardView: View {
                         Button(action: { selectedTab = 3 }) {
                             HStack(spacing: 8) {
                                 Image(systemName: "person.2.fill")
-                                    .foregroundColor(.brandGreen)
+                                    .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                                 VStack(alignment: .leading) {
                                     Text("Cariler")
                                         .font(.system(size: 12, weight: .bold))
@@ -273,7 +277,7 @@ struct DashboardView: View {
                         Button(action: { selectedTab = 1 }) {
                             Text("Tümünü Gör")
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.brandGreen)
+                                .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                         }
                     }
                     
@@ -323,7 +327,7 @@ struct DashboardView: View {
                         Spacer()
                         Text("Tümünü Gör")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.brandGreen)
+                            .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                     }
                     
                     // Banner card
@@ -331,7 +335,7 @@ struct DashboardView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("CebimPOS'ta")
                                 .font(.system(size: 14, weight: .black))
-                                .foregroundColor(.brandGreen)
+                                .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                             Text("Kuveyt Türk Kartlarına\nTaksit Fırsatı!")
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(Color(.label))
@@ -340,10 +344,10 @@ struct DashboardView: View {
                         Image(systemName: "creditcard.circle.fill")
                             .resizable()
                             .frame(width: 44, height: 44)
-                            .foregroundColor(.brandGreen)
+                            .foregroundColor(Color(red: 0.0, green: 0.176, blue: 0.349))
                     }
                     .padding(16)
-                    .background(Color.brandGreen.opacity(0.04))
+                    .background(Color(red: 0.0, green: 0.176, blue: 0.349).opacity(0.04))
                     .cornerRadius(16)
                 }
                 .padding(.horizontal, 24)
