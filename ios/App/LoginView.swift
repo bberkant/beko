@@ -129,4 +129,3 @@ struct VCornerDecorations: View {
         EmptyView()
     }
 }
-
