@@ -1489,7 +1489,7 @@
       { key: 'depo', name: 'Depo Şube', code: '4', manager: 'Yusuf Aksoy', phone: '0358 219 00 06', address: 'Organize Sanayi Bölgesi 2. Cadde No:3, Amasya', staff: 2, todaySales: 0, stockKg: 24500, status: 'Lojistik Depo' }
     ];
 
-    function renderBranches() {
+    function renderBranchesDashboard() {
       const container = document.getElementById('branches-list-container');
       if (!container) return;
 
@@ -1542,7 +1542,7 @@
     }
 
     // 2. ANA KASA (Portal main_cashbox_transactions ile birebir)
-    function renderCashbox() {
+    function renderCashboxDashboard() {
       const container = document.getElementById('cashbox-container');
       if (!container) return;
 
@@ -18515,10 +18515,10 @@
       const appFooter = document.getElementById('app-footer');
 
       if (appHeader) {
-        if (screenId === 'login') {
-          appHeader.classList.add('hidden');
-        } else {
+        if (screenId === 'dashboard') {
           appHeader.classList.remove('hidden');
+        } else {
+          appHeader.classList.add('hidden');
         }
       }
 
@@ -18539,6 +18539,7 @@
       else if (screenId === 'menu') document.getElementById('tab-menu')?.classList.add('active');
 
       // Trigger screen renderers
+      if (screenId === 'menu') renderMenuModules();
       if (screenId === 'dashboard') renderCalendar();
       if (screenId === 'takas_cekleri') renderTakasScreen();
       if (screenId === 'checks') renderCheckListScreen();
