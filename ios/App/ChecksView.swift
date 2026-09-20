@@ -70,7 +70,6 @@ struct ChecksView: View {
                                     Text("Seri: \(check.checkNo)")
                                         .font(.system(size: 9))
                                         .foregroundColor(.gray.opacity(0.6))
-                                        .fontDesign(.monospaced)
                                 }
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 4) {
@@ -140,6 +139,7 @@ struct ChecksView_Previews: PreviewProvider {
         ChecksView()
     }
 }
+
 
 
 
