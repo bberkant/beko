@@ -24,6 +24,8 @@ export const FindeksPage: React.FC = () => {
   const { user } = useAuth();
   const { notify } = useToast();
 
+  const isAdmin = user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Yönetici' || user?.role === 'Süper Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.rawRole === 'developer' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local';
+
   const [inquiries, setInquiries] = useState<FindeksCheckInquiry[]>([]);
   const [activeReport, setActiveReport] = useState<FindeksCheckInquiry | null>(null);
   const [settings, setSettings] = useState<FindeksSettings | null>(null);
@@ -37,7 +39,7 @@ export const FindeksPage: React.FC = () => {
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const loadData = async () => {
-    if (!user?.organizationId) return;
+    if (!isAdmin || !user?.organizationId) return;
     try {
       const [historyData, settingsData] = await Promise.all([
         getInquiryHistory(user.organizationId),
@@ -56,8 +58,22 @@ export const FindeksPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadData();
-  }, [user?.organizationId]);
+    if (isAdmin) {
+      loadData();
+    }
+  }, [user?.organizationId, isAdmin]);
+
+  if (!isAdmin) {
+    return (
+      <div className="mx-auto max-w-7xl p-6">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center shadow-sm">
+          <ShieldCheck className="mx-auto h-12 w-12 text-red-500 mb-3" />
+          <h2 className="text-lg font-bold text-red-800">Yetkisiz Erişim</h2>
+          <p className="mt-1 text-sm text-red-600">Findeks Karekodlu Çek Sorgulama modülünü yalnızca Admin ve yönetici yetkisine sahip kullanıcılar görüntüleyebilir.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Handle Decoded QR from Camera or Gallery
   const handleDecodedQR = async (parsed: ParsedCheckQR) => {

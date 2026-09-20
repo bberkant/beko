@@ -81,6 +81,18 @@ function AdminRoute() {
   return <Outlet />;
 }
 
+function AdminOnlyRoute() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center text-sm text-gray-550">Oturum kontrol ediliyor...</div>;
+  }
+  const isAuthorized = user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Yönetici' || user?.role === 'Süper Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.rawRole === 'developer' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local';
+  if (!isAuthorized) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Outlet />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -119,7 +131,11 @@ export default function App() {
                 <Route path="/finans/pos-fark-hesaplama" element={<PosDifferencesPage />} />
                 <Route path="/kesim-listesi/acik-mal-odemeleri" element={<AcikMalOdemeleriPage />} />
                 <Route path="/finans/cekten-hesabi" element={<CektenHesabiPage />} />
-                <Route path="/finans/findeks" element={<FindeksPage />} />
+                
+                {/* Findeks Alt Modülü Sadece Admin / Yönetici Kullanıcılara Özeldir */}
+                <Route element={<AdminOnlyRoute />}>
+                  <Route path="/finans/findeks" element={<FindeksPage />} />
+                </Route>
                 <Route path="/finans" element={<Navigate to="/finans/kredi-kartlari" replace />} />
                 
                 {/* Banka Hesapları, Hareketleri ve Ay Sonu Kokpiti Sadece Süper Admin & Developer'a Özeldir */}

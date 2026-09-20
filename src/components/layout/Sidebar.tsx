@@ -464,6 +464,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
       
       const filteredChildren = item.children.filter(child => {
         if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
+        if (child.to === '/finans/findeks' && !isYonetici) return false;
         if (
           (child.to === '/finans/banka-hesaplari' || child.to === '/finans/banka-hesap-hareketleri') && 
           !isSuper
@@ -567,6 +568,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                 {item.children!
                   .filter(child => {
                     if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
+                    if (child.to === '/finans/findeks' && !isYonetici) return false;
                     return true;
                   })
                   .map((child) => {
@@ -661,6 +663,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                 {item.children!
                   .filter(child => {
                     if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
+                    if (child.to === '/finans/findeks' && !isYonetici) return false;
                     return true;
                   })
                   .map((child) => {
@@ -754,6 +757,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                 {item.children!
                   .filter(child => {
                     if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
+                    if (child.to === '/finans/findeks' && !isYonetici) return false;
                     return true;
                   })
                   .map((child) => {
@@ -851,6 +855,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
               {item.children!
                 .filter(child => {
                   if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
+                  if (child.to === '/finans/findeks' && !isYonetici) return false;
                   return true;
                 })
                 .map((child) => {
