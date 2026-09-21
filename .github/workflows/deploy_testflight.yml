@@ -116,6 +116,7 @@ jobs:
       - name: Run Fastlane Unit Tests
         if: ${{ github.event.inputs.skip_tests != 'true' }}
         run: |
+          bundle install
           bundle exec fastlane test || fastlane test
         env:
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
@@ -123,6 +124,7 @@ jobs:
 
       - name: Run Fastlane TestFlight Beta Deployment
         run: |
+          bundle install
           bundle exec fastlane beta || fastlane beta
         env:
           APP_STORE_CONNECT_API_KEY_KEY_ID: "T7BGJ39HPK"
