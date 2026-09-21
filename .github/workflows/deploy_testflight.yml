@@ -90,27 +90,10 @@ jobs:
       - name: Run Fastlane TestFlight Beta Deployment
         run: |
           bundle install
-          
-          set +e
-          bundle exec fastlane beta > fastlane_output.log 2>&1
-          FASTLANE_EXIT=$?
-          set -e
-          
-          if [ $FASTLANE_EXIT -ne 0 ]; then
-            echo ""
-            echo "=========================================================="
-            echo "🚨 EXECUTION ERROR DETAILS (BUILD / UPLOAD) 🚨"
-            echo "=========================================================="
-            tail -n 60 fastlane_output.log
-            echo "=========================================================="
-            echo "🚨 PLEASE SEND A SCREENSHOT OF THIS BOX 🚨"
-            echo "=========================================================="
-            exit 1
-          fi
+          bundle exec fastlane beta
         env:
           FASTLANE_USER: "etaseturunleri@gmail.com"
           FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: "vjhd-ddhu-qrin-mnme"
-          
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
           FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "4"
           VERBOSE: ${{ github.event.inputs.verbose || 'false' }}

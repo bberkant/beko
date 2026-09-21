@@ -6,23 +6,7 @@ platform :ios do
     # 1. Setup CI (Creates temporary keychain, installs Apple WWDR certificates)
     setup_ci
 
-    # 2. Setup App Store Connect API Key Authentication
-    key_path = File.expand_path("./AuthKey_T7BGJ39HPK.p8", __dir__)
-    unless File.exist?(key_path)
-      key_path = File.expand_path("../certs/AuthKey_T7BGJ39HPK.p8", __dir__)
-    end
-
-    api_key = app_store_connect_api_key(
-      key_id: "T7BGJ39HPK",
-      issuer_id: "c29ba154-2062-4309-8588-4bbec249ad0c",
-      key_filepath: key_path,
-      in_house: false
-    )
-
-    # Copy private key to standard directories for auxiliary Apple tools
-    sh("mkdir -p ~/.appstoreconnect/private_keys ~/.private_keys && cp #{key_path} ~/.appstoreconnect/private_keys/ && cp #{key_path} ~/.private_keys/")
-
-    # 3. Install Manual Certificate & Profile
+    # 2. Install Manual Certificate & Profile
     import_certificate(
       certificate_path: File.expand_path("../certs/ios_distribution.p12", __dir__),
       certificate_password: "Apple123!",
@@ -37,7 +21,7 @@ platform :ios do
       path: File.expand_path("../certs/EtasEt_AppStore_Profile.mobileprovision", __dir__)
     )
 
-    # 4. Build IPA
+    # 3. Build IPA
     build_app(
       project: File.expand_path("../dars-ios.xcodeproj", __dir__),
       scheme: "dars-ios",
@@ -54,12 +38,17 @@ platform :ios do
       }
     )
 
-    # 5. Official App Store Connect API Upload to TestFlight
-    upload_to_testflight(
-      api_key: api_key,
-      ipa: File.expand_path("../dars-ios.ipa", __dir__),
-      skip_waiting_for_build_processing: true,
-      skip_submission: true
-    )
+    # 4. Upload to Apple TestFlight via Transporter (Uses App-Specific Password, no REST API token or 2FA required)
+    ipa_path = File.expand_path("../dars-ios.ipa", __dir__)
+    xcode_path = `xcode-select -p`.strip
+    transporter_candidates = [
+      "#{xcode_path}/../SharedFrameworks/ContentDeliveryServices.framework/Versions/A/itms/bin/iTMSTransporter",
+      "/Applications/Xcode_16.1.app/Contents/SharedFrameworks/ContentDeliveryServices.framework/Versions/A/itms/bin/iTMSTransporter",
+      "iTMSTransporter"
+    ]
+    transporter_bin = transporter_candidates.find { |p| File.exist?(p) } || "iTMSTransporter"
+
+    UI.message("Uploading #{ipa_path} to TestFlight using #{transporter_bin}...")
+    sh("\"#{transporter_bin}\" -m upload -u \"#{ENV['FASTLANE_USER']}\" -p \"#{ENV['FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD']}\" -assetFile \"#{ipa_path}\" -v detailed")
   end
 end
