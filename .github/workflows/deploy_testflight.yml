@@ -48,10 +48,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Xcode 15.4
+      - name: Setup Xcode 16.0
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '15.4'
+          xcode-version: '16.0'
 
       - name: Verify Xcode & SDK Toolchain
         run: |
@@ -141,7 +141,7 @@ jobs:
           echo "| **Branch / Ref** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Triggered By** | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Runner Architecture** | macos-14 (Apple Silicon M1/M2) |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Xcode Target Version** | 15.4 |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Xcode Target Version** | 16.0 |" >> $GITHUB_STEP_SUMMARY
           echo "| **Bundle Identifier** | \`com.amasyaetas.mobile\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Apple Team ID** | \`WGARWL7QZ4\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **App Store Connect Key ID** | \`T7BGJ39HPK\` |" >> $GITHUB_STEP_SUMMARY
