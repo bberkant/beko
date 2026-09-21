@@ -75,13 +75,13 @@ platform :ios do
   desc "Run unit tests on iOS Simulator"
   lane :test do
     # Ensure Xcode project is generated before executing tests
-    unless File.exist?("../dars-ios.xcodeproj")
+    unless File.exist?("dars-ios.xcodeproj")
       UI.message("Generating Xcode project via XcodeGen before running tests...")
       sh("cd .. && xcodegen generate")
     end
 
     run_tests(
-      project: "../dars-ios.xcodeproj",
+      project: "dars-ios.xcodeproj",
       scheme: "dars-ios",
       devices: ["iPhone 15"],
       clean: true,
@@ -123,7 +123,7 @@ platform :ios do
 
     # 6. Increment build number in Xcode project via agvtool
     increment_build_number(
-      xcodeproj: "../dars-ios.xcodeproj",
+      xcodeproj: "dars-ios.xcodeproj",
       build_number: next_build_number
     )
 
@@ -141,7 +141,7 @@ platform :ios do
 
     # 8. Build, sign, and archive IPA
     build_app(
-      project: "../dars-ios.xcodeproj",
+      project: "dars-ios.xcodeproj",
       scheme: "dars-ios",
       configuration: "Release",
       export_method: "app-store",
@@ -169,5 +169,6 @@ platform :ios do
   end
 
 end
+
 
 
