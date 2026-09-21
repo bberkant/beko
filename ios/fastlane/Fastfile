@@ -30,8 +30,7 @@ platform :ios do
       export_method: "app-store",
       clean: true,
       output_name: "dars-ios.ipa",
-      codesigning_identity: "Apple Distribution",
-      xcargs: "DEVELOPMENT_TEAM=WGARWL7QZ4 OTHER_CODE_SIGN_FLAGS=\"--keychain ~/Library/Keychains/fastlane_tmp_keychain-db\"",
+      xcargs: "OTHER_CODE_SIGN_FLAGS=\"--keychain ~/Library/Keychains/fastlane_tmp_keychain-db\"",
       export_options: {
         signingStyle: "manual",
         teamID: "WGARWL7QZ4",
