@@ -96,7 +96,7 @@ jobs:
       - name: Run Fastlane TestFlight Beta Deployment
         run: |
           bundle install
-          bundle exec fastlane beta || fastlane beta
+          bundle exec fastlane beta || (cat ~/Library/Logs/gym/*.log; exit 1)
         env:
           FASTLANE_USER: "etaseturunleri@gmail.com"
           FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: "vjhd-ddhu-qrin-mnme"
