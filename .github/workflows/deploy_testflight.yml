@@ -144,7 +144,7 @@ jobs:
           echo "| **Xcode Target Version** | 16.1 |" >> $GITHUB_STEP_SUMMARY
           echo "| **Bundle Identifier** | \`com.amasyaetas.mobile\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Apple Team ID** | \`WGARWL7QZ4\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **App Store Connect Key ID** | \`JV8VX2GN8V\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **App Store Connect Key ID** | \`T7BGJ39HPK\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Workflow Run** | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
 
 
