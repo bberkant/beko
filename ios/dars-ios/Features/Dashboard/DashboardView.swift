@@ -92,7 +92,7 @@ public struct DashboardView: View {
                 )
             
             // Company Title, Subtitle, and Live Pulse Badge
-            VStack(alignment: .left, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text("AMASYA ET VE ET ÜRÜNLERİ")
                         .font(.system(size: 13, weight: .bold))
@@ -205,7 +205,7 @@ public struct DashboardView: View {
                 .foregroundColor(.ktCoral)
                 .font(.system(size: 18))
             
-            VStack(alignment: .left, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Veritabanı Uyarısı")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.ktCoral)
@@ -282,7 +282,7 @@ public struct DashboardView: View {
                     .background(viewModel.selectedSubTab == .accounts ? Color.ktOrangeLight : Color.ktPrimarySoft)
                     .cornerRadius(10)
                 
-                VStack(alignment: .left, spacing: 3) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(viewModel.selectedSubTab == .accounts ? (viewModel.primaryBankAccount?.bankName ?? "ONE DARS KASA") : (viewModel.primaryCreditCard?.cardName ?? "SAĞLAM BUSINESS FİNANSMAN"))
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.ktTextHeading)
@@ -422,7 +422,7 @@ public struct DashboardView: View {
                         .foregroundColor(tint)
                 )
             
-            VStack(alignment: .left, spacing: 1) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(.ktTextSecondary)
@@ -450,7 +450,7 @@ public struct DashboardView: View {
                 Circle()
                     .fill(Color.ktCardBorder)
                     .frame(width: 36, height: 36)
-                VStack(alignment: .left, spacing: 4) {
+                VStack(alignment: .leading, spacing: 4) {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(Color.ktCardBorder)
                         .frame(width: 140, height: 14)
@@ -522,7 +522,7 @@ public struct DashboardView: View {
                             .foregroundColor(.ktPrimary)
                     )
                 
-                VStack(alignment: .left, spacing: 2) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(action.rawValue)
                         .font(.system(size: 12.5, weight: .bold))
                         .foregroundColor(.ktTextHeading)
@@ -616,7 +616,7 @@ public struct DashboardView: View {
                             .foregroundColor(accentColor)
                     )
                 
-                VStack(alignment: .left, spacing: 2) {
+                VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(title)
                             .font(.system(size: 12.5, weight: .bold))
@@ -723,7 +723,7 @@ public struct DashboardView: View {
                         .foregroundColor(check.checkType == "alinan" ? .ktSuccess : .ktCoral)
                 )
             
-            VStack(alignment: .left, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(check.drawer.isEmpty ? (check.kesideci ?? "Çek İşlemi") : check.drawer)
                     .font(.system(size: 12.5, weight: .bold))
                     .foregroundColor(.ktTextHeading)

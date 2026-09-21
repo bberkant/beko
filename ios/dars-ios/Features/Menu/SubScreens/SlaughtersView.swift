@@ -7,73 +7,78 @@ public struct SlaughtersView: View {
     
     public var body: some View {
         ScrollView {
-            VStack(spacing: 12) {
+            LazyVStack(spacing: 12) {
                 ForEach(manager.records) { record in
-                    VStack(alignment: .left, spacing: 8) {
-                        HStack {
-                            Text(record.supplier)
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.brandGreen)
-                            Spacer()
-                            Text(formatDate(record.slaughterDate))
-                                .font(.system(size: 11))
-                                .foregroundColor(.gray)
-                        }
-                        
-                        Divider()
-                        
-                        HStack {
-                            VStack(alignment: .left, spacing: 4) {
-                                Text("CİNSİ / ADET")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .foregroundColor(.gray)
-                                Text("\(record.animalType) • \(record.headCount) Baş")
-                                    .font(.system(size: 12, weight: .bold))
-                            }
-                            Spacer()
-                            VStack(alignment: .center, spacing: 4) {
-                                Text("AĞIRLIK")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .foregroundColor(.gray)
-                                Text("\(formatNumber(record.carcassWeight)) kg")
-                                    .font(.system(size: 12, weight: .bold))
-                            }
-                            Spacer()
-                            VStack(alignment: .right, spacing: 4) {
-                                Text("TOPLAM TUTAR")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .foregroundColor(.gray)
-                                Text(formatCurrency(record.totalAmount))
-                                    .font(.system(size: 12, weight: .black))
-                            }
-                        }
-                        
-                        HStack {
-                            Text("Kalan Bakiye:")
-                                .font(.system(size: 10))
-                                .foregroundColor(.gray)
-                            Spacer()
-                            Text(formatCurrency(record.kalanTutar))
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(record.kalanTutar > 0 ? .red : .brandGreen)
-                        }
-                        .padding(.top, 4)
-                    }
-                    .padding(16)
-                    .background(Color(.systemBackground))
-                    .cornerRadius(16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color(.systemGray5), lineWidth: 1)
-                    )
-                    .padding(.horizontal, 24)
+                    slaughterCard(for: record)
                 }
             }
             .padding(.top, 16)
             .padding(.bottom, 20)
         }
-        .background(Color(red: 0.96, green: 0.97, blue: 0.98))
+        .background(Color.ktPageBackground)
         .navigationBarTitle("Kesim Listesi", displayMode: .inline)
+    }
+    
+    @ViewBuilder
+    private func slaughterCard(for record: SlaughterRecord) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(record.supplier)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.ktPrimary)
+                Spacer()
+                Text(formatDate(record.slaughterDate))
+                    .font(.system(size: 11))
+                    .foregroundColor(.ktTextMuted)
+            }
+            
+            Divider()
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("CİNSİ / ADET")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.ktTextMuted)
+                    Text("\(record.animalType) • \(record.headCount) Baş")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                Spacer()
+                VStack(alignment: .center, spacing: 4) {
+                    Text("AĞIRLIK")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.ktTextMuted)
+                    Text("\(formatNumber(record.carcassWeight)) kg")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("TOPLAM TUTAR")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.ktTextMuted)
+                    Text(formatCurrency(record.totalAmount))
+                        .font(.system(size: 12, weight: .black))
+                }
+            }
+            
+            HStack {
+                Text("Kalan Bakiye:")
+                    .font(.system(size: 10))
+                    .foregroundColor(.ktTextMuted)
+                Spacer()
+                Text(formatCurrency(record.kalanTutar))
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(record.kalanTutar > 0 ? .ktCoral : .ktSuccess)
+            }
+            .padding(.top, 4)
+        }
+        .padding(16)
+        .background(Color.ktCardSurface)
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.ktCardBorder, lineWidth: 1)
+        )
+        .padding(.horizontal, 24)
     }
     
     private func formatCurrency(_ amount: Double) -> String {

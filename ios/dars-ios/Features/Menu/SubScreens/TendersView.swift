@@ -7,83 +7,87 @@ public struct TendersView: View {
     
     public var body: some View {
         ScrollView {
-            VStack(spacing: 12) {
+            LazyVStack(spacing: 12) {
                 ForEach(manager.tenders) { tender in
-                    VStack(alignment: .left, spacing: 8) {
-                        HStack {
-                            Text(tender.name)
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(Color(.label))
-                                .lineLimit(1)
-                            Spacer()
-                            
-                            // Status badge
-                            Text(tender.status)
-                                .font(.system(size: 9, weight: .bold))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(statusBg(tender.status))
-                                .foregroundColor(statusFg(tender.status))
-                                .cornerRadius(6)
-                        }
-                        
-                        Text("No: \(tender.tenderNo)")
-                            .font(.system(size: 10))
-                            .foregroundColor(.gray)
-                        
-                        Divider()
-                        
-                        HStack {
-                            VStack(alignment: .left, spacing: 4) {
-                                Text("İHALE TARİHİ")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .foregroundColor(.gray)
-                                Text(formatDate(tender.date))
-                                    .font(.system(size: 12, weight: .semibold))
-                            }
-                            
-                            Spacer()
-                            
-                            VStack(alignment: .right, spacing: 4) {
-                                Text("TUTAR")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .foregroundColor(.gray)
-                                Text(formatCurrency(tender.amount))
-                                    .font(.system(size: 13, weight: .black))
-                                    .foregroundColor(.brandGreen)
-                            }
-                        }
-                    }
-                    .padding(16)
-                    .background(Color(.systemBackground))
-                    .cornerRadius(16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color(.systemGray5), lineWidth: 1)
-                    )
-                    .padding(.horizontal, 24)
+                    tenderCard(for: tender)
                 }
             }
             .padding(.top, 16)
             .padding(.bottom, 20)
         }
-        .background(Color(red: 0.96, green: 0.97, blue: 0.98))
+        .background(Color.ktPageBackground)
         .navigationBarTitle("İhaleler", displayMode: .inline)
+    }
+    
+    @ViewBuilder
+    private func tenderCard(for tender: TenderRecord) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(tender.name)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.ktTextHeading)
+                    .lineLimit(1)
+                Spacer()
+                
+                Text(tender.status)
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(statusBg(tender.status))
+                    .foregroundColor(statusFg(tender.status))
+                    .cornerRadius(6)
+            }
+            
+            Text("No: \(tender.tenderNo)")
+                .font(.system(size: 10))
+                .foregroundColor(.ktTextMuted)
+            
+            Divider()
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("İHALE TARİHİ")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.ktTextMuted)
+                    Text(formatDate(tender.date))
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("TUTAR")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.ktTextMuted)
+                    Text(formatCurrency(tender.amount))
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundColor(.ktPrimary)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.ktCardSurface)
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.ktCardBorder, lineWidth: 1)
+        )
+        .padding(.horizontal, 24)
     }
     
     private func statusBg(_ status: String) -> Color {
         switch status {
-        case "Kazanıldı": return .brandGreen.opacity(0.1)
-        case "Beklemede": return .orange.opacity(0.1)
-        default: return .red.opacity(0.1)
+        case "Kazanıldı": return Color.ktSuccessLight
+        case "Beklemede": return Color.ktOrangeLight
+        default: return Color.ktCoralLight
         }
     }
     
     private func statusFg(_ status: String) -> Color {
         switch status {
-        case "Kazanıldı": return .brandGreen
-        case "Beklemede": return .orange
-        default: return .red
+        case "Kazanıldı": return Color.ktSuccessDark
+        case "Beklemede": return Color.ktOrange
+        default: return Color.ktCoral
         }
     }
     

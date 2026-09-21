@@ -183,7 +183,7 @@ public struct DesignSystemPreview: View {
 
                     KTCard(leftAccentColor: .ktDanger) {
                         HStack {
-                            VStack(alignment: .left, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text("Kral Entegre Dış Tic.")
                                     .font(.ktCardTitle)
                                     .foregroundColor(.ktTextMain)
@@ -192,7 +192,7 @@ public struct DesignSystemPreview: View {
                                     .foregroundColor(.ktTextSecondary)
                             }
                             Spacer()
-                            VStack(alignment: .right, spacing: 4) {
+                            VStack(alignment: .trailing, spacing: 4) {
                                 Text("1.250.000 TL Kalan")
                                     .font(.ktFinancialAmount)
                                     .foregroundColor(.ktCoral)

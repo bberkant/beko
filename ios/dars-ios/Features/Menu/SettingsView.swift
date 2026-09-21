@@ -47,7 +47,7 @@ public struct SettingsView: View {
                                 Toggle(isOn: $biometricEnabled) {
                                     HStack(spacing: 12) {
                                         settingIcon(name: "faceid", color: ktPrimary)
-                                        VStack(alignment: .left, spacing: 2) {
+                                        VStack(alignment: .leading, spacing: 2) {
                                             Text("Face ID / Biyometrik Giriş")
                                                 .font(.system(size: 13, weight: .semibold))
                                                 .foregroundColor(Color(.label))
@@ -66,7 +66,7 @@ public struct SettingsView: View {
                                 Button(action: { showingPinChangeAlert = true }) {
                                     HStack(spacing: 12) {
                                         settingIcon(name: "lock.rotation", color: ktPrimary)
-                                        VStack(alignment: .left, spacing: 2) {
+                                        VStack(alignment: .leading, spacing: 2) {
                                             Text("Mobil Giriş PIN Değiştir")
                                                 .font(.system(size: 13, weight: .semibold))
                                                 .foregroundColor(Color(.label))
@@ -114,7 +114,7 @@ public struct SettingsView: View {
                                 Toggle(isOn: $checkNotificationsEnabled) {
                                     HStack(spacing: 12) {
                                         settingIcon(name: "doc.text.fill", color: ktPrimary)
-                                        VStack(alignment: .left, spacing: 2) {
+                                        VStack(alignment: .leading, spacing: 2) {
                                             Text("Anlık Çek ve Senet Bildirimleri")
                                                 .font(.system(size: 13, weight: .semibold))
                                                 .foregroundColor(Color(.label))
@@ -132,7 +132,7 @@ public struct SettingsView: View {
                                 Toggle(isOn: $invoiceNotificationsEnabled) {
                                     HStack(spacing: 12) {
                                         settingIcon(name: "envelope.fill", color: ktPrimary)
-                                        VStack(alignment: .left, spacing: 2) {
+                                        VStack(alignment: .leading, spacing: 2) {
                                             Text("E-Fatura & Kesim Bildirimleri")
                                                 .font(.system(size: 13, weight: .semibold))
                                                 .foregroundColor(Color(.label))
@@ -149,7 +149,7 @@ public struct SettingsView: View {
                                 
                                 HStack(spacing: 12) {
                                     settingIcon(name: "calendar.badge.clock", color: ktOrange)
-                                    VStack(alignment: .left, spacing: 2) {
+                                    VStack(alignment: .leading, spacing: 2) {
                                         Text("Vade Yaklaşım Uyarısı")
                                             .font(.system(size: 13, weight: .semibold))
                                             .foregroundColor(Color(.label))
@@ -180,7 +180,7 @@ public struct SettingsView: View {
                                 Toggle(isOn: $maskBalancesDefault) {
                                     HStack(spacing: 12) {
                                         settingIcon(name: "eye.slash.fill", color: ktPrimary)
-                                        VStack(alignment: .left, spacing: 2) {
+                                        VStack(alignment: .leading, spacing: 2) {
                                             Text("Bakiyeleri Varsayılan Olarak Maskele")
                                                 .font(.system(size: 13, weight: .semibold))
                                                 .foregroundColor(Color(.label))
@@ -360,7 +360,7 @@ public struct SettingsView: View {
     }
     
     private func settingsSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .left, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.gray)

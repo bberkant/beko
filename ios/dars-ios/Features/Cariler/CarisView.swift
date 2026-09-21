@@ -74,7 +74,7 @@ public struct CarisView: View {
     
     private var headerView: some View {
         HStack(alignment: .center) {
-            VStack(alignment: .left, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text("CARİ HESAPLAR")
                         .font(.system(size: 18, weight: .bold))
@@ -372,7 +372,7 @@ public struct CarisView: View {
             Circle()
                 .fill(Color.ktSlate100)
                 .frame(width: 42, height: 42)
-            VStack(alignment: .left, spacing: 6) {
+            VStack(alignment: .leading, spacing: 6) {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.ktSlate100)
                     .frame(height: 14)
@@ -438,7 +438,7 @@ public struct CariCardView: View {
                     HStack(alignment: .top, spacing: 10) {
                         avatarView
                         
-                        VStack(alignment: .left, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(cari.name)
                                 .font(.system(size: 13.5, weight: .semibold))
                                 .foregroundColor(.ktTextHeading)
@@ -464,7 +464,7 @@ public struct CariCardView: View {
                         Spacer()
                         
                         // Balance Display
-                        VStack(alignment: .right, spacing: 2) {
+                        VStack(alignment: .trailing, spacing: 2) {
                             if isMasked {
                                 Text("₺•••.•••")
                                     .font(.system(size: 14, weight: .bold))
@@ -652,7 +652,7 @@ public struct CariDetailSheet: View {
                         .foregroundColor(.ktPrimary)
                 }
                 
-                VStack(alignment: .left, spacing: 3) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(cari.name)
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(.ktTextHeading)

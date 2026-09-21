@@ -80,7 +80,7 @@ public struct MenuView: View {
                         .foregroundColor(.ktPrimary)
                 }
                 
-                VStack(alignment: .left, spacing: 2) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Amasya Et ve Et Ürünleri")
                         .font(.system(size: 14.5, weight: .bold))
                         .foregroundColor(.ktTextHeading)
@@ -271,7 +271,7 @@ public struct MenuView: View {
                     .foregroundColor(.ktPrimary)
             }
             
-            VStack(alignment: .left, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 13.5, weight: .semibold))
                     .foregroundColor(.ktTextHeading)
