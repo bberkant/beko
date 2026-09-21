@@ -90,7 +90,7 @@ jobs:
       - name: Run Fastlane TestFlight Beta Deployment
         run: |
           bundle install
-          bundle exec fastlane beta
+          bundle exec fastlane beta 2>&1 | tee fastlane_run.log
         env:
           FASTLANE_USER: "etaseturunleri@gmail.com"
           FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: "vjhd-ddhu-qrin-mnme"
@@ -106,6 +106,7 @@ jobs:
           path: |
             *.ipa
             *.dSYM.zip
+            fastlane_run.log
             fastlane/test_output/
             ~/Library/Logs/gym/*.log
             ~/Library/Logs/scan/*.log
@@ -127,8 +128,15 @@ jobs:
           echo "| **Xcode Target Version** | 16.1 |" >> $GITHUB_STEP_SUMMARY
           echo "| **Bundle Identifier** | \`com.amasyaetas.mobile\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Apple Team ID** | \`WGARWL7QZ4\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **App Store Connect Key ID** | \`T7BGJ39HPK\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Workflow Run** | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "fastlane_run.log" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📋 Fastlane Output Log (Last 100 lines)" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            tail -n 100 fastlane_run.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
 
 
 

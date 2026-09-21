@@ -38,17 +38,14 @@ platform :ios do
       }
     )
 
-    # 4. Upload to Apple TestFlight via Transporter (Uses App-Specific Password, no REST API token or 2FA required)
+    # 4. Upload to Apple TestFlight via xcrun altool (Uses App-Specific Password)
     ipa_path = File.expand_path("../dars-ios.ipa", __dir__)
-    xcode_path = `xcode-select -p`.strip
-    transporter_candidates = [
-      "#{xcode_path}/../SharedFrameworks/ContentDeliveryServices.framework/Versions/A/itms/bin/iTMSTransporter",
-      "/Applications/Xcode_16.1.app/Contents/SharedFrameworks/ContentDeliveryServices.framework/Versions/A/itms/bin/iTMSTransporter",
-      "iTMSTransporter"
-    ]
-    transporter_bin = transporter_candidates.find { |p| File.exist?(p) } || "iTMSTransporter"
+    user = ENV['FASTLANE_USER']
+    password = ENV['FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD']
 
-    UI.message("Uploading #{ipa_path} to TestFlight using #{transporter_bin}...")
-    sh("\"#{transporter_bin}\" -m upload -u \"#{ENV['FASTLANE_USER']}\" -p \"#{ENV['FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD']}\" -assetFile \"#{ipa_path}\" -v detailed")
+    UI.message("Uploading #{ipa_path} to TestFlight via xcrun altool...")
+    
+    upload_cmd = "xcrun altool --upload-package \"#{ipa_path}\" --type ios --username \"#{user}\" --password \"#{password}\" --verbose"
+    sh(upload_cmd)
   end
 end
