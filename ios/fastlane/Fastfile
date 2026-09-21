@@ -1,174 +1,55 @@
-# fastlane/Fastfile
-# Continuous Integration & Delivery automation for dars_ios_app
-
 default_platform(:ios)
 
-# -----------------------------------------------------------------------------
-# Helper: App Store Connect API Key Multi-Source Resolver
-# -----------------------------------------------------------------------------
-def resolve_app_store_connect_api_key
-  key_id = ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"] || "T7BGJ39HPK"
-  issuer_id = ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"] || "c29ba154-2062-4309-8588-4bbec249ad0c"
-
-  # 1. Base64-encoded private key content (preferred for CI secrets)
-  if ENV["APP_STORE_CONNECT_API_KEY_BASE64"] && !ENV["APP_STORE_CONNECT_API_KEY_BASE64"].strip.empty?
-    UI.message("Authenticating with App Store Connect API Key via Base64 environment variable")
-    return app_store_connect_api_key(
-      key_id: key_id,
-      issuer_id: issuer_id,
-      key_content: ENV["APP_STORE_CONNECT_API_KEY_BASE64"].strip,
-      is_key_content_base64: true,
-      in_house: false
-    )
-  end
-
-  # 2. Raw PEM private key content (e.g. GitHub Actions secret directly injected)
-  if ENV["APP_STORE_CONNECT_PRIVATE_KEY"] && !ENV["APP_STORE_CONNECT_PRIVATE_KEY"].strip.empty?
-    content = ENV["APP_STORE_CONNECT_PRIVATE_KEY"].strip
-    is_base64 = !content.include?("-----BEGIN PRIVATE KEY-----")
-    UI.message("Authenticating with App Store Connect API Key via APP_STORE_CONNECT_PRIVATE_KEY (is_base64: #{is_base64})")
-    return app_store_connect_api_key(
-      key_id: key_id,
-      issuer_id: issuer_id,
-      key_content: content,
-      is_key_content_base64: is_base64,
-      in_house: false
-    )
-  end
-
-  # 3. Disk file resolution
-  candidate_paths = [
-    ENV["APP_STORE_CONNECT_API_KEY_KEY_FILEPATH"],
-    File.expand_path("./AuthKey_T7BGJ39HPK.p8", Dir.pwd),
-    File.expand_path("../AuthKey_T7BGJ39HPK.p8", __dir__),
-    File.expand_path("./AuthKey_T7BGJ39HPK.p8", __dir__),
-    "./AuthKey_T7BGJ39HPK.p8"
-  ].compact.uniq
-
-  resolved_path = candidate_paths.find { |p| File.exist?(p) }
-
-  if resolved_path
-    UI.message("Authenticating with App Store Connect API Key file: #{resolved_path}")
-    return app_store_connect_api_key(
-      key_id: key_id,
-      issuer_id: issuer_id,
-      key_filepath: resolved_path,
-      in_house: false
-    )
-  end
-
-  # 4. Fallback default file path
-  UI.important("No existing .p8 key file located on disk; using default path ./AuthKey_T7BGJ39HPK.p8")
-  app_store_connect_api_key(
-    key_id: key_id,
-    issuer_id: issuer_id,
-    key_filepath: "./AuthKey_T7BGJ39HPK.p8",
-    in_house: false
-  )
-end
-
-# -----------------------------------------------------------------------------
-# iOS Lanes
-# -----------------------------------------------------------------------------
 platform :ios do
-
-  desc "Run unit tests on iOS Simulator"
-  lane :test do
-    # Ensure Xcode project is generated before executing tests
-    unless File.exist?("dars-ios.xcodeproj")
-      UI.message("Generating Xcode project via XcodeGen before running tests...")
-      sh("cd .. && xcodegen generate")
-    end
-
-    run_tests(
-      project: "dars-ios.xcodeproj",
-      scheme: "dars-ios",
-      devices: ["iPhone 15"],
-      clean: true,
-      fail_build: true
-    )
-  end
-
   desc "Build and upload iOS app to Apple TestFlight automatically"
   lane :beta do
-    # 1. Resolve App Store Connect API Key
-    # using app-specific password instead of api key
+    # 1. Setup CI (Creates temporary keychain, installs Apple WWDR certificates)
+    setup_ci
 
-    # 2. Fetch latest build number from TestFlight
-    latest_build = 0
-    begin
-      latest_build = latest_testflight_build_number(
-        app_identifier: "com.amasyaetas.mobile",
-        )
-    rescue => e
-      UI.important("Notice: Could not fetch latest TestFlight build number (might be first release): #{e.message}")
-      latest_build = 0
-    end
+    # 2. Install Manual Certificate & Profile
+    import_certificate(
+      certificate_path: File.expand_path("../certs/ios_distribution.p12", __dir__),
+      certificate_password: "Apple123!",
+      keychain_name: "fastlane_tmp_keychain",
+      keychain_password: ""
+    )
 
-    # 3. Calculate next build number with fallback
-    next_build_number = (latest_build.nil? || latest_build.to_i == 0) ? 1 : (latest_build.to_i + 1)
-    UI.success("Determined next build number: #{next_build_number} (previous TestFlight build: #{latest_build.inspect})")
+    # Forcefully allow codesign to access the private key
+    sh("security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \"\" ~/Library/Keychains/fastlane_tmp_keychain-db")
 
-    # 4. Synchronize project.yml CURRENT_PROJECT_VERSION
-    project_yml_path = File.expand_path("../project.yml", __dir__)
-    if File.exist?(project_yml_path)
-      content = File.read(project_yml_path)
-      new_content = content.gsub(/CURRENT_PROJECT_VERSION:\s*["']?\d+["']?/, "CURRENT_PROJECT_VERSION: \"#{next_build_number}\"")
-      File.write(project_yml_path, new_content)
-      UI.message("Updated project.yml CURRENT_PROJECT_VERSION to #{next_build_number}")
-    end
+    install_provisioning_profile(
+      path: File.expand_path("../certs/EtasEt_AppStore_Profile.mobileprovision", __dir__)
+    )
 
-    # 5. Regenerate Xcode Project via XcodeGen
+    # 3. Generate Xcode Project
     sh("cd .. && xcodegen generate")
 
-    # 6. Increment build number in Xcode project via agvtool
-    increment_build_number(
-      xcodeproj: "dars-ios.xcodeproj",
-      build_number: next_build_number
+    update_project_provisioning(
+      xcodeproj: File.expand_path("../dars-ios.xcodeproj", __dir__),
+      profile: File.expand_path("../certs/EtasEt_AppStore_Profile.mobileprovision", __dir__),
+      target_filter: "dars-ios",
+      build_configuration: "Release"
     )
 
-    # 7. Automatic signing and provisioning via Apple API (matching marif-et-ios baseline)
-    get_certificates(
-      development: false
-    )
-    get_provisioning_profile(
-      app_identifier: "com.amasyaetas.mobile",
-      development: false
-    )
-
-    # Dynamic provisioning profile name resolution
-    profile_name = ENV["sigh_com.amasyaetas.mobile_appstore_profile_name"] || "com.amasyaetas.mobile AppStore"
-
-    # 8. Build, sign, and archive IPA
+    # 4. Build IPA
     build_app(
-      project: "dars-ios.xcodeproj",
+      project: File.expand_path("../dars-ios.xcodeproj", __dir__),
       scheme: "dars-ios",
-      configuration: "Release",
       export_method: "app-store",
       clean: true,
+      output_name: "dars-ios.ipa",
+      codesigning_identity: "Apple Distribution",
+      xcargs: "OTHER_CODE_SIGN_FLAGS=\"--keychain ~/Library/Keychains/fastlane_tmp_keychain-db\"",
       export_options: {
         signingStyle: "manual",
+        teamID: "WGARWL7QZ4",
         provisioningProfiles: {
-          "com.amasyaetas.mobile" => profile_name
+          "com.amasyaetas.mobile" => "EtasEt_AppStore_Profile"
         }
-      },
-      xcargs: "CURRENT_PROJECT_VERSION=#{next_build_number}"
+      }
     )
 
-    # 9. Upload to TestFlight
-    upload_to_testflight(
-      skip_waiting_for_build_processing: true,
-      distribute_external: false
-    )
-    UI.success("Successfully uploaded build #{next_build_number} of dars-ios to TestFlight!")
+    # 5. Upload directly to Apple TestFlight using altool (Bypasses Spaceship API requirement for Individual accounts)
+    sh("xcrun altool --upload-app -f \"#{File.expand_path('../dars-ios.ipa', __dir__)}\" -t ios -u \"#{ENV['FASTLANE_USER']}\" -p \"#{ENV['FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD']}\"")
   end
-
-  desc "Build and upload to TestFlight (alias for beta lane)"
-  lane :build_and_upload do
-    beta
-  end
-
 end
-
-
-
