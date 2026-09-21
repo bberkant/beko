@@ -4,7 +4,6 @@ options:
   deploymentTarget:
     iOS: "17.0"
   defaultConfig: Release
-  xcodeVersion: "14.0"
 
 packages:
   supabase-swift:

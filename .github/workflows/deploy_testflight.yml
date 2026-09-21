@@ -99,9 +99,15 @@ jobs:
           if [ $FASTLANE_EXIT -ne 0 ]; then
             echo ""
             echo "=========================================================="
-            echo "🚨 FASTLANE CRASHED! 🚨"
+            echo "🚨 COMPILATION / SIGNING ERROR DETAILS 🚨"
             echo "=========================================================="
-            grep -A 10 "xcodebuild: error:" fastlane_output.log || tail -n 25 fastlane_output.log
+            if ls ~/Library/Logs/gym/*.log 1> /dev/null 2>&1; then
+              echo "--- Found Gym Build Log ---"
+              grep -E -C 2 "error:|fatal error:|ARCHIVE FAILED|Code Signing Error" ~/Library/Logs/gym/*.log | tail -n 40 || tail -n 40 ~/Library/Logs/gym/*.log
+            else
+              echo "--- Fastlane Output ---"
+              grep -E -C 2 "error:|fatal error:" fastlane_output.log | tail -n 30 || tail -n 30 fastlane_output.log
+            fi
             echo "=========================================================="
             echo "🚨 PLEASE SEND A SCREENSHOT OF THIS BOX 🚨"
             echo "=========================================================="
