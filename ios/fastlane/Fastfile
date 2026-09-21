@@ -30,7 +30,7 @@ platform :ios do
       export_method: "app-store",
       clean: true,
       output_name: "dars-ios.ipa",
-      xcargs: "OTHER_CODE_SIGN_FLAGS=\"--keychain ~/Library/Keychains/fastlane_tmp_keychain-db\"",
+      xcargs: "OTHER_CODE_SIGN_FLAGS=\"--keychain ~/Library/Keychains/fastlane_tmp_keychain-db\" CURRENT_PROJECT_VERSION=#{ENV['GITHUB_RUN_NUMBER'] || '100'}",
       export_options: {
         signingStyle: "manual",
         teamID: "WGARWL7QZ4",
