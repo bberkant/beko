@@ -14,13 +14,13 @@ import re
 import unittest
 import yaml
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 FASTFILE_PATH = os.path.join(ROOT_DIR, "fastlane", "Fastfile")
 APPFILE_PATH = os.path.join(ROOT_DIR, "fastlane", "Appfile")
-WORKFLOW_PATH = os.path.join(ROOT_DIR, ".github", "workflows", "deploy_testflight.yml")
+WORKFLOW_PATH = os.path.join(ROOT_DIR, "..", ".github", "workflows", "deploy_testflight.yml")
 PROJECT_YML_PATH = os.path.join(ROOT_DIR, "project.yml")
 INFOPLIST_PATH = os.path.join(ROOT_DIR, "dars-ios", "App", "Info.plist")
 

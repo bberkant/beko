@@ -18,7 +18,7 @@ from .models import (
 from .supabase_client import SupabaseTestClient
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-DARS_DIR = os.path.join(ROOT_DIR, "dars-ios")
+DARS_DIR = ROOT_DIR
 
 
 class TestTier2BoundaryCorner(unittest.TestCase):

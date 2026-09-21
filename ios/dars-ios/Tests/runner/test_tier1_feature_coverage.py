@@ -14,7 +14,7 @@ from .models import (
 from .supabase_client import SupabaseTestClient
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-DARS_DIR = os.path.join(ROOT_DIR, "dars-ios")
+DARS_DIR = ROOT_DIR
 
 
 class TestTier1FeatureCoverage(unittest.TestCase):
@@ -50,7 +50,7 @@ class TestTier1FeatureCoverage(unittest.TestCase):
 
     def test_dashboard_calendar_cells_count(self):
         """Verify project.yml XcodeGen specification structure using PyYAML."""
-        pyml_path = os.path.join(ROOT_DIR, "project.yml")
+        pyml_path = os.path.join(ROOT_DIR, "..", "project.yml")
         with open(pyml_path, "r", encoding="utf-8") as f:
             spec = yaml.safe_load(f)
         self.assertEqual(spec.get("name"), "dars-ios")
