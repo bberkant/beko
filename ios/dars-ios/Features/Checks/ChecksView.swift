@@ -80,7 +80,7 @@ public struct ChecksView: View {
     private func checkCard(for check: CheckRecord) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(check.kesideci)
+                Text(check.kesideci ?? check.drawer)
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.ktTextHeading)
                 Text(check.bankName)

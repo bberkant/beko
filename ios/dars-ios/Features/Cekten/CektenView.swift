@@ -12,8 +12,8 @@ public struct CektenView: View {
     @StateObject private var viewModel: CektenViewModel
     
     @MainActor
-    public init(viewModel: CektenViewModel = CektenViewModel()) {
-        self._viewModel = StateObject(wrappedValue: viewModel)
+    public init(viewModel: CektenViewModel? = nil) {
+        self._viewModel = StateObject(wrappedValue: viewModel ?? CektenViewModel())
     }
     
     public var body: some View {

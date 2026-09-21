@@ -12,8 +12,8 @@ public struct TakasView: View {
     @StateObject private var viewModel: TakasViewModel
     
     @MainActor
-    public init(viewModel: TakasViewModel = TakasViewModel()) {
-        self._viewModel = StateObject(wrappedValue: viewModel)
+    public init(viewModel: TakasViewModel? = nil) {
+        self._viewModel = StateObject(wrappedValue: viewModel ?? TakasViewModel())
     }
     
     public var body: some View {

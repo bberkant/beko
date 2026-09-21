@@ -16,8 +16,8 @@ public struct MenuView: View {
     @State private var showingDbInfoSheet: Bool = false
     
     @MainActor
-    public init(viewModel: MenuViewModel = MenuViewModel()) {
-        self._viewModel = StateObject(wrappedValue: viewModel)
+    public init(viewModel: MenuViewModel? = nil) {
+        self._viewModel = StateObject(wrappedValue: viewModel ?? MenuViewModel())
     }
     
     public var body: some View {
