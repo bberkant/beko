@@ -21,15 +21,7 @@ platform :ios do
       path: File.expand_path("../certs/EtasEt_AppStore_Profile.mobileprovision", __dir__)
     )
 
-    # 3. Generate Xcode Project
-    sh("cd .. && xcodegen generate")
 
-    update_project_provisioning(
-      xcodeproj: File.expand_path("../dars-ios.xcodeproj", __dir__),
-      profile: File.expand_path("../certs/EtasEt_AppStore_Profile.mobileprovision", __dir__),
-      target_filter: "dars-ios",
-      build_configuration: "Release"
-    )
 
     # 4. Build IPA
     build_app(
@@ -53,3 +45,4 @@ platform :ios do
     sh("xcrun altool --upload-app -f \"#{File.expand_path('../dars-ios.ipa', __dir__)}\" -t ios -u \"#{ENV['FASTLANE_USER']}\" -p \"#{ENV['FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD']}\"")
   end
 end
+
