@@ -66,10 +66,7 @@ jobs:
 
       - name: Install Tools (XcodeGen)
         run: |
-          curl -sL https://github.com/yonaskolb/XcodeGen/releases/download/2.39.0/xcodegen.zip -o xcodegen.zip
-          unzip -q xcodegen.zip
-          sudo cp -R xcodegen/bin/xcodegen /usr/local/bin/
-          sudo cp -R xcodegen/share/xcodegen /usr/local/share/
+          brew install xcodegen
           xcodegen --version
 
       - name: Cache Swift Package Manager Dependencies
