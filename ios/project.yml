@@ -38,6 +38,7 @@ targets:
         SWIFT_VERSION: "5.9"
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "2"
+        VERSIONING_SYSTEM: "apple-generic"
 
   dars-iosTests:
     type: bundle.unit-test
@@ -53,3 +54,4 @@ targets:
         DEVELOPMENT_TEAM: WGARWL7QZ4
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.9"
+

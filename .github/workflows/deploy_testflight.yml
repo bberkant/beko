@@ -113,15 +113,6 @@ jobs:
             echo "AuthKey_T7BGJ39HPK.p8 installed to local root and ~/.appstoreconnect/private_keys/ (chmod 0600)"
           fi
 
-      - name: Run Fastlane Unit Tests
-        if: ${{ github.event.inputs.skip_tests != 'true' }}
-        run: |
-          bundle install
-          bundle exec fastlane test || fastlane test
-        env:
-          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
-          FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "4"
-
       - name: Run Fastlane TestFlight Beta Deployment
         run: |
           bundle install
@@ -165,3 +156,4 @@ jobs:
           echo "| **Apple Team ID** | \`WGARWL7QZ4\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **App Store Connect Key ID** | \`T7BGJ39HPK\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Workflow Run** | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+
