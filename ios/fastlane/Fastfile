@@ -92,15 +92,14 @@ platform :ios do
   desc "Build and upload iOS app to Apple TestFlight automatically"
   lane :beta do
     # 1. Resolve App Store Connect API Key
-    api_key = resolve_app_store_connect_api_key
+    # using app-specific password instead of api key
 
     # 2. Fetch latest build number from TestFlight
     latest_build = 0
     begin
       latest_build = latest_testflight_build_number(
         app_identifier: "com.amasyaetas.mobile",
-        api_key: api_key
-      )
+        )
     rescue => e
       UI.important("Notice: Could not fetch latest TestFlight build number (might be first release): #{e.message}")
       latest_build = 0
@@ -130,11 +129,9 @@ platform :ios do
 
     # 7. Automatic signing and provisioning via Apple API (matching marif-et-ios baseline)
     get_certificates(
-      api_key: api_key,
       development: false
     )
     get_provisioning_profile(
-      api_key: api_key,
       app_identifier: "com.amasyaetas.mobile",
       development: false
     )
@@ -160,7 +157,6 @@ platform :ios do
 
     # 9. Upload to TestFlight
     upload_to_testflight(
-      api_key: api_key,
       skip_waiting_for_build_processing: true,
       distribute_external: false
     )
@@ -173,4 +169,5 @@ platform :ios do
   end
 
 end
+
 

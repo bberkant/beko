@@ -93,34 +93,14 @@ jobs:
           fi
           echo "Successfully generated dars-ios.xcodeproj"
 
-      - name: Configure App Store Connect API Key
-        run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-
-          if [ -n "${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}" ]; then
-            echo "${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}" | base64 --decode > AuthKey_T7BGJ39HPK.p8
-            echo "Successfully decoded API Key from APP_STORE_CONNECT_API_KEY_BASE64"
-          elif [ -n "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" ]; then
-            echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" > AuthKey_T7BGJ39HPK.p8
-            echo "Successfully loaded API Key from APP_STORE_CONNECT_PRIVATE_KEY"
-          else
-            echo "::warning::Neither APP_STORE_CONNECT_API_KEY_BASE64 nor APP_STORE_CONNECT_PRIVATE_KEY secret is configured in GitHub Secrets!"
-          fi
-
-          if [ -f "AuthKey_T7BGJ39HPK.p8" ]; then
-            cp AuthKey_T7BGJ39HPK.p8 ~/.appstoreconnect/private_keys/AuthKey_T7BGJ39HPK.p8
-            chmod 600 AuthKey_T7BGJ39HPK.p8 ~/.appstoreconnect/private_keys/AuthKey_T7BGJ39HPK.p8
-            echo "AuthKey_T7BGJ39HPK.p8 installed to local root and ~/.appstoreconnect/private_keys/ (chmod 0600)"
-          fi
-
       - name: Run Fastlane TestFlight Beta Deployment
         run: |
           bundle install
           bundle exec fastlane beta || fastlane beta
         env:
-          APP_STORE_CONNECT_API_KEY_KEY_ID: "T7BGJ39HPK"
-          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID || 'c29ba154-2062-4309-8588-4bbec249ad0c' }}
-          APP_STORE_CONNECT_API_KEY_KEY_FILEPATH: "./AuthKey_T7BGJ39HPK.p8"
+          FASTLANE_USER: "etaseturunleri@gmail.com"
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: "vjhd-ddhu-qrin-mnme"
+          
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
           FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "4"
           VERBOSE: ${{ github.event.inputs.verbose || 'false' }}
@@ -156,4 +136,7 @@ jobs:
           echo "| **Apple Team ID** | \`WGARWL7QZ4\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **App Store Connect Key ID** | \`T7BGJ39HPK\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Workflow Run** | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+
+
+
 
