@@ -1,0 +1,17 @@
+# fastlane/Appfile
+# Apple Developer and App Store Connect configuration for dars_ios_app
+
+# The bundle identifier of the application
+app_identifier(ENV["APP_IDENTIFIER"] || "com.amasyaetas.mobile")
+
+# Your Apple ID / Email address associated with the Apple Developer Account
+apple_id(ENV["APPLE_ID"] || "berkant@ops360.com.tr")
+
+# Apple Developer Team ID (10-character alphanumeric ID)
+team_id(ENV["TEAM_ID"] || "WGARWL7QZ4")
+
+# App Store Connect Team ID (numeric team ID)
+itc_team_id(ENV["ITC_TEAM_ID"] || "126909470")
+
+# For more information about the Appfile, see:
+#     https://docs.fastlane.tools/advanced/#appfile
