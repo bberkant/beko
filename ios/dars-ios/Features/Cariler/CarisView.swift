@@ -13,6 +13,7 @@ import SwiftUI
 public struct CarisView: View {
     @StateObject private var viewModel: CarisViewModel
     
+    @MainActor
     public init(viewModel: CarisViewModel = CarisViewModel()) {
         self._viewModel = StateObject(wrappedValue: viewModel)
     }

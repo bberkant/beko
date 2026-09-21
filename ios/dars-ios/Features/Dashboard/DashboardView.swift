@@ -17,6 +17,7 @@ public struct DashboardView: View {
     @State private var showingNotifications: Bool = false
     @State private var showingProfileAlert: Bool = false
     
+    @MainActor
     public init(selectedTab: Binding<Int>, viewModel: DashboardViewModel = DashboardViewModel()) {
         self._selectedTab = selectedTab
         self._viewModel = StateObject(wrappedValue: viewModel)

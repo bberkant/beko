@@ -7,6 +7,10 @@ public struct ChecksView: View {
     
     public init() {}
     
+    private var filteredChecks: [CheckRecord] {
+        manager.checks.filter { $0.status == activeTab }
+    }
+    
     public var body: some View {
         VStack(spacing: 0) {
             // Header panel with Title and Action
@@ -14,7 +18,7 @@ public struct ChecksView: View {
                 HStack {
                     Text("Çek & Senet Portföyü")
                         .font(.system(size: 20, weight: .black))
-                        .foregroundColor(Color(.label))
+                        .foregroundColor(.ktTextHeading)
                         .tracking(-0.5)
                     Spacer()
                     Button(action: { showingAddCheck = true }) {
@@ -22,12 +26,12 @@ public struct ChecksView: View {
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.white)
                             .frame(width: 32, height: 32)
-                            .background(Color.brandGreen)
+                            .background(Color.ktPrimary)
                             .clipShape(Circle())
                     }
                 }
                 
-                // Segments Tab Selector (Matches Kuveyt Turk Segmented Control style)
+                // Segments Tab Selector
                 HStack(spacing: 4) {
                     TabButton(title: "Portföydekiler", isSelected: activeTab == "Portföy") {
                         activeTab = "Portföy"
@@ -40,68 +44,71 @@ public struct ChecksView: View {
                     }
                 }
                 .padding(3)
-                .background(Color(.systemGray6))
+                .background(Color.ktSegmentedTrack)
                 .cornerRadius(12)
             }
             .padding(.horizontal, 24)
             .padding(.top, 16)
             .padding(.bottom, 12)
-            .background(Color(.systemBackground))
+            .background(Color.ktCardSurface)
             
             // Check items list
             ScrollView {
-                VStack(spacing: 12) {
-                    let filtered = manager.checks.filter { $0.status == activeTab }
-                    
-                    if filtered.isEmpty {
+                LazyVStack(spacing: 12) {
+                    if filteredChecks.isEmpty {
                         Text("Bu kategoride kayıtlı çek bulunamadı.")
                             .font(.system(size: 13))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.ktTextMuted)
                             .padding(.top, 40)
                     } else {
-                        ForEach(filtered) { check in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(check.kesideci)
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(Color(.label))
-                                    Text(check.bankName)
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.gray)
-                                    Text("Seri: \(check.checkNo)")
-                                        .font(.system(size: 9))
-                                        .foregroundColor(.gray.opacity(0.6))
-                                        .fontDesign(.monospaced)
-                                }
-                                Spacer()
-                                VStack(alignment: .trailing, spacing: 4) {
-                                    Text(formatCurrency(check.amount))
-                                        .font(.system(size: 14, weight: .black))
-                                        .foregroundColor(Color(.label))
-                                    Text(formatDate(check.dueDate))
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(.brandGreen)
-                                }
-                            }
-                            .padding(16)
-                            .background(Color(.systemBackground))
-                            .cornerRadius(16)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .stroke(Color(.systemGray5), lineWidth: 1)
-                            )
-                            .padding(.horizontal, 24)
+                        ForEach(filteredChecks) { check in
+                            checkCard(for: check)
                         }
                     }
                 }
                 .padding(.top, 12)
                 .padding(.bottom, 90)
             }
-            .background(Color(red: 0.96, green: 0.97, blue: 0.98))
+            .background(Color.ktPageBackground)
         }
         .sheet(isPresented: $showingAddCheck) {
             AddCheckView()
         }
+    }
+    
+    @ViewBuilder
+    private func checkCard(for check: CheckRecord) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(check.kesideci)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.ktTextHeading)
+                Text(check.bankName)
+                    .font(.system(size: 11))
+                    .foregroundColor(.ktTextMuted)
+                Text("Seri: \(check.checkNo)")
+                    .font(.system(size: 9))
+                    .foregroundColor(.ktTextTertiary)
+                    .fontDesign(.monospaced)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(formatCurrency(check.amount))
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundColor(.ktTextHeading)
+                Text(formatDate(check.dueDate))
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.ktPrimary)
+            }
+        }
+        .padding(16)
+        .background(Color.ktCardSurface)
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.ktCardBorder, lineWidth: 1)
+        )
+        .padding(.horizontal, 24)
     }
     
     // UI Helpers
@@ -116,7 +123,6 @@ public struct ChecksView: View {
     }
 }
 
-// Segment Tab Button styled to look like Kuveyt Turk (clear background/active background)
 fileprivate struct TabButton: View {
     let title: String
     let isSelected: Bool
@@ -128,8 +134,8 @@ fileprivate struct TabButton: View {
                 .font(.system(size: 11, weight: .bold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                .background(isSelected ? Color(.systemBackground) : Color.clear)
-                .foregroundColor(isSelected ? .brandGreen : .gray)
+                .background(isSelected ? Color.ktCardSurface : Color.clear)
+                .foregroundColor(isSelected ? Color.ktPrimary : Color.ktTextMuted)
                 .cornerRadius(10)
                 .shadow(color: isSelected ? Color.black.opacity(0.04) : Color.clear, radius: 2)
         }

@@ -25,7 +25,7 @@ public struct LoginView: View {
                 // Header Logo
                 HStack(spacing: 12) {
                     Circle()
-                        .fill(Color.brandGreen)
+                        .fill(Color.ktPrimary)
                         .frame(width: 44, height: 44)
                         .overlay(
                             Image(systemName: "building.columns.fill")
@@ -46,16 +46,16 @@ public struct LoginView: View {
                     // FaceID Icon simulator
                     ZStack {
                         Circle()
-                            .fill(Color.brandGreen.opacity(0.1))
+                            .fill(Color.ktPrimary.opacity(0.1))
                             .frame(width: 100, height: 100)
                             .overlay(
                                 Circle()
-                                    .stroke(Color.brandGreen.opacity(0.2), lineWidth: 1)
+                                    .stroke(Color.ktPrimary.opacity(0.2), lineWidth: 1)
                             )
                         
                         Image(systemName: "faceid")
                             .font(.system(size: 48))
-                            .foregroundColor(.brandGreen)
+                            .foregroundColor(.ktPrimary)
                     }
                     
                     Text("Hoş Geldiniz")
@@ -85,10 +85,10 @@ public struct LoginView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.brandGreen)
+                        .background(Color.ktPrimary)
                         .foregroundColor(.white)
                         .cornerRadius(16)
-                        .shadow(color: Color.brandGreen.opacity(0.3), radius: 10, x: 0, y: 5)
+                        .shadow(color: Color.ktPrimary.opacity(0.3), radius: 10, x: 0, y: 5)
                     }
                     .disabled(loadingFaceID)
                     

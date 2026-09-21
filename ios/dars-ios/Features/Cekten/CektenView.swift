@@ -11,6 +11,7 @@ import SwiftUI
 public struct CektenView: View {
     @StateObject private var viewModel: CektenViewModel
     
+    @MainActor
     public init(viewModel: CektenViewModel = CektenViewModel()) {
         self._viewModel = StateObject(wrappedValue: viewModel)
     }

@@ -31,13 +31,13 @@ public struct AddCheckView: View {
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
                                     .frame(height: 80)
-                                    .foregroundColor(.brandGreen)
+                                    .foregroundColor(.ktPrimary)
                                     .opacity(0.1)
                                 
                                 VStack(spacing: 8) {
                                     Image(systemName: "checkmark.circle.fill")
                                         .font(.system(size: 32))
-                                        .foregroundColor(.brandGreen)
+                                        .foregroundColor(.ktPrimary)
                                     Text("Çek Başarıyla Tarandı")
                                         .font(.system(size: 13, weight: .bold))
                                     Text("Tutar ve vade bilgileri forma aktarıldı.")
@@ -51,16 +51,16 @@ public struct AddCheckView: View {
                             .cornerRadius(20)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 20)
-                                    .stroke(Color.brandGreen.opacity(0.3), lineWidth: 1.5)
+                                    .stroke(Color.ktPrimary.opacity(0.3), lineWidth: 1.5)
                             )
                         } else if isScanning {
                             // Scanner View Simulator
                             VStack(spacing: 12) {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .brandGreen))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .ktPrimary))
                                 Text("Çek Bilgileri Çözümleniyor...")
                                     .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.brandGreen)
+                                    .foregroundColor(.ktPrimary)
                                 Text("Vade, tutar ve seri no okunuyor.")
                                     .font(.system(size: 9))
                                     .foregroundColor(.gray)
@@ -71,16 +71,16 @@ public struct AddCheckView: View {
                             .cornerRadius(20)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 20)
-                                    .stroke(Color.brandGreen.opacity(0.3), lineWidth: 1.5)
+                                    .stroke(Color.ktPrimary.opacity(0.3), lineWidth: 1.5)
                             )
                         } else {
                             // Prompt Box Button
                             Button(action: startMockScan) {
                                 VStack(spacing: 12) {
                                     Circle()
-                                        .fill(Color.brandGreen.opacity(0.05))
+                                        .fill(Color.ktPrimary.opacity(0.05))
                                         .frame(width: 48, height: 48)
-                                        .overlay(Image(systemName: "camera.fill").foregroundColor(.brandGreen).font(.system(size: 18)))
+                                        .overlay(Image(systemName: "camera.fill").foregroundColor(.ktPrimary).font(.system(size: 18)))
                                     
                                     VStack(spacing: 4) {
                                         Text("Çek Fotoğrafı Çek")
@@ -97,7 +97,7 @@ public struct AddCheckView: View {
                                 .cornerRadius(20)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 20)
-                                        .stroke(Color.brandGreen.opacity(0.2), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .bevel, miterLimit: 10, dash: [5, 5], dashPhase: 0))
+                                        .stroke(Color.ktPrimary.opacity(0.2), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .bevel, miterLimit: 10, dash: [5, 5], dashPhase: 0))
                                 )
                             }
                         }
@@ -197,9 +197,9 @@ public struct AddCheckView: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Color.brandGreen)
+                            .background(Color.ktPrimary)
                             .cornerRadius(16)
-                            .shadow(color: Color.brandGreen.opacity(0.2), radius: 8, x: 0, y: 4)
+                            .shadow(color: Color.ktPrimary.opacity(0.2), radius: 8, x: 0, y: 4)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 10)
@@ -210,7 +210,7 @@ public struct AddCheckView: View {
             .navigationBarTitle("Yeni Çek Ekle", displayMode: .inline)
             .navigationBarItems(leading: Button("Kapat") {
                 presentationMode.wrappedValue.dismiss()
-            }.foregroundColor(.brandGreen))
+            }.foregroundColor(.ktPrimary))
         }
     }
     

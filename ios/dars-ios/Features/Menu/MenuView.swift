@@ -15,6 +15,7 @@ public struct MenuView: View {
     @State private var showingLogoutAlert: Bool = false
     @State private var showingDbInfoSheet: Bool = false
     
+    @MainActor
     public init(viewModel: MenuViewModel = MenuViewModel()) {
         self._viewModel = StateObject(wrappedValue: viewModel)
     }

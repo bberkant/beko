@@ -11,6 +11,7 @@ import SwiftUI
 public struct TakasView: View {
     @StateObject private var viewModel: TakasViewModel
     
+    @MainActor
     public init(viewModel: TakasViewModel = TakasViewModel()) {
         self._viewModel = StateObject(wrappedValue: viewModel)
     }
