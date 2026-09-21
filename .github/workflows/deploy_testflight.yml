@@ -96,7 +96,23 @@ jobs:
       - name: Run Fastlane TestFlight Beta Deployment
         run: |
           bundle install
-          bundle exec fastlane beta || (cat ~/Library/Logs/gym/*.log; exit 1)
+          
+          set +e
+          bundle exec fastlane beta > fastlane_output.log 2>&1
+          FASTLANE_EXIT=$?
+          set -e
+          
+          if [ $FASTLANE_EXIT -ne 0 ]; then
+            echo ""
+            echo "=========================================================="
+            echo "🚨 FASTLANE CRASHED! 🚨"
+            echo "=========================================================="
+            grep -A 10 "xcodebuild: error:" fastlane_output.log || tail -n 25 fastlane_output.log
+            echo "=========================================================="
+            echo "🚨 PLEASE SEND A SCREENSHOT OF THIS BOX 🚨"
+            echo "=========================================================="
+            exit 1
+          fi
         env:
           FASTLANE_USER: "etaseturunleri@gmail.com"
           FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: "vjhd-ddhu-qrin-mnme"
