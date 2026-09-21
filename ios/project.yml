@@ -5,6 +5,10 @@ options:
     iOS: "17.0"
   defaultConfig: Release
 
+settings:
+  base:
+    DEVELOPMENT_TEAM: WGARWL7QZ4
+
 packages:
   supabase-swift:
     url: https://github.com/supabase/supabase-swift.git
