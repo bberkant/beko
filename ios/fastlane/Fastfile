@@ -40,12 +40,8 @@ platform :ios do
       }
     )
 
-    # 5. Upload directly to Apple TestFlight using Fastlane Transporter (Supports App-Specific Passwords)
-    upload_to_testflight(
-      ipa: File.expand_path("../dars-ios.ipa", __dir__),
-      skip_waiting_for_build_processing: true,
-      skip_submission: true
-    )
+    # 5. Upload directly to Apple TestFlight using altool with App-Specific Password
+    sh("xcrun altool --upload-app -f \"#{File.expand_path('../dars-ios.ipa', __dir__)}\" -t ios -u \"#{ENV['FASTLANE_USER']}\" -p \"#{ENV['FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD']}\"")
   end
 end
 
