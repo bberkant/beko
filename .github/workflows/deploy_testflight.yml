@@ -66,14 +66,11 @@ jobs:
 
       - name: Install Tools (XcodeGen)
         run: |
-          if ! command -v xcodegen &> /dev/null; then
-            echo "Installing XcodeGen via Homebrew..."
-            brew install xcodegen
-          fi
+          curl -sL https://github.com/yonaskolb/XcodeGen/releases/download/2.39.0/xcodegen.zip -o xcodegen.zip
+          unzip -q xcodegen.zip
+          sudo cp -R xcodegen/bin/xcodegen /usr/local/bin/
+          sudo cp -R xcodegen/share/xcodegen /usr/local/share/
           xcodegen --version
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: 1
-          HOMEBREW_NO_INSTALL_CLEANUP: 1
 
       - name: Cache Swift Package Manager Dependencies
         uses: actions/cache@v4
