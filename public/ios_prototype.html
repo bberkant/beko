@@ -308,10 +308,10 @@
       <!-- ============================================================ -->
       <div id="app-header" class="hidden bg-white text-slate-800 px-5 py-3 flex justify-between items-center border-b border-gray-100 select-none shrink-0 z-30">
         <div class="flex items-center gap-2.5 overflow-hidden">
-          <div class="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg>
-          </div>
-          <div class="truncate">
+          <button onclick="changeScreen('menu')" class="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 hover:bg-blue-50 hover:text-kt-primary cursor-pointer transition-colors shadow-2xs" title="Tüm Menüler & Modüller">
+            <svg class="w-5 h-5 text-slate-700 hover:text-kt-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+          </button>
+          <div class="truncate cursor-pointer" onclick="changeScreen('menu')">
             <div class="flex items-center gap-1.5">
               <h3 class="text-xs font-extrabold text-slate-900 truncate">Marif Et Ve Et Ürünleri</h3>
               <span id="live-db-badge" class="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded text-[9px] font-[600] tracking-tight shrink-0 flex items-center gap-1">
