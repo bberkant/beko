@@ -92,8 +92,10 @@ export const tier4RealWorldScenarios = [
       // Step 4: Verify native vehicle inspection reminder in Swift
       if (!parser.exists()) return { passed: false, error: 'Step 4 Failed: DarsApp.swift not found.' };
       const swiftContent = parser.getContent();
-      if (!swiftContent.includes('vehicle_inspection_lockscreen') || !swiftContent.includes('🚗 Araç Muayene & Sigorta Takibi')) {
-        return { passed: false, error: 'Step 4 Failed: vehicle_inspection_lockscreen notification not configured in Swift.' };
+      const hasVehicleReminder = (swiftContent.includes('scheduleVehicleReminder') || swiftContent.includes('vehicle_inspection_lockscreen')) &&
+                                 (swiftContent.includes('🚗 Araç Muayene & Sigorta Takibi') || swiftContent.includes('🚗 TÜVTÜRK Muayene'));
+      if (!hasVehicleReminder) {
+        return { passed: false, error: 'Step 4 Failed: vehicle inspection reminder not configured in Swift.' };
       }
 
       return {

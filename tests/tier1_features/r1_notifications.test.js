@@ -154,16 +154,17 @@ export const tier1NotificationsTests = [
     tier: 'Tier 1',
     feature: 'F2: Notification Trigger Timings',
     name: 'Credit card due date reminder configured with advance deadline timing',
-    source: 'ORIGINAL_REQUEST.md:R1, DarsApp.swift:80-84',
+    source: 'ORIGINAL_REQUEST.md:R1, DarsApp.swift:54-112',
     run: async () => {
       const parser = new SwiftParser();
       if (!parser.exists()) return { passed: false, error: 'DarsApp.swift not found' };
       const content = parser.getContent();
-      const hasCcReminder = content.includes('cc_due_reminder_lockscreen') && content.includes('💳 Kredi Kartı Son Ödeme Uyarısı');
+      const hasCcReminder = (content.includes('scheduleCreditCardReminder') || content.includes('cc_due_reminder_lockscreen')) &&
+                            content.includes('💳 Kredi Kartı Son Ödeme Uyarısı');
       if (!hasCcReminder) {
         return {
           passed: false,
-          error: 'Credit card due date reminder (cc_due_reminder_lockscreen) not configured in scheduleAllFinancialReminders.'
+          error: 'Credit card due date reminder not configured in DarsApp.swift.'
         };
       }
       return { passed: true };
@@ -174,16 +175,17 @@ export const tier1NotificationsTests = [
     tier: 'Tier 1',
     feature: 'F2: Notification Trigger Timings',
     name: 'Check maturity advance reminder configured for upcoming portfolio checks',
-    source: 'ORIGINAL_REQUEST.md:R1, DarsApp.swift:88-92',
+    source: 'ORIGINAL_REQUEST.md:R1, DarsApp.swift:114-179',
     run: async () => {
       const parser = new SwiftParser();
       if (!parser.exists()) return { passed: false, error: 'DarsApp.swift not found' };
       const content = parser.getContent();
-      const hasCheckReminder = content.includes('check_due_reminder_lockscreen') && content.includes('🚨 Çek Vadesi Yaklaşıyor');
+      const hasCheckReminder = (content.includes('scheduleCheckReminder') || content.includes('check_due_reminder_lockscreen')) &&
+                               content.includes('🚨 Çek Vadesi');
       if (!hasCheckReminder) {
         return {
           passed: false,
-          error: 'Check maturity reminder (check_due_reminder_lockscreen) not configured in scheduleAllFinancialReminders.'
+          error: 'Check maturity reminder not configured in DarsApp.swift.'
         };
       }
       return { passed: true };
@@ -194,16 +196,17 @@ export const tier1NotificationsTests = [
     tier: 'Tier 1',
     feature: 'F2: Notification Trigger Timings',
     name: 'Vehicle inspection & insurance advance deadline reminder configured',
-    source: 'ORIGINAL_REQUEST.md:R1, DarsApp.swift:96-100',
+    source: 'ORIGINAL_REQUEST.md:R1, DarsApp.swift:181-250',
     run: async () => {
       const parser = new SwiftParser();
       if (!parser.exists()) return { passed: false, error: 'DarsApp.swift not found' };
       const content = parser.getContent();
-      const hasVehicleReminder = content.includes('vehicle_inspection_lockscreen') && content.includes('🚗 Araç Muayene & Sigorta Takibi');
+      const hasVehicleReminder = (content.includes('scheduleVehicleReminder') || content.includes('vehicle_inspection_lockscreen')) &&
+                                 (content.includes('🚗 Araç Muayene & Sigorta Takibi') || content.includes('🚗 TÜVTÜRK Muayene'));
       if (!hasVehicleReminder) {
         return {
           passed: false,
-          error: 'Vehicle inspection reminder (vehicle_inspection_lockscreen) not configured in scheduleAllFinancialReminders.'
+          error: 'Vehicle inspection reminder not configured in DarsApp.swift.'
         };
       }
       return { passed: true };

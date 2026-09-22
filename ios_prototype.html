@@ -229,6 +229,71 @@
   <div class="iphone-viewport text-slate-800 flex flex-col">
 
     <!-- ==================== SCREEN CONTAINER ==================== -->
+
+      <!-- ============================================================ -->
+      <!-- 35. FATURALAR EKRANI                                         -->
+      <!-- ============================================================ -->
+      <div id="screen-bills" class="hidden flex-1 flex flex-col overflow-hidden bg-[#F8FAFC] screen-fade">
+        <div class="px-5 py-3.5 bg-white border-b border-gray-100 flex items-center justify-between shrink-0 select-none">
+          <button onclick="changeScreen('menu')" class="text-[13px] font-[500] text-slate-700 bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-all flex items-center gap-1">← Menü</button>
+          <div class="text-center">
+            <h2 class="text-[15px] font-[700] text-slate-900 tracking-tight leading-tight">Faturalar</h2>
+            <p class="text-[10px] text-slate-400 font-medium">Gelen, Giden & Bekleyen Faturalar</p>
+          </div>
+          <button onclick="showToast('Yeni fatura girişi')" class="text-[12.5px] font-[600] text-[#002D59] bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-all">+ Ekle</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar" id="bills-list-container">
+          <div class="kt-card p-4 space-y-2 bg-white border border-slate-200/90 rounded-2xl">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-bold text-slate-800">FTR-2026-009182</span>
+              <span class="text-xs font-mono font-bold text-slate-900">₺184.250,00</span>
+            </div>
+            <p class="text-[11.5px] text-slate-500">Etik Et Ürünleri Gıda Tarım Hayvancılık A.Ş.</p>
+            <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-[11px] text-slate-400">
+              <span>Vade: 15.10.2026</span>
+              <span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold text-[10px]">Ödeme Bekliyor</span>
+            </div>
+          </div>
+          <div class="kt-card p-4 space-y-2 bg-white border border-slate-200/90 rounded-2xl">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-bold text-slate-800">FTR-2026-009144</span>
+              <span class="text-xs font-mono font-bold text-slate-900">₺92.100,00</span>
+            </div>
+            <p class="text-[11.5px] text-slate-500">Marif Et ve Süt Entegre Tesisleri</p>
+            <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-[11px] text-slate-400">
+              <span>Vade: 28.09.2026</span>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[10px]">Ödendi</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- 36. FİNDEKS & RİSK RAPORU EKRANI                             -->
+      <!-- ============================================================ -->
+      <div id="screen-findeks" class="hidden flex-1 flex flex-col overflow-hidden bg-[#F8FAFC] screen-fade">
+        <div class="px-5 py-3.5 bg-white border-b border-gray-100 flex items-center justify-between shrink-0 select-none">
+          <button onclick="changeScreen('menu')" class="text-[13px] font-[500] text-slate-700 bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-all flex items-center gap-1">← Menü</button>
+          <div class="text-center">
+            <h2 class="text-[15px] font-[700] text-slate-900 tracking-tight leading-tight">Findeks Risk Raporu</h2>
+            <p class="text-[10px] text-slate-400 font-medium">Karekodlu Çek & Finansal Skor</p>
+          </div>
+          <button onclick="showToast('Karekod okuyucu açıldı')" class="text-[12.5px] font-[600] text-[#002D59] bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-all">📷 Tara</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar" id="findeks-list-container">
+          <div class="kt-card p-4 space-y-3 bg-white border border-slate-200/90 rounded-2xl">
+            <div class="flex justify-between items-center">
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase">Kurumsal Findeks Notu</span>
+                <h3 class="text-2xl font-black text-emerald-600">1.785 <span class="text-xs font-semibold text-slate-500">/ 1.900</span></h3>
+              </div>
+              <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs">Çok İyi Seviye</span>
+            </div>
+            <p class="text-xs text-slate-500">Çek ödeme endeksi: <strong>%99.4</strong> zamanında ödeme performansı.</p>
+          </div>
+        </div>
+      </div>
+
     <div class="flex-1 flex flex-col overflow-hidden relative">
 
       <!-- ============================================================ -->
@@ -1503,12 +1568,12 @@
         colorClass: 'bg-blue-50 text-[#002D59]',
         badge: '6 Şube',
         children: [
-          { label: 'Merkez Şube', desc: 'Amasya Merkez Perakende Satış', screen: 'subeler' },
-          { label: 'Merzifon Şube', desc: 'Merzifon Şube Satış & Kasa', screen: 'subeler' },
-          { label: 'İlkadım Şube', desc: 'Samsun İlkadım Şube Satış', screen: 'subeler' },
-          { label: 'Atakum Şube', desc: 'Samsun Atakum Şube Satış', screen: 'subeler' },
-          { label: 'Sucukhane Şube', desc: 'Merzifon İşleme & Üretim Tesisi', screen: 'subeler' },
-          { label: 'Depo Şube', desc: 'Amasya OSB Lojistik & Soğuk Hava Deposu', screen: 'subeler' }
+          { label: 'Merkez Şube', desc: 'Amasya Merkez Perakende Satış', screen: 'branches' },
+          { label: 'Merzifon Şube', desc: 'Merzifon Şube Satış & Kasa', screen: 'branches' },
+          { label: 'İlkadım Şube', desc: 'Samsun İlkadım Şube Satış', screen: 'branches' },
+          { label: 'Atakum Şube', desc: 'Samsun Atakum Şube Satış', screen: 'branches' },
+          { label: 'Sucukhane Şube', desc: 'Merzifon İşleme & Üretim Tesisi', screen: 'branches' },
+          { label: 'Depo Şube', desc: 'Amasya OSB Lojistik & Soğuk Hava Deposu', screen: 'branches' }
         ]
       },
       { id: 'gayrimenkul', category: 'Operasyon, Lojistik & Şubeler', label: 'Gayrimenkul Listesi', desc: 'Şirket Mülkleri, Arsa & Dükkan Portföyü', iconKey: 'gayrimenkul', screenTarget: 'real_estates', colorClass: 'bg-slate-100 text-slate-700' },
@@ -1521,10 +1586,10 @@
         colorClass: 'bg-slate-100 text-slate-700',
         badge: '4 Modül',
         children: [
-          { label: 'Dava & İcra Takibi', desc: 'İcra Dosyaları & Tahsilat Süreçleri', screen: 'hukuk' },
-          { label: 'Duruşma & İş Takvimi', desc: 'Adliye & Mahkeme Duruşma Günleri', screen: 'hukuk' },
-          { label: 'UYAP Entegrasyon Merkezi', desc: 'Elektronik UYAP Dosya Sorgulama', screen: 'hukuk' },
-          { label: 'Avukat Portalı', desc: 'Hukuk Müşavirliği Yetki Alanı', screen: 'hukuk' }
+          { label: 'Dava & İcra Takibi', desc: 'İcra Dosyaları & Tahsilat Süreçleri', screen: 'legal_cases' },
+          { label: 'Duruşma & İş Takvimi', desc: 'Adliye & Mahkeme Duruşma Günleri', screen: 'legal_cases' },
+          { label: 'UYAP Entegrasyon Merkezi', desc: 'Elektronik UYAP Dosya Sorgulama', screen: 'legal_cases' },
+          { label: 'Avukat Portalı', desc: 'Hukuk Müşavirliği Yetki Alanı', screen: 'legal_cases' }
         ]
       },
 
@@ -23154,6 +23219,31 @@
           </div>
         `;
       }).join('');
+    }
+
+    
+    function renderTakvimScreen() {
+      renderCalendar();
+    }
+
+    function toggleCalendarNote(noteId) {
+      const rawId = String(noteId).replace('note-', '');
+      const note = userCalendarNotes.find(n => String(n.id) === rawId);
+      if (note) {
+        note.completed = !note.completed;
+        try {
+          localStorage.setItem('dars_calendar_notes', JSON.stringify(userCalendarNotes));
+        } catch(e) {}
+        renderCalendar();
+      }
+    }
+
+    function renderBillsScreen() {
+      // Screen bills renderer
+    }
+
+    function renderFindeksScreen() {
+      // Screen findeks renderer
     }
 
     function renderCalendar() {

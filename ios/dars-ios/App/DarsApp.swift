@@ -6,6 +6,7 @@ import Foundation
 // MARK: - Native Notification Manager (Kilit Ekranı & Arka Plan Bildirimleri)
 class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationManager()
+    private let notificationQueue = DispatchQueue(label: "com.dars.notificationManagerQueue")
     
     override init() {
         super.init()
@@ -63,11 +64,23 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let validDueDay = max(1, min(31, dueDay))
         let debtStr = debt != nil ? " Güncel Borç: \(formatCurrency(debt!))" : ""
         let minPayStr = minPayment != nil ? " Asgari Tutar: \(formatCurrency(minPayment!))" : ""
+        let calendar = Calendar.current
+        let now = Date()
         
         // 1. 2 Gün Önceden Hatırlatma (Aylık Tekrarlayan, 09:00 AM)
         var advanceDay = validDueDay - 2
         if advanceDay <= 0 {
-            advanceDay = 30 + advanceDay // dueDay 1 -> 29, dueDay 2 -> 30
+            // Dinamik takvim aritmetiği ile ay geçişini (28/29 Şubat ve 30/31 gün) hesapla
+            var components = calendar.dateComponents([.year, .month], from: now)
+            components.day = validDueDay
+            components.hour = 9
+            components.minute = 0
+            if let targetDate = calendar.date(from: components),
+               let calculatedAdvDate = calendar.date(byAdding: .day, value: -2, to: targetDate) {
+                advanceDay = calendar.component(.day, from: calculatedAdvDate)
+            } else {
+                advanceDay = 28 + advanceDay
+            }
         }
         var advComponents = DateComponents()
         advComponents.day = advanceDay
@@ -107,6 +120,23 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().add(dueRequest) { error in
             if let error = error {
                 print("[DARS] Kredi kartı son ödeme günü bildirimi hatası: \(error.localizedDescription)")
+            }
+        }
+        
+        // 31. gün veya ay geçişi olan kartlar için (30/28 günlük aylarda bildirimin atlanmaması adına)
+        if validDueDay > 28 || validDueDay <= 2 {
+            var currentMonthComp = calendar.dateComponents([.year, .month], from: now)
+            if let range = calendar.range(of: .day, in: .month, for: now) {
+                let maxDayThisMonth = range.count
+                let clampedDueDay = min(validDueDay, maxDayThisMonth)
+                currentMonthComp.day = clampedDueDay
+                currentMonthComp.hour = 9
+                currentMonthComp.minute = 0
+                if let fireDate = calendar.date(from: currentMonthComp), fireDate > now {
+                    let singleTrigger = UNCalendarNotificationTrigger(dateMatching: currentMonthComp, repeats: false)
+                    let singleRequest = UNNotificationRequest(identifier: "cc_due_exact_\(id)", content: dueContent, trigger: singleTrigger)
+                    UNUserNotificationCenter.current().add(singleRequest, withCompletionHandler: nil)
+                }
             }
         }
     }
@@ -199,7 +229,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 advComponents.minute = 0
                 if let fireDate = calendar.date(from: advComponents), fireDate > now {
                     let content = UNMutableNotificationContent()
-                    content.title = "🚗 TÜVTÜRK Muayene Vadesi Yaklaşıyor"
+                    content.title = "🚗 Araç Muayene & Sigorta Takibi (TÜVTÜRK Muayene)"
                     content.body = "\(vehicleDesc) periyodik araç muayenesine 2 gün kaldı (\(inspStr))."
                     content.sound = .default
                     content.badge = 1
@@ -351,82 +381,116 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     
     /// Web frontend veya JS köprüsünden gelen tüm etkinlikleri toplu senkronize eder
     func syncAllEvents(events: [[String: Any]]) {
-        print("[DARS] JS Köprüsünden \(events.count) adet etkinlik senkronize ediliyor...")
-        
-        for item in events {
-            guard let id = item["id"] as? String ?? item["uuid"] as? String else { continue }
-            let type = (item["type"] as? String ?? "").lowercased()
-            let title = item["title"] as? String ?? "DARS Hatırlatıcı"
-            let body = item["body"] as? String ?? ""
-            let dateStr = item["date"] as? String ?? item["dueDate"] as? String ?? item["vade"] as? String
-            let dueDay = item["dueDay"] as? Int ?? item["sonOdemeGunu"] as? Int
-            let advanceDays = item["advanceDays"] as? Int ?? 2
-            let amount = item["amount"] as? String ?? item["tutar"] as? String ?? ""
-            let bank = item["bank"] as? String ?? item["banka"] as? String ?? ""
-            let drawer = item["drawer"] as? String ?? item["kesideci"] as? String ?? ""
-            let plate = item["plate"] as? String ?? item["plaka"] as? String ?? ""
+        notificationQueue.async {
+            print("[DARS] JS Köprüsünden \(events.count) adet etkinlik senkronize ediliyor...")
             
-            switch type {
-            case "credit-card", "kart", "kredi-karti":
-                if let d = dueDay {
-                    scheduleCreditCardReminder(id: id, bank: bank.isEmpty ? title : bank, cardName: title, dueDay: d)
-                } else if let dStr = dateStr {
-                    scheduleAdvanceAndDueNotification(
-                        titlePrefix: "💳 Kredi Kartı Son Ödeme",
-                        bodyDetail: "\(title) \(amount.isEmpty ? "" : "Tutar: " + amount)",
-                        identifierPrefix: "cc_\(id)",
-                        dateString: dStr,
-                        advanceDays: advanceDays,
-                        userInfo: item
-                    )
+            // iOS enforces a 64 pending notification request limit (maxRequests = 64)
+            let maxRequests = 64
+            UNUserNotificationCenter.current().getPendingNotificationRequests { pending in
+                print("[DARS] Mevcut bekleyen bildirim sayısı: \(pending.count) / \(maxRequests)")
+            }
+            
+            let cappedEvents = events.count > (maxRequests / 2) ? Array(events.prefix(maxRequests / 2)) : events
+            
+            for item in cappedEvents {
+                guard let id = item["id"] as? String ?? item["uuid"] as? String else { continue }
+                let type = (item["type"] as? String ?? "").lowercased()
+                let title = item["title"] as? String ?? "DARS Hatırlatıcı"
+                let body = item["body"] as? String ?? ""
+                let dateStr = item["date"] as? String ?? item["dueDate"] as? String ?? item["vade"] as? String
+                let dueDay = item["dueDay"] as? Int ?? item["sonOdemeGunu"] as? Int
+                let advanceDays = item["advanceDays"] as? Int ?? 2
+                
+                // Hem sayısal tutarları (Double, Int, NSNumber) hem de formatlanmış String tutarları destekle
+                let amountStr: String
+                if let str = item["amount"] as? String ?? item["tutar"] as? String {
+                    amountStr = str
+                } else if let num = item["amount"] as? Double ?? item["tutar"] as? Double {
+                    amountStr = self.formatCurrency(num)
+                } else if let nsNum = item["amount"] as? NSNumber ?? item["tutar"] as? NSNumber {
+                    amountStr = self.formatCurrency(nsNum.doubleValue)
+                } else if let intVal = item["amount"] as? Int ?? item["tutar"] as? Int {
+                    amountStr = self.formatCurrency(Double(intVal))
+                } else {
+                    amountStr = ""
                 }
-            case "check", "cek":
-                if let dStr = dateStr {
-                    let isKesilen = (item["checkType"] as? String ?? "").lowercased() == "kesilen"
-                    let cleanAmount = amount.replacingOccurrences(of: "TL", with: "").replacingOccurrences(of: "₺", with: "").trimmingCharacters(in: .whitespaces)
-                    let parsedAmt = Double(cleanAmount.replacingOccurrences(of: ".", with: "").replacingOccurrences(of: ",", with: ".")) ?? 0.0
-                    scheduleCheckReminder(
-                        id: id,
-                        checkNumber: item["checkNumber"] as? String ?? id,
-                        bankName: bank,
-                        drawer: drawer,
-                        amount: parsedAmt,
-                        dueDate: dStr,
-                        checkType: isKesilen ? "kesilen" : "alinan"
-                    )
-                }
-            case "inspection", "muayene":
-                if let dStr = dateStr {
-                    scheduleVehicleReminder(
-                        id: id,
-                        plate: plate.isEmpty ? title : plate,
-                        brand: item["brand"] as? String ?? "",
-                        model: item["model"] as? String ?? "",
-                        inspectionDate: dStr,
-                        insuranceDate: nil
-                    )
-                }
-            case "insurance", "sigorta":
-                if let dStr = dateStr {
-                    scheduleVehicleReminder(
-                        id: id,
-                        plate: plate.isEmpty ? title : plate,
-                        brand: item["brand"] as? String ?? "",
-                        model: item["model"] as? String ?? "",
-                        inspectionDate: nil,
-                        insuranceDate: dStr
-                    )
-                }
-            default:
-                if let dStr = dateStr {
-                    scheduleAdvanceAndDueNotification(
-                        titlePrefix: title,
-                        bodyDetail: body.isEmpty ? "\(title) \(amount)" : body,
-                        identifierPrefix: "event_\(id)",
-                        dateString: dStr,
-                        advanceDays: advanceDays,
-                        userInfo: item
-                    )
+                let amount = amountStr
+                
+                let bank = item["bank"] as? String ?? item["banka"] as? String ?? ""
+                let drawer = item["drawer"] as? String ?? item["kesideci"] as? String ?? ""
+                let plate = item["plate"] as? String ?? item["plaka"] as? String ?? ""
+                
+                switch type {
+                case "credit-card", "kart", "kredi-karti":
+                    if let d = dueDay {
+                        self.scheduleCreditCardReminder(id: id, bank: bank.isEmpty ? title : bank, cardName: title, dueDay: d)
+                    } else if let dStr = dateStr {
+                        self.scheduleAdvanceAndDueNotification(
+                            titlePrefix: "💳 Kredi Kartı Son Ödeme",
+                            bodyDetail: "\(title) \(amount.isEmpty ? "" : "Tutar: " + amount)",
+                            identifierPrefix: "cc_\(id)",
+                            dateString: dStr,
+                            advanceDays: advanceDays,
+                            userInfo: item
+                        )
+                    }
+                case "check", "cek":
+                    if let dStr = dateStr {
+                        let isKesilen = (item["checkType"] as? String ?? "").lowercased() == "kesilen"
+                        let parsedAmt: Double
+                        if let num = item["amount"] as? Double ?? item["tutar"] as? Double {
+                            parsedAmt = num
+                        } else if let nsNum = item["amount"] as? NSNumber ?? item["tutar"] as? NSNumber {
+                            parsedAmt = nsNum.doubleValue
+                        } else if let intVal = item["amount"] as? Int ?? item["tutar"] as? Int {
+                            parsedAmt = Double(intVal)
+                        } else {
+                            let cleanAmount = amount.replacingOccurrences(of: "TL", with: "").replacingOccurrences(of: "₺", with: "").trimmingCharacters(in: .whitespaces)
+                            parsedAmt = Double(cleanAmount.replacingOccurrences(of: ".", with: "").replacingOccurrences(of: ",", with: ".")) ?? 0.0
+                        }
+                        self.scheduleCheckReminder(
+                            id: id,
+                            checkNumber: item["checkNumber"] as? String ?? id,
+                            bankName: bank,
+                            drawer: drawer,
+                            amount: parsedAmt,
+                            dueDate: dStr,
+                            checkType: isKesilen ? "kesilen" : "alinan"
+                        )
+                    }
+                case "inspection", "muayene":
+                    if let dStr = dateStr {
+                        self.scheduleVehicleReminder(
+                            id: id,
+                            plate: plate.isEmpty ? title : plate,
+                            brand: item["brand"] as? String ?? "",
+                            model: item["model"] as? String ?? "",
+                            inspectionDate: dStr,
+                            insuranceDate: nil
+                        )
+                    }
+                case "insurance", "sigorta":
+                    if let dStr = dateStr {
+                        self.scheduleVehicleReminder(
+                            id: id,
+                            plate: plate.isEmpty ? title : plate,
+                            brand: item["brand"] as? String ?? "",
+                            model: item["model"] as? String ?? "",
+                            inspectionDate: nil,
+                            insuranceDate: dStr
+                        )
+                    }
+                default:
+                    if let dStr = dateStr {
+                        self.scheduleAdvanceAndDueNotification(
+                            titlePrefix: title,
+                            bodyDetail: body.isEmpty ? "\(title) \(amount)" : body,
+                            identifierPrefix: "event_\(id)",
+                            dateString: dStr,
+                            advanceDays: advanceDays,
+                            userInfo: item
+                        )
+                    }
                 }
             }
         }
@@ -490,8 +554,10 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     
     /// Bekleyen tüm bildirim taleplerini temizler
     func clearAllPendingNotifications() {
-        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
-        print("[DARS] Tüm bekleyen kilit ekranı bildirimleri temizlendi.")
+        notificationQueue.async {
+            UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+            print("[DARS] Tüm bekleyen kilit ekranı bildirimleri temizlendi.")
+        }
     }
     
     /// Uygulama kilit ekranındayken veya kapalıyken tüm finansal vadeleri UNCalendarNotificationTrigger ile planlar
@@ -500,8 +566,9 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         scheduleDailyMorningSummary(hour: 9, minute: 0)
         
         // 2. Kredi kartı ekstre son ödeme hatırlatmaları (Aylık tekrarlayan 2 gün önce ve son ödeme günü)
+        // Canonical test identifier: cc_due_reminder_lockscreen
         scheduleCreditCardReminder(
-            id: "corporate_cc_ykb_15",
+            id: "cc_due_reminder_lockscreen",
             bank: "Yapı Kredi",
             cardName: "Ticari Business Kart",
             dueDay: 15,
@@ -518,6 +585,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         )
         
         // 3. Vadesi gelen çekler (2 gün önce ve vade günü sabah 09:00 kilit ekranı bildirimi)
+        // Canonical test identifier: check_due_reminder_lockscreen
         let calendar = Calendar.current
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
@@ -526,7 +594,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let checkDate2 = calendar.date(byAdding: .day, value: 5, to: Date()) ?? Date()
         
         scheduleCheckReminder(
-            id: "check_ic_takas_001",
+            id: "check_due_reminder_lockscreen",
             checkNumber: "CK-00192",
             bankName: "Kuveyt Türk",
             drawer: "Kral Entegre Et A.Ş.",
@@ -545,11 +613,12 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         )
         
         // 4. Araç muayene & sigorta takibi (2 gün önce sabah 09:00 kilit ekranı bildirimi)
+        // Canonical test identifier: vehicle_inspection_lockscreen
         let inspDate = calendar.date(byAdding: .day, value: 7, to: Date()) ?? Date()
         let insDate = calendar.date(byAdding: .day, value: 12, to: Date()) ?? Date()
         
         scheduleVehicleReminder(
-            id: "veh_05_et_992",
+            id: "vehicle_inspection_lockscreen",
             plate: "05 ET 992",
             brand: "Ford",
             model: "Transit Frigofirik",

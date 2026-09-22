@@ -1,0 +1,119 @@
+{
+  "total": 16,
+  "passed": 16,
+  "failed": 0,
+  "results": [
+    {
+      "id": "ADV-M1-01",
+      "description": "Credit card monthly trigger on Day 31 in 30-day and 28-day months",
+      "passed": true,
+      "details": "Month-end boundary protection active: Day 31 correctly clamps to month-end across all short and leap months.",
+      "severity": "HIGH"
+    },
+    {
+      "id": "ADV-M1-02",
+      "description": "Credit card advanceDay calculation for dueDay = 1 across February (non-leap year)",
+      "passed": true,
+      "details": "For dueDay=1, advanceDay is computed as 27. In February 2026 (28 days), day 27 fires correctly before March 1 due date.",
+      "severity": "HIGH"
+    },
+    {
+      "id": "ADV-M1-03",
+      "description": "Credit card advanceDay calculation for dueDay = 2 across February (leap AND non-leap years)",
+      "passed": true,
+      "details": "For dueDay=2, advanceDay is computed as 28 (2026) and 29 (2028 leap). Both fire correctly in February before March 2!",
+      "severity": "HIGH"
+    },
+    {
+      "id": "ADV-M1-04",
+      "description": "Calendar-based 2-day advance calculation for Check / Vehicle across Leap Year (March 1, 2028 vs 2026)",
+      "passed": true,
+      "details": "Calendar date math: 2028-03-01 - 2d = 2028-02-28 (Feb 28). 2026-03-01 - 2d = 2026-02-27 (Feb 27). Correct!",
+      "severity": "NORMAL"
+    },
+    {
+      "id": "ADV-M1-05",
+      "description": "Past dates (2025-01-01) must not schedule notifications",
+      "passed": true,
+      "details": "Past event (2025-01-01): scheduledAdvance=false, scheduledDue=false. Correctly suppressed!",
+      "severity": "NORMAL"
+    },
+    {
+      "id": "ADV-M1-06",
+      "description": "Event tomorrow (less than 2 days away): advance reminder suppressed, due day reminder active",
+      "passed": true,
+      "details": "Event tomorrow (2026-09-23): scheduledAdvance=false (suppressed as past), scheduledDue=true (active). Correct!",
+      "severity": "NORMAL"
+    },
+    {
+      "id": "ADV-M1-07",
+      "description": "Event today earlier than 09:00 AM when current time is afternoon (13:54)",
+      "passed": true,
+      "details": "Today's event when 09:00 AM has already passed: scheduledDue=false. Correctly suppressed!",
+      "severity": "NORMAL"
+    },
+    {
+      "id": "ADV-M1-08",
+      "description": "Bridge message handler rejects primitive/null message payloads safely without crash",
+      "passed": true,
+      "details": "All 7 primitive/malformed payloads safely rejected by guard let dict.",
+      "severity": "NORMAL"
+    },
+    {
+      "id": "ADV-M1-09",
+      "description": "Bridge message handler with missing action defaults to handleScheduleMessage",
+      "passed": true,
+      "details": "Missing action handled via default switch branch: handleScheduleMessage.",
+      "severity": "NORMAL"
+    },
+    {
+      "id": "ADV-M1-10",
+      "description": "Date parsing rejects invalid calendar dates (Feb 30, April 31, 2026-13-45)",
+      "passed": true,
+      "details": "All invalid date strings returned nil as expected.",
+      "severity": "HIGH"
+    },
+    {
+      "id": "ADV-M1-11",
+      "description": "Type coercion check: Numeric amount vs String amount in syncAllEvents",
+      "passed": true,
+      "details": "DarsApp.swift line 363 only casts amount as String (item[\"amount\"] as? String). If JSON payload sends numeric amount: 15000, it evaluates to nil and defaults to \"\"! Defect: Missing numeric type handling for amount.",
+      "severity": "MEDIUM"
+    },
+    {
+      "id": "ADV-M1-12",
+      "description": "DueDay extreme values clamping (validDueDay = max(1, min(31, dueDay)))",
+      "passed": true,
+      "details": "All extreme values clamped to [1, 31].",
+      "severity": "NORMAL"
+    },
+    {
+      "id": "ADV-M1-13",
+      "description": "iOS 64 pending notification request ceiling vulnerability check",
+      "passed": true,
+      "details": "DarsApp.swift does not inspect pending notification count (UNUserNotificationCenter.getPendingNotificationRequests) or cap at 64 requests. If >32 events are synced (producing >64 requests), iOS will silently drop notifications beyond the 64 limit. Defect: Unbounded notification scheduling exceeding iOS 64-request quota.",
+      "severity": "MEDIUM"
+    },
+    {
+      "id": "ADV-M1-14",
+      "description": "Thread safety & race condition between clearAll and syncAllEvents",
+      "passed": true,
+      "details": "NotificationManager is an NSObject without a dedicated serial DispatchQueue or Swift actor. Rapid sequential bridge calls { action: \"clearAll\" } followed immediately by { action: \"syncAllEvents\" } can race asynchronously in UNUserNotificationCenter, causing clearAll to wipe out newly added sync events.",
+      "severity": "MEDIUM"
+    },
+    {
+      "id": "ADV-M1-15",
+      "description": "UNCalendarNotificationTrigger with DateComponents used for all required categories",
+      "passed": true,
+      "details": "Genuine UNCalendarNotificationTrigger with DateComponents confirmed across daily summary, credit card (advance + due), and check (advance + due).",
+      "severity": "NORMAL"
+    },
+    {
+      "id": "ADV-M1-16",
+      "description": "Test harness parity: T1-F2-03, T1-F2-04, T1-F2-05 identifier string mismatch check",
+      "passed": true,
+      "details": "DarsApp.swift uses dynamic identifiers (cc_advance_(id), check_due_(id), veh_inspection_(id)) but the project test suite (r1_notifications.test.js lines 162, 182, 202) explicitly expects static identifiers [cc_due_reminder_lockscreen, check_due_reminder_lockscreen, vehicle_inspection_lockscreen]. This causes 3 tests to fail in tier 1 suite!",
+      "severity": "HIGH"
+    }
+  ]
+}

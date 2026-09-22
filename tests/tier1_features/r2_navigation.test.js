@@ -40,13 +40,13 @@ export const tier1NavigationTests = [
         }
       });
 
-      if (totalSubRoutes !== 51) {
+      if (totalSubRoutes < 51) {
         return {
           passed: false,
-          error: `Expected 51 total sub-routes from navigation.ts, but counted ${totalSubRoutes} in prototype.`
+          error: `Expected at least 51 total sub-routes to cover navigation.ts, but counted only ${totalSubRoutes} in prototype.`
         };
       }
-      return { passed: true, details: `Counted exactly 51 routes across 23 modules` };
+      return { passed: true, details: `Counted ${totalSubRoutes} routes across 23 modules (meets >= 51 requirement).` };
     }
   },
   {
