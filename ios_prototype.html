@@ -1368,490 +1368,52 @@
     let activeCheckTab = 'takas';
     let selectedCheckBank = 'ALL';
     let selectedCariType = 'ALL';
+    let activeMenuFilterTag = 'ALL';
+    const openAccordions = new Set();
+    const openMenuAccordions = openAccordions;
+
+    let currentCalYear = (new Date()).getFullYear();
+    let currentCalMonth = (new Date()).getMonth();
+    let selectedCalDay = `${currentCalYear}-${String(currentCalMonth + 1).padStart(2, '0')}-${String((new Date()).getDate()).padStart(2, '0')}`;
+    let activeCalFilter = 'ALL';
+    let userCalendarNotes = [];
+    try {
+      userCalendarNotes = JSON.parse(localStorage.getItem('dars_calendar_notes') || '[]');
+    } catch(e) {
+      userCalendarNotes = [];
+    }
+
+    const monthNamesTR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+
+    const calStyles = {
+      'credit-card': { label: 'KART', dot: 'bg-red-500', badge: 'bg-red-50 text-red-700 border border-red-200' },
+      'inspection': { label: 'MUAYENE', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
+      'insurance': { label: 'SİGORTA', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border border-blue-200' },
+      'tender': { label: 'İHALE', dot: 'bg-purple-500', badge: 'bg-purple-50 text-purple-700 border border-purple-200' },
+      'check': { label: 'ÇEK', dot: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700 border border-rose-200' },
+      'note': { label: 'NOT', dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200' }
+    };
 
     function updateClock() {
       const now = new Date();
       const h = String(now.getHours()).padStart(2, '0');
       const m = String(now.getMinutes()).padStart(2, '0');
-      document.getElementById('live-clock').textContent = `${h}:${m}`;
+      const clockEl = document.getElementById('live-clock');
+      if (clockEl) clockEl.textContent = `${h}:${m}`;
     }
-    setInterval(updateClock, 1000);
+    if (typeof setInterval !== 'undefined') {
+      setInterval(updateClock, 1000);
+    }
     updateClock();
 
     function showToast(msg) {
       const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.classList.remove('opacity-0', 'pointer-events-none');
-      setTimeout(() => {
-        toast.classList.add('opacity-0', 'pointer-events-none');
-      }, 2000);
-    }
-
-    const ktIcons = {
-      dashboard: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>`,
-      cekler: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>`,
-      finans: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.5M4.5 21V10.5M3 21h18"/></svg>`,
-      muhasebe: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>`,
-      e_fatura: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`,
-      araclar: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.215-9.138m-11.25 0l2.25-3.375h6.75l2.25 3.375M3.375 14.25h17.25"/></svg>`,
-      kesim: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3"/></svg>`,
-      ihaleler: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z"/></svg>`,
-      subeler: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009 9.35c.694 0 1.343-.236 1.865-.636a3.001 3.001 0 004.27 0A2.993 2.993 0 0017 9.35c.694 0 1.343-.236 1.865-.636a3.001 3.001 0 003.75.615v0z"/></svg>`,
-      gayrimenkul: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21"/></svg>`,
-      dis_muhasebe: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-.778.099-1.533.284-2.253"/></svg>`,
-      hukuk: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.516 0c.85.493 1.508 1.333 1.508 2.316V18"/></svg>`,
-      raporlama: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>`,
-      kasa: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 019 14.437V9.564z"/></svg>`,
-      ay_sonu: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>`,
-      whatsapp: `<svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6.454 3.097 1.242 4.368L2.25 21.75l4.632-1.218A9.704 9.704 0 0012 21.75c5.385 0 9.75-4.365 9.75-9.75s-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12z"/></svg>`,
-      bildirimler: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>`,
-      takvim: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>`,
-      belgeler: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>`,
-      asistan: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>`,
-      kullanicilar: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>`,
-      aktivite: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
-      ayarlar: `<svg class="w-5 h-5 text-kt-primary shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`
-    };
-
-    const darsNavModules = [
-      // CATEGORY: Genel & Analitik
-      { id: 'dashboard', category: 'Genel & Analitik', label: 'Dashboard', desc: 'Canlı Finansal Özet & Hızlı Aksiyonlar', iconKey: 'dashboard', screenTarget: 'dashboard', colorClass: 'bg-blue-50 text-[#002D59]' },
-      { id: 'raporlama', category: 'Genel & Analitik', label: 'Raporlama', desc: 'Finansal & Operasyonel Detaylı Raporlar', iconKey: 'raporlama', screenTarget: 'raporlama', colorClass: 'bg-indigo-50 text-indigo-700' },
-      { id: 'ay_sonu', category: 'Genel & Analitik', label: 'Ay Sonu', desc: 'Dönem Sonu Kapanış & Mutabakat Durumu', iconKey: 'ay_sonu', screenTarget: 'durumum', colorClass: 'bg-emerald-50 text-emerald-700' },
-      { id: 'asistan', category: 'Genel & Analitik', label: 'AI Asistan', desc: 'DARS Akıllı Finans & Muhasebe Danışmanı', iconKey: 'asistan', screenTarget: 'asistan', colorClass: 'bg-purple-50 text-purple-700' },
-
-      // CATEGORY: Çek, Senet & Finans
-      {
-        id: 'cekler',
-        category: 'Çek, Senet & Finans',
-        label: 'Çek & Senet İşlemleri',
-        desc: 'Takas Çekleri, Portföy & Bordrolar',
-        iconKey: 'cekler',
-        colorClass: 'bg-blue-50 text-[#002D59]',
-        badge: '2 İşlem',
-        children: [
-          { label: 'Takas Çekleri', desc: 'İç & Dış Takasa Verilen Çekler', screen: 'takas_cekleri' },
-          { label: 'Çek & Senet Listesi', desc: 'Tüm Portföy Çek & Senet Takibi', screen: 'checks' }
-        ]
-      },
-      {
-        id: 'finans',
-        category: 'Çek, Senet & Finans',
-        label: 'Finans Yönetimi',
-        desc: 'Kredi Kartları, Faturalar, ÇEKTEN, Bankalar',
-        iconKey: 'finans',
-        colorClass: 'bg-amber-50 text-amber-700',
-        badge: '7 Modül',
-        children: [
-          { label: 'Kredi Kartları', desc: 'Şirket & Ticari Kart Limit / Ekstre', screen: 'credit_cards' },
-          { label: 'Faturalar', desc: 'Gelen & Giden Fatura Takibi', screen: 'bills' },
-          { label: 'ÇEKTEN Hesabı', desc: 'ÇEKTEN Bakiye & Nakit Akışı', screen: 'cekten_hesabi' },
-          { label: 'Çek Vade Hesaplama', desc: 'Ortalama Vade & Finansman Maliyeti', screen: 'check_valuation' },
-          { label: 'POS Fark Hesaplama', desc: 'Şube POS Komisyon & Oran Analizi', screen: 'pos_differences' },
-          { label: 'Banka Hesapları', desc: 'Kuveyt Türk, Ziraat, İş Bankası', screen: 'bank_accounts' },
-          { label: 'Findeks', desc: 'Karekodlu Çek & Risk Raporlama', screen: 'findeks' }
-        ]
-      },
-      {
-        id: 'kasa',
-        category: 'Çek, Senet & Finans',
-        label: 'Ana Kasa',
-        desc: 'Günlük Kasa Raporu, Giriş/Çıkış & POS Takip',
-        iconKey: 'kasa',
-        colorClass: 'bg-emerald-50 text-emerald-700',
-        badge: '5 İşlem',
-        children: [
-          { label: 'Ana Kasa Günlük Rapor', desc: 'Nakit, POS ve Banka Özeti', screen: 'main_cashbox_io' },
-          { label: 'Giriş Çıkış', desc: 'Kasa Nakit Tahsilat & Ödemeleri', screen: 'main_cashbox_io' },
-          { label: 'Günlük Hesap', desc: 'Şube Günlük Kasa Kapanışları', screen: 'main_cashbox_io' },
-          { label: 'Günlük POS Takip', desc: 'Günlük Slip & POS Tahsilatları', screen: 'pos_tracking' },
-          { label: 'Banka Hesap Hareketleri', desc: 'Banka EFT, Havale & FAST', screen: 'bank_accounts' }
-        ]
-      },
-
-      // CATEGORY: Muhasebe & E-Fatura
-      {
-        id: 'muhasebe',
-        category: 'Muhasebe & E-Fatura',
-        label: 'Muhasebe',
-        desc: 'Cari Kartlar, Personel, Stok & Vega İşlemleri',
-        iconKey: 'muhasebe',
-        colorClass: 'bg-sky-50 text-sky-700',
-        badge: '4 Modül',
-        children: [
-          { label: 'Cari Kart Listesi', desc: 'Müşteri & Tedarikçi Bakiyeleri', screen: 'caris' },
-          { label: 'Personel Cari Listesi', desc: 'Personel Maaş & Avans Hesapları', screen: 'personnel' },
-          { label: 'Stok Yönetimi', desc: 'Canlı Karkas & Ürün Stok Takibi', screen: 'stocks' },
-          { label: 'Vega Son İşlemler', desc: 'ERP Entegrasyon Canlı Akışı', screen: 'transactions_history' }
-        ]
-      },
-      {
-        id: 'e_fatura',
-        category: 'Muhasebe & E-Fatura',
-        label: 'E-Faturalar',
-        desc: 'Etik & Marif E-Fatura Portalları',
-        iconKey: 'e_fatura',
-        colorClass: 'bg-indigo-50 text-indigo-700',
-        badge: '2 Şirket',
-        children: [
-          { label: 'Etik E-Fatura', desc: 'Etik Et Ürünleri Gelen/Giden Faturalar', screen: 'e_invoices' },
-          { label: 'Marif E-Fatura', desc: 'Marif Tarım & Hayvancılık Faturaları', screen: 'e_invoices' }
-        ]
-      },
-      {
-        id: 'dis_muhasebe',
-        category: 'Muhasebe & E-Fatura',
-        label: 'Dış Muhasebe',
-        desc: 'Veri Gönderimi, Beyanname & Mizan Eşitleme',
-        iconKey: 'dis_muhasebe',
-        colorClass: 'bg-purple-50 text-purple-700',
-        badge: '4 Modül',
-        children: [
-          { label: 'Veri Gönderim Portalı', desc: 'Mali Müşavir Veri İletimi', screen: 'dis_muhasebe' },
-          { label: 'Beyanname & Tahakkuk Deposu', desc: 'KDV, Muhtasar, Kurumlar', screen: 'dis_muhasebe' },
-          { label: 'Cari Mutabakat & BA/BS', desc: 'Elektronik BA/BS Mutabakatları', screen: 'dis_muhasebe' },
-          { label: 'Mizan Eşitleme', desc: 'Resmi Defter & Mizan Kontrolü', screen: 'dis_muhasebe' }
-        ]
-      },
-
-      // CATEGORY: Operasyon, Lojistik & Şubeler
-      {
-        id: 'araclar',
-        category: 'Operasyon, Lojistik & Şubeler',
-        label: 'Araç Yönetimi',
-        desc: 'Filo, Muayene, Sigorta, HGS, Yakıt & Sanayi',
-        iconKey: 'araclar',
-        colorClass: 'bg-amber-50 text-amber-700',
-        badge: '6 Modül',
-        children: [
-          { label: 'Araç Listesi', desc: 'Filodaki Tüm Kamyon & Ticari Araçlar', screen: 'vehicles' },
-          { label: 'Araç Sigorta - Muayene', desc: 'TÜVTÜRK & Kasko Poliçe Takibi', screen: 'vehicles' },
-          { label: 'HGS - Geçiş & Trafik Cezaları', desc: 'Otoyol & Köprü Geçiş Kayıtları', screen: 'vehicle_fines' },
-          { label: 'Yakıt Tüketim', desc: 'Taşıt Tanıma & Mazot Litre Takibi', screen: 'vehicle_fuel' },
-          { label: 'Şoförler', desc: 'Şoför Zimmet & Ehliyet Takibi', screen: 'vehicle_drivers' },
-          { label: 'Sanayi', desc: 'Periyodik Bakım & Tamir Giderleri', screen: 'vehicle_maintenance' }
-        ]
-      },
-      {
-        id: 'kesim',
-        category: 'Operasyon, Lojistik & Şubeler',
-        label: 'Kesim Listesi',
-        desc: 'Karkas Kesim Kayıtları & Besici Ödemeleri',
-        iconKey: 'kesim',
-        colorClass: 'bg-rose-50 text-rose-700',
-        badge: '3 Modül',
-        children: [
-          { label: 'Kesim Listesi', desc: 'Günlük Karkas Tartım & Randıman', screen: 'slaughters' },
-          { label: 'Açık Mal Ödemeleri', desc: 'Canlı Hayvan & Açık Mal Takibi', screen: 'acik_mal' },
-          { label: 'Kesim Listesi Cari', desc: 'Besici Cari Kartları & Alacakları', screen: 'kesim_cari' }
-        ]
-      },
-      {
-        id: 'ihaleler',
-        category: 'Operasyon, Lojistik & Şubeler',
-        label: 'İhaleler',
-        desc: 'Resmi İhale Teklifleri & Doğrudan Temin',
-        iconKey: 'ihaleler',
-        colorClass: 'bg-purple-50 text-purple-700',
-        badge: '2 Modül',
-        children: [
-          { label: 'İhaleler', desc: 'Kamu & Kurum İhale Takip Portalı', screen: 'tenders' },
-          { label: 'Doğrudan Temin', desc: 'Doğrudan Temin Teklif Dosyaları', screen: 'tenders' }
-        ]
-      },
-      {
-        id: 'subeler',
-        category: 'Operasyon, Lojistik & Şubeler',
-        label: 'Şubelerimiz',
-        desc: 'Merkez, Merzifon, İlkadım, Atakum, Sucukhane, Depo',
-        iconKey: 'subeler',
-        colorClass: 'bg-blue-50 text-[#002D59]',
-        badge: '6 Şube',
-        children: [
-          { label: 'Merkez Şube', desc: 'Amasya Merkez Perakende Satış', screen: 'branches' },
-          { label: 'Merzifon Şube', desc: 'Merzifon Şube Satış & Kasa', screen: 'branches' },
-          { label: 'İlkadım Şube', desc: 'Samsun İlkadım Şube Satış', screen: 'branches' },
-          { label: 'Atakum Şube', desc: 'Samsun Atakum Şube Satış', screen: 'branches' },
-          { label: 'Sucukhane Şube', desc: 'Merzifon İşleme & Üretim Tesisi', screen: 'branches' },
-          { label: 'Depo Şube', desc: 'Amasya OSB Lojistik & Soğuk Hava Deposu', screen: 'branches' }
-        ]
-      },
-      { id: 'gayrimenkul', category: 'Operasyon, Lojistik & Şubeler', label: 'Gayrimenkul Listesi', desc: 'Şirket Mülkleri, Arsa & Dükkan Portföyü', iconKey: 'gayrimenkul', screenTarget: 'real_estates', colorClass: 'bg-slate-100 text-slate-700' },
-      {
-        id: 'hukuk',
-        category: 'Operasyon, Lojistik & Şubeler',
-        label: 'Hukuk Departmanı',
-        desc: 'Dava, İcra, Duruşma Takvimi & UYAP',
-        iconKey: 'hukuk',
-        colorClass: 'bg-slate-100 text-slate-700',
-        badge: '4 Modül',
-        children: [
-          { label: 'Dava & İcra Takibi', desc: 'İcra Dosyaları & Tahsilat Süreçleri', screen: 'legal_cases' },
-          { label: 'Duruşma & İş Takvimi', desc: 'Adliye & Mahkeme Duruşma Günleri', screen: 'legal_cases' },
-          { label: 'UYAP Entegrasyon Merkezi', desc: 'Elektronik UYAP Dosya Sorgulama', screen: 'legal_cases' },
-          { label: 'Avukat Portalı', desc: 'Hukuk Müşavirliği Yetki Alanı', screen: 'legal_cases' }
-        ]
-      },
-
-      // CATEGORY: İletişim, Güvenlik & Sistem
-      {
-        id: 'whatsapp',
-        category: 'İletişim, Güvenlik & Sistem',
-        label: 'WhatsApp',
-        desc: 'Sohbetler, Gelen Fiş/Belge Havuzu & Görevler',
-        iconKey: 'whatsapp',
-        colorClass: 'bg-emerald-50 text-emerald-700',
-        badge: '4 Modül',
-        children: [
-          { label: 'WhatsApp Sohbetleri', desc: 'Şirket WhatsApp Kanal & Mesajlaşma', screen: 'whatsapp_chat' },
-          { label: 'Gelen Fiş & Belge Havuzu', desc: 'WhatsApp Üzerinden Gelen Fatura / Fişler', screen: 'whatsapp_media' },
-          { label: 'Grup Görevleri', desc: 'Gruplardan Oluşturulan Görev Takibi', screen: 'whatsapp_tasks' },
-          { label: 'Grup Ayarları', desc: 'WhatsApp Bildirim & Bot Entegrasyonu', screen: 'whatsapp_chat' }
-        ]
-      },
-      { id: 'bildirimler', category: 'İletişim, Güvenlik & Sistem', label: 'Bildirimler', desc: 'Finansal Uyarılar, Vade & Sistem Alarmları', iconKey: 'bildirimler', screenTarget: 'bildirimler', colorClass: 'bg-rose-50 text-rose-700' },
-      { id: 'takvim', category: 'İletişim, Güvenlik & Sistem', label: 'Takvim', desc: 'Tüm Finansal Vade & Görev Takvimi', iconKey: 'takvim', screenTarget: 'takvim', colorClass: 'bg-blue-50 text-[#002D59]' },
-      { id: 'belgeler', category: 'İletişim, Güvenlik & Sistem', label: 'Belgeler', desc: 'Resmi Sözleşmeler, Ruhsat & Evrak Havuzu', iconKey: 'belgeler', screenTarget: 'documents', colorClass: 'bg-slate-100 text-slate-700' },
-      { id: 'kullanicilar', category: 'İletişim, Güvenlik & Sistem', label: 'Kullanıcılar', desc: 'Kullanıcı Yetkilendirme & Personel Rolleri', iconKey: 'kullanicilar', screenTarget: 'users', colorClass: 'bg-slate-100 text-slate-700' },
-      { id: 'aktivite', category: 'İletişim, Güvenlik & Sistem', label: 'Aktivite Günlüğü', desc: 'Sistem İşlem Günlükleri & Güvenlik Logları', iconKey: 'aktivite', screenTarget: 'audit_logs', colorClass: 'bg-slate-100 text-slate-700' },
-      {
-        id: 'ayarlar',
-        category: 'İletişim, Güvenlik & Sistem',
-        label: 'Ayarlar',
-        desc: 'Genel Sistem Yapılandırması & Yedekler',
-        iconKey: 'ayarlar',
-        colorClass: 'bg-slate-100 text-slate-700',
-        badge: '2 Ayar',
-        children: [
-          { label: 'Genel Ayarlar', desc: 'Şirket Bilgileri & Parametreler', screen: 'settings' },
-          { label: 'Sistem Yedekleri', desc: 'Canlı Veritabanı & Güvenlik Yedekleri', screen: 'settings' }
-        ]
-      }
-    ];
-
-    
-    // ==================== RICH SIDEBAR MODULES IMPLEMENTATIONS ====================
-
-    // 1. ŞUBELERİMİZ (Portal BRANCH_CONFIGS ile birebir)
-    const mockBranchesData = [
-      { key: 'merkez', name: 'Merkez Şube', code: '685', manager: 'Erol Bolat', phone: '0358 218 00 01', address: 'Merkez, Amasya', staff: 4, todaySales: 215400, stockKg: 4250, status: 'Açık' },
-      { key: 'merzifon', name: 'Merzifon Şube', code: '686', manager: 'Ahmet Şen', phone: '0358 513 00 02', address: 'Sofular Mah. Cumhuriyet Cad. No:14, Merzifon', staff: 3, todaySales: 168900, stockKg: 3100, status: 'Açık' },
-      { key: 'ilkadim', name: 'İlkadım Şube', code: '688', manager: 'Mustafa Yılmaz', phone: '0362 431 00 03', address: 'Kale Mah. 19 Mayıs Bulvarı No:45, İlkadım/Samsun', staff: 3, todaySales: 194200, stockKg: 3800, status: 'Açık' },
-      { key: 'atakum', name: 'Atakum Şube', code: '687', manager: 'Hakan Demir', phone: '0362 435 00 04', address: 'Mimar Sinan Mah. Atatürk Bulvarı No:120, Atakum', staff: 4, todaySales: 232000, stockKg: 4600, status: 'Açık' },
-      { key: 'sucukhane', name: 'Sucukhane Şube', code: '1588', manager: 'Murat Kaya', phone: '0358 514 00 05', address: 'Sanayi Sitesi 4. Blok No:8, Merzifon', staff: 3, todaySales: 310500, stockKg: 8900, status: 'Üretimde' },
-      { key: 'depo', name: 'Depo Şube', code: '4', manager: 'Yusuf Aksoy', phone: '0358 219 00 06', address: 'Organize Sanayi Bölgesi 2. Cadde No:3, Amasya', staff: 2, todaySales: 0, stockKg: 24500, status: 'Lojistik Depo' }
-    ];
-
-    function renderBranchesDashboard() {
-      const container = document.getElementById('branches-list-container');
-      if (!container) return;
-
-      const totalSales = mockBranchesData.reduce((acc, b) => acc + b.todaySales, 0);
-      const totalStaff = mockBranchesData.reduce((acc, b) => acc + b.staff, 0);
-
-      container.innerHTML = `
-        <!-- KPI Özet -->
-        <div class="grid grid-cols-2 gap-2 text-center">
-          <div class="kt-card p-3 bg-white">
-            <span class="text-[10px] text-slate-400 font-bold block uppercase">Toplam Günlük Ciro</span>
-            <span class="text-[15px] font-black text-kt-primary">${formatNumber(totalSales)} TL</span>
-          </div>
-          <div class="kt-card p-3 bg-white">
-            <span class="text-[10px] text-slate-400 font-bold block uppercase">Toplam Personel</span>
-            <span class="text-[15px] font-black text-slate-800">${totalStaff} Kişi (6 Şube)</span>
-          </div>
-        </div>
-
-        <div class="space-y-2.5">
-          ${mockBranchesData.map(b => `
-            <div class="kt-card p-4 space-y-2.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
-              <div class="flex justify-between items-start">
-                <div>
-                  <div class="flex items-center gap-1.5">
-                    <span class="px-2 py-0.5 rounded-full bg-blue-50 text-kt-primary font-bold text-[10px]">Kod: ${b.code}</span>
-                    <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px]">${b.status}</span>
-                  </div>
-                  <h4 class="text-[14px] font-[700] text-slate-900 mt-1 tracking-tight">${b.name}</h4>
-                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">Müdür: <strong class="text-slate-700 font-semibold">${b.manager}</strong> • Tel: ${b.phone}</p>
-                </div>
-                <div class="text-right">
-                  <span class="text-[14.5px] font-black text-slate-900 tracking-tight block">${formatNumber(b.todaySales)} TL</span>
-                  <span class="text-[10px] text-slate-400 block font-medium">Günlük Ciro</span>
-                </div>
-              </div>
-
-              <div class="p-2.5 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-center text-[11px] text-slate-600">
-                <span>Mevcut Et Stoku: <strong class="text-slate-800 font-bold">${formatNumber(b.stockKg)} KG</strong></span>
-                <span>Personel: <strong class="text-slate-800 font-bold">${b.staff} Kişi</strong></span>
-              </div>
-
-              <p class="text-[10.5px] text-slate-400 flex items-center gap-1">
-                <span>📍 ${b.address}</span>
-              </p>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-
-    // 2. ANA KASA (Portal main_cashbox_transactions ile birebir)
-    function renderCashboxDashboard() {
-      const container = document.getElementById('cashbox-container');
-      if (!container) return;
-
-      container.innerHTML = `
-        <div class="kt-card p-5 space-y-3 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 text-white rounded-2xl shadow-md">
-          <div class="flex justify-between items-start">
-            <div>
-              <span class="text-[10px] text-blue-200 font-bold uppercase tracking-wider">Merkez Kasa Güncel Nakit</span>
-              <h3 class="text-2xl font-black mt-1 tracking-tight">1.361.207,00 TL</h3>
-            </div>
-            <span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10.5px]">● Aktif Gün</span>
-          </div>
-
-          <div class="pt-3 border-t border-white/15 grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <span class="text-[10px] text-emerald-300 block font-semibold">Bugün Giren Nakit</span>
-              <span class="font-black text-sm text-emerald-400">+5.424.167 TL</span>
-            </div>
-            <div>
-              <span class="text-[10px] text-rose-300 block font-semibold">Bugün Çıkan Nakit</span>
-              <span class="font-black text-sm text-rose-400">-3.113.948 TL</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <div class="flex justify-between items-center px-1">
-            <h4 class="text-xs font-bold text-slate-800">Son Kasa Hareketleri</h4>
-            <span class="text-[10px] font-bold text-slate-400">Canlı Kasa Defteri</span>
-          </div>
-
-          <div class="space-y-2">
-            <div class="kt-card p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex justify-between items-center">
-              <div>
-                <span class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">GELİR • TAHSİLAT</span>
-                <h5 class="text-[13px] font-bold text-slate-900 mt-1">Gür Besicilik / Denizbank Tahsilatı</h5>
-                <p class="text-[10.5px] text-slate-400 mt-0.5">31.08.2026 • Makbuz #8914</p>
-              </div>
-              <span class="text-[14px] font-black text-emerald-600">+4.225.150 TL</span>
-            </div>
-
-            <div class="kt-card p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex justify-between items-center">
-              <div>
-                <span class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700">GİDER • ÇIKIŞ</span>
-                <h5 class="text-[13px] font-bold text-slate-900 mt-1">Burak Besicilik Kesim Ödemesi</h5>
-                <p class="text-[10.5px] text-slate-400 mt-0.5">31.08.2026 • Banka Mahsubu</p>
-              </div>
-              <span class="text-[14px] font-black text-rose-600">-2.988.948 TL</span>
-            </div>
-
-            <div class="kt-card p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex justify-between items-center">
-              <div>
-                <span class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">GELİR • KUVEYT TÜRK</span>
-                <h5 class="text-[13px] font-bold text-slate-900 mt-1">Kuveyt Türk Ticari Fon Çıkışı</h5>
-                <p class="text-[10.5px] text-slate-400 mt-0.5">31.08.2026 • EFT Girişi</p>
-              </div>
-              <span class="text-[14px] font-black text-emerald-600">+914.121 TL</span>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    // 3. RAPORLAMA (Cari Yaşlandırma, Nakit Akışı, Kesimhane Randımanı)
-    let activeReportingTab = 'aging';
-
-    function switchReportingTab(tab, btn) {
-      activeReportingTab = tab;
-      document.querySelectorAll('.reporting-tab-pill').forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
-      renderReporting();
-    }
-
-    function renderReporting() {
-      const container = document.getElementById('reporting-container');
-      if (!container) return;
-
-      if (activeReportingTab === 'aging') {
-        container.innerHTML = `
-          <div class="kt-card p-4 space-y-3 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
-            <div class="flex justify-between items-center">
-              <h4 class="text-xs font-bold text-slate-800">Vadesi Geçen Alacak Yaşlandırması</h4>
-              <span class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">Kritik Risk</span>
-            </div>
-            <div class="space-y-2 text-xs">
-              <div class="p-2.5 bg-slate-50 rounded-xl flex justify-between items-center">
-                <span class="text-slate-600 font-medium">0 - 30 Gün (Normal Vade):</span>
-                <strong class="text-slate-900 font-bold">28.450.000 TL</strong>
-              </div>
-              <div class="p-2.5 bg-amber-50/60 rounded-xl flex justify-between items-center text-amber-800">
-                <span class="font-medium">31 - 60 Gün (Takipte):</span>
-                <strong class="font-bold">12.180.000 TL</strong>
-              </div>
-              <div class="p-2.5 bg-rose-50/80 rounded-xl flex justify-between items-center text-rose-800">
-                <span class="font-medium">61 - 90+ Gün (Gecikmiş Alacak):</span>
-                <strong class="font-bold">7.771.045 TL</strong>
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <h4 class="text-xs font-bold text-slate-800 px-1">En Yüksek Riskli Cariler</h4>
-            <div class="kt-card p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-1.5">
-              <div class="flex justify-between font-bold text-xs">
-                <span class="text-slate-900">HACETTEPE ÜNİVERSİTESİ</span>
-                <span class="text-kt-primary">20.734.181 TL</span>
-              </div>
-              <p class="text-[10.5px] text-slate-400">Ortalama Tahsilat Süresi: 45 Gün • Vadesi Geçen: 3.200.000 TL</p>
-            </div>
-            <div class="kt-card p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-1.5">
-              <div class="flex justify-between font-bold text-xs">
-                <span class="text-slate-900">HAS ARDAHAN ET</span>
-                <span class="text-kt-primary">16.385.608 TL</span>
-              </div>
-              <p class="text-[10.5px] text-slate-400">Ortalama Tahsilat Süresi: 32 Gün • Düzenli Ödeme</p>
-            </div>
-          </div>
-        `;
-      } else if (activeReportingTab === 'cashflow') {
-        container.innerHTML = `
-          <div class="kt-card p-4 space-y-3 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
-            <h4 class="text-xs font-bold text-slate-800">Haftalık Nakit Giriş & Çıkış Projeksiyonu</h4>
-            <div class="space-y-2 text-xs">
-              <div class="p-3 bg-blue-50/60 border border-blue-100 rounded-xl flex justify-between items-center">
-                <div>
-                  <span class="text-[10px] text-slate-500 block">Bu Hafta Beklenen Tahsilat:</span>
-                  <strong class="text-sm font-black text-emerald-600">+48.401.045 TL</strong>
-                </div>
-                <div class="text-right">
-                  <span class="text-[10px] text-slate-500 block">Bu Hafta Çıkacak Takas:</span>
-                  <strong class="text-sm font-black text-rose-600">-34.829.837 TL</strong>
-                </div>
-              </div>
-              <div class="p-2.5 bg-slate-50 rounded-xl flex justify-between items-center font-bold">
-                <span class="text-slate-700">Net Haftalık Nakit Fazlası:</span>
-                <span class="text-kt-primary font-black text-sm">+13.571.208 TL</span>
-              </div>
-            </div>
-          </div>
-        `;
-      } else {
-        container.innerHTML = `
-          <div class="kt-card p-4 space-y-3 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
-            <h4 class="text-xs font-bold text-slate-800">Kesimhane Randıman & Maliyet Ortalamaları</h4>
-            <div class="grid grid-cols-2 gap-2 text-center text-xs">
-              <div class="p-3 bg-slate-50 rounded-xl">
-                <span class="text-[10px] text-slate-400 block font-bold">Ortalama Randıman</span>
-                <span class="text-base font-black text-slate-900">%58.4</span>
-              </div>
-              <div class="p-3 bg-slate-50 rounded-xl">
-                <span class="text-[10px] text-slate-400 block font-bold">Ortalama Karkas KG</span>
-                <span class="text-base font-black text-kt-primary">312.5 KG</span>
-              </div>
-            </div>
-          </div>
-        `;
+      if (toast) {
+        toast.textContent = msg;
+        toast.classList.remove('opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+          toast.classList.add('opacity-0', 'pointer-events-none');
+        }, 2000);
       }
     }
 
@@ -18443,6 +18005,201 @@
     "district": "TAFLAN Mah.",
     "deed": "Ada 171 / Parsel 4",
     "deedNo": "TP-2024-88023",
+    "tenant": "Öz Mülk (Marif Et)",
+    "city": "AMASYA / TAŞOVA",
+    "district": "SANAYİ Mah.",
+    "deed": "Ada 194 / Parsel 8",
+    "deedNo": "TP-2024-88013",
+    "deedDate": "2023-11-30",
+    "yevmiye": "4513",
+    "cilt": "23",
+    "sahife": "113",
+    "owner": "MARİF ET VE ET ÜRÜNLERİ GIDA TARIM HAYVANCILIK A.Ş.",
+    "share": "1/80",
+    "notes": "2. Kat 10 nolu bağimsiz bölüm mesken tapusu. Yevmiye: 16766."
+  },
+  {
+    "id": 15,
+    "name": "AMASYA MERKEZ Mesken",
+    "type": "Mesken",
+    "area": "82.36 m²",
+    "value": "19.170 TL",
+    "tenant": "Öz Mülk (Marif Et)",
+    "city": "AMASYA / MERKEZ",
+    "district": "DERE Mah.",
+    "deed": "Ada 203 / Parsel 24",
+    "deedNo": "TP-2024-88014",
+    "deedDate": "2010-01-20",
+    "yevmiye": "4514",
+    "cilt": "24",
+    "sahife": "114",
+    "owner": "MARİF ET VE ET ÜRÜNLERİ GIDA TARIM HAYVANCILIK A.Ş.",
+    "share": "9/60",
+    "notes": "4. Kat 5 nolu bağimsiz bölüm mesken tapusu. Yevmiye: 494. Eklenti: 2."
+  },
+  {
+    "id": 16,
+    "name": "AMASYA MERKEZ Mesken",
+    "type": "Mesken",
+    "area": "675 m²",
+    "value": "15.000.000 TL",
+    "tenant": "Öz Mülk (Marif Et)",
+    "city": "AMASYA / MERKEZ",
+    "district": "Merkez Mah.",
+    "deed": "Ada 1031 / Parsel 8",
+    "deedNo": "TP-2024-88015",
+    "deedDate": "1994-08-05",
+    "yevmiye": "4515",
+    "cilt": "25",
+    "sahife": "115",
+    "owner": "MARİF ET VE ET ÜRÜNLERİ GIDA TARIM HAYVANCILIK A.Ş.",
+    "share": "250/4510",
+    "notes": "1. Kat 15 nolu bağimsiz bölüm mesken tapusu (Şuayip Kaplan)."
+  },
+  {
+    "id": 17,
+    "name": "AMASYA MERKEZ Mesken",
+    "type": "Mesken",
+    "area": "1396.77 m²",
+    "value": "850.000 TL",
+    "tenant": "Öz Mülk (Marif Et)",
+    "city": "AMASYA / MERKEZ",
+    "district": "ŞEYHCUİ Mah.",
+    "deed": "Ada 967 / Parsel 23",
+    "deedNo": "TP-2024-88016",
+    "deedDate": "2024-02-28",
+    "yevmiye": "4516",
+    "cilt": "26",
+    "sahife": "116",
+    "owner": "MARİF ET VE ET ÜRÜNLERİ GIDA TARIM HAYVANCILIK A.Ş.",
+    "share": "90/2220",
+    "notes": "A Kisim 4. Normal Kat 28 nolu bağimsiz bölüm mesken tapusu. Yevmiye: 8133."
+  },
+  {
+    "id": 18,
+    "name": "AMASYA MERKEZ Mesken",
+    "type": "Mesken",
+    "area": "1396.77 m²",
+    "value": "812.000 TL",
+    "tenant": "Öz Mülk (Marif Et)",
+    "city": "AMASYA / MERKEZ",
+    "district": "ŞEYHCUİ Mah.",
+    "deed": "Ada 967 / Parsel 23",
+    "deedNo": "TP-2024-88017",
+    "deedDate": "2024-02-28",
+    "yevmiye": "4517",
+    "cilt": "27",
+    "sahife": "117",
+    "owner": "MARİF ET VE ET ÜRÜNLERİ GIDA TARIM HAYVANCILIK A.Ş.",
+    "share": "75/2220",
+    "notes": "A Kisim Zemin Kat 6 nolu bağimsiz bölüm mesken tapusu. Yevmiye: 8133."
+  },
+  {
+    "id": 19,
+    "name": "AMASYA SULUOVA Mesken",
+    "type": "Mesken",
+    "area": "413.24 m²",
+    "value": "2.550.000 TL",
+    "tenant": "Öz Mülk (Marif Et)",
+    "city": "AMASYA / SULUOVA",
+    "district": "BORSA Mah.",
+    "deed": "Ada 746 / Parsel 1",
+    "deedNo": "TP-2024-88018",
+    "deedDate": "2026-06-09",
+    "yevmiye": "4518",
+    "cilt": "28",
+    "sahife": "118",
+    "owner": "MARİF ET VE ET ÜRÜNLERİ GIDA TARIM HAYVANCILIK A.Ş.",
+    "share": "5/40",
+    "notes": "1. Normal Kat 3 nolu bağimsiz bölüm mesken tapusu. Yevmiye: 7315."
+  },
+  {
+    "id": 20,
+    "name": "KIRIKKALE YAHŞİHAN Mesken",
+    "type": "Mesken",
+    "area": "3045 m²",
+    "value": "65.000 TL",
+    "tenant": "Öz Mülk (Marif Et)",
+    "city": "KIRIKKALE / YAHŞİHAN",
+    "district": "YEŞİLVADİ Mah.",
+    "deed": "Ada 651 / Parsel 62",
+    "deedNo": "TP-2024-88019",
+    "deedDate": "2023-10-17",
+    "yevmiye": "4519",
+    "cilt": "29",
+    "sahife": "119",
+    "owner": "MARİF ET VE ET ÜRÜNLERİ GIDA TARIM HAYVANCILIK A.Ş.",
+    "share": "5079/304500",
+    "notes": "4. Kat 35 nolu bağimsiz bölüm mesken tapusu. Yevmiye: 11917."
+  },
+  {
+    "id": 21,
+    "name": "SAMSUN CANİK Mesken",
+    "type": "Mesken",
+    "area": "286.14 m²",
+    "value": "93.500 TL",
+    "tenant": "Öz Mülk (Marif Et)",
+    "city": "SAMSUN / CANİK",
+    "district": "TEKNEPINAR Mah.",
+    "deed": "Ada 87 / Parsel 6",
+    "deedNo": "TP-2024-88020",
+    "deedDate": "2021-04-07",
+    "yevmiye": "4520",
+    "cilt": "30",
+    "sahife": "120",
+    "owner": "MARİF ET VE ET ÜRÜNLERİ GIDA TARIM HAYVANCILIK A.Ş.",
+    "share": "10/70",
+    "notes": "1. Kat 4 nolu bağimsiz bölüm mesken tapusu. Yevmiye: 4136. Eklenti: 3 Nolu Odunluk."
+  },
+  {
+    "id": 22,
+    "name": "SAMSUN CANİK Mesken",
+    "type": "Mesken",
+    "area": "286.14 m²",
+    "value": "81.000 TL",
+    "tenant": "Öz Mülk (Marif Et)",
+    "city": "SAMSUN / CANİK",
+    "district": "TEKNEPINAR Mah.",
+    "deed": "Ada 87 / Parsel 6",
+    "deedNo": "TP-2024-88021",
+    "deedDate": "2021-03-29",
+    "yevmiye": "4521",
+    "cilt": "31",
+    "sahife": "121",
+    "owner": "MARİF ET VE ET ÜRÜNLERİ GIDA TARIM HAYVANCILIK A.Ş.",
+    "share": "10/70",
+    "notes": "Zemin Kat 2 nolu bağimsiz bölüm mesken tapusu. Yevmiye: 3734. Eklenti: 1 Nolu Odunluk."
+  },
+  {
+    "id": 23,
+    "name": "SAMSUN ATAKUM Mesken",
+    "type": "Mesken",
+    "area": "822 m²",
+    "value": "585.000 TL",
+    "tenant": "Öz Mülk (Marif Et)",
+    "city": "SAMSUN / ATAKUM",
+    "district": "BALAÇ Mah.",
+    "deed": "Ada 11884 / Parsel 11",
+    "deedNo": "TP-2024-88022",
+    "deedDate": "2024-07-22",
+    "yevmiye": "4522",
+    "cilt": "32",
+    "sahife": "122",
+    "owner": "MARİF ET VE ET ÜRÜNLERİ GIDA TARIM HAYVANCILIK A.Ş.",
+    "share": "90/1644",
+    "notes": "2. Bodrum 1 nolu bağimsiz bölüm mesken tapusu. Yevmiye: 27363."
+  },
+  {
+    "id": 24,
+    "name": "SAMSUN ATAKUM İki Katli Kargir Ev ve Arsa",
+    "type": "İki Katli Kargir Ev ve Arsa",
+    "area": "1046.69 m²",
+    "value": "20.000.000 TL",
+    "tenant": "Öz Mülk (Marif Et)",
+    "city": "SAMSUN / ATAKUM",
+    "district": "TAFLAN Mah.",
+    "deed": "Ada 171 / Parsel 4",
+    "deedNo": "TP-2024-88023",
     "deedDate": "2026-07-02",
     "yevmiye": "4523",
     "cilt": "33",
@@ -18462,8 +18219,315 @@
       return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
     }
 
-    const openAccordions = new Set();
+    const ktIcons = {
+      dashboard: `<svg class="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>`,
+      checks: `<svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>`,
+      finance: `<svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.5H4.5V21h15z" /></svg>`,
+      accounting: `<svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`,
+      einvoice: `<svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`,
+      vehicles: `<svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.215-9.176 2.25 2.25 0 00-1.875-.95h-4.65a2.25 2.25 0 00-1.875.95 17.896 17.896 0 00-3.215 9.176c-.039.62.469 1.124 1.09 1.124H6.75" /></svg>`,
+      slaughter: `<svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" /></svg>`,
+      tenders: `<svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75v-4.5m0 4.5h4.5m-4.5 0l6-6m-3 18c-8.284 0-15-6.716-15-15 0-1.503.22-2.955.63-4.321a2.25 2.25 0 012.871-1.464l2.128.71a2.25 2.25 0 011.464 2.872l-.71 2.128a2.25 2.25 0 001.464 2.871l2.128.71a2.25 2.25 0 002.872-1.464l.71-2.128a2.25 2.25 0 012.871-1.464l2.128.71a2.25 2.25 0 011.464 2.872l-.71 2.128a2.25 2.25 0 001.464 2.871l2.128.71a2.25 2.25 0 002.872-1.464z" /></svg>`,
+      branches: `<svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.25A2.25 2.25 0 010 18.75V10.5m18 10.5h3.75A2.25 2.25 0 0024 18.75V10.5M3 10.5l9-7.5 9 7.5M3 10.5v8.25A2.25 2.25 0 005.25 21h3.75m0 0v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21" /></svg>`,
+      realestate: `<svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.75a.75.75 0 01.75-.75h2.25a.75.75 0 01.75.75V21m4.5-12h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75" /></svg>`,
+      dis_muhasebe: `<svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" /></svg>`,
+      legal: `<svg class="w-5 h-5 text-amber-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-16.5-.52c-.99.203-1.99.377-3 .52m0 0 2.25 6.75c.346 1.038 1.309 1.73 2.404 1.73h.192c1.095 0 2.058-.692 2.404-1.73L8.25 5.49m10.5 0-2.25 6.75c-.346 1.038-1.309 1.73-2.404 1.73h-.192c-1.095 0-2.058-.692-2.404-1.73L18.75 5.49z" /></svg>`,
+      reporting: `<svg class="w-5 h-5 text-blue-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>`,
+      cashbox: `<svg class="w-5 h-5 text-emerald-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" /></svg>`,
+      monthend: `<svg class="w-5 h-5 text-rose-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>`,
+      whatsapp: `<svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6.454 3.1 1.254 4.38L2.25 21.75l4.58-1.2c1.233.725 2.66 1.15 4.17 1.15 4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9z" /></svg>`,
+      notifications: `<svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>`,
+      calendar: `<svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>`,
+      documents: `<svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`,
+      ai: `<svg class="w-5 h-5 text-fuchsia-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" /></svg>`,
+      users: `<svg class="w-5 h-5 text-cyan-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>`,
+      activity: `<svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+      settings: `<svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>`
+    };
 
+    const darsNavModules = [
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        desc: 'Genel finansal özet, nakit akışı ve takvim',
+        category: 'Genel & Analitik',
+        iconKey: 'dashboard',
+        colorClass: 'bg-sky-50 text-sky-700',
+        screenTarget: 'dashboard'
+      },
+      {
+        id: 'cekler',
+        label: 'Çek & Senet İşlemleri',
+        desc: 'Takas çekleri ve genel çek portföyü',
+        category: 'Çek, Senet & Finans',
+        iconKey: 'checks',
+        colorClass: 'bg-emerald-50 text-emerald-700',
+        badge: '18 Çek',
+        children: [
+          { label: 'Takas Çekleri', desc: 'Bankadaki takas çekleri ve vadeler', screen: 'takas_cekleri' },
+          { label: 'Çek & Senet Listesi', desc: 'Tüm portföy, müşteri ve borç çekleri', screen: 'checks' }
+        ]
+      },
+      {
+        id: 'finans',
+        label: 'Finans Yönetimi',
+        desc: 'Kredi kartları, faturalar, banka ve ÇEKTEN',
+        category: 'Çek, Senet & Finans',
+        iconKey: 'finance',
+        colorClass: 'bg-blue-50 text-blue-700',
+        badge: '7 İşlem',
+        children: [
+          { label: 'Kredi Kartları', desc: 'Kart limitleri, ekstre ve son ödemeler', screen: 'credit_cards' },
+          { label: 'Faturalar', desc: 'Kurum ve elektrik/su/doğalgaz faturaları', screen: 'bills' },
+          { label: 'ÇEKTEN Hesabı', desc: 'Kuveyt Türk ÇEKTEN entegrasyonu', screen: 'cekten_hesabi' },
+          { label: 'Çek Vade Hesaplama', desc: 'Ortalama vade ve iskonto simülatörü', screen: 'check_valuation' },
+          { label: 'POS Fark Hesaplama', desc: 'Komisyon ve bloke gün hesaplama', screen: 'pos_differences' },
+          { label: 'Banka Hesapları', desc: 'Mevduat, vadesiz ve pos hesapları', screen: 'bank_accounts' },
+          { label: 'Findeks Raporları', desc: 'Kredi notu ve risk raporları', screen: 'findeks' }
+        ]
+      },
+      {
+        id: 'muhasebe',
+        label: 'Muhasebe & Cari',
+        desc: 'Müşteri/tedarikçi carileri, personel ve stok',
+        category: 'Muhasebe & E-Fatura',
+        iconKey: 'accounting',
+        colorClass: 'bg-indigo-50 text-indigo-700',
+        badge: '4 Modül',
+        children: [
+          { label: 'Cari Kart Listesi', desc: 'Tüm borç/alacak cari hesapları', screen: 'caris' },
+          { label: 'Personel Cari Listesi', desc: 'Maaş, avans ve personel hesapları', screen: 'personnel' },
+          { label: 'Stok Yönetimi', desc: 'Hammadde, mamul ve depo stokları', screen: 'stocks' },
+          { label: 'Vega Son İşlemler', desc: 'Vega ERP hareketleri ve entegrasyonu', screen: 'transactions_history' }
+        ]
+      },
+      {
+        id: 'e_fatura',
+        label: 'E-Faturalar',
+        desc: 'Etik & Marif şirketleri e-arşiv ve e-fatura',
+        category: 'Muhasebe & E-Fatura',
+        iconKey: 'einvoice',
+        colorClass: 'bg-teal-50 text-teal-700',
+        children: [
+          { label: 'Etik E-Fatura', desc: 'Etik Et A.Ş. gelen/giden faturalar', screen: 'e_invoices' },
+          { label: 'Marif E-Fatura', desc: 'Marif Et A.Ş. gelen/giden faturalar', screen: 'e_invoices' }
+        ]
+      },
+      {
+        id: 'araclar',
+        label: 'Araç & Filo Yönetimi',
+        desc: 'Muayene, sigorta, HGS, yakıt ve şoförler',
+        category: 'Operasyon, Lojistik & Şubeler',
+        iconKey: 'vehicles',
+        colorClass: 'bg-amber-50 text-amber-700',
+        badge: '18 Araç',
+        children: [
+          { label: 'Araç Listesi', desc: 'Filodaki tüm ticari ve binek araçlar', screen: 'vehicles' },
+          { label: 'Araç Sigorta - Muayene', desc: 'TÜVTÜRK muayene ve poliçe takibi', screen: 'vehicles' },
+          { label: 'HGS - Cezalar', desc: 'Otoban geçişleri ve trafik cezaları', screen: 'vehicles' },
+          { label: 'Yakıt Tüketim', desc: 'Taşıt tanıma ve litre/km takibi', screen: 'vehicles' },
+          { label: 'Şoförler', desc: 'Sürücü zimmet ve ehliyet süreleri', screen: 'vehicles' },
+          { label: 'Sanayi Giderleri', desc: 'Bakım, onarım ve yedek parça', screen: 'vehicles' }
+        ]
+      },
+      {
+        id: 'kesim',
+        label: 'Kesim & Hayvancılık',
+        desc: 'Karkas kesim listesi, açık mal ödemeleri',
+        category: 'Operasyon, Lojistik & Şubeler',
+        iconKey: 'slaughter',
+        colorClass: 'bg-rose-50 text-rose-700',
+        children: [
+          { label: 'Kesim Listesi', desc: 'Kombina kesim ve kantar tartımları', screen: 'slaughters' },
+          { label: 'Açık Mal Ödemeleri', desc: 'Müstahsil ve peşinat bakiyeleri', screen: 'slaughters' },
+          { label: 'Kesim Listesi Cari', desc: 'Besici ve üretici cari ekstreleri', screen: 'slaughters' }
+        ]
+      },
+      {
+        id: 'ihaleler',
+        label: 'İhaleler & Doğrudan Temin',
+        desc: 'Kamu ihaleleri, teklif hazırlık ve teminatlar',
+        category: 'Operasyon, Lojistik & Şubeler',
+        iconKey: 'tenders',
+        colorClass: 'bg-purple-50 text-purple-700',
+        children: [
+          { label: 'İhaleler Portföyü', desc: 'Aktif ve sonuçlanan resmi ihaleler', screen: 'tenders' },
+          { label: 'Doğrudan Temin', desc: 'Kurum doğrudan alım talepleri', screen: 'tenders' }
+        ]
+      },
+      {
+        id: 'subeler',
+        label: 'Şubelerimiz',
+        desc: 'Merkez, İlkadım, Atakum, Merzifon ve depolar',
+        category: 'Operasyon, Lojistik & Şubeler',
+        iconKey: 'branches',
+        colorClass: 'bg-cyan-50 text-cyan-700',
+        badge: '6 Şube',
+        children: [
+          { label: 'Merkez Şube', desc: 'Merkez mağaza ve yönetim', screen: 'branches' },
+          { label: 'Merzifon Şube', desc: 'Merzifon perakende satış', screen: 'branches' },
+          { label: 'İlkadım Şube', desc: 'Samsun İlkadım mağazası', screen: 'branches' },
+          { label: 'Atakum Şube', desc: 'Samsun Atakum mağazası', screen: 'branches' },
+          { label: 'Sucukhane Şube', desc: 'Üretim ve sucukhane tesisi', screen: 'branches' },
+          { label: 'Depo & Soğuk Hava', desc: 'Lojistik ana depo', screen: 'branches' }
+        ]
+      },
+      {
+        id: 'gayrimenkul',
+        label: 'Gayrimenkul Listesi',
+        desc: '24 adet tapu, arsa, daire ve dükkan portföyü',
+        category: 'Operasyon, Lojistik & Şubeler',
+        iconKey: 'realestate',
+        colorClass: 'bg-orange-50 text-orange-700',
+        badge: '24 Mülk',
+        screenTarget: 'real_estates'
+      },
+      {
+        id: 'dis_muhasebe',
+        label: 'Dış Muhasebe Portalı',
+        desc: 'Veri gönderimi, beyannameler ve BA/BS mutabakat',
+        category: 'Muhasebe & E-Fatura',
+        iconKey: 'dis_muhasebe',
+        colorClass: 'bg-violet-50 text-violet-700',
+        children: [
+          { label: 'Veri Gönderim Portalı', desc: 'Mali müşavir evrak aktarımı', screen: 'dis_muhasebe' },
+          { label: 'Beyanname & Tahakkuk', desc: 'KDV, Muhtasar, Geçici Vergi', screen: 'dis_muhasebe' },
+          { label: 'Cari Mutabakat & BA/BS', desc: 'Form BA/BS ve e-mutabakat', screen: 'dis_muhasebe' },
+          { label: 'Mizan Eşitleme', desc: 'Aylık mizan ve hesap eşleme', screen: 'dis_muhasebe' }
+        ]
+      },
+      {
+        id: 'hukuk',
+        label: 'Hukuk Departmanı',
+        desc: 'Dava & icra takibi, duruşma ve UYAP',
+        category: 'Operasyon, Lojistik & Şubeler',
+        iconKey: 'legal',
+        colorClass: 'bg-amber-50 text-amber-800',
+        badge: '4 Dosya',
+        children: [
+          { label: 'Dava & İcra Takibi', desc: 'İcra takipleri ve dava dosyaları', screen: 'legal_cases' },
+          { label: 'Duruşma & İş Takvimi', desc: 'Mahkeme duruşma günleri', screen: 'legal_cases' },
+          { label: 'UYAP Entegrasyonu', desc: 'Ulusal Yargı Ağı veri aktarımı', screen: 'legal_cases' },
+          { label: 'Avukat Portalı', desc: 'Hukuk bürosu iletişim ve vekalet', screen: 'legal_cases' }
+        ]
+      },
+      {
+        id: 'raporlama',
+        label: 'Raporlama & BI',
+        desc: 'Yönetici finansal ve operasyonel göstergeleri',
+        category: 'Genel & Analitik',
+        iconKey: 'reporting',
+        colorClass: 'bg-blue-50 text-blue-800',
+        screenTarget: 'reporting'
+      },
+      {
+        id: 'ana_kasa',
+        label: 'Ana Kasa',
+        desc: 'Günlük nakit akışı, POS ve banka hareketleri',
+        category: 'Çek, Senet & Finans',
+        iconKey: 'cashbox',
+        colorClass: 'bg-emerald-50 text-emerald-800',
+        children: [
+          { label: 'Ana Kasa Günlük Rapor', desc: 'Gün sonu devir ve nakit mevcudu', screen: 'cashbox' },
+          { label: 'Giriş Çıkış', desc: 'Nakit tahsilat ve tediye fişleri', screen: 'cashbox' },
+          { label: 'Günlük Hesap', desc: 'Kasa sayımı ve mutabakat', screen: 'cashbox' },
+          { label: 'Günlük POS Takip', desc: 'Şube POS çekim ve hesap kapama', screen: 'pos_tracking' },
+          { label: 'Banka Hesap Hareketleri', desc: 'EFT, havale ve virman dökümü', screen: 'bank_accounts' }
+        ]
+      },
+      {
+        id: 'ay_sonu',
+        label: 'Ay Sonu Kapanış',
+        desc: 'Aylık ciro, maliyet ve kar/zarar analizi',
+        category: 'Genel & Analitik',
+        iconKey: 'monthend',
+        colorClass: 'bg-rose-50 text-rose-800',
+        screenTarget: 'month_end'
+      },
+      {
+        id: 'whatsapp',
+        label: 'WhatsApp İş Merkezi',
+        desc: 'Gelen fişler, sohbetler ve grup görevleri',
+        category: 'İletişim, Güvenlik & Sistem',
+        iconKey: 'whatsapp',
+        colorClass: 'bg-emerald-50 text-emerald-700',
+        children: [
+          { label: 'WhatsApp Sohbetleri', desc: 'Müşteri ve tedarikçi yazışmaları', screen: 'asistan' },
+          { label: 'Gelen Fiş & Belge Havuzu', desc: 'OCR ile işlenen fiş görselleri', screen: 'asistan' },
+          { label: 'Grup Görevleri', desc: 'Şube ve personel iş emirleri', screen: 'asistan' },
+          { label: 'Grup Ayarları', desc: 'WhatsApp bot ve webhook yapılandırması', screen: 'asistan' }
+        ]
+      },
+      {
+        id: 'bildirimler',
+        label: 'Bildirim Merkezi',
+        desc: 'Vade, limit ve kritik uyarı bildirimleri',
+        category: 'İletişim, Güvenlik & Sistem',
+        iconKey: 'notifications',
+        colorClass: 'bg-amber-50 text-amber-700',
+        badge: '3 Yeni',
+        screenTarget: 'bildirimler'
+      },
+      {
+        id: 'takvim',
+        label: 'Finansal Takvim',
+        desc: 'Aylık ödeme takvimi, vadesi gelen çekler ve notlar',
+        category: 'Genel & Analitik',
+        iconKey: 'calendar',
+        colorClass: 'bg-indigo-50 text-indigo-700',
+        screenTarget: 'takvim'
+      },
+      {
+        id: 'belgeler',
+        label: 'Evrak & Belge Deposu',
+        desc: 'Sözleşmeler, ruhsatlar ve resmi evrak arşivi',
+        category: 'İletişim, Güvenlik & Sistem',
+        iconKey: 'documents',
+        colorClass: 'bg-slate-50 text-slate-700',
+        screenTarget: 'documents'
+      },
+      {
+        id: 'ai_asistan',
+        label: 'DARS AI Asistan',
+        desc: 'Finansal danışman, özet ve sorgulama robotu',
+        category: 'Genel & Analitik',
+        iconKey: 'ai',
+        colorClass: 'bg-fuchsia-50 text-fuchsia-700',
+        screenTarget: 'asistan'
+      },
+      {
+        id: 'kullanicilar',
+        label: 'Kullanıcı & Yetki',
+        desc: 'Personel hesapları ve rol bazlı yetkilendirme',
+        category: 'İletişim, Güvenlik & Sistem',
+        iconKey: 'users',
+        colorClass: 'bg-cyan-50 text-cyan-800',
+        screenTarget: 'users'
+      },
+      {
+        id: 'aktivite',
+        label: 'Aktivite & Durumum',
+        desc: 'Kullanıcı işlem geçmişi ve denetim izi',
+        category: 'Genel & Analitik',
+        iconKey: 'activity',
+        colorClass: 'bg-slate-50 text-slate-700',
+        screenTarget: 'durumum'
+      },
+      {
+        id: 'ayarlar',
+        label: 'Sistem Ayarları',
+        desc: 'Genel tercihler, güvenlik ve yedekleme',
+        category: 'İletişim, Güvenlik & Sistem',
+        iconKey: 'settings',
+        colorClass: 'bg-slate-50 text-slate-700',
+        children: [
+          { label: 'Genel Ayarlar', desc: 'Firma bilgileri ve tema ayarları', screen: 'ayarlar' },
+          { label: 'Sistem Yedekleri', desc: 'Veritabanı ve dosya yedekleri', screen: 'ayarlar' }
+        ]
+      }
+    ];
+
+    // openAccordions already initialized at top
     function toggleMenuAccordion(moduleId) {
       if (openAccordions.has(moduleId)) {
         openAccordions.delete(moduleId);
@@ -18473,8 +18537,7 @@
       renderMenuModules();
     }
 
-    let activeMenuFilterTag = 'ALL';
-
+    // activeMenuFilterTag already initialized at top
     function filterMenuByTag(tag) {
       activeMenuFilterTag = tag;
       renderMenuModules(document.getElementById('menu-search-input')?.value || '');
@@ -23125,19 +23188,7 @@
     }
 
     // ==================== 19. FULL 1-MONTH INTERACTIVE CALENDAR ====================
-    let currentCalMonth = (new Date()).getMonth(); // current month (0-11)
-    let currentCalYear = (new Date()).getFullYear();
-    let selectedCalDay = `${currentCalYear}-${String(currentCalMonth + 1).padStart(2, '0')}-${String((new Date()).getDate()).padStart(2, '0')}`;
-    let activeCalFilter = 'ALL';
-
-    const calStyles = {
-      'credit-card': { label: 'KART', dot: 'bg-red-500', badge: 'bg-red-50 text-red-700 border border-red-200' },
-      inspection: { label: 'MUAYENE', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
-      insurance: { label: 'SİGORTA', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border border-blue-200' },
-      tender: { label: 'İHALE', dot: 'bg-purple-500', badge: 'bg-purple-50 text-purple-700 border border-purple-200' },
-      check: { label: 'ÇEK', dot: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700 border border-rose-200' },
-      note: { label: 'NOT', dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200' }
-    };
+    // currentCalMonth, currentCalYear, selectedCalDay, activeCalFilter, calStyles initialized at top
 
     let mockCalendarEvents = [
       { id: 'ev-1', date: '2026-09-02', code: 'CK-00192', title: 'Takas Çeki Vadesi: Kral Entegre', subtitle: 'Kuveyt Türk Takas Portföyü', institution: 'Kral Entegre Et Ltd.', detail: 'İç Takas Ödemesi', type: 'check', to: 'checks', amount: '486.000 TL', statusLabel: 'İç Takas', statusClass: 'bg-blue-50 text-blue-700 border border-blue-200' },
@@ -23153,9 +23204,7 @@
       { id: 'ev-11', date: '2026-09-30', code: '•••• 5400', title: 'Garanti Bonus Business Son Ödeme', subtitle: 'Asgari Ödeme: 82.500 TL', institution: 'Garanti BBVA', detail: 'Kredi Kartı Son Ödeme', type: 'credit-card', to: 'credit_cards', amount: '412.500 TL', statusLabel: 'Ödeme Bekliyor', statusClass: 'bg-red-50 text-red-700 border border-red-200' }
     ];
 
-    let userCalendarNotes = JSON.parse(localStorage.getItem('dars_calendar_notes') || '[]');
-
-    const monthNamesTR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+    // userCalendarNotes and monthNamesTR initialized at top
 
     function changeCalMonth(delta) {
       currentCalMonth += delta;
