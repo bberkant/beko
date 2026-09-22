@@ -12,7 +12,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     }
     
     func requestAuthorization() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound, .provisional]) { granted, error in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if granted {
                 print("[DARS] Bildirim izni verildi.")
                 DispatchQueue.main.async {
@@ -106,7 +106,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .badge, .sound, .list])
+        completionHandler([.banner, .badge, .sound])
     }
     
     // Kullanıcı kilit ekranındaki bildirime tıkladığında çalışır
