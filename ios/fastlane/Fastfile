@@ -60,8 +60,8 @@ platform :ios do
       end
     end
 
-    UI.message("Uploading #{ipa_path} to TestFlight via xcrun altool with provider #{target_provider}...")
-    upload_cmd = "xcrun altool --upload-package \"#{ipa_path}\" --type ios --username \"#{user}\" --password \"#{password}\" --asc-provider \"#{target_provider}\" --verbose"
+    UI.message("Uploading #{ipa_path} to Apple TestFlight via xcrun altool --upload-app...")
+    upload_cmd = "xcrun altool --upload-app -f \"#{ipa_path}\" -t ios -u \"#{user}\" -p \"#{password}\" --asc-provider \"#{target_provider}\" --verbose"
     sh(upload_cmd)
   end
 end
