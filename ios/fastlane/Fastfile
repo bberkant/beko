@@ -38,14 +38,30 @@ platform :ios do
       }
     )
 
-    # 4. Upload to Apple TestFlight via xcrun altool (Uses App-Specific Password)
+    # 4. Upload to Apple TestFlight via xcrun altool with specific ASC Provider
     ipa_path = File.expand_path("../dars-ios.ipa", __dir__)
     user = ENV['FASTLANE_USER']
     password = ENV['FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD']
 
-    UI.message("Uploading #{ipa_path} to TestFlight via xcrun altool...")
-    
-    upload_cmd = "xcrun altool --upload-package \"#{ipa_path}\" --type ios --username \"#{user}\" --password \"#{password}\" --verbose"
+    UI.message("Fetching App Store Connect providers for #{user}...")
+    providers_raw = `xcrun altool --list-providers -u "#{user}" -p "#{password}" 2>&1`
+    UI.message("Available Providers:\n#{providers_raw}")
+
+    # Identify the target provider shortname or team ID
+    target_provider = "WGARWL7QZ4"
+    providers_raw.each_line do |line|
+      # Look for line matching our team or account
+      if line.include?("WGARWL7QZ4") || line.include?("6025c9a1") || line.downcase.include?("etas") || line.downcase.include?("amasya")
+        parts = line.strip.split(/\s{2,}|\t+/)
+        if parts.length >= 2 && !parts[1].empty?
+          target_provider = parts[1].strip
+          UI.message("Selected matching provider shortname: #{target_provider}")
+        end
+      end
+    end
+
+    UI.message("Uploading #{ipa_path} to TestFlight via xcrun altool with provider #{target_provider}...")
+    upload_cmd = "xcrun altool --upload-package \"#{ipa_path}\" --type ios --username \"#{user}\" --password \"#{password}\" --asc-provider \"#{target_provider}\" --verbose"
     sh(upload_cmd)
   end
 end
