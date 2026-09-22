@@ -33,6 +33,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.amasyaetas.mobile
         PRODUCT_NAME: "dars-ios"
         DEVELOPMENT_TEAM: WGARWL7QZ4
+        TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_FILE: dars-ios/App/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -43,7 +44,7 @@ targets:
         ENABLE_BITCODE: NO
         SWIFT_VERSION: "5.9"
         MARKETING_VERSION: "1.0.0"
-        CURRENT_PROJECT_VERSION: "36"
+        CURRENT_PROJECT_VERSION: "40"
         VERSIONING_SYSTEM: "apple-generic"
 
   dars-iosTests:
