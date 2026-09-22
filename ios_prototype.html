@@ -1349,156 +1349,217 @@
     };
 
     const darsNavModules = [
-      { id: 'dashboard', label: 'Dashboard', iconKey: 'dashboard', screenTarget: 'dashboard' },
+      // CATEGORY: Genel & Analitik
+      { id: 'dashboard', category: 'Genel & Analitik', label: 'Dashboard', desc: 'Canlı Finansal Özet & Hızlı Aksiyonlar', iconKey: 'dashboard', screenTarget: 'dashboard', colorClass: 'bg-blue-50 text-[#002D59]' },
+      { id: 'raporlama', category: 'Genel & Analitik', label: 'Raporlama', desc: 'Finansal & Operasyonel Detaylı Raporlar', iconKey: 'raporlama', screenTarget: 'raporlama', colorClass: 'bg-indigo-50 text-indigo-700' },
+      { id: 'ay_sonu', category: 'Genel & Analitik', label: 'Ay Sonu', desc: 'Dönem Sonu Kapanış & Mutabakat Durumu', iconKey: 'ay_sonu', screenTarget: 'durumum', colorClass: 'bg-emerald-50 text-emerald-700' },
+      { id: 'asistan', category: 'Genel & Analitik', label: 'AI Asistan', desc: 'DARS Akıllı Finans & Muhasebe Danışmanı', iconKey: 'asistan', screenTarget: 'asistan', colorClass: 'bg-purple-50 text-purple-700' },
+
+      // CATEGORY: Çek, Senet & Finans
       {
         id: 'cekler',
+        category: 'Çek, Senet & Finans',
         label: 'Çek & Senet İşlemleri',
+        desc: 'Takas Çekleri, Portföy & Bordrolar',
         iconKey: 'cekler',
+        colorClass: 'bg-blue-50 text-[#002D59]',
+        badge: '2 İşlem',
         children: [
-          { label: 'Takas Çekleri', screen: 'takas_cekleri' },
-          { label: 'Çek & Senet Listesi', screen: 'checks' }
+          { label: 'Takas Çekleri', desc: 'İç & Dış Takasa Verilen Çekler', screen: 'takas_cekleri' },
+          { label: 'Çek & Senet Listesi', desc: 'Tüm Portföy Çek & Senet Takibi', screen: 'checks' }
         ]
       },
       {
         id: 'finans',
-        label: 'Finans',
+        category: 'Çek, Senet & Finans',
+        label: 'Finans Yönetimi',
+        desc: 'Kredi Kartları, Faturalar, ÇEKTEN, Bankalar',
         iconKey: 'finans',
+        colorClass: 'bg-amber-50 text-amber-700',
+        badge: '7 Modül',
         children: [
-          { label: 'Kredi Kartları', screen: 'credit_cards' },
-          { label: 'Faturalar', screen: 'documents' },
-          { label: 'ÇEKTEN Hesabı', screen: 'cekten_hesabi' },
-          { label: 'Çek Vade Hesaplama', screen: 'check_valuation' },
-          { label: 'POS Fark Hesaplama', screen: 'pos_differences' },
-          { label: 'Banka Hesapları', screen: 'bank_accounts' },
-          { label: 'Findeks', screen: 'durumum' }
+          { label: 'Kredi Kartları', desc: 'Şirket & Ticari Kart Limit / Ekstre', screen: 'credit_cards' },
+          { label: 'Faturalar', desc: 'Gelen & Giden Fatura Takibi', screen: 'bills' },
+          { label: 'ÇEKTEN Hesabı', desc: 'ÇEKTEN Bakiye & Nakit Akışı', screen: 'cekten_hesabi' },
+          { label: 'Çek Vade Hesaplama', desc: 'Ortalama Vade & Finansman Maliyeti', screen: 'check_valuation' },
+          { label: 'POS Fark Hesaplama', desc: 'Şube POS Komisyon & Oran Analizi', screen: 'pos_differences' },
+          { label: 'Banka Hesapları', desc: 'Kuveyt Türk, Ziraat, İş Bankası', screen: 'bank_accounts' },
+          { label: 'Findeks', desc: 'Karekodlu Çek & Risk Raporlama', screen: 'findeks' }
         ]
       },
       {
-        id: 'muhasebe',
-        label: 'Muhasebe',
-        iconKey: 'muhasebe',
+        id: 'kasa',
+        category: 'Çek, Senet & Finans',
+        label: 'Ana Kasa',
+        desc: 'Günlük Kasa Raporu, Giriş/Çıkış & POS Takip',
+        iconKey: 'kasa',
+        colorClass: 'bg-emerald-50 text-emerald-700',
+        badge: '5 İşlem',
         children: [
-          { label: 'Cari Kart Listesi', screen: 'caris' },
-          { label: 'Personel Cari Listesi', screen: 'personnel' },
-          { label: 'Stok Yönetimi', screen: 'stocks' },
-          { label: 'Vega Son İşlemler', screen: 'transactions_history' }
+          { label: 'Ana Kasa Günlük Rapor', desc: 'Nakit, POS ve Banka Özeti', screen: 'main_cashbox_io' },
+          { label: 'Giriş Çıkış', desc: 'Kasa Nakit Tahsilat & Ödemeleri', screen: 'main_cashbox_io' },
+          { label: 'Günlük Hesap', desc: 'Şube Günlük Kasa Kapanışları', screen: 'main_cashbox_io' },
+          { label: 'Günlük POS Takip', desc: 'Günlük Slip & POS Tahsilatları', screen: 'pos_tracking' },
+          { label: 'Banka Hesap Hareketleri', desc: 'Banka EFT, Havale & FAST', screen: 'bank_accounts' }
+        ]
+      },
+
+      // CATEGORY: Muhasebe & E-Fatura
+      {
+        id: 'muhasebe',
+        category: 'Muhasebe & E-Fatura',
+        label: 'Muhasebe',
+        desc: 'Cari Kartlar, Personel, Stok & Vega İşlemleri',
+        iconKey: 'muhasebe',
+        colorClass: 'bg-sky-50 text-sky-700',
+        badge: '4 Modül',
+        children: [
+          { label: 'Cari Kart Listesi', desc: 'Müşteri & Tedarikçi Bakiyeleri', screen: 'caris' },
+          { label: 'Personel Cari Listesi', desc: 'Personel Maaş & Avans Hesapları', screen: 'personnel' },
+          { label: 'Stok Yönetimi', desc: 'Canlı Karkas & Ürün Stok Takibi', screen: 'stocks' },
+          { label: 'Vega Son İşlemler', desc: 'ERP Entegrasyon Canlı Akışı', screen: 'transactions_history' }
         ]
       },
       {
         id: 'e_fatura',
+        category: 'Muhasebe & E-Fatura',
         label: 'E-Faturalar',
+        desc: 'Etik & Marif E-Fatura Portalları',
         iconKey: 'e_fatura',
+        colorClass: 'bg-indigo-50 text-indigo-700',
+        badge: '2 Şirket',
         children: [
-          { label: 'Etik E-Fatura', screen: 'e_invoices' },
-          { label: 'Marif E-Fatura', screen: 'e_invoices' }
+          { label: 'Etik E-Fatura', desc: 'Etik Et Ürünleri Gelen/Giden Faturalar', screen: 'e_invoices' },
+          { label: 'Marif E-Fatura', desc: 'Marif Tarım & Hayvancılık Faturaları', screen: 'e_invoices' }
         ]
       },
       {
-        id: 'araclar',
-        label: 'Araç Yönetimi',
-        iconKey: 'araclar',
+        id: 'dis_muhasebe',
+        category: 'Muhasebe & E-Fatura',
+        label: 'Dış Muhasebe',
+        desc: 'Veri Gönderimi, Beyanname & Mizan Eşitleme',
+        iconKey: 'dis_muhasebe',
+        colorClass: 'bg-purple-50 text-purple-700',
+        badge: '4 Modül',
         children: [
-          { label: 'Araç Listesi', screen: 'vehicles' },
-          { label: 'Araç Sigorta - Muayene', screen: 'vehicles' },
-          { label: 'HGS - Geçiş & Trafik Cezaları', screen: 'vehicles' },
-          { label: 'Yakıt Tüketim', screen: 'vehicles' },
-          { label: 'Şoförler', screen: 'vehicles' },
-          { label: 'Sanayi', screen: 'vehicles' }
+          { label: 'Veri Gönderim Portalı', desc: 'Mali Müşavir Veri İletimi', screen: 'dis_muhasebe' },
+          { label: 'Beyanname & Tahakkuk Deposu', desc: 'KDV, Muhtasar, Kurumlar', screen: 'dis_muhasebe' },
+          { label: 'Cari Mutabakat & BA/BS', desc: 'Elektronik BA/BS Mutabakatları', screen: 'dis_muhasebe' },
+          { label: 'Mizan Eşitleme', desc: 'Resmi Defter & Mizan Kontrolü', screen: 'dis_muhasebe' }
+        ]
+      },
+
+      // CATEGORY: Operasyon, Lojistik & Şubeler
+      {
+        id: 'araclar',
+        category: 'Operasyon, Lojistik & Şubeler',
+        label: 'Araç Yönetimi',
+        desc: 'Filo, Muayene, Sigorta, HGS, Yakıt & Sanayi',
+        iconKey: 'araclar',
+        colorClass: 'bg-amber-50 text-amber-700',
+        badge: '6 Modül',
+        children: [
+          { label: 'Araç Listesi', desc: 'Filodaki Tüm Kamyon & Ticari Araçlar', screen: 'vehicles' },
+          { label: 'Araç Sigorta - Muayene', desc: 'TÜVTÜRK & Kasko Poliçe Takibi', screen: 'vehicles' },
+          { label: 'HGS - Geçiş & Trafik Cezaları', desc: 'Otoyol & Köprü Geçiş Kayıtları', screen: 'vehicle_fines' },
+          { label: 'Yakıt Tüketim', desc: 'Taşıt Tanıma & Mazot Litre Takibi', screen: 'vehicle_fuel' },
+          { label: 'Şoförler', desc: 'Şoför Zimmet & Ehliyet Takibi', screen: 'vehicle_drivers' },
+          { label: 'Sanayi', desc: 'Periyodik Bakım & Tamir Giderleri', screen: 'vehicle_maintenance' }
         ]
       },
       {
         id: 'kesim',
+        category: 'Operasyon, Lojistik & Şubeler',
         label: 'Kesim Listesi',
+        desc: 'Karkas Kesim Kayıtları & Besici Ödemeleri',
         iconKey: 'kesim',
+        colorClass: 'bg-rose-50 text-rose-700',
+        badge: '3 Modül',
         children: [
-          { label: 'Kesim Listesi', screen: 'slaughters' },
-          { label: 'Açık Mal Ödemeleri', screen: 'cekten_hesabi' },
-          { label: 'Kesim Listesi Cari', screen: 'caris' }
+          { label: 'Kesim Listesi', desc: 'Günlük Karkas Tartım & Randıman', screen: 'slaughters' },
+          { label: 'Açık Mal Ödemeleri', desc: 'Canlı Hayvan & Açık Mal Takibi', screen: 'acik_mal' },
+          { label: 'Kesim Listesi Cari', desc: 'Besici Cari Kartları & Alacakları', screen: 'kesim_cari' }
         ]
       },
       {
         id: 'ihaleler',
+        category: 'Operasyon, Lojistik & Şubeler',
         label: 'İhaleler',
+        desc: 'Resmi İhale Teklifleri & Doğrudan Temin',
         iconKey: 'ihaleler',
+        colorClass: 'bg-purple-50 text-purple-700',
+        badge: '2 Modül',
         children: [
-          { label: 'İhaleler', screen: 'tenders' },
-          { label: 'Doğrudan Temin', screen: 'tenders' }
+          { label: 'İhaleler', desc: 'Kamu & Kurum İhale Takip Portalı', screen: 'tenders' },
+          { label: 'Doğrudan Temin', desc: 'Doğrudan Temin Teklif Dosyaları', screen: 'tenders' }
         ]
       },
       {
         id: 'subeler',
+        category: 'Operasyon, Lojistik & Şubeler',
         label: 'Şubelerimiz',
+        desc: 'Merkez, Merzifon, İlkadım, Atakum, Sucukhane, Depo',
         iconKey: 'subeler',
+        colorClass: 'bg-blue-50 text-[#002D59]',
+        badge: '6 Şube',
         children: [
-          { label: 'Merkez Şube', screen: 'branches' },
-          { label: 'Merzifon Şube', screen: 'branches' },
-          { label: 'İlkadım Şube', screen: 'branches' },
-          { label: 'Atakum Şube', screen: 'branches' },
-          { label: 'Sucukhane Şube', screen: 'branches' },
-          { label: 'Depo Şube', screen: 'branches' }
+          { label: 'Merkez Şube', desc: 'Amasya Merkez Perakende Satış', screen: 'subeler' },
+          { label: 'Merzifon Şube', desc: 'Merzifon Şube Satış & Kasa', screen: 'subeler' },
+          { label: 'İlkadım Şube', desc: 'Samsun İlkadım Şube Satış', screen: 'subeler' },
+          { label: 'Atakum Şube', desc: 'Samsun Atakum Şube Satış', screen: 'subeler' },
+          { label: 'Sucukhane Şube', desc: 'Merzifon İşleme & Üretim Tesisi', screen: 'subeler' },
+          { label: 'Depo Şube', desc: 'Amasya OSB Lojistik & Soğuk Hava Deposu', screen: 'subeler' }
         ]
       },
-      { id: 'gayrimenkul', label: 'Gayrimenkul Listesi', iconKey: 'gayrimenkul', screenTarget: 'real_estates' },
-      {
-        id: 'dis_muhasebe',
-        label: 'Dış Muhasebe',
-        iconKey: 'dis_muhasebe',
-        children: [
-          { label: 'Veri Gönderim Portalı', screen: 'dis_muhasebe' },
-          { label: 'Beyanname & Tahakkuk Deposu', screen: 'dis_muhasebe' },
-          { label: 'Cari Mutabakat & BA/BS', screen: 'dis_muhasebe' },
-          { label: 'Mizan Eşitleme', screen: 'dis_muhasebe' }
-        ]
-      },
+      { id: 'gayrimenkul', category: 'Operasyon, Lojistik & Şubeler', label: 'Gayrimenkul Listesi', desc: 'Şirket Mülkleri, Arsa & Dükkan Portföyü', iconKey: 'gayrimenkul', screenTarget: 'real_estates', colorClass: 'bg-slate-100 text-slate-700' },
       {
         id: 'hukuk',
+        category: 'Operasyon, Lojistik & Şubeler',
         label: 'Hukuk Departmanı',
+        desc: 'Dava, İcra, Duruşma Takvimi & UYAP',
         iconKey: 'hukuk',
+        colorClass: 'bg-slate-100 text-slate-700',
+        badge: '4 Modül',
         children: [
-          { label: 'Dava & İcra Takibi', screen: 'legal_cases' },
-          { label: 'Duruşma & İş Takvimi', screen: 'legal_cases' },
-          { label: 'UYAP Entegrasyon Merkezi', screen: 'legal_cases' },
-          { label: 'Avukat Portalı', screen: 'legal_cases' }
+          { label: 'Dava & İcra Takibi', desc: 'İcra Dosyaları & Tahsilat Süreçleri', screen: 'hukuk' },
+          { label: 'Duruşma & İş Takvimi', desc: 'Adliye & Mahkeme Duruşma Günleri', screen: 'hukuk' },
+          { label: 'UYAP Entegrasyon Merkezi', desc: 'Elektronik UYAP Dosya Sorgulama', screen: 'hukuk' },
+          { label: 'Avukat Portalı', desc: 'Hukuk Müşavirliği Yetki Alanı', screen: 'hukuk' }
         ]
       },
-      { id: 'raporlama', label: 'Raporlama', iconKey: 'raporlama', screenTarget: 'reporting' },
-      {
-        id: 'kasa',
-        label: 'Ana Kasa',
-        iconKey: 'kasa',
-        children: [
-          { label: 'Ana Kasa Günlük Rapor', screen: 'cashbox' },
-          { label: 'Giriş Çıkış', screen: 'cashbox' },
-          { label: 'Günlük Hesap', screen: 'cashbox' },
-          { label: 'Günlük POS Takip', screen: 'pos_tracking' },
-          { label: 'Banka Hesap Hareketleri', screen: 'transactions_history' }
-        ]
-      },
-      { id: 'ay_sonu', label: 'Ay Sonu', iconKey: 'ay_sonu', screenTarget: 'month_end' },
+
+      // CATEGORY: İletişim, Güvenlik & Sistem
       {
         id: 'whatsapp',
+        category: 'İletişim, Güvenlik & Sistem',
         label: 'WhatsApp',
+        desc: 'Sohbetler, Gelen Fiş/Belge Havuzu & Görevler',
         iconKey: 'whatsapp',
+        colorClass: 'bg-emerald-50 text-emerald-700',
+        badge: '4 Modül',
         children: [
-          { label: 'WhatsApp Sohbetleri', screen: 'asistan' },
-          { label: 'Gelen Fiş & Belge Havuzu', screen: 'documents' },
-          { label: 'Grup Görevleri', screen: 'takvim' },
-          { label: 'Grup Ayarları', screen: 'ayarlar' }
+          { label: 'WhatsApp Sohbetleri', desc: 'Şirket WhatsApp Kanal & Mesajlaşma', screen: 'whatsapp_chat' },
+          { label: 'Gelen Fiş & Belge Havuzu', desc: 'WhatsApp Üzerinden Gelen Fatura / Fişler', screen: 'whatsapp_media' },
+          { label: 'Grup Görevleri', desc: 'Gruplardan Oluşturulan Görev Takibi', screen: 'whatsapp_tasks' },
+          { label: 'Grup Ayarları', desc: 'WhatsApp Bildirim & Bot Entegrasyonu', screen: 'whatsapp_chat' }
         ]
       },
-      { id: 'bildirimler', label: 'Bildirimler', iconKey: 'bildirimler', screenTarget: 'bildirimler' },
-      { id: 'takvim', label: 'Takvim', iconKey: 'takvim', screenTarget: 'takvim' },
-      { id: 'belgeler', label: 'Belgeler', iconKey: 'belgeler', screenTarget: 'documents' },
-      { id: 'asistan', label: 'AI Asistan', iconKey: 'asistan', screenTarget: 'asistan' },
-      { id: 'kullanicilar', label: 'Kullanıcılar', iconKey: 'kullanicilar', screenTarget: 'users' },
-      { id: 'aktivite', label: 'Aktivite Günlüğü', iconKey: 'aktivite', screenTarget: 'transactions_history' },
+      { id: 'bildirimler', category: 'İletişim, Güvenlik & Sistem', label: 'Bildirimler', desc: 'Finansal Uyarılar, Vade & Sistem Alarmları', iconKey: 'bildirimler', screenTarget: 'bildirimler', colorClass: 'bg-rose-50 text-rose-700' },
+      { id: 'takvim', category: 'İletişim, Güvenlik & Sistem', label: 'Takvim', desc: 'Tüm Finansal Vade & Görev Takvimi', iconKey: 'takvim', screenTarget: 'takvim', colorClass: 'bg-blue-50 text-[#002D59]' },
+      { id: 'belgeler', category: 'İletişim, Güvenlik & Sistem', label: 'Belgeler', desc: 'Resmi Sözleşmeler, Ruhsat & Evrak Havuzu', iconKey: 'belgeler', screenTarget: 'documents', colorClass: 'bg-slate-100 text-slate-700' },
+      { id: 'kullanicilar', category: 'İletişim, Güvenlik & Sistem', label: 'Kullanıcılar', desc: 'Kullanıcı Yetkilendirme & Personel Rolleri', iconKey: 'kullanicilar', screenTarget: 'users', colorClass: 'bg-slate-100 text-slate-700' },
+      { id: 'aktivite', category: 'İletişim, Güvenlik & Sistem', label: 'Aktivite Günlüğü', desc: 'Sistem İşlem Günlükleri & Güvenlik Logları', iconKey: 'aktivite', screenTarget: 'audit_logs', colorClass: 'bg-slate-100 text-slate-700' },
       {
         id: 'ayarlar',
+        category: 'İletişim, Güvenlik & Sistem',
         label: 'Ayarlar',
+        desc: 'Genel Sistem Yapılandırması & Yedekler',
         iconKey: 'ayarlar',
+        colorClass: 'bg-slate-100 text-slate-700',
+        badge: '2 Ayar',
         children: [
-          { label: 'Genel Ayarlar', screen: 'ayarlar' },
-          { label: 'Sistem Yedekleri', screen: 'ayarlar' }
+          { label: 'Genel Ayarlar', desc: 'Şirket Bilgileri & Parametreler', screen: 'settings' },
+          { label: 'Sistem Yedekleri', desc: 'Canlı Veritabanı & Güvenlik Yedekleri', screen: 'settings' }
         ]
       }
     ];
@@ -18347,69 +18408,156 @@
       renderMenuModules();
     }
 
+    let activeMenuFilterTag = 'ALL';
+
+    function filterMenuByTag(tag) {
+      activeMenuFilterTag = tag;
+      renderMenuModules(document.getElementById('menu-search-input')?.value || '');
+    }
+
     function renderMenuModules(filter = '') {
       const container = document.getElementById('menu-modules-list');
+      if (!container) return;
       const q = filter.toLowerCase().trim();
 
-      const filtered = darsNavModules.filter(m => {
-        if (!q) return true;
-        const mainMatch = m.label.toLowerCase().includes(q);
-        const childMatch = m.children && m.children.some(c => c.label.toLowerCase().includes(q));
-        return mainMatch || childMatch;
-      });
+      // Category map
+      const categories = [
+        'Genel & Analitik',
+        'Çek, Senet & Finans',
+        'Muhasebe & E-Fatura',
+        'Operasyon, Lojistik & Şubeler',
+        'İletişim, Güvenlik & Sistem'
+      ];
 
-      container.innerHTML = `
-        <div class="kt-card divide-y divide-slate-100/90 overflow-hidden shadow-xs border border-slate-200/80 rounded-2xl bg-white">
-          ${filtered.map(m => {
-            const hasChildren = m.children && m.children.length > 0;
-            const isOpen = openAccordions.has(m.id) || (q.length > 0 && hasChildren);
-            const iconSvg = ktIcons[m.iconKey] || ktIcons.dashboard;
+      // Tag filter mapping
+      let allowedCategories = categories;
+      if (activeMenuFilterTag === 'FINANS') allowedCategories = ['Çek, Senet & Finans'];
+      else if (activeMenuFilterTag === 'MUHASEBE') allowedCategories = ['Muhasebe & E-Fatura'];
+      else if (activeMenuFilterTag === 'OPERASYON') allowedCategories = ['Operasyon, Lojistik & Şubeler'];
+      else if (activeMenuFilterTag === 'SISTEM') allowedCategories = ['İletişim, Güvenlik & Sistem'];
 
-            return `
-              <div>
-                <div 
-                  onclick="${hasChildren ? `toggleMenuAccordion('${m.id}')` : `changeScreen('${m.screenTarget}')`}"
-                  class="flex justify-between items-center py-3.5 px-4 cursor-pointer hover:bg-slate-50/70 transition-colors select-none"
-                >
-                  <div class="flex items-center gap-3.5">
-                    ${iconSvg}
-                    <span class="text-[13.5px] font-[500] text-slate-800 tracking-tight">${m.label}</span>
-                  </div>
+      let htmlOutput = `
+        <!-- Quick Filter Tags -->
+        <div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 select-none">
+          <button onclick="filterMenuByTag('ALL')" class="px-3 py-1.5 rounded-full text-xs font-[600] transition-all shrink-0 ${activeMenuFilterTag === 'ALL' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
+            Tüm Modüller (23)
+          </button>
+          <button onclick="filterMenuByTag('FINANS')" class="px-3 py-1.5 rounded-full text-xs font-[600] transition-all shrink-0 ${activeMenuFilterTag === 'FINANS' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
+            Finans & Çek
+          </button>
+          <button onclick="filterMenuByTag('MUHASEBE')" class="px-3 py-1.5 rounded-full text-xs font-[600] transition-all shrink-0 ${activeMenuFilterTag === 'MUHASEBE' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
+            Muhasebe
+          </button>
+          <button onclick="filterMenuByTag('OPERASYON')" class="px-3 py-1.5 rounded-full text-xs font-[600] transition-all shrink-0 ${activeMenuFilterTag === 'OPERASYON' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
+            Operasyon & Şubeler
+          </button>
+          <button onclick="filterMenuByTag('SISTEM')" class="px-3 py-1.5 rounded-full text-xs font-[600] transition-all shrink-0 ${activeMenuFilterTag === 'SISTEM' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
+            Sistem & İletişim
+          </button>
+        </div>
+      `;
 
-                  <div class="flex items-center">
-                    <svg class="w-4 h-4 text-slate-300 transform transition-transform duration-200 ${hasChildren && isOpen ? 'rotate-90 text-kt-primary' : ''}" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                    </svg>
-                  </div>
-                </div>
+      let totalRendered = 0;
 
-                ${hasChildren ? `
-                  <div class="menu-accordion-content ${isOpen ? 'expanded' : ''} bg-[#F8FAFC] border-t border-slate-100 divide-y divide-slate-100">
-                    ${m.children.map(c => `
-                      <div 
-                        onclick="changeScreen('${c.screen}')"
-                        class="py-2.5 px-4 pl-12 flex justify-between items-center cursor-pointer hover:bg-blue-50/50 transition-colors"
-                      >
-                        <span class="text-[13px] font-[500] text-slate-600 hover:text-kt-primary">${c.label}</span>
-                        <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+      categories.forEach(cat => {
+        if (!allowedCategories.includes(cat)) return;
+
+        const catModules = darsNavModules.filter(m => m.category === cat).filter(m => {
+          if (!q) return true;
+          const mainMatch = m.label.toLowerCase().includes(q) || (m.desc && m.desc.toLowerCase().includes(q));
+          const childMatch = m.children && m.children.some(c => c.label.toLowerCase().includes(q) || (c.desc && c.desc.toLowerCase().includes(q)));
+          return mainMatch || childMatch;
+        });
+
+        if (catModules.length === 0) return;
+        totalRendered += catModules.length;
+
+        htmlOutput += `
+          <div class="space-y-1.5 pt-1.5">
+            <div class="px-2 py-0.5 text-[11px] font-[700] uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span>${cat}</span>
+              <span class="text-[10px] font-[600] text-slate-400">${catModules.length} Modül</span>
+            </div>
+
+            <div class="kt-card divide-y divide-slate-100/90 overflow-hidden shadow-xs border border-slate-200/80 rounded-2xl bg-white">
+              ${catModules.map(m => {
+                const hasChildren = m.children && m.children.length > 0;
+                const isOpen = openAccordions.has(m.id) || (q.length > 0 && hasChildren);
+                const iconSvg = ktIcons[m.iconKey] || ktIcons.dashboard;
+                const colorBg = m.colorClass || 'bg-slate-100 text-slate-700';
+
+                return `
+                  <div>
+                    <div 
+                      onclick="${hasChildren ? `toggleMenuAccordion('${m.id}')` : `changeScreen('${m.screenTarget}')`}"
+                      class="flex justify-between items-center p-3.5 cursor-pointer hover:bg-slate-50/80 transition-colors select-none group"
+                    >
+                      <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-10 h-10 rounded-xl ${colorBg} flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                          ${iconSvg}
+                        </div>
+                        <div class="min-w-0">
+                          <div class="flex items-center gap-2">
+                            <span class="text-[13.5px] font-[600] text-slate-900 tracking-tight truncate">${m.label}</span>
+                            ${m.badge ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-[700] bg-slate-100 text-slate-600 shrink-0">${m.badge}</span>` : ''}
+                          </div>
+                          ${m.desc ? `<p class="text-[11.5px] text-slate-400 font-[400] truncate mt-0.5">${m.desc}</p>` : ''}
+                        </div>
+                      </div>
+
+                      <div class="flex items-center gap-1 shrink-0 pl-2">
+                        <svg class="w-4 h-4 text-slate-300 transform transition-transform duration-200 ${hasChildren && isOpen ? 'rotate-90 text-[#002D59]' : ''}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                         </svg>
                       </div>
-                    `).join('')}
-                  </div>
-                ` : ''}
-              </div>
-            `;
-          }).join('')}
-        </div>
+                    </div>
 
-        <div class="pt-2">
+                    ${hasChildren ? `
+                      <div class="menu-accordion-content ${isOpen ? 'expanded' : ''} bg-[#F8FAFC] border-t border-slate-100 divide-y divide-slate-100">
+                        ${m.children.map(c => `
+                          <div 
+                            onclick="changeScreen('${c.screen}')"
+                            class="py-3 px-4 pl-14 flex justify-between items-center cursor-pointer hover:bg-blue-50/70 transition-colors group/child"
+                          >
+                            <div class="min-w-0">
+                              <span class="text-[13px] font-[600] text-slate-700 group-hover/child:text-[#002D59] transition-colors block truncate">${c.label}</span>
+                              ${c.desc ? `<span class="text-[11px] text-slate-400 font-[400] block truncate mt-0.5">${c.desc}</span>` : ''}
+                            </div>
+                            <svg class="w-3.5 h-3.5 text-slate-300 group-hover/child:text-[#002D59] transition-colors shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                            </svg>
+                          </div>
+                        `).join('')}
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      });
+
+      if (totalRendered === 0) {
+        htmlOutput += `
+          <div class="kt-card p-8 text-center space-y-2 border border-slate-200/90 rounded-2xl bg-white">
+            <div class="text-3xl">🔍</div>
+            <h4 class="text-sm font-bold text-slate-800">Sonuç Bulunamadı</h4>
+            <p class="text-xs text-slate-400">"${q}" aramasına uygun bir modül veya işlem bulunamadı.</p>
+          </div>
+        `;
+      }
+
+      htmlOutput += `
+        <div class="pt-3">
           <button onclick="confirmLogoutModal()" class="w-full kt-card p-3.5 flex items-center justify-center gap-2 text-rose-600 font-[600] text-[13px] hover:bg-rose-50/70 transition-all rounded-2xl border border-rose-100 shadow-2xs">
             <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>
             <span>Güvenli Çıkış Yap</span>
           </button>
         </div>
       `;
+
+      container.innerHTML = htmlOutput;
     }
 
     function confirmLogoutModal() {
@@ -23055,7 +23203,7 @@
       for (let i = startingDay - 1; i >= 0; i--) {
         const prevDay = prevMonthDays - i;
         cellsHtml += `
-          <div class="h-11 flex flex-col items-center justify-center text-slate-300 text-xs font-semibold bg-gray-50/40 border-b border-r border-slate-100/80">
+          <div class="h-10 flex flex-col items-center justify-center text-slate-300 text-xs font-semibold bg-gray-50/40 border-b border-r border-slate-100/80">
             <span>${prevDay}</span>
           </div>
         `;
@@ -23076,13 +23224,13 @@
         cellsHtml += `
           <div 
             onclick="selectCalDay('${fullDate}')" 
-            class="h-11 flex flex-col items-center justify-center border-b border-r border-slate-100 cursor-pointer transition-all relative ${
+            class="h-10 flex flex-col items-center justify-center border-b border-r border-slate-100 cursor-pointer transition-all relative ${
               isSelected 
                 ? 'bg-blue-50/90 ring-2 ring-inset ring-[#002D59]' 
                 : 'hover:bg-slate-50/80 bg-white'
             }"
           >
-            <span class="inline-flex w-6 h-6 items-center justify-center rounded-full text-xs font-semibold ${
+            <span class="inline-flex w-5 h-5 items-center justify-center rounded-full text-xs font-semibold ${
               isToday 
                 ? 'bg-[#002D59] text-white shadow-xs font-bold' 
                 : isSelected 
@@ -23108,7 +23256,7 @@
       const remainingCells = totalRendered <= 35 ? 35 - totalRendered : 42 - totalRendered;
       for (let n = 1; n <= remainingCells; n++) {
         cellsHtml += `
-          <div class="h-11 flex flex-col items-center justify-center text-slate-300 text-xs font-semibold bg-gray-50/40 border-b border-r border-slate-100/80">
+          <div class="h-10 flex flex-col items-center justify-center text-slate-300 text-xs font-semibold bg-gray-50/40 border-b border-r border-slate-100/80">
             <span>${n}</span>
           </div>
         `;
@@ -23123,139 +23271,200 @@
       const selParts = selectedCalDay.split('-');
       const selFormatted = `${parseInt(selParts[2])} ${monthNamesTR[parseInt(selParts[1]) - 1]} ${selParts[0]}`;
 
-      const htmlContent = `
-        <!-- 1. Category Filter Pills (Website Style) -->
-        <div class="flex flex-wrap gap-1.5 select-none pb-1">
-          <button onclick="filterCalCategory('ALL')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'ALL' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
-            <span>Tümü (${monthEvents.length})</span>
-          </button>
-          <button onclick="filterCalCategory('credit-card')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'credit-card' ? 'bg-red-600 text-white shadow-xs' : 'bg-red-50 text-red-700 border border-red-200'}">
-            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'credit-card' ? 'bg-white' : 'bg-red-500'}"></span>
-            <span>KART</span>
-          </button>
-          <button onclick="filterCalCategory('inspection')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'inspection' ? 'bg-amber-500 text-white shadow-xs' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
-            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'inspection' ? 'bg-white' : 'bg-amber-500'}"></span>
-            <span>MUAYENE</span>
-          </button>
-          <button onclick="filterCalCategory('insurance')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'insurance' ? 'bg-blue-600 text-white shadow-xs' : 'bg-blue-50 text-blue-700 border border-blue-200'}">
-            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'insurance' ? 'bg-white' : 'bg-blue-500'}"></span>
-            <span>SİGORTA</span>
-          </button>
-          <button onclick="filterCalCategory('tender')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'tender' ? 'bg-purple-600 text-white shadow-xs' : 'bg-purple-50 text-purple-700 border border-purple-200'}">
-            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'tender' ? 'bg-white' : 'bg-purple-500'}"></span>
-            <span>İHALE</span>
-          </button>
-          <button onclick="filterCalCategory('check')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'check' ? 'bg-rose-600 text-white shadow-xs' : 'bg-rose-50 text-rose-700 border border-rose-200'}">
-            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'check' ? 'bg-white' : 'bg-rose-500'}"></span>
-            <span>ÇEK</span>
-          </button>
-          <button onclick="filterCalCategory('note')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'note' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">
-            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'note' ? 'bg-white' : 'bg-emerald-500'}"></span>
-            <span>NOT</span>
-          </button>
-        </div>
+      // 1. DASHBOARD COMPACT WIDGET RENDER
+      if (dashContainer) {
+        // Upcoming critical events
+        const upcomingEvents = allEvents.filter(e => e.type !== 'note').slice(0, 4);
 
-        <!-- 2. Interactive Calendar Card (Website Design) -->
-        <div class="kt-card overflow-hidden shadow-xs border border-slate-200/90 rounded-2xl bg-white">
-          <!-- Month Header & Today Button -->
-          <div class="flex items-center justify-between border-b border-slate-100 p-3 bg-white">
-            <button onclick="changeCalMonth(-1)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold transition-colors">
-              ‹
-            </button>
-            <div class="flex items-center gap-2">
-              <h3 class="text-[14.5px] font-[700] text-slate-900 tracking-tight">${monthTitle}</h3>
-              <button onclick="jumpToToday()" class="text-[11px] font-[600] px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-[#002D59] rounded-full transition-colors">Bugün</button>
-            </div>
-            <button onclick="changeCalMonth(1)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold transition-colors">
-              ›
-            </button>
-          </div>
-
-          <!-- Weekday Headers (Pzt, Sal, Çar, Per, Cum, Cmt, Paz) -->
-          <div class="grid grid-cols-7 border-b border-slate-100 bg-slate-50/90">
-            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Pzt</div>
-            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Sal</div>
-            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Çar</div>
-            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Per</div>
-            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Cum</div>
-            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Cmt</div>
-            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Paz</div>
-          </div>
-
-          <!-- 7-Column Days Grid -->
-          <div class="grid grid-cols-7 border-l border-t border-slate-100 select-none">
-            ${cellsHtml}
-          </div>
-        </div>
-
-        <!-- 3. Quick Inline Note & Task Input -->
-        <div class="kt-card p-3 border border-slate-200/90 rounded-2xl bg-white shadow-2xs">
-          <form onsubmit="event.preventDefault(); handleInlineAddNote();" class="flex gap-2 items-center">
-            <input 
-              type="text" 
-              id="calendar-quick-note-input"
-              placeholder="${selFormatted} için not veya görev yazın..." 
-              class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-[500] text-slate-800 focus:outline-none focus:bg-white focus:border-[#002D59]"
-            />
-            <button type="submit" class="px-3.5 py-2 bg-[#002D59] text-white rounded-xl text-xs font-[600] shrink-0 shadow-xs hover:opacity-90 transition-opacity">
-              + Ekle
-            </button>
-          </form>
-        </div>
-
-        <!-- 4. Selected Date Events Feed -->
-        <div class="space-y-2.5">
-          <div class="flex justify-between items-center px-1">
-            <div class="flex items-center gap-1.5">
-              <span class="text-sm">📌</span>
-              <h4 class="text-[13.5px] font-[700] text-slate-900 tracking-tight">${selFormatted} Etkinlikleri</h4>
-            </div>
-            <span class="text-[11px] font-[600] px-2.5 py-0.5 rounded-full bg-slate-200/80 text-slate-700">${dayEvents.length} Kayıt</span>
-          </div>
-
-          ${dayEvents.length > 0 ? dayEvents.map(ev => {
-            const st = calStyles[ev.type] || calStyles.note;
-            return `
-              <div class="kt-card p-3.5 space-y-2 border border-slate-200/90 rounded-2xl bg-white shadow-xs hover:border-slate-300 transition-all">
-                <div class="flex justify-between items-start gap-2">
-                  <div class="flex items-center gap-2">
-                    <span class="rounded-full px-2 py-0.5 text-[10px] font-[700] ${st.badge} flex items-center gap-1 shrink-0">
-                      <span class="w-1.5 h-1.5 rounded-full ${st.dot}"></span>
-                      ${st.label}
-                    </span>
-                    <span class="text-xs font-[700] text-slate-800 truncate">${ev.code || ''}</span>
-                  </div>
-                  <span class="text-xs font-[800] text-slate-900 font-mono shrink-0">${ev.amount || '—'}</span>
-                </div>
-
-                <div>
-                  <h4 class="text-[13px] font-[700] text-slate-900 leading-snug tracking-tight">${ev.title}</h4>
-                  <p class="text-[11.5px] text-slate-500 font-[400] mt-0.5">${ev.detail || ev.subtitle || ''}</p>
-                </div>
-
-                <div class="pt-2 flex justify-between items-center text-[11px] text-slate-400 border-t border-slate-100">
-                  <span class="font-[500] text-slate-600 truncate">${ev.institution || ''}</span>
-                  <div class="flex items-center gap-2 shrink-0">
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-[600] ${ev.statusClass || 'bg-slate-100 text-slate-700'}">${ev.statusLabel || 'Aktif'}</span>
-                    ${ev.to ? `<button onclick="changeScreen('${ev.to}')" class="text-[#002D59] font-[600] hover:underline">İncele &gt;</button>` : ''}
-                  </div>
-                </div>
+        dashContainer.innerHTML = `
+          <!-- Dashboard Compact Calendar Card -->
+          <div class="kt-card overflow-hidden shadow-xs border border-slate-200/90 rounded-2xl bg-white space-y-3 p-3.5">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div class="flex items-center gap-2">
+                <button onclick="changeCalMonth(-1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs">‹</button>
+                <h4 class="text-[13.5px] font-[700] text-slate-900">${monthTitle}</h4>
+                <button onclick="changeCalMonth(1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs">›</button>
               </div>
-            `;
-          }).join('') : `
-            <div class="kt-card p-6 text-center space-y-2 border border-slate-200/90 rounded-2xl bg-white">
-              <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-base mx-auto">
-                📅
+              <div class="flex items-center gap-2">
+                <button onclick="jumpToToday()" class="text-[11px] font-[600] px-2 py-0.5 bg-slate-100 text-[#002D59] rounded-full">Bugün</button>
+                <span class="text-[10px] font-[700] px-2 py-0.5 bg-blue-50 text-[#002D59] rounded-full">${monthEvents.length} Kayıt</span>
               </div>
-              <p class="text-xs text-slate-500 font-medium">Bu tarihte kayıtlı bir vade, muayene veya ihale bulunmuyor.</p>
-              <p class="text-[11px] text-slate-400">Yukarıdaki alandan bu güne özel not veya hatırlatıcı ekleyebilirsiniz.</p>
             </div>
-          `}
-        </div>
-      `;
 
-      if (container) container.innerHTML = htmlContent;
-      if (dashContainer) dashContainer.innerHTML = htmlContent;
+            <!-- Mini Weekday Row -->
+            <div class="grid grid-cols-7 text-center text-[10px] font-[700] text-slate-400">
+              <div>Pt</div><div>Sa</div><div>Ça</div><div>Pe</div><div>Cu</div><div>Ct</div><div>Pz</div>
+            </div>
+
+            <!-- Mini Grid -->
+            <div class="grid grid-cols-7 border-l border-t border-slate-100 select-none">
+              ${cellsHtml}
+            </div>
+
+            <!-- Selected Date Mini Summary & Quick View -->
+            <div class="pt-2 border-t border-slate-100 space-y-2">
+              <div class="flex justify-between items-center text-xs">
+                <span class="font-[700] text-slate-900">${selFormatted} Etkinlikleri</span>
+                <span class="font-[600] text-[#002D59] bg-blue-50 px-2 py-0.5 rounded-full text-[10px]">${dayEvents.length} Kayıt</span>
+              </div>
+
+              ${dayEvents.length > 0 ? dayEvents.slice(0, 2).map(ev => {
+                const st = calStyles[ev.type] || calStyles.note;
+                return `
+                  <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-1.5">
+                        <span class="px-1.5 py-0.2 rounded text-[9px] font-[700] ${st.badge}">${st.label}</span>
+                        <span class="text-xs font-[700] text-slate-800 truncate">${ev.title}</span>
+                      </div>
+                      <p class="text-[10.5px] text-slate-500 truncate mt-0.5">${ev.detail || ev.subtitle || ''}</p>
+                    </div>
+                    <span class="text-xs font-[800] text-slate-900 font-mono shrink-0">${ev.amount || '—'}</span>
+                  </div>
+                `;
+              }).join('') : `
+                <p class="text-[11px] text-slate-400 py-1 text-center">Bu tarihte kayıtlı bir etkinlik bulunmuyor.</p>
+              `}
+
+              <button onclick="changeScreen('takvim')" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-[#002D59] font-[600] text-xs rounded-xl flex items-center justify-center gap-1 transition-colors">
+                <span>Tüm Finansal Takvimi İncele & Not Ekle</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      // 2. FULL DEDICATED CALENDAR PAGE RENDER
+      if (container) {
+        container.innerHTML = `
+          <!-- Category Filter Pills -->
+          <div class="flex flex-wrap gap-1.5 select-none pb-1">
+            <button onclick="filterCalCategory('ALL')" class="rounded-full px-3 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'ALL' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
+              <span>Tümü (${monthEvents.length})</span>
+            </button>
+            <button onclick="filterCalCategory('credit-card')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'credit-card' ? 'bg-red-600 text-white shadow-xs' : 'bg-red-50 text-red-700 border border-red-200'}">
+              <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'credit-card' ? 'bg-white' : 'bg-red-500'}"></span>
+              <span>KART</span>
+            </button>
+            <button onclick="filterCalCategory('inspection')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'inspection' ? 'bg-amber-500 text-white shadow-xs' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
+              <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'inspection' ? 'bg-white' : 'bg-amber-500'}"></span>
+              <span>MUAYENE</span>
+            </button>
+            <button onclick="filterCalCategory('insurance')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'insurance' ? 'bg-blue-600 text-white shadow-xs' : 'bg-blue-50 text-blue-700 border border-blue-200'}">
+              <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'insurance' ? 'bg-white' : 'bg-blue-500'}"></span>
+              <span>SİGORTA</span>
+            </button>
+            <button onclick="filterCalCategory('tender')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'tender' ? 'bg-purple-600 text-white shadow-xs' : 'bg-purple-50 text-purple-700 border border-purple-200'}">
+              <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'tender' ? 'bg-white' : 'bg-purple-500'}"></span>
+              <span>İHALE</span>
+            </button>
+            <button onclick="filterCalCategory('check')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'check' ? 'bg-rose-600 text-white shadow-xs' : 'bg-rose-50 text-rose-700 border border-rose-200'}">
+              <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'check' ? 'bg-white' : 'bg-rose-500'}"></span>
+              <span>ÇEK</span>
+            </button>
+            <button onclick="filterCalCategory('note')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'note' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">
+              <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'note' ? 'bg-white' : 'bg-emerald-500'}"></span>
+              <span>NOT</span>
+            </button>
+          </div>
+
+          <!-- Full Calendar Card -->
+          <div class="kt-card overflow-hidden shadow-xs border border-slate-200/90 rounded-2xl bg-white">
+            <div class="flex items-center justify-between border-b border-slate-100 p-3.5 bg-white">
+              <button onclick="changeCalMonth(-1)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold transition-colors">‹</button>
+              <div class="flex items-center gap-2">
+                <h3 class="text-[15px] font-[700] text-slate-900 tracking-tight">${monthTitle}</h3>
+                <button onclick="jumpToToday()" class="text-[11px] font-[600] px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-[#002D59] rounded-full transition-colors">Bugün</button>
+              </div>
+              <button onclick="changeCalMonth(1)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold transition-colors">›</button>
+            </div>
+
+            <div class="grid grid-cols-7 border-b border-slate-100 bg-slate-50/90 text-center text-[11px] font-[700] text-slate-500">
+              <div class="p-2">Pzt</div><div class="p-2">Sal</div><div class="p-2">Çar</div><div class="p-2">Per</div><div class="p-2">Cum</div><div class="p-2">Cmt</div><div class="p-2">Paz</div>
+            </div>
+
+            <div class="grid grid-cols-7 border-l border-t border-slate-100 select-none">
+              ${cellsHtml}
+            </div>
+          </div>
+
+          <!-- Quick Inline Note Adder -->
+          <div class="kt-card p-3.5 border border-slate-200/90 rounded-2xl bg-white shadow-2xs">
+            <form onsubmit="event.preventDefault(); handleInlineAddNote();" class="flex gap-2 items-center">
+              <input 
+                type="text" 
+                id="calendar-quick-note-input"
+                placeholder="${selFormatted} için hatırlatıcı veya görev yazın..." 
+                class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-[500] text-slate-800 focus:outline-none focus:bg-white focus:border-[#002D59]"
+              />
+              <button type="submit" class="px-4 py-2.5 bg-[#002D59] text-white rounded-xl text-xs font-[600] shrink-0 shadow-xs hover:opacity-90 transition-opacity">
+                + Ekle
+              </button>
+            </form>
+          </div>
+
+          <!-- Selected Day Events & Notes -->
+          <div class="space-y-2.5">
+            <div class="flex justify-between items-center px-1">
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm">📌</span>
+                <h4 class="text-[13.5px] font-[700] text-slate-900 tracking-tight">${selFormatted} Etkinlikleri</h4>
+              </div>
+              <span class="text-[11px] font-[600] px-2.5 py-0.5 rounded-full bg-slate-200/80 text-slate-700">${dayEvents.length} Kayıt</span>
+            </div>
+
+            ${dayEvents.length > 0 ? dayEvents.map(ev => {
+              const st = calStyles[ev.type] || calStyles.note;
+              return `
+                <div class="kt-card p-3.5 space-y-2 border border-slate-200/90 rounded-2xl bg-white shadow-xs hover:border-slate-300 transition-all">
+                  <div class="flex justify-between items-start gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <span class="rounded-full px-2 py-0.5 text-[10px] font-[700] ${st.badge} flex items-center gap-1 shrink-0">
+                        <span class="w-1.5 h-1.5 rounded-full ${st.dot}"></span>
+                        ${st.label}
+                      </span>
+                      <span class="text-xs font-[700] text-slate-800 truncate">${ev.code || ''}</span>
+                    </div>
+                    <span class="text-xs font-[800] text-slate-900 font-mono shrink-0">${ev.amount || '—'}</span>
+                  </div>
+
+                  <div>
+                    <h4 class="text-[13px] font-[700] text-slate-900 leading-snug tracking-tight">${ev.title}</h4>
+                    <p class="text-[11.5px] text-slate-500 font-[400] mt-0.5">${ev.detail || ev.subtitle || ''}</p>
+                  </div>
+
+                  <div class="pt-2 flex justify-between items-center text-[11px] text-slate-400 border-t border-slate-100">
+                    <span class="font-[500] text-slate-600 truncate">${ev.institution || ''}</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-[600] ${ev.statusClass || 'bg-slate-100 text-slate-700'}">${ev.statusLabel || 'Aktif'}</span>
+                      ${ev.to ? `<button onclick="changeScreen('${ev.to}')" class="text-[#002D59] font-[600] hover:underline">İncele &gt;</button>` : ''}
+                      ${ev.type === 'note' ? `<button onclick="deleteCalendarNote('${ev.id}')" class="text-rose-500 font-[600] hover:underline text-[10px]">Sil</button>` : ''}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('') : `
+              <div class="kt-card p-6 text-center space-y-2 border border-slate-200/90 rounded-2xl bg-white">
+                <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-base mx-auto">📅</div>
+                <p class="text-xs text-slate-500 font-medium">Bu tarihte kayıtlı bir vade, muayene veya ihale bulunmuyor.</p>
+                <p class="text-[11px] text-slate-400">Yukarıdaki alandan bu güne özel not veya hatırlatıcı ekleyebilirsiniz.</p>
+              </div>
+            `}
+          </div>
+        `;
+      }
+    }
+
+    function deleteCalendarNote(noteId) {
+      const rawId = noteId.replace('note-', '');
+      userCalendarNotes = userCalendarNotes.filter(n => String(n.id) !== rawId);
+      try {
+        localStorage.setItem('dars_calendar_notes', JSON.stringify(userCalendarNotes));
+      } catch(e) {}
+      showToast('Not silindi');
+      renderCalendar();
     }
 
     function handleInlineAddNote() {
