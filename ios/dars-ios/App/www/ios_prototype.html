@@ -345,8 +345,8 @@
           </div>
 
           <div class="w-full max-w-[280px] mt-1 space-y-3">
-            <input type="password" placeholder="Şifre giriniz" value="123456" class="w-full bg-white border-2 border-blue-500 text-center py-2.5 px-4 rounded-full text-sm font-[600] text-slate-800 focus:outline-none shadow-xs tracking-widest" />
-            <button onclick="handleLoginAndSync()" class="w-full bg-kt-primary hover:opacity-95 text-white font-[600] py-2.5 rounded-full text-[13px] shadow-md hover:shadow-lg transition-all tracking-tight flex items-center justify-center">
+            <input type="password" placeholder="Şifre giriniz" value="123456" onkeydown="if(event.key==='Enter') handleLoginAndSync()" class="w-full bg-white border-2 border-blue-500 text-center py-2.5 px-4 rounded-full text-sm font-[600] text-slate-800 focus:outline-none shadow-xs tracking-widest" />
+            <button onclick="handleLoginAndSync()" class="w-full bg-kt-primary hover:opacity-95 text-white font-[600] py-2.5 rounded-full text-[13px] shadow-md hover:shadow-lg transition-all tracking-tight flex items-center justify-center cursor-pointer">
               Giriş Yap
             </button>
             <a href="#" class="text-[12px] font-[500] text-slate-400 hover:text-kt-primary block transition-colors">Şifremi Unuttum &gt;</a>
@@ -23737,6 +23737,9 @@
 
     function handleLoginAndSync() {
       changeScreen('dashboard');
+      renderCalendar();
+      renderDashboardTransactions();
+      renderMenuModules();
       initSupabaseLiveSync();
     }
 
@@ -24063,6 +24066,8 @@
     function initApp() {
       changeScreen('login');
       renderMenuModules();
+      renderCalendar();
+      renderDashboardTransactions();
       renderChecks();
       renderCaris(mockCaris);
       renderSlaughters();
