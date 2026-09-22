@@ -22907,30 +22907,35 @@
     }
 
     // ==================== 19. FULL 1-MONTH INTERACTIVE CALENDAR ====================
-    let currentCalMonth = 8; // 8 = September (0-indexed: 8 is September in JS Date, or 2026-09)
-    let currentCalYear = 2026;
-    let selectedCalDay = '2026-09-02'; // default selected to 2 Sep
+    let currentCalMonth = (new Date()).getMonth(); // current month (0-11)
+    let currentCalYear = (new Date()).getFullYear();
+    let selectedCalDay = `${currentCalYear}-${String(currentCalMonth + 1).padStart(2, '0')}-${String((new Date()).getDate()).padStart(2, '0')}`;
     let activeCalFilter = 'ALL';
 
-    const mockCalendarEvents = [
-      { date: '2026-09-02', type: 'check', title: '2 Adet Çek Vadesi (İç Takas)', detail: 'Kral Entegre (486.000 TL) & Haydar Deli (606.020 TL)', amount: '1.092.020 TL', badge: 'İç Takas', color: 'rose' },
-      { date: '2026-09-02', type: 'vehicle', title: 'Araç Muayene Bitiş Tarihi', detail: 'Mercedes Sprinter Frigo (55 AET 412) son 2 gün', amount: 'Muayene', badge: 'Kritik', color: 'amber' },
-      { date: '2026-09-05', type: 'card', title: 'Kredi Kartı Hesap Kesimi', detail: 'Kuveyt Türk Sağlam Business Kart (9792)', amount: '771.672 TL', badge: 'Hesap Kesim', color: 'slate' },
-      { date: '2026-09-10', type: 'check', title: 'Çek Vadesi: DİVAN HAYVANCILIK', detail: 'Kuveyt Türk Takas Çeki (CK-00192)', amount: '3.500.000 TL', badge: 'Takasta', color: 'rose' },
-      { date: '2026-09-12', type: 'tender', title: 'İhale Son Teklif: Amasya Hastanesi', detail: 'İl Sağlık Md. 14.5M TL Et Alımı (Saat 10:30)', amount: '14.500.000 TL', badge: 'İhale', color: 'blue' },
-      { date: '2026-09-12', type: 'card', title: 'Kredi Kartı Hesap Kesimi', detail: 'Ziraat Bankkart Başak (4508)', amount: '245.000 TL', badge: 'Hesap Kesim', color: 'slate' },
-      { date: '2026-09-15', type: 'check', title: 'Çek Vadesi: FİMAR MERMER VE ET A.Ş.', detail: 'Halkbank Takas Çeki (CK-00843)', amount: '5.400.000 TL', badge: 'Takasta', color: 'rose' },
-      { date: '2026-09-15', type: 'card', title: 'Kredi Kartı Son Ödeme Günü', detail: 'Kuveyt Türk Sağlam Business (Asgari: 154.334 TL)', amount: '771.672 TL', badge: 'Son Ödeme', color: 'rose' },
-      { date: '2026-09-18', type: 'tender', title: 'İhale Son Teklif: Samsun Jandarma', detail: 'Karkas Et Temini İhalesi (Saat 14:00)', amount: '28.000.000 TL', badge: 'İhale', color: 'blue' },
-      { date: '2026-09-20', type: 'card', title: 'Kredi Kartı Hesap Kesimi', detail: 'Garanti Bonus Business (5400)', amount: '412.500 TL', badge: 'Hesap Kesim', color: 'slate' },
-      { date: '2026-09-22', type: 'check', title: 'Çek Vadesi: SAMED YAĞIZ', detail: 'Ziraat Bankası Takas Çeki (CK-11943)', amount: '1.636.080 TL', badge: 'Takasta', color: 'rose' },
-      { date: '2026-09-22', type: 'card', title: 'Kredi Kartı Son Ödeme Günü', detail: 'Ziraat Bankkart Başak (Asgari: 49.000 TL)', amount: '245.000 TL', badge: 'Son Ödeme', color: 'rose' },
-      { date: '2026-09-25', type: 'slaughter', title: 'Planlanan Toplu Kesim Günü', detail: 'Amasya Merkez Kesimhane (Tahmini 32 Baş)', amount: '3.920.000 TL', badge: 'Kesim', color: 'amber' },
-      { date: '2026-09-28', type: 'tax', title: 'KDV & Muhtasar Beyanname Ödemesi', detail: 'Ağustos 2026 Dönemi Vergi Ödemesi', amount: 'GİB Vergi', badge: 'Vergi', color: 'emerald' },
-      { date: '2026-09-30', type: 'card', title: 'Kredi Kartı Son Ödeme Günü', detail: 'Garanti Bonus Business (Asgari: 82.500 TL)', amount: '412.500 TL', badge: 'Son Ödeme', color: 'rose' },
-      { date: '2026-10-14', type: 'legal', title: 'Duruşma Günü: Anadolu Gıda A.Ş.', detail: 'Samsun Asliye Ticaret Mahkemesi 2026/84 E.', amount: '1.250.000 TL', badge: 'Duruşma', color: 'blue' },
-      { date: '2026-10-15', type: 'vehicle', title: 'Araç Muayene: Ford Cargo 2532', detail: '05 BD 192 Muayene Bitiş Tarihi', amount: 'Muayene', badge: 'Araç', color: 'amber' }
+    const calStyles = {
+      'credit-card': { label: 'KART', dot: 'bg-red-500', badge: 'bg-red-50 text-red-700 border border-red-200' },
+      inspection: { label: 'MUAYENE', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
+      insurance: { label: 'SİGORTA', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border border-blue-200' },
+      tender: { label: 'İHALE', dot: 'bg-purple-500', badge: 'bg-purple-50 text-purple-700 border border-purple-200' },
+      check: { label: 'ÇEK', dot: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700 border border-rose-200' },
+      note: { label: 'NOT', dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200' }
+    };
+
+    let mockCalendarEvents = [
+      { id: 'ev-1', date: '2026-09-02', code: 'CK-00192', title: 'Takas Çeki Vadesi: Kral Entegre', subtitle: 'Kuveyt Türk Takas Portföyü', institution: 'Kral Entegre Et Ltd.', detail: 'İç Takas Ödemesi', type: 'check', to: 'checks', amount: '486.000 TL', statusLabel: 'İç Takas', statusClass: 'bg-blue-50 text-blue-700 border border-blue-200' },
+      { id: 'ev-2', date: '2026-09-02', code: '55 AET 412', title: 'Mercedes Sprinter Frigo Muayene', subtitle: 'Araç Muayene İstasyonu', institution: 'TÜVTÜRK', detail: 'Araç Muayene Bitiş Tarihi', type: 'inspection', to: 'vehicles', amount: 'Muayene', statusLabel: 'Kritik (Son 2 Gün)', statusClass: 'bg-amber-50 text-amber-700 border border-amber-200' },
+      { id: 'ev-3', date: '2026-09-05', code: '•••• 9792', title: 'Kuveyt Türk Sağlam Business', subtitle: 'Sağlam Business Kart', institution: 'Kuveyt Türk', detail: 'Kredi Kartı Hesap Kesimi', type: 'credit-card', to: 'credit_cards', amount: '771.672 TL', statusLabel: 'Hesap Kesim', statusClass: 'bg-red-50 text-red-700 border border-red-200' },
+      { id: 'ev-4', date: '2026-09-10', code: 'CK-00843', title: 'Takas Çeki: DİVAN HAYVANCILIK', subtitle: 'Kuveyt Türk Takas Portföyü', institution: 'Divan Hayvancılık A.Ş.', detail: 'Takasa Verilen Çek', type: 'check', to: 'checks', amount: '3.500.000 TL', statusLabel: 'Takasta', statusClass: 'bg-rose-50 text-rose-700 border border-rose-200' },
+      { id: 'ev-5', date: '2026-09-12', code: '2026/138402', title: 'Amasya Hastanesi Et ve Gıda İhalesi', subtitle: '2026/138402 · İhale Son Teklif', institution: 'Amasya İl Sağlık Md.', detail: 'Et ve Karkas Alım İhalesi', type: 'tender', to: 'tenders', amount: '14.500.000 TL', statusLabel: 'Teklif Hazırlanıyor', statusClass: 'bg-purple-50 text-purple-700 border border-purple-200' },
+      { id: 'ev-6', date: '2026-09-15', code: '•••• 9792', title: 'Kuveyt Türk Sağlam Business Son Ödeme', subtitle: 'Asgari Ödeme: 154.334 TL', institution: 'Kuveyt Türk', detail: 'Kredi Kartı Son Ödeme Günü', type: 'credit-card', to: 'credit_cards', amount: '771.672 TL', statusLabel: 'Ödeme Bekliyor', statusClass: 'bg-red-50 text-red-700 border border-red-200' },
+      { id: 'ev-7', date: '2026-09-18', code: '2026/142900', title: 'Samsun Jandarma Karkas Alım İhalesi', subtitle: '2026/142900 · İhale Son Teklif', institution: 'Samsun İl Jandarma K.', detail: 'Karkas Dana Eti Temini', type: 'tender', to: 'tenders', amount: '28.000.000 TL', statusLabel: 'Teklif Verildi', statusClass: 'bg-purple-50 text-purple-700 border border-purple-200' },
+      { id: 'ev-8', date: '2026-09-20', code: '05 BD 192', title: 'Ford Cargo 2532 Sigorta Poliçesi', subtitle: 'Güneş Sigorta / Kasko', institution: 'Trafik Sigortası', detail: 'Araç Sigorta Yenileme', type: 'insurance', to: 'vehicles', amount: 'Sigorta', statusLabel: 'Poliçe Yenileme', statusClass: 'bg-blue-50 text-blue-700 border border-blue-200' },
+      { id: 'ev-9', date: '2026-09-22', code: 'CK-11943', title: 'Takas Çeki: SAMED YAĞIZ', subtitle: 'Ziraat Bankası Takas Çeki', institution: 'Samed Yağız Besicilik', detail: 'Takas Çeki Vadesi', type: 'check', to: 'checks', amount: '1.636.080 TL', statusLabel: 'Takasta', statusClass: 'bg-rose-50 text-rose-700 border border-rose-200' },
+      { id: 'ev-10', date: '2026-09-22', code: '•••• 4508', title: 'Ziraat Bankkart Başak Son Ödeme', subtitle: 'Asgari Ödeme: 49.000 TL', institution: 'Ziraat Bankası', detail: 'Kredi Kartı Son Ödeme', type: 'credit-card', to: 'credit_cards', amount: '245.000 TL', statusLabel: 'Ödeme Bekliyor', statusClass: 'bg-red-50 text-red-700 border border-red-200' },
+      { id: 'ev-11', date: '2026-09-30', code: '•••• 5400', title: 'Garanti Bonus Business Son Ödeme', subtitle: 'Asgari Ödeme: 82.500 TL', institution: 'Garanti BBVA', detail: 'Kredi Kartı Son Ödeme', type: 'credit-card', to: 'credit_cards', amount: '412.500 TL', statusLabel: 'Ödeme Bekliyor', statusClass: 'bg-red-50 text-red-700 border border-red-200' }
     ];
+
+    let userCalendarNotes = JSON.parse(localStorage.getItem('dars_calendar_notes') || '[]');
 
     const monthNamesTR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
@@ -22946,6 +22951,14 @@
       renderCalendar();
     }
 
+    function jumpToToday() {
+      const today = new Date();
+      currentCalMonth = today.getMonth();
+      currentCalYear = today.getFullYear();
+      selectedCalDay = `${currentCalYear}-${String(currentCalMonth + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      renderCalendar();
+    }
+
     function selectCalDay(dateStr) {
       selectedCalDay = dateStr;
       renderCalendar();
@@ -22956,7 +22969,6 @@
       renderCalendar();
     }
 
-    
     function renderDashboardTransactions() {
       const container = document.getElementById('dash-recent-transactions-list');
       if (!container) return;
@@ -23001,214 +23013,237 @@
       const month = currentCalMonth;
       const monthTitle = `${monthNamesTR[month]} ${year}`;
 
-      // First day of month (0 = Sunday, 1 = Monday, etc.)
+      // First day of month (Monday=0)
       const firstDay = new Date(year, month, 1);
-      let startingDay = firstDay.getDay(); // 0 is Sunday
-      startingDay = startingDay === 0 ? 6 : startingDay - 1; // convert to Monday=0
+      let startingDay = firstDay.getDay();
+      startingDay = startingDay === 0 ? 6 : startingDay - 1;
 
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       const prevMonthDays = new Date(year, month, 0).getDate();
 
+      // Combine mock events with user notes
+      const noteEvents = userCalendarNotes.map(n => ({
+        id: `note-${n.id}`,
+        date: n.date,
+        code: 'NOT',
+        title: n.content,
+        subtitle: n.completed ? 'Tamamlandı' : 'Yapılacak Not',
+        institution: 'Kişisel Not',
+        detail: n.completed ? 'Tamamlandı' : 'Yapılacak',
+        type: 'note',
+        to: '',
+        amount: '—',
+        statusLabel: n.completed ? 'Tamamlandı' : 'Bekliyor',
+        statusClass: n.completed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200'
+      }));
+
+      const allEvents = [...mockCalendarEvents, ...noteEvents];
+
       // Count events in this month
       const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
-      const monthEvents = mockCalendarEvents.filter(e => e.date.startsWith(monthPrefix));
+      const monthEvents = allEvents.filter(e => e.date.startsWith(monthPrefix));
 
-      // Build 35 or 42 grid cells for the full 1-month display
+      // Build calendar grid cells
       let cellsHtml = '';
 
       // Previous month faded days
       for (let i = startingDay - 1; i >= 0; i--) {
         const prevDay = prevMonthDays - i;
         cellsHtml += `
-          <div class="h-10 flex flex-col items-center justify-center text-slate-300 text-xs font-semibold">
+          <div class="h-11 flex flex-col items-center justify-center text-slate-300 text-xs font-semibold bg-gray-50/40 border-b border-r border-slate-100/80">
             <span>${prevDay}</span>
           </div>
         `;
       }
+
+      const todayStr = `${(new Date()).getFullYear()}-${String((new Date()).getMonth() + 1).padStart(2, '0')}-${String((new Date()).getDate()).padStart(2, '0')}`;
 
       // Current month days
       for (let d = 1; d <= daysInMonth; d++) {
         const dStr = String(d).padStart(2, '0');
         const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${dStr}`;
         const isSelected = selectedCalDay === fullDate;
-        const isToday = fullDate === '2026-08-31';
+        const isToday = fullDate === todayStr;
 
-        // Check if there are events on this date
-        const dayEvents = mockCalendarEvents.filter(e => e.date === fullDate);
+        const dayEvents = allEvents.filter(e => e.date === fullDate);
         const hasEvents = dayEvents.length > 0;
-        const hasCheck = dayEvents.some(e => e.type === 'check');
-        const hasCard = dayEvents.some(e => e.type === 'card');
-        const hasVehicle = dayEvents.some(e => e.type === 'vehicle');
-        const hasTender = dayEvents.some(e => e.type === 'tender' || e.type === 'legal');
 
         cellsHtml += `
           <div 
             onclick="selectCalDay('${fullDate}')" 
-            class="h-10 flex flex-col items-center justify-center rounded-xl cursor-pointer transition-all relative ${
+            class="h-11 flex flex-col items-center justify-center border-b border-r border-slate-100 cursor-pointer transition-all relative ${
               isSelected 
-                ? 'bg-[#002D59] text-white font-[600] shadow-sm' 
-                : isToday
-                  ? 'bg-slate-100 text-[#002B49] font-[600] border border-[#002B49]'
-                  : 'hover:bg-slate-100 text-slate-800 font-[500]'
+                ? 'bg-blue-50/90 ring-2 ring-inset ring-[#002D59]' 
+                : 'hover:bg-slate-50/80 bg-white'
             }"
           >
-            <span class="text-xs leading-none">${d}</span>
+            <span class="inline-flex w-6 h-6 items-center justify-center rounded-full text-xs font-semibold ${
+              isToday 
+                ? 'bg-[#002D59] text-white shadow-xs font-bold' 
+                : isSelected 
+                  ? 'bg-blue-100 text-[#002D59] font-bold' 
+                  : 'text-slate-700'
+            }">
+              ${d}
+            </span>
             ${hasEvents ? `
-              <div class="flex gap-0.5 mt-1">
-                ${dayEvents.slice(0, 3).map(ev => `
-                  <span class="w-1.5 h-1.5 rounded-full ${
-                    isSelected 
-                      ? 'bg-white' 
-                      : ev.type === 'check' 
-                        ? 'bg-rose-500' 
-                        : ev.type === 'card' 
-                          ? 'bg-amber-500' 
-                          : ev.type === 'tender' || ev.type === 'legal'
-                            ? 'bg-blue-500'
-                            : 'bg-blue-500'
-                  }"></span>
-                `).join('')}
+              <div class="flex gap-0.5 mt-0.5">
+                ${dayEvents.slice(0, 3).map(ev => {
+                  const s = calStyles[ev.type] || calStyles.note;
+                  return `<span class="w-1.5 h-1.5 rounded-full ${s.dot}"></span>`;
+                }).join('')}
               </div>
-            ` : '<div class="h-1.5 mt-1"></div>'}
+            ` : '<div class="h-1.5 mt-0.5"></div>'}
           </div>
         `;
       }
 
-      // Next month faded days to complete the full grid (35 or 42 cells)
+      // Next month faded days
       const totalRendered = startingDay + daysInMonth;
       const remainingCells = totalRendered <= 35 ? 35 - totalRendered : 42 - totalRendered;
       for (let n = 1; n <= remainingCells; n++) {
         cellsHtml += `
-          <div class="h-10 flex flex-col items-center justify-center text-slate-300 text-xs font-semibold">
+          <div class="h-11 flex flex-col items-center justify-center text-slate-300 text-xs font-semibold bg-gray-50/40 border-b border-r border-slate-100/80">
             <span>${n}</span>
           </div>
         `;
       }
 
       // Filter events for selected day
-      let dayEvents = mockCalendarEvents.filter(e => e.date === selectedCalDay);
+      let dayEvents = allEvents.filter(e => e.date === selectedCalDay);
       if (activeCalFilter !== 'ALL') {
         dayEvents = dayEvents.filter(e => e.type === activeCalFilter);
       }
 
-      // Selected date formatted in Turkish
       const selParts = selectedCalDay.split('-');
-      const selFormatted = `${selParts[2]} ${monthNamesTR[parseInt(selParts[1]) - 1]} ${selParts[0]}`;
+      const selFormatted = `${parseInt(selParts[2])} ${monthNamesTR[parseInt(selParts[1]) - 1]} ${selParts[0]}`;
 
       const htmlContent = `
-        <!-- Quick Add Note Card right under DARS Finansal Takvim Header -->
-        <div onclick="openAddCalendarNoteModal('${selectedCalDay}')" class="kt-card p-3 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-all border border-slate-200/90 rounded-2xl shadow-2xs group select-none">
-          <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-xl bg-slate-100 text-[#002D59] flex items-center justify-center font-bold text-sm shrink-0 group-hover:bg-blue-50 transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
-            </div>
-            <div>
-              <h4 class="text-[13px] font-[600] text-slate-800 tracking-tight">Bu Güne Not / Hatırlatıcı Ekle</h4>
-              <p class="text-[11px] text-slate-400 font-[400]">Seçili Gün: <span class="font-[600] text-[#002D59]">${selFormatted}</span></p>
-            </div>
-          </div>
-          <span class="px-3 py-1.5 bg-[#002D59] text-white rounded-full text-[11.5px] font-[600] shadow-xs group-hover:opacity-90 transition-opacity flex items-center gap-1 shrink-0">
-            <span>+ Not Ekle</span>
-          </span>
+        <!-- 1. Category Filter Pills (Website Style) -->
+        <div class="flex flex-wrap gap-1.5 select-none pb-1">
+          <button onclick="filterCalCategory('ALL')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'ALL' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+            <span>Tümü (${monthEvents.length})</span>
+          </button>
+          <button onclick="filterCalCategory('credit-card')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'credit-card' ? 'bg-red-600 text-white shadow-xs' : 'bg-red-50 text-red-700 border border-red-200'}">
+            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'credit-card' ? 'bg-white' : 'bg-red-500'}"></span>
+            <span>KART</span>
+          </button>
+          <button onclick="filterCalCategory('inspection')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'inspection' ? 'bg-amber-500 text-white shadow-xs' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
+            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'inspection' ? 'bg-white' : 'bg-amber-500'}"></span>
+            <span>MUAYENE</span>
+          </button>
+          <button onclick="filterCalCategory('insurance')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'insurance' ? 'bg-blue-600 text-white shadow-xs' : 'bg-blue-50 text-blue-700 border border-blue-200'}">
+            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'insurance' ? 'bg-white' : 'bg-blue-500'}"></span>
+            <span>SİGORTA</span>
+          </button>
+          <button onclick="filterCalCategory('tender')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'tender' ? 'bg-purple-600 text-white shadow-xs' : 'bg-purple-50 text-purple-700 border border-purple-200'}">
+            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'tender' ? 'bg-white' : 'bg-purple-500'}"></span>
+            <span>İHALE</span>
+          </button>
+          <button onclick="filterCalCategory('check')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'check' ? 'bg-rose-600 text-white shadow-xs' : 'bg-rose-50 text-rose-700 border border-rose-200'}">
+            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'check' ? 'bg-white' : 'bg-rose-500'}"></span>
+            <span>ÇEK</span>
+          </button>
+          <button onclick="filterCalCategory('note')" class="rounded-full px-2.5 py-1 text-xs font-[600] transition-all flex items-center gap-1.5 ${activeCalFilter === 'note' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">
+            <span class="w-1.5 h-1.5 rounded-full ${activeCalFilter === 'note' ? 'bg-white' : 'bg-emerald-500'}"></span>
+            <span>NOT</span>
+          </button>
         </div>
 
-        <!-- Month Navigation & Full 1-Month Grid Card -->
-        <div class="kt-card p-4 space-y-3 shadow-xs">
-          <div class="flex justify-between items-center border-b border-slate-100 pb-2.5">
-            <button onclick="changeCalMonth(-1)" class="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-700 font-[600] text-sm transition-colors">
+        <!-- 2. Interactive Calendar Card (Website Design) -->
+        <div class="kt-card overflow-hidden shadow-xs border border-slate-200/90 rounded-2xl bg-white">
+          <!-- Month Header & Today Button -->
+          <div class="flex items-center justify-between border-b border-slate-100 p-3 bg-white">
+            <button onclick="changeCalMonth(-1)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold transition-colors">
               ‹
             </button>
-            <div class="text-center">
-              <h3 class="text-[14px] font-[600] text-slate-900 tracking-tight">${monthTitle}</h3>
-              <span class="text-[11px] font-[500] text-kt-primary">${monthEvents.length} Önemli Etkinlik</span>
+            <div class="flex items-center gap-2">
+              <h3 class="text-[14.5px] font-[700] text-slate-900 tracking-tight">${monthTitle}</h3>
+              <button onclick="jumpToToday()" class="text-[11px] font-[600] px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-[#002D59] rounded-full transition-colors">Bugün</button>
             </div>
-            <button onclick="changeCalMonth(1)" class="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-700 font-[600] text-sm transition-colors">
+            <button onclick="changeCalMonth(1)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold transition-colors">
               ›
             </button>
           </div>
 
-          <!-- Weekday Headers (Pazartesi - Pazar) -->
-          <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-[600] text-slate-400">
-            <span>Pt</span><span>Sa</span><span>Ça</span><span>Pe</span><span>Cu</span><span>Ct</span><span>Pz</span>
+          <!-- Weekday Headers (Pzt, Sal, Çar, Per, Cum, Cmt, Paz) -->
+          <div class="grid grid-cols-7 border-b border-slate-100 bg-slate-50/90">
+            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Pzt</div>
+            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Sal</div>
+            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Çar</div>
+            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Per</div>
+            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Cum</div>
+            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Cmt</div>
+            <div class="p-2 text-center text-[11px] font-[700] text-slate-500">Paz</div>
           </div>
 
-          <!-- Full 1-Month 7x5/6 Days Grid -->
-          <div class="grid grid-cols-7 gap-1 text-center select-none">
+          <!-- 7-Column Days Grid -->
+          <div class="grid grid-cols-7 border-l border-t border-slate-100 select-none">
             ${cellsHtml}
           </div>
         </div>
 
-        <!-- Event Filter Category Pills -->
-        <div class="flex gap-2 overflow-x-auto no-scrollbar py-1">
-          <button onclick="filterCalCategory('ALL')" class="cal-filter-pill kt-pill flex items-center gap-1.5 ${activeCalFilter === 'ALL' ? 'active' : ''}">
-            <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
-            <span>Tümü (${monthEvents.length})</span>
-          </button>
-          <button onclick="filterCalCategory('check')" class="cal-filter-pill kt-pill flex items-center gap-1.5 ${activeCalFilter === 'check' ? 'active' : ''}">
-            <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
-            <span>Çekler</span>
-          </button>
-          <button onclick="filterCalCategory('card')" class="cal-filter-pill kt-pill flex items-center gap-1.5 ${activeCalFilter === 'card' ? 'active' : ''}">
-            <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-6.75-10.5h18a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-18a2.25 2.25 0 01-2.25-2.25V7.5A2.25 2.25 0 013.75 5.25z" /></svg>
-            <span>Kredi Kartı</span>
-          </button>
-          <button onclick="filterCalCategory('vehicle')" class="cal-filter-pill kt-pill flex items-center gap-1.5 ${activeCalFilter === 'vehicle' ? 'active' : ''}">
-            <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.215-9.172A2.25 2.25 0 0016.71 7.5H15M5.25 7.5h11.46" /></svg>
-            <span>Muayene</span>
-          </button>
-          <button onclick="filterCalCategory('tender')" class="cal-filter-pill kt-pill flex items-center gap-1.5 ${activeCalFilter === 'tender' ? 'active' : ''}">
-            <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.549 1.251A10.02 10.02 0 0115.75 18M5.25 4.97c-1.01.143-2.01.317-3 .52m3-.52L2.63 15.696c-.122.499.106 1.028.549 1.251A10.02 10.02 0 008.25 18" /></svg>
-            <span>İhale & Hukuk</span>
-          </button>
+        <!-- 3. Quick Inline Note & Task Input -->
+        <div class="kt-card p-3 border border-slate-200/90 rounded-2xl bg-white shadow-2xs">
+          <form onsubmit="event.preventDefault(); handleInlineAddNote();" class="flex gap-2 items-center">
+            <input 
+              type="text" 
+              id="calendar-quick-note-input"
+              placeholder="${selFormatted} için not veya görev yazın..." 
+              class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-[500] text-slate-800 focus:outline-none focus:bg-white focus:border-[#002D59]"
+            />
+            <button type="submit" class="px-3.5 py-2 bg-[#002D59] text-white rounded-xl text-xs font-[600] shrink-0 shadow-xs hover:opacity-90 transition-opacity">
+              + Ekle
+            </button>
+          </form>
         </div>
 
-        <!-- Selected Day Events & Task Feed -->
+        <!-- 4. Selected Date Events Feed -->
         <div class="space-y-2.5">
           <div class="flex justify-between items-center px-1">
             <div class="flex items-center gap-1.5">
               <span class="text-sm">📌</span>
-              <h4 class="text-[13.5px] font-[700] text-slate-900 tracking-tight">Takvim Hatırlatmaları (${selFormatted})</h4>
+              <h4 class="text-[13.5px] font-[700] text-slate-900 tracking-tight">${selFormatted} Etkinlikleri</h4>
             </div>
-            <span class="text-[11px] font-[600] px-2 py-0.5 rounded-full bg-slate-200/80 text-slate-700">${dayEvents.length} Hatırlatma</span>
+            <span class="text-[11px] font-[600] px-2.5 py-0.5 rounded-full bg-slate-200/80 text-slate-700">${dayEvents.length} Kayıt</span>
           </div>
 
-          ${dayEvents.length > 0 ? dayEvents.map(ev => `
-            <div class="kt-card p-4 space-y-1.5 border-l-4 ${
-              ev.type === 'check' 
-                ? 'border-l-kt-primary bg-white' 
-                : ev.type === 'card' 
-                  ? 'border-l-amber-500' 
-                  : ev.type === 'vehicle'
-                    ? 'border-l-amber-600 bg-amber-50/20'
-                    : ev.type === 'tender' || ev.type === 'legal'
-                      ? 'border-l-blue-500'
-                      : 'border-l-blue-500'
-            } shadow-xs">
-              <div class="flex justify-between items-start">
-                <span class="text-[13.5px] font-[600] text-slate-900 tracking-tight">${ev.title}</span>
-                <span class="text-[14px] font-[700] tracking-tight text-slate-900">${ev.amount}</span>
+          ${dayEvents.length > 0 ? dayEvents.map(ev => {
+            const st = calStyles[ev.type] || calStyles.note;
+            return `
+              <div class="kt-card p-3.5 space-y-2 border border-slate-200/90 rounded-2xl bg-white shadow-xs hover:border-slate-300 transition-all">
+                <div class="flex justify-between items-start gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="rounded-full px-2 py-0.5 text-[10px] font-[700] ${st.badge} flex items-center gap-1 shrink-0">
+                      <span class="w-1.5 h-1.5 rounded-full ${st.dot}"></span>
+                      ${st.label}
+                    </span>
+                    <span class="text-xs font-[700] text-slate-800 truncate">${ev.code || ''}</span>
+                  </div>
+                  <span class="text-xs font-[800] text-slate-900 font-mono shrink-0">${ev.amount || '—'}</span>
+                </div>
+
+                <div>
+                  <h4 class="text-[13px] font-[700] text-slate-900 leading-snug tracking-tight">${ev.title}</h4>
+                  <p class="text-[11.5px] text-slate-500 font-[400] mt-0.5">${ev.detail || ev.subtitle || ''}</p>
+                </div>
+
+                <div class="pt-2 flex justify-between items-center text-[11px] text-slate-400 border-t border-slate-100">
+                  <span class="font-[500] text-slate-600 truncate">${ev.institution || ''}</span>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-[600] ${ev.statusClass || 'bg-slate-100 text-slate-700'}">${ev.statusLabel || 'Aktif'}</span>
+                    ${ev.to ? `<button onclick="changeScreen('${ev.to}')" class="text-[#002D59] font-[600] hover:underline">İncele &gt;</button>` : ''}
+                  </div>
+                </div>
               </div>
-              <p class="text-[12px] text-slate-600 font-[400]">${ev.detail}</p>
-              <div class="pt-2 flex justify-between items-center text-[11.5px] text-slate-400 border-t border-slate-100">
-                <span class="px-2.5 py-0.5 rounded-full font-[500] text-[11px] ${
-                  ev.badge === 'İç Takas' 
-                    ? 'bg-blue-50 text-kt-primary' 
-                    : ev.badge === 'Kritik'
-                      ? 'bg-amber-100 text-amber-800 animate-pulse'
-                      : 'bg-slate-100 text-slate-700'
-                }">${ev.badge}</span>
-                <button onclick="showToast('${ev.title} detayı açıldı')" class="text-kt-primary font-[500] hover:underline">Detay &gt;</button>
-              </div>
-            </div>
-          `).join('') : `
-            <div class="kt-card p-5 text-center space-y-2">
+            `;
+          }).join('') : `
+            <div class="kt-card p-6 text-center space-y-2 border border-slate-200/90 rounded-2xl bg-white">
               <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-base mx-auto">
                 📅
               </div>
-              <p class="text-xs text-slate-400">Bu tarihte kayıtlı bir etkinlik veya vade bulunmuyor.</p>
-              <button onclick="openAddCalendarNoteModal('${selectedCalDay}')" class="px-4 py-2 bg-[#002D59] text-white text-[12px] font-[600] rounded-full shadow-xs hover:opacity-90 transition-all inline-flex items-center gap-1">
-                + Bu Güne Not Ekle
-              </button>
+              <p class="text-xs text-slate-500 font-medium">Bu tarihte kayıtlı bir vade, muayene veya ihale bulunmuyor.</p>
+              <p class="text-[11px] text-slate-400">Yukarıdaki alandan bu güne özel not veya hatırlatıcı ekleyebilirsiniz.</p>
             </div>
           `}
         </div>
@@ -23218,46 +23253,28 @@
       if (dashContainer) dashContainer.innerHTML = htmlContent;
     }
 
-    function openAddCalendarNoteModal(dateStr) {
-      const content = document.getElementById('bottom-sheet-content');
-      content.innerHTML = `
-        <div class="flex justify-between items-center border-b border-gray-100 pb-3">
-          <h3 class="text-sm font-black text-slate-900">${dateStr} Tarihine Hatırlatıcı Ekle</h3>
-          <button onclick="closeBottomSheet()" class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold">✕</button>
-        </div>
-        <div class="space-y-3 text-xs">
-          <div>
-            <label class="font-bold text-slate-600 block mb-1">Hatırlatıcı / Not Başlığı</label>
-            <input type="text" id="new-cal-title" placeholder="Örn: Kesimhane sevkiyat kontrolü" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
-          </div>
-          <div>
-            <label class="font-bold text-slate-600 block mb-1">Detaylı Açıklama</label>
-            <textarea id="new-cal-desc" rows="2" placeholder="Hatırlatıcı açıklaması..." class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium"></textarea>
-          </div>
-          <button onclick="saveCalendarNote('${dateStr}')" class="w-full py-2.5 bg-kt-primary text-white font-bold rounded-xl shadow-md">Hatırlatıcıyı Kaydet</button>
-        </div>
-      `;
-      document.getElementById('action-bottom-sheet').classList.remove('hidden');
-    }
-
-    function saveCalendarNote(dateStr) {
-      const title = document.getElementById('new-cal-title').value.trim();
-      const desc = document.getElementById('new-cal-desc').value.trim();
-      if (!title) {
-        showToast('Lütfen hatırlatıcı başlığı giriniz');
+    function handleInlineAddNote() {
+      const input = document.getElementById('calendar-quick-note-input');
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) {
+        showToast('Lütfen not içeriği yazınız');
         return;
       }
-      mockCalendarEvents.push({
-        date: dateStr,
-        type: 'note',
-        title: title,
-        detail: desc || 'Kullanıcı takvim hatırlatıcısı',
-        amount: 'Hatırlatıcı',
-        badge: 'Hatırlatıcı',
-        color: 'emerald'
-      });
-      showToast('Hatırlatıcı başarıyla kaydedildi');
-      closeBottomSheet();
+      const newNote = {
+        id: 'note-' + Date.now(),
+        content: text,
+        date: selectedCalDay,
+        completed: false
+      };
+      userCalendarNotes.push(newNote);
+      try {
+        localStorage.setItem('dars_calendar_notes', JSON.stringify(userCalendarNotes));
+      } catch(e) {}
+      input.value = '';
+      showToast('Not başarıyla eklendi');
+      renderCalendar();
+    }
       renderCalendar();
     }
 
