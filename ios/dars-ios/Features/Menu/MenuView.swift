@@ -4,8 +4,7 @@
 //
 //  Pixel-perfect native Enterprise Module Directory matching `ios_prototype.html`
 //  and Kuveyt Türk corporate private banking specifications.
-//  Includes corporate profile header, live database pulse, full-text module search,
-//  and 4 enterprise category groupings with sub-screen routing.
+//  Includes all 34 enterprise modules categorized cleanly with full-text search.
 //
 
 import SwiftUI
@@ -71,7 +70,6 @@ public struct MenuView: View {
     private var corporateProfileCard: some View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
-                // Building Corporate Avatar
                 ZStack {
                     Circle()
                         .fill(Color.ktPrimarySoft)
@@ -165,78 +163,154 @@ public struct MenuView: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ktCardBorder, lineWidth: 1))
     }
     
-    // MARK: - 3. Module Sections Feed
+    // MARK: - 3. Module Categories Feed
     
     private var moduleSectionsFeed: some View {
         VStack(spacing: 16) {
-            // Section 1: Finans & Hazine
-            if matchesSearch(["çekten", "takas", "çek", "banka", "kasa", "pos", "finans"]) {
+            // Group 1: FİNANS & HAZİNE
+            if matchesSearch(["çekten", "takas", "çek", "senet", "iskonto", "banka", "kart", "pos", "kasa", "hareket", "durum", "finans", "hazine"]) {
                 moduleGroup(title: "FİNANS & HAZİNE") {
                     NavigationLink(destination: CektenView()) {
                         menuRow(icon: "doc.text.fill", title: "ÇEKTEN Hesabı", subtitle: "Açık Mal Ödemeleri & Maliyet Motoru")
                     }
                     Divider()
                     NavigationLink(destination: TakasView()) {
-                        menuRow(icon: "arrow.triangle.2.circlepath", title: "Takas Çekleri", subtitle: "Portföy & Takas Banka Dağılımı (\(viewModel.checkCount) Çek)")
+                        menuRow(icon: "arrow.triangle.2.circlepath", title: "Takas Çekleri", subtitle: "Banka Takas Kotaları & Portföy Dağılımı")
                     }
                     Divider()
                     NavigationLink(destination: ChecksView()) {
                         menuRow(icon: "tray.full.fill", title: "Çek & Senet Portföyü", subtitle: "Tahsilde & Ciro Edilen Evraklar")
                     }
+                    Divider()
+                    NavigationLink(destination: CheckValuationView()) {
+                        menuRow(icon: "percent", title: "Çek Vade & İskonto Simülatörü", subtitle: "Finansman & Komisyon Hesaplama Motoru")
+                    }
+                    Divider()
+                    NavigationLink(destination: BankAccountsView()) {
+                        menuRow(icon: "building.columns", title: "Banka Hesapları & IBAN", subtitle: "Kuveyt Türk, Ziraat, Garanti Bakiyeleri")
+                    }
+                    Divider()
+                    NavigationLink(destination: CreditCardsView()) {
+                        menuRow(icon: "creditcard.fill", title: "Kredi Kartlarım", subtitle: "Sağlam Business Limit & Borç Özeti")
+                    }
+                    Divider()
+                    NavigationLink(destination: PosTrackingView()) {
+                        menuRow(icon: "creditcard.and.123", title: "POS Bloke & Tahsilat Takibi", subtitle: "Günlük POS Blokeleri & Çözüm Tarihleri")
+                    }
+                    Divider()
+                    NavigationLink(destination: PosDifferencesView()) {
+                        menuRow(icon: "chart.pie.fill", title: "POS Fark & Komisyon Hesaplama", subtitle: "Banka Komisyon & Erken Çözüm Oranları")
+                    }
+                    Divider()
+                    NavigationLink(destination: CashboxView()) {
+                        menuRow(icon: "banknote.fill", title: "Merkez Kasa Yönetimi", subtitle: "Nakit Giriş/Çıkış & Günlük Kasa Bakiyesi")
+                    }
+                    Divider()
+                    NavigationLink(destination: TransactionsHistoryView()) {
+                        menuRow(icon: "clock.arrow.circlepath", title: "Hesap Hareketleri", subtitle: "Tüm Banka & Kasa İşlem Kayıtları")
+                    }
+                    Divider()
+                    NavigationLink(destination: DurumumView()) {
+                        menuRow(icon: "chart.line.uptrend.xyaxis", title: "Finansal Durumum", subtitle: "Varlıklarım, Giderlerim ve Borçlarım")
+                    }
                 }
             }
             
-            // Section 2: Ticaret & Operasyon
-            if matchesSearch(["cari", "kesim", "sipariş", "fatura", "e-fatura", "stok", "ticaret"]) {
+            // Group 2: TİCARET & OPERASYON
+            if matchesSearch(["cari", "ekstre", "kesim", "fatura", "e-fatura", "stok", "şube", "personel", "muhasebe", "ticaret", "operasyon"]) {
                 moduleGroup(title: "TİCARET & OPERASYON") {
                     NavigationLink(destination: CarisView()) {
-                        menuRow(icon: "person.2.fill", title: "Cariler & Müşteriler", subtitle: "\(viewModel.cariCount) Cari Kart • Ekstre & Bakiye")
+                        menuRow(icon: "person.2.fill", title: "Cariler & Müşteriler", subtitle: "Borçlu / Alacaklı Cari Kartlar & Bakiyeler")
+                    }
+                    Divider()
+                    NavigationLink(destination: CariDetailView()) {
+                        menuRow(icon: "doc.plaintext.fill", title: "Cari Hesap Detayı & Ekstre", subtitle: "Müşteri & Tedarikçi Ekstre Dökümü")
                     }
                     Divider()
                     NavigationLink(destination: SlaughtersView()) {
-                        menuRow(icon: "scissors", title: "Kesim Listesi", subtitle: "\(viewModel.kesimCount) Kayıt • Canlı Besi Takibi")
+                        menuRow(icon: "scissors", title: "Kesim Listesi", subtitle: "Canlı Kilo, Karkas & Randıman Takibi")
                     }
                     Divider()
                     NavigationLink(destination: EInvoicesView()) {
-                        menuRow(icon: "envelope.fill", title: "E-Faturalar", subtitle: "Etik & Marif GİB E-Faturaları")
+                        menuRow(icon: "envelope.fill", title: "E-Faturalar", subtitle: "Gelen & Giden GİB E-Faturaları")
+                    }
+                    Divider()
+                    NavigationLink(destination: StocksView()) {
+                        menuRow(icon: "cube.box.fill", title: "Stok & Envanter Durumu", subtitle: "Soğuk Hava Deposu Karkas & Et Stokları")
+                    }
+                    Divider()
+                    NavigationLink(destination: BranchesView()) {
+                        menuRow(icon: "storefront.fill", title: "Şube & Satış Noktaları", subtitle: "Merzifon, Suluova, Amasya Şube Ciroları")
+                    }
+                    Divider()
+                    NavigationLink(destination: PersonnelView()) {
+                        menuRow(icon: "person.3.fill", title: "Personel & Bordro Yönetimi", subtitle: "24 Çalışan • Maaş, Avans & İzin Takibi")
+                    }
+                    Divider()
+                    NavigationLink(destination: DisMuhasebeView()) {
+                        menuRow(icon: "doc.badge.gearshape.fill", title: "Dış Muhasebe & Beyannameler", subtitle: "KDV1, Muhtasar, SGK Prim Takvimi")
                     }
                 }
             }
             
-            // Section 3: Varlık & Filo
-            if matchesSearch(["araç", "filo", "kart", "gayrimenkul", "tapu", "ihale", "hukuk", "varlık"]) {
-                moduleGroup(title: "VARLIK & FİLO") {
+            // Group 3: VARLIK, FİLO & HUKUK
+            if matchesSearch(["araç", "filo", "gayrimenkul", "tapu", "ihale", "hukuk", "dava", "belge", "arşiv", "varlık", "filo"]) {
+                moduleGroup(title: "VARLIK, FİLO & HUKUK") {
                     NavigationLink(destination: VehiclesView()) {
-                        menuRow(icon: "car.fill", title: "Araçlar & Filo", subtitle: "\(viewModel.vehicleCount) Ticari Araç • Muayene & Sigorta")
+                        menuRow(icon: "car.fill", title: "Araçlar & Filo", subtitle: "Ticari Filo • Muayene, HGS & Ceza Takibi")
                     }
                     Divider()
                     NavigationLink(destination: RealEstatesView()) {
-                        menuRow(icon: "building.2.fill", title: "Gayrimenkul Listesi", subtitle: "Taşınmaz & Tapu Kayıtları")
+                        menuRow(icon: "building.2.fill", title: "Gayrimenkul Listesi", subtitle: "Besi Çiftliği, Ofis & Taşınmaz Tapuları")
                     }
                     Divider()
                     NavigationLink(destination: TendersView()) {
-                        menuRow(icon: "briefcase.fill", title: "İhaleler & Teklifler", subtitle: "Kamu & Özel İhale Dosyaları")
+                        menuRow(icon: "briefcase.fill", title: "İhaleler & Teklifler", subtitle: "Kamu & Belediye Et Tedarik İhaleleri")
                     }
                     Divider()
                     NavigationLink(destination: LegalCasesView()) {
-                        menuRow(icon: "gavel.fill", title: "Hukuki İşlemler", subtitle: "İcra & Dava Takip Dosyaları")
+                        menuRow(icon: "gavel.fill", title: "Hukuki İşlemler & Davalar", subtitle: "Dava Dosyaları, Esas No & Duruşmalar")
+                    }
+                    Divider()
+                    NavigationLink(destination: DocumentsView()) {
+                        menuRow(icon: "folder.fill", title: "Belge & Evrak Arşivi", subtitle: "Sicil Gazetesi, Vergi Levhası, Sözleşmeler")
                     }
                 }
             }
             
-            // Section 4: Sistem & Destek
-            if matchesSearch(["ayar", "sistem", "güvenlik", "veri", "önbellek", "destek"]) {
-                moduleGroup(title: "SİSTEM & DESTEK") {
+            // Group 4: YÖNETİM, ANALİZ & ASİSTAN
+            if matchesSearch(["takvim", "rapor", "analiz", "kapanış", "mutabakat", "asistan", "ai", "bildirim", "kullanıcı", "ayar", "güvenlik", "yönetim"]) {
+                moduleGroup(title: "YÖNETİM, ANALİZ & ASİSTAN") {
+                    NavigationLink(destination: TakvimView()) {
+                        menuRow(icon: "calendar", title: "Finansal Vade Takvimi", subtitle: "Günlük Ödeme, Tahsilat & Vergi Ajandası")
+                    }
+                    Divider()
+                    NavigationLink(destination: ReportingView()) {
+                        menuRow(icon: "chart.bar.xaxis", title: "Raporlama & Analiz", subtitle: "Aylık Ciro Trendi & Gelir Tablosu (PDF)")
+                    }
+                    Divider()
+                    NavigationLink(destination: MonthEndView()) {
+                        menuRow(icon: "checkmark.seal.fill", title: "Ay Sonu Kapanış & Mutabakat", subtitle: "Dönem Sonu Hesap Mutabakat Çizelgesi")
+                    }
+                    Divider()
+                    NavigationLink(destination: AsistanView()) {
+                        menuRow(icon: "sparkles", title: "DARS Finans Asistanı (AI)", subtitle: "Finansal Zeka & Anlık Raporlama Botu")
+                    }
+                    Divider()
+                    NavigationLink(destination: BildirimlerView()) {
+                        menuRow(icon: "bell.fill", title: "Bildirimler & Uyarılar", subtitle: "Vade, Limit & Tahsilat Bildirimleri")
+                    }
+                    Divider()
+                    NavigationLink(destination: UsersView()) {
+                        menuRow(icon: "person.badge.key.fill", title: "Kullanıcı & Yetki Yönetimi", subtitle: "Admin, Finans ve Saha Yetkilendirme")
+                    }
+                    Divider()
                     NavigationLink(destination: SettingsView()) {
                         menuRow(icon: "gearshape.fill", title: "Uygulama Ayarları", subtitle: "Face ID, PIN, Bildirimler, Gizlilik")
                     }
                     Divider()
                     Button(action: { showingDbInfoSheet = true }) {
                         menuRow(icon: "server.rack", title: "Veri Tabanı Durumu", subtitle: "PostgreSQL Canlı Bağlantı Kontrolü")
-                    }
-                    Divider()
-                    Button(action: { viewModel.clearCache() }) {
-                        menuRow(icon: "arrow.clockwise.circle", title: "Önbelleği Temizle", subtitle: "Yerel HTTP ve Görüntü Önbelleğini Sıfırla")
                     }
                 }
             }
