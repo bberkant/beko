@@ -3,7 +3,7 @@
 <head>
   <script>if(window.trustedTypes && window.trustedTypes.createPolicy){try{window.trustedTypes.createPolicy("default",{createHTML:s=>s});}catch(e){}}</script>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>DARS Mobil - Kuveyt Türk Birebir Mobil Bankacılık & Tam Web Portal Sistemi</title>
   <!-- Premium iOS Fonts: Inter with Apple System font metrics -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -88,6 +88,11 @@
       padding: 0;
       background-color: var(--kt-bg-page);
       overflow: hidden;
+      touch-action: pan-y;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-text-size-adjust: 100%;
     }
 
     .iphone-viewport {
@@ -23273,8 +23278,6 @@
       } catch(e) {}
       input.value = '';
       showToast('Not başarıyla eklendi');
-      renderCalendar();
-    }
       renderCalendar();
     }
 
