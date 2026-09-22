@@ -13,6 +13,10 @@ extension Color {
         )
     }
 
+    public init(hex: String, alpha: Double = 1.0) {
+        self.init(hexString: hex, alpha: alpha)
+    }
+
     public init(hexString: String, alpha: Double = 1.0) {
         let hex = hexString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
