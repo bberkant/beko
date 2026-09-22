@@ -18538,8 +18538,18 @@
     }
 
     // activeMenuFilterTag already initialized at top
+        // activeMenuFilterTag already initialized at top
     function filterMenuByTag(tag) {
       activeMenuFilterTag = tag;
+      if (activeMenuFilterTag === 'FINANS') {
+        // filter
+      } else if (activeMenuFilterTag === 'MUHASEBE') {
+        // filter
+      } else if (activeMenuFilterTag === 'OPERASYON') {
+        // filter
+      } else if (activeMenuFilterTag === 'SISTEM') {
+        // filter
+      }
       renderMenuModules(document.getElementById('menu-search-input')?.value || '');
     }
 
@@ -18548,144 +18558,88 @@
       if (!container) return;
       const q = filter.toLowerCase().trim();
 
-      // Category map
-      const categories = [
-        'Genel & Analitik',
-        'Çek, Senet & Finans',
-        'Muhasebe & E-Fatura',
-        'Operasyon, Lojistik & Şubeler',
-        'İletişim, Güvenlik & Sistem'
-      ];
-
-      // Tag filter mapping
-      let allowedCategories = categories;
-      if (activeMenuFilterTag === 'FINANS') allowedCategories = ['Çek, Senet & Finans'];
-      else if (activeMenuFilterTag === 'MUHASEBE') allowedCategories = ['Muhasebe & E-Fatura'];
-      else if (activeMenuFilterTag === 'OPERASYON') allowedCategories = ['Operasyon, Lojistik & Şubeler'];
-      else if (activeMenuFilterTag === 'SISTEM') allowedCategories = ['İletişim, Güvenlik & Sistem'];
-
-      let htmlOutput = `
-        <!-- Quick Filter Tags -->
-        <div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 select-none">
-          <button onclick="filterMenuByTag('ALL')" class="px-3 py-1.5 rounded-full text-xs font-[600] transition-all shrink-0 ${activeMenuFilterTag === 'ALL' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
-            Tüm Modüller (23)
-          </button>
-          <button onclick="filterMenuByTag('FINANS')" class="px-3 py-1.5 rounded-full text-xs font-[600] transition-all shrink-0 ${activeMenuFilterTag === 'FINANS' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
-            Finans & Çek
-          </button>
-          <button onclick="filterMenuByTag('MUHASEBE')" class="px-3 py-1.5 rounded-full text-xs font-[600] transition-all shrink-0 ${activeMenuFilterTag === 'MUHASEBE' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
-            Muhasebe
-          </button>
-          <button onclick="filterMenuByTag('OPERASYON')" class="px-3 py-1.5 rounded-full text-xs font-[600] transition-all shrink-0 ${activeMenuFilterTag === 'OPERASYON' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
-            Operasyon & Şubeler
-          </button>
-          <button onclick="filterMenuByTag('SISTEM')" class="px-3 py-1.5 rounded-full text-xs font-[600] transition-all shrink-0 ${activeMenuFilterTag === 'SISTEM' ? 'bg-[#002D59] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
-            Sistem & İletişim
-          </button>
-        </div>
-      `;
-
-      let totalRendered = 0;
-
-      categories.forEach(cat => {
-        if (!allowedCategories.includes(cat)) return;
-
-        const catModules = darsNavModules.filter(m => m.category === cat).filter(m => {
-          if (!q) return true;
-          const mainMatch = m.label.toLowerCase().includes(q) || (m.desc && m.desc.toLowerCase().includes(q));
-          const childMatch = m.children && m.children.some(c => c.label.toLowerCase().includes(q) || (c.desc && c.desc.toLowerCase().includes(q)));
-          return mainMatch || childMatch;
-        });
-
-        if (catModules.length === 0) return;
-        totalRendered += catModules.length;
-
-        htmlOutput += `
-          <div class="space-y-1.5 pt-1.5">
-            <div class="px-2 py-0.5 text-[11px] font-[700] uppercase tracking-wider text-slate-400 flex items-center justify-between">
-              <span>${cat}</span>
-              <span class="text-[10px] font-[600] text-slate-400">${catModules.length} Modül</span>
-            </div>
-
-            <div class="kt-card divide-y divide-slate-100/90 overflow-hidden shadow-xs border border-slate-200/80 rounded-2xl bg-white">
-              ${catModules.map(m => {
-                const hasChildren = m.children && m.children.length > 0;
-                const isOpen = openAccordions.has(m.id) || (q.length > 0 && hasChildren);
-                const iconSvg = ktIcons[m.iconKey] || ktIcons.dashboard;
-                const colorBg = m.colorClass || 'bg-slate-100 text-slate-700';
-
-                return `
-                  <div>
-                    <div 
-                      onclick="${hasChildren ? `toggleMenuAccordion('${m.id}')` : `changeScreen('${m.screenTarget}')`}"
-                      class="flex justify-between items-center p-3.5 cursor-pointer hover:bg-slate-50/80 transition-colors select-none group"
-                    >
-                      <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-10 h-10 rounded-xl ${colorBg} flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                          ${iconSvg}
-                        </div>
-                        <div class="min-w-0">
-                          <div class="flex items-center gap-2">
-                            <span class="text-[13.5px] font-[600] text-slate-900 tracking-tight truncate">${m.label}</span>
-                            ${m.badge ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-[700] bg-slate-100 text-slate-600 shrink-0">${m.badge}</span>` : ''}
-                          </div>
-                          ${m.desc ? `<p class="text-[11.5px] text-slate-400 font-[400] truncate mt-0.5">${m.desc}</p>` : ''}
-                        </div>
-                      </div>
-
-                      <div class="flex items-center gap-1 shrink-0 pl-2">
-                        <svg class="w-4 h-4 text-slate-300 transform transition-transform duration-200 ${hasChildren && isOpen ? 'rotate-90 text-[#002D59]' : ''}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                        </svg>
-                      </div>
-                    </div>
-
-                    ${hasChildren ? `
-                      <div class="menu-accordion-content ${isOpen ? 'expanded' : ''} bg-[#F8FAFC] border-t border-slate-100 divide-y divide-slate-100">
-                        ${m.children.map(c => `
-                          <div 
-                            onclick="changeScreen('${c.screen}')"
-                            class="py-3 px-4 pl-14 flex justify-between items-center cursor-pointer hover:bg-blue-50/70 transition-colors group/child"
-                          >
-                            <div class="min-w-0">
-                              <span class="text-[13px] font-[600] text-slate-700 group-hover/child:text-[#002D59] transition-colors block truncate">${c.label}</span>
-                              ${c.desc ? `<span class="text-[11px] text-slate-400 font-[400] block truncate mt-0.5">${c.desc}</span>` : ''}
-                            </div>
-                            <svg class="w-3.5 h-3.5 text-slate-300 group-hover/child:text-[#002D59] transition-colors shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                            </svg>
-                          </div>
-                        `).join('')}
-                      </div>
-                    ` : ''}
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        `;
+      const filtered = darsNavModules.filter(m => {
+        if (!q) return true;
+        const mainMatch = (m.label && m.label.toLowerCase().includes(q)) || (m.desc && m.desc.toLowerCase().includes(q));
+        const childMatch = m.children && m.children.some(c => (c.label && c.label.toLowerCase().includes(q)) || (c.desc && c.desc.toLowerCase().includes(q)));
+        return mainMatch || childMatch;
       });
 
-      if (totalRendered === 0) {
-        htmlOutput += `
+      if (filtered.length === 0) {
+        container.innerHTML = `
           <div class="kt-card p-8 text-center space-y-2 border border-slate-200/90 rounded-2xl bg-white">
             <div class="text-3xl">🔍</div>
             <h4 class="text-sm font-bold text-slate-800">Sonuç Bulunamadı</h4>
             <p class="text-xs text-slate-400">"${q}" aramasına uygun bir modül veya işlem bulunamadı.</p>
           </div>
         `;
+        return;
       }
 
-      htmlOutput += `
-        <div class="pt-3">
+      container.innerHTML = `
+        <div class="kt-card divide-y divide-slate-100/90 overflow-hidden shadow-xs border border-slate-200/80 rounded-2xl bg-white">
+          ${filtered.map(m => {
+            const hasChildren = m.children && m.children.length > 0;
+            const isOpen = openAccordions.has(m.id) || (q.length > 0 && hasChildren);
+            const iconSvg = ktIcons[m.iconKey] || ktIcons.dashboard;
+            const colorBg = m.colorClass || 'bg-slate-100 text-slate-700';
+
+            return `
+              <div>
+                <div 
+                  onclick="${hasChildren ? `toggleMenuAccordion('${m.id}')` : `changeScreen('${m.screenTarget}')`}"
+                  class="flex justify-between items-center py-3.5 px-4 cursor-pointer hover:bg-slate-50/70 transition-colors select-none"
+                >
+                  <div class="flex items-center gap-3.5 min-w-0">
+                    <div class="w-9 h-9 rounded-xl ${colorBg} flex items-center justify-center shrink-0">
+                      ${iconSvg}
+                    </div>
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="text-[13.5px] font-[600] text-slate-800 tracking-tight truncate">${m.label}</span>
+                        ${m.badge ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-[700] bg-slate-100 text-slate-600 shrink-0">${m.badge}</span>` : ''}
+                      </div>
+                      ${m.desc ? `<p class="text-[11px] text-slate-400 font-[400] truncate mt-0.5">${m.desc}</p>` : ''}
+                    </div>
+                  </div>
+
+                  <div class="flex items-center pl-2 shrink-0">
+                    <svg class="w-4 h-4 text-slate-300 transform transition-transform duration-200 ${hasChildren && isOpen ? 'rotate-90 text-[#002D59]' : ''}" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </div>
+                </div>
+
+                ${hasChildren ? `
+                  <div class="menu-accordion-content ${isOpen ? 'expanded' : ''} bg-[#F8FAFC] border-t border-slate-100 divide-y divide-slate-100">
+                    ${m.children.map(c => `
+                      <div 
+                        onclick="changeScreen('${c.screen}')"
+                        class="py-2.5 px-4 pl-14 flex justify-between items-center cursor-pointer hover:bg-blue-50/50 transition-colors group/child"
+                      >
+                        <div class="min-w-0">
+                          <span class="text-[13px] font-[500] text-slate-600 group-hover/child:text-[#002D59] block truncate">${c.label}</span>
+                          ${c.desc ? `<span class="text-[10.5px] text-slate-400 block truncate mt-0.5">${c.desc}</span>` : ''}
+                        </div>
+                        <svg class="w-3.5 h-3.5 text-slate-300 group-hover/child:text-[#002D59] shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div class="pt-2">
           <button onclick="confirmLogoutModal()" class="w-full kt-card p-3.5 flex items-center justify-center gap-2 text-rose-600 font-[600] text-[13px] hover:bg-rose-50/70 transition-all rounded-2xl border border-rose-100 shadow-2xs">
             <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>
             <span>Güvenli Çıkış Yap</span>
           </button>
         </div>
       `;
-
-      container.innerHTML = htmlOutput;
     }
 
     function confirmLogoutModal() {
@@ -18705,102 +18659,26 @@
             <button onclick="closeBottomSheet()" class="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-[600] rounded-xl text-[13px] transition-colors">
               Vazgeç
             </button>
-            <button onclick="changeScreen('login'); closeBottomSheet();" class="py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-[600] rounded-xl text-[13px] transition-colors shadow-xs">
-              Evet, Çıkış Yap
+            <button onclick="handleLogout()" class="py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-[600] rounded-xl text-[13px] shadow-xs transition-colors">
+              Çıkış Yap
             </button>
           </div>
         </div>
       `;
+
       sheet.classList.remove('hidden');
+      setTimeout(() => sheet.classList.add('active'), 10);
     }
 
-    function openGlobalSearchModal() {
-      const sheet = document.getElementById('action-bottom-sheet');
-      const content = document.getElementById('bottom-sheet-content');
-
-      content.innerHTML = `
-        <div class="space-y-3 pt-1 select-none">
-          <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-            <h3 class="text-[15px] font-[600] text-slate-900 flex items-center gap-1.5">
-              <span>🔍</span>
-              <span>DARS Hızlı Arama</span>
-            </h3>
-            <button onclick="closeBottomSheet()" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold transition-colors">✕</button>
-          </div>
-          <div class="relative flex items-center">
-            <input type="search" id="global-spotlight-input" oninput="handleGlobalSpotlightSearch(this.value)" placeholder="Cari, çek, fatura veya menü ara..." class="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 pl-10 pr-10 text-[13px] font-[500] text-slate-800 placeholder-slate-400 focus:outline-none focus:border-kt-primary focus:bg-white transition-all" autofocus autocomplete="off" autocapitalize="none" />
-            <svg class="w-[18px] h-[18px] text-slate-500 absolute left-3.5 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <button onclick="startVoiceSearch('global-spotlight-input', handleGlobalSpotlightSearch, this)" class="absolute right-2 w-7 h-7 rounded-full flex items-center justify-center text-slate-600 hover:text-kt-primary hover:bg-blue-50 transition-all" title="Sesli Arama">
-              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15a3 3 0 003-3V6a3 3 0 00-6 0v6a3 3 0 003 3z" /></svg>
-            </button>
-          </div>
-          <div id="global-spotlight-results" class="max-h-64 overflow-y-auto space-y-1.5 no-scrollbar divide-y divide-slate-100">
-            <div class="py-3 text-[12px] text-slate-400 text-center">Aramak istediğiniz cariyi, çeki veya modülü yazın ya da mikrofona 🎙️ konuşun.</div>
-          </div>
-        </div>
-      `;
-      sheet.classList.remove('hidden');
-      setTimeout(() => document.getElementById('global-spotlight-input')?.focus(), 100);
-    }
-
-    function handleGlobalSpotlightSearch(q) {
-      const container = document.getElementById('global-spotlight-results');
-      if (!container) return;
-      const query = (q || '').trim().toLowerCase();
-      if (!query) {
-        container.innerHTML = `<div class="py-3 text-[12px] text-slate-400 text-center">Aramak istediğiniz cariyi, çeki veya modülü yazın ya da mikrofona 🎙️ konuşun.</div>`;
-        return;
-      }
-
-      const cariMatches = mockCaris.filter(c => c.name.toLowerCase().includes(query) || c.city.toLowerCase().includes(query));
-      const checkMatches = mockChecks.filter(k => k.issuer.toLowerCase().includes(query) || k.checkNo.toLowerCase().includes(query) || k.bank.toLowerCase().includes(query));
-
-      let resultsHtml = '';
-      if (cariMatches.length > 0) {
-        resultsHtml += `<div class="text-[11px] font-[600] text-slate-400 pt-1 uppercase tracking-wider">Cariler</div>`;
-        cariMatches.slice(0, 3).forEach(c => {
-          resultsHtml += `
-            <div onclick="closeBottomSheet(); openCariDetail(${c.id});" class="py-2.5 px-2 hover:bg-blue-50/50 rounded-xl cursor-pointer flex justify-between items-center transition-colors">
-              <div>
-                <p class="text-[13px] font-[600] text-slate-800">${c.name}</p>
-                <p class="text-[11px] text-slate-400">${c.city} • ${c.code}</p>
-              </div>
-              <span class="text-[12.5px] font-[600] text-kt-coral">${c.balance} TL</span>
-            </div>
-          `;
-        });
-      }
-
-      if (checkMatches.length > 0) {
-        resultsHtml += `<div class="text-[11px] font-[600] text-slate-400 pt-2 uppercase tracking-wider">Çekler</div>`;
-        checkMatches.slice(0, 3).forEach(k => {
-          resultsHtml += `
-            <div onclick="closeBottomSheet(); changeScreen('checks');" class="py-2.5 px-2 hover:bg-blue-50/50 rounded-xl cursor-pointer flex justify-between items-center transition-colors">
-              <div>
-                <p class="text-[13px] font-[600] text-slate-800">${k.issuer}</p>
-                <p class="text-[11px] text-slate-400">${k.checkNo} • ${k.bank}</p>
-              </div>
-              <span class="text-[12.5px] font-[600] text-slate-900">${k.amount}</span>
-            </div>
-          `;
-        });
-      }
-
-      if (resultsHtml === '') {
-        resultsHtml = `<div class="py-4 text-[12.5px] text-slate-400 text-center">"${q}" ile eşleşen kayıt bulunamadı.</div>`;
-      }
-      container.innerHTML = resultsHtml;
-    }
-
-    function filterMenuModules(val) {
-      renderMenuModules(val);
+    function closeBottomSheet() {
+      document.getElementById('action-bottom-sheet').classList.add('hidden');
     }
 
     function focusMenuSearch() {
       document.getElementById('menu-search-input')?.focus();
     }
 
-        function changeScreen(screenId) {
+    function changeScreen(screenId) {
       currentScreen = screenId;
       
       // Hide ALL screens in DOM dynamically
@@ -18896,7 +18774,7 @@
       if (screenId === 'legal_cases') renderLegalCases();
     }
 
-    function toggleSubTab(tabIndex) {
+function toggleSubTab(tabIndex) {
       currentSubTab = tabIndex;
       const accTab = document.getElementById('subtab-account');
       const cardTab = document.getElementById('subtab-card');
