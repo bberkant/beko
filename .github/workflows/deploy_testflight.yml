@@ -12,6 +12,9 @@ name: Deploy to Apple TestFlight
     branches:
       - main
       - master
+    paths:
+      - 'ios/**'
+      - 'ios_prototype.html'
     paths-ignore:
       - '**.md'
       - '.gitignore'
