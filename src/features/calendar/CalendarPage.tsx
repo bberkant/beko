@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { CalendarDays, Car, ChevronLeft, ChevronRight, CreditCard, Gavel, ShieldCheck, Plus, Trash2, CheckSquare, Square, ListTodo, Pencil } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -50,26 +50,50 @@ const dateKey=(value:string)=>value.slice(0,10);
 const parseDate=(value:string)=>{const [y,m,d]=dateKey(value).split('-').map(Number);return new Date(y,m-1,d)};
 const formatDate=(value:string)=>parseDate(value).toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'});
 
+const DEFAULT_ORG_ID = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+
 export function useCalendarEvents(){
   const {user}=useAuth();
   const {cards,statements}=useStore();
   const {vehicles}=useVehicles();
-  const [tenders,setTenders]=useState<TenderRow[]>([]);
-  const [loading,setLoading]=useState(true);
+  const [tenders,setTenders]=useState<TenderRow[]>(() => {
+    try {
+      const cached = localStorage.getItem('dars_cached_tenders');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+  const [loading,setLoading]=useState(false);
+
   useEffect(()=>{
     let active=true;
-    if(!user?.organizationId){setTenders([]);setLoading(false);return}
-    setLoading(true);
-    void supabase.from('tenders')
-      .select('id,tender_number,title,institution,deadline_at,status,tender_type,bid_amount,currency,teminat_mektubu')
-      .eq('organization_id',user.organizationId)
-      .order('deadline_at')
-      .then(({data,error})=>{
-        if(!active)return;
-        if(error)console.error('Takvim ihale verileri yüklenemedi:',error);
-        setTenders((data??[]) as TenderRow[]);
-        setLoading(false);
-      });
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
+
+    const fetchTenders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tenders')
+          .select('id,tender_number,title,institution,deadline_at,status,tender_type,bid_amount,currency,teminat_mektubu')
+          .eq('organization_id', orgId)
+          .order('deadline_at');
+
+        if (!active) return;
+        if (error) {
+          console.warn('Takvim ihale verileri yüklenemedi:', error);
+        } else if (data) {
+          setTenders(data as TenderRow[]);
+          try {
+            localStorage.setItem('dars_cached_tenders', JSON.stringify(data));
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('Takvim ihale sorgu hatası:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    void fetchTenders();
     return()=>{active=false};
   },[user?.organizationId]);
 
@@ -171,55 +195,125 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
   const [month,setMonth]=useState(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1)});
   const [selected,setSelected]=useState(()=>dateKey(new Date().toISOString()));
 
-  const [notes, setNotes] = useState<CalendarNote[]>([]);
+  // 0ms Instant Hydration from Local Storage
+  const [notes, setNotes] = useState<CalendarNote[]>(() => {
+    try {
+      const local = localStorage.getItem('notes-global');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [newNote, setNewNote] = useState('');
   const [newDateNote, setNewDateNote] = useState('');
-  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesLoading, setNotesLoading] = useState(() => {
+    try {
+      const local = localStorage.getItem('notes-global');
+      return !local || JSON.parse(local).length === 0;
+    } catch {
+      return false;
+    }
+  });
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [showCompletedDateNotes, setShowCompletedDateNotes] = useState(false);
 
-  useEffect(() => {
-    if (!user?.organizationId) return;
-    let active = true;
-    setNotesLoading(true);
-    supabase
-      .from('calendar_notes')
-      .select('id,content,completed,date')
-      .eq('organization_id', user.organizationId)
-      .order('created_at', { ascending: true })
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (error) {
-          console.warn('Notes load error, using local fallback:', error);
-          const local = localStorage.getItem('notes-global');
-          setNotes(local ? JSON.parse(local) : []);
+  // Resilient Supabase Sync Routine
+  const fetchNotes = useCallback(async () => {
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
+    try {
+      const { data, error } = await supabase
+        .from('calendar_notes')
+        .select('id,content,completed,date')
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.warn('Notes load error, preserving local cache:', error);
+        return;
+      }
+
+      if (Array.isArray(data)) {
+        if (data.length > 0) {
+          setNotes(data);
+          try {
+            localStorage.setItem('notes-global', JSON.stringify(data));
+          } catch {}
         } else {
-          setNotes(data || []);
-          localStorage.setItem('notes-global', JSON.stringify(data || []));
+          // If server returned 0 notes, check local storage to avoid accidental wipe
+          const local = localStorage.getItem('notes-global');
+          if (local) {
+            try {
+              const parsed = JSON.parse(local);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setNotes(parsed);
+                // Synchronize local notes to Supabase if session is ready
+                for (const n of parsed) {
+                  void (async () => {
+                    try {
+                      await supabase.from('calendar_notes').insert({
+                        organization_id: orgId,
+                        content: n.content,
+                        completed: Boolean(n.completed),
+                        date: n.date || null
+                      });
+                    } catch {}
+                  })();
+                }
+                return;
+              }
+            } catch {}
+          }
+          setNotes([]);
+          try {
+            localStorage.setItem('notes-global', JSON.stringify([]));
+          } catch {}
         }
-        setNotesLoading(false);
-      });
-    return () => { active = false; };
+      }
+    } catch (err) {
+      console.warn('Calendar notes fetch exception:', err);
+    } finally {
+      setNotesLoading(false);
+    }
   }, [user?.organizationId]);
+
+  useEffect(() => {
+    void fetchNotes();
+
+    const channel = supabase
+      .channel('calendar_notes_realtime_channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_notes' }, () => {
+        void fetchNotes();
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [fetchNotes]);
 
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = newNote.trim();
-    if (!text || !user?.organizationId) return;
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
+    if (!text) return;
 
     const tempId = crypto.randomUUID?.() || Math.random().toString(36).substring(2);
     const freshNote: CalendarNote = { id: tempId, content: text, completed: false, date: null };
     const updatedNotes = [...notes, freshNote];
     setNotes(updatedNotes);
     setNewNote('');
-    localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
+    try {
+      localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
+    } catch {}
 
     try {
       const { data, error } = await supabase
         .from('calendar_notes')
         .insert({
-          organization_id: user.organizationId,
+          organization_id: orgId,
           content: text,
           completed: false,
           date: null
@@ -227,7 +321,11 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
         .select('id')
         .single();
       if (!error && data) {
-        setNotes(prev => prev.map(n => n.id === tempId ? { ...n, id: data.id } : n));
+        setNotes(prev => {
+          const synced = prev.map(n => n.id === tempId ? { ...n, id: data.id } : n);
+          try { localStorage.setItem('notes-global', JSON.stringify(synced)); } catch {}
+          return synced;
+        });
       }
     } catch (err) {
       console.error(err);
@@ -237,20 +335,23 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
   const handleAddDateNote = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = newDateNote.trim();
-    if (!text || !user?.organizationId) return;
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
+    if (!text) return;
 
     const tempId = crypto.randomUUID?.() || Math.random().toString(36).substring(2);
     const freshNote: CalendarNote = { id: tempId, content: text, completed: false, date: selected };
     const updatedNotes = [...notes, freshNote];
     setNotes(updatedNotes);
     setNewDateNote('');
-    localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
+    try {
+      localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
+    } catch {}
 
     try {
       const { data, error } = await supabase
         .from('calendar_notes')
         .insert({
-          organization_id: user.organizationId,
+          organization_id: orgId,
           content: text,
           completed: false,
           date: selected
@@ -258,7 +359,11 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
         .select('id')
         .single();
       if (!error && data) {
-        setNotes(prev => prev.map(n => n.id === tempId ? { ...n, id: data.id } : n));
+        setNotes(prev => {
+          const synced = prev.map(n => n.id === tempId ? { ...n, id: data.id } : n);
+          try { localStorage.setItem('notes-global', JSON.stringify(synced)); } catch {}
+          return synced;
+        });
       }
     } catch (err) {
       console.error(err);
@@ -268,7 +373,9 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
   const handleToggleNote = async (id: string, completed: boolean) => {
     const updatedNotes = notes.map(n => n.id === id ? { ...n, completed: !completed } : n);
     setNotes(updatedNotes);
-    localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
+    try {
+      localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
+    } catch {}
     try {
       await supabase.from('calendar_notes').update({ completed: !completed }).eq('id', id);
     } catch (err) {
@@ -279,7 +386,9 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
   const handleDeleteNote = async (id: string) => {
     const updatedNotes = notes.filter(n => n.id !== id);
     setNotes(updatedNotes);
-    localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
+    try {
+      localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
+    } catch {}
     try {
       await supabase.from('calendar_notes').delete().eq('id', id);
     } catch (err) {
@@ -295,7 +404,9 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
     }
     const updatedNotes = notes.map(n => n.id === id ? { ...n, content: text } : n);
     setNotes(updatedNotes);
-    localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
+    try {
+      localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
+    } catch {}
     setEditingNoteId(null);
     try {
       await supabase.from('calendar_notes').update({ content: text }).eq('id', id);

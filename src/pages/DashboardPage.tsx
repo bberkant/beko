@@ -323,7 +323,9 @@ export function DashboardPage() {
       const { data: checksData } = await supabase
         .from('ebs_checks')
         .select('id, amount, due_date, debtor, bank, status, check_number')
-        .eq('organization_id', orgId);
+        .eq('organization_id', orgId)
+        .order('due_date', { ascending: true })
+        .limit(5000);
 
       if (Array.isArray(checksData)) {
         const today = new Date();

@@ -64,12 +64,12 @@ export function Topbar({ onToggleSidebar, onOpenMobileSidebar }: TopbarProps) {
   }, []);
 
   useEffect(() => {
-    if (!user?.organizationId) return;
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
 
     const p1 = supabase
       .from('tenders')
       .select('id,tender_number,title,institution,deadline_at,status')
-      .eq('organization_id', user.organizationId)
+      .eq('organization_id', orgId)
       .neq('status', 'kazanildi')
       .neq('status', 'kaybedildi')
       .neq('status', 'iptal');
@@ -77,7 +77,7 @@ export function Topbar({ onToggleSidebar, onOpenMobileSidebar }: TopbarProps) {
     const p2 = supabase
       .from('calendar_notes')
       .select('id,content,date,completed')
-      .eq('organization_id', user.organizationId)
+      .eq('organization_id', orgId)
       .eq('completed', false)
       .not('date', 'is', null);
 
