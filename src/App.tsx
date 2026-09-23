@@ -55,6 +55,7 @@ import { SubelerPage } from './features/subeler/SubelerPage';
 import { WhatsAppOperasyonPage } from './features/whatsapp-operasyon/WhatsAppOperasyonPage';
 import { FindeksPage } from './features/findeks/pages/FindeksPage';
 import { BillsProvider, BillListPage, BillDetailPage } from './features/bills';
+import { PosDevicesProvider, PosDevicesPage } from './features/pos-devices';
 
 function SuperAdminRoute() {
   const { user, loading } = useAuth();
@@ -176,6 +177,7 @@ export default function App() {
                 <Route path="/ana-kasa/rapor" element={<MainCashboxPage />} />
                 <Route path="/ana-kasa/giris-cikis" element={<GirisCikisPage />} />
                 <Route path="/ana-kasa/gunluk-hesap" element={<MainCashboxPage />} />
+                <Route path="/ana-kasa/pos-cihazlari" element={<PosDevicesProvider><PosDevicesPage /></PosDevicesProvider>} />
                 <Route path="/arac-yonetimi/arac-listesi" element={<VehiclePricesPage />} />
                 <Route path="/arac-yonetimi" element={<VehicleListPage />} />
                 <Route path="/arac-yonetimi/yeni" element={<VehicleFormPage />} />
