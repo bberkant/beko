@@ -18,7 +18,7 @@ import { formatDateTr } from './components/CashboxDateFilterBar';
 // Interfaces
 export interface SearchResultItem {
   date: string;
-  category: 'GİRİŞ' | 'ÇIKIŞ' | 'ANA KASA' | 'POS';
+  category: string;
   description: string;
   bankOrType: string;
   amount: string | number;
@@ -674,17 +674,18 @@ export function GirisCikisPage() {
             const hasPosMatch = g.posCari && g.posCari.toLocaleLowerCase('tr-TR').includes(q);
             const hasDescMatch = g.description && g.description.toLocaleLowerCase('tr-TR').includes(q);
             const hasBankMatch = g.bankOrType && g.bankOrType.toLocaleLowerCase('tr-TR').includes(q);
+            const hasAmount = g.amount !== undefined && g.amount !== null && g.amount !== '' && g.amount !== 0 && g.amount !== '0';
 
-            if (hasPosMatch || hasDescMatch || hasBankMatch) {
+            if ((hasPosMatch || hasDescMatch || hasBankMatch) && (hasAmount || g.description || g.posCari)) {
               const displayDesc = g.posCari
-                ? `${g.posCari} (${g.description})`
+                ? `${g.posCari} (${g.description || ''})`
                 : (g.description || '');
 
               results.push({
                 date: row.report_date,
-                category: 'GİRİŞ',
+                category: 'GİRİŞ LİSTESİ',
                 description: displayDesc,
-                bankOrType: g.bankOrType || (g.posCari ? g.description : ''),
+                bankOrType: g.bankOrType || (g.posCari ? g.description : 'GİRİŞ'),
                 amount: g.amount || ''
               });
             }
@@ -692,28 +693,29 @@ export function GirisCikisPage() {
 
           // 2. Check Çıkış
           for (const c of row.cikis_list || []) {
-            if (
-              (c.description && c.description.toLocaleLowerCase('tr-TR').includes(q)) ||
-              (c.bankOrType && c.bankOrType.toLocaleLowerCase('tr-TR').includes(q))
-            ) {
+            const hasDescMatch = c.description && c.description.toLocaleLowerCase('tr-TR').includes(q);
+            const hasBankMatch = c.bankOrType && c.bankOrType.toLocaleLowerCase('tr-TR').includes(q);
+            const hasAmount = c.amount !== undefined && c.amount !== null && c.amount !== '' && c.amount !== 0 && c.amount !== '0';
+
+            if ((hasDescMatch || hasBankMatch) && (hasAmount || c.description)) {
               results.push({
                 date: row.report_date,
-                category: 'ÇIKIŞ',
+                category: 'ÇIKIŞ LİSTESİ',
                 description: c.description || '',
-                bankOrType: c.bankOrType || '',
+                bankOrType: c.bankOrType || 'ÇIKIŞ',
                 amount: c.amount || ''
               });
             }
           }
 
-          // 3. Check Ana Kasa
+          // 3. Check Kasa Bakiyeleri (Giriş Çıkış sayfasındaki sağ tablo)
           for (const a of row.ana_kasa_list || []) {
             if (a.name && a.name.toLocaleLowerCase('tr-TR').includes(q)) {
               results.push({
                 date: row.report_date,
-                category: 'ANA KASA',
+                category: 'KASA DEVİR/SONU',
                 description: a.name,
-                bankOrType: `Devir: ${a.devir || '0'}`,
+                bankOrType: `Devir: ${a.devir || '0'} | Sonu: ${a.gunSonu || a.sonu || '0'}`,
                 amount: a.movement || a.pos || ''
               });
             }
@@ -721,12 +723,13 @@ export function GirisCikisPage() {
 
           // 4. Check POS
           for (const p of row.pos_list || []) {
-            if (p.bank && p.bank.toLocaleLowerCase('tr-TR').includes(q)) {
+            const hasAmount = p.amount !== undefined && p.amount !== null && p.amount !== '' && p.amount !== 0 && p.amount !== '0';
+            if (p.bank && p.bank.toLocaleLowerCase('tr-TR').includes(q) && hasAmount) {
               results.push({
                 date: row.report_date,
-                category: 'POS',
+                category: 'POS HAREKETİ',
                 description: p.bank,
-                bankOrType: 'POS',
+                bankOrType: 'POS TOPLAMI',
                 amount: p.amount || ''
               });
             }
@@ -1041,7 +1044,7 @@ export function GirisCikisPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Açıklama, cari veya banka ara... (örn: tarım, akbank, celo)"
+                placeholder="Giriş Çıkış hareketlerinde ara... (örn: tarım, akbank, celo)"
                 className="w-full pl-9 pr-8 py-1.5 text-xs bg-gray-50/80 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all font-medium"
               />
               {searchQuery && (
@@ -1142,7 +1145,10 @@ export function GirisCikisPage() {
                 <Search size={16} />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                    GİRİŞ ÇIKIŞ MODÜLÜ
+                  </span>
                   <h3 className="text-sm font-black text-gray-900">
                     Arama Sonuçları:
                   </h3>
@@ -1156,7 +1162,8 @@ export function GirisCikisPage() {
                   )}
                 </div>
                 <p className="text-xs text-gray-500 font-medium">
-                  {isRange ? `${formatDateTr(startDate)} ile ${formatDateTr(endDate)} tarihleri arasında` : 'Tüm geçmiş kasalarda'}{' '}
+                  <span className="font-semibold text-emerald-700">Yalnızca Giriş-Çıkış modülüne ait kayıtlar taranmaktadır.</span>{' '}
+                  {isRange ? `${formatDateTr(startDate)} ile ${formatDateTr(endDate)} tarihleri arasında` : 'Tüm tarihlerde'}{' '}
                   toplam <span className="font-bold text-gray-900">{searchResults.length}</span> eşleşen hareket bulundu.
                 </p>
               </div>
@@ -1204,9 +1211,10 @@ export function GirisCikisPage() {
                 <tbody className="divide-y divide-gray-100 bg-white">
                   {searchResults.map((item, idx) => {
                     const badgeColor = 
-                      item.category === 'GİRİŞ' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                      item.category === 'ÇIKIŞ' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                      item.category === 'POS' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      item.category.includes('GİRİŞ') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      item.category.includes('ÇIKIŞ') ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                      item.category.includes('POS') ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      item.category.includes('KASA') ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
                       'bg-blue-50 text-blue-700 border-blue-200';
 
                     return (

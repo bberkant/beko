@@ -123,7 +123,7 @@ export function MainCashboxPage() {
   let activeSection = 'rapor';
   if (location.pathname.includes('/gunluk-hesap')) {
     activeSection = 'gunluk_hesap';
-  } else if (location.pathname.includes('/rapor')) {
+  } else if (location.pathname.includes('/rapor') || location.pathname === '/ana-kasa') {
     activeSection = 'rapor_yeni';
   }
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -154,6 +154,13 @@ export function MainCashboxPage() {
   const [currencyFilter, setCurrencyFilter] = useState<string>('TRY'); 
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [showExcluded, setShowExcluded] = useState<boolean>(false);
+
+  // Submodüller arası geçişte önceki arama geçmişini ve sonuçlarını temizle
+  useEffect(() => {
+    setQuery('');
+    setSearchResults([]);
+    setIsSearching(false);
+  }, [location.pathname]);
 
   // Ana Kasa Günlük Rapor (Excel Senkronu) States
   const [cikisList, setCikisList] = useState<AnaKasaCikisItem[]>(() => Array.from({ length: 42 }, () => ({ description: '', bankOrType: '', amount: '' })));
@@ -752,7 +759,7 @@ export function MainCashboxPage() {
         const results: SearchResultItem[] = [];
 
         // 1. Ana Kasa Günlük Rapor sayfasındaysak: SADECE cashbox_ana_kasa_reports içinde ara
-        if (activeSection === 'rapor_yeni' || activeSection === 'rapor') {
+        if (activeSection === 'rapor_yeni') {
           let anaKasaQuery = supabase
             .from('cashbox_ana_kasa_reports')
             .select('report_date, data')
@@ -775,21 +782,33 @@ export function MainCashboxPage() {
                 const c4 = String(r[4] || '').trim();
                 const c5 = r[5];
 
-                if (c0.toLocaleLowerCase('tr-TR').includes(q) || c1.toLocaleLowerCase('tr-TR').includes(q)) {
+                if (c0.toUpperCase() === 'TOPLAM' || c1.toUpperCase() === 'TOPLAM' || c4.toUpperCase() === 'TOPLAM') continue;
+
+                // Çıkış: Açıklama / Cari veya Banka / Tür eşleşmeli VE tutar veya açıklama geçerli olmalı
+                const hasCikisMatch = (c0 && c0.toLocaleLowerCase('tr-TR').includes(q)) || 
+                                     (c1 && c1.toLocaleLowerCase('tr-TR').includes(q));
+                const hasCikisVal = (c2 !== undefined && c2 !== null && c2 !== '' && c2 !== 0 && c2 !== '0') || (c0 && c0.length > 0);
+
+                if (hasCikisMatch && hasCikisVal) {
                   results.push({
                     date: rDate,
-                    category: 'ÇIKIŞ',
-                    description: c0,
-                    bankOrType: c1,
+                    category: 'RAPOR ÇIKIŞ',
+                    description: c0 || c1,
+                    bankOrType: c1 || 'ÇIKIŞ',
                     amount: c2 || ''
                   });
                 }
-                if (c4.toLocaleLowerCase('tr-TR').includes(q)) {
+
+                // Giriş: Açıklama / Cari / Banka (Sadece tutar girilmiş veya geçerli satırları al, boş şablon satırlarını ele)
+                const hasGirisMatch = c4 && c4.toLocaleLowerCase('tr-TR').includes(q);
+                const hasGirisVal = c5 !== undefined && c5 !== null && c5 !== '' && c5 !== 0 && c5 !== '0';
+
+                if (hasGirisMatch && hasGirisVal) {
                   results.push({
                     date: rDate,
-                    category: 'GİRİŞ',
+                    category: 'RAPOR GİRİŞ',
                     description: c4,
-                    bankOrType: 'GİRİŞ',
+                    bankOrType: 'RAPOR GİRİŞ',
                     amount: c5 || ''
                   });
                 }
@@ -799,10 +818,11 @@ export function MainCashboxPage() {
               const cariler = row.data?.arka_sayfa?.cariler || [];
               for (const c of cariler) {
                 const name = String(c.name || '').trim();
-                if (name.toLocaleLowerCase('tr-TR').includes(q)) {
+                const hasCariVal = c.amount !== undefined && c.amount !== null && c.amount !== '' && c.amount !== 0 && c.amount !== '0';
+                if (name && name.toLocaleLowerCase('tr-TR').includes(q) && hasCariVal) {
                   results.push({
                     date: rDate,
-                    category: 'CARİ TAH.',
+                    category: 'ARKA SAYFA - CARİ',
                     description: name,
                     bankOrType: 'RAPOR ARKA SAYFA',
                     amount: c.amount || ''
@@ -832,7 +852,8 @@ export function MainCashboxPage() {
               for (const [bName, bData] of Object.entries<any>(banks)) {
                 for (const outTx of Object.values<any>(bData.outflows || {})) {
                   const desc = String(outTx.description || '').trim();
-                  if (desc.toLocaleLowerCase('tr-TR').includes(q)) {
+                  const hasOutVal = outTx.amount !== undefined && outTx.amount !== null && outTx.amount !== '' && outTx.amount !== 0 && outTx.amount !== '0';
+                  if (desc && desc.toLocaleLowerCase('tr-TR').includes(q) && hasOutVal) {
                     results.push({
                       date: rDate,
                       category: 'BANKA ÇIKIŞ',
@@ -844,7 +865,8 @@ export function MainCashboxPage() {
                 }
                 for (const inTx of Object.values<any>(bData.inflows || {})) {
                   const desc = String(inTx.description || '').trim();
-                  if (desc.toLocaleLowerCase('tr-TR').includes(q)) {
+                  const hasInVal = inTx.amount !== undefined && inTx.amount !== null && inTx.amount !== '' && inTx.amount !== 0 && inTx.amount !== '0';
+                  if (desc && desc.toLocaleLowerCase('tr-TR').includes(q) && hasInVal) {
                     results.push({
                       date: rDate,
                       category: 'BANKA GİRİŞ',
@@ -872,7 +894,7 @@ export function MainCashboxPage() {
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [query, isRange, startDate, endDate, activeSection, user?.organizationId]);
+  }, [query, isRange, startDate, endDate, activeSection]);
 
 
 
@@ -1323,6 +1345,12 @@ export function MainCashboxPage() {
 
       {/* Universal Top Filter Bar matching GirisCikisPage */}
       <CashboxDateFilterBar
+        moduleTitle={activeSection === 'rapor_yeni' ? 'Ana Kasa Günlük Rapor' : 'Günlük Hesap (Banka Defterleri)'}
+        placeholder={
+          activeSection === 'rapor_yeni'
+            ? 'Ana Kasa Günlük Raporunda ara... (örn: tarım, akbank, celo)'
+            : 'Banka defterlerinde hareket ara... (örn: akbank, çek, aidat)'
+        }
         searchQuery={query}
         setSearchQuery={setQuery}
         selectedDate={selectedDate}

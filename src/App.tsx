@@ -172,7 +172,7 @@ export default function App() {
                 <Route path="/cekler" element={<ChecksPage />} />
                 <Route path="/cekler/takas" element={<ChecksPage />} />
                 <Route path="/pos" element={<PosPage />} />
-                <Route path="/ana-kasa" element={<MainCashboxPage />} />
+                <Route path="/ana-kasa" element={<Navigate to="/ana-kasa/rapor" replace />} />
                 <Route path="/ana-kasa/rapor" element={<MainCashboxPage />} />
                 <Route path="/ana-kasa/giris-cikis" element={<GirisCikisPage />} />
                 <Route path="/ana-kasa/gunluk-hesap" element={<MainCashboxPage />} />

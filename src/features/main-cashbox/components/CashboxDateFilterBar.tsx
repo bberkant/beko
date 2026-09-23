@@ -75,6 +75,7 @@ interface CashboxDateFilterBarProps {
   isSearching?: boolean;
   onSelectResult?: (date: string) => void;
   extraActions?: React.ReactNode;
+  moduleTitle?: string;
 }
 
 export function CashboxDateFilterBar({
@@ -95,7 +96,8 @@ export function CashboxDateFilterBar({
   searchResults,
   isSearching = false,
   onSelectResult,
-  extraActions
+  extraActions,
+  moduleTitle
 }: CashboxDateFilterBarProps) {
   const handlePrev = () => {
     if (onPrevDay) {
@@ -246,7 +248,12 @@ export function CashboxDateFilterBar({
                 <Search size={16} />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {moduleTitle && (
+                    <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                      {moduleTitle}
+                    </span>
+                  )}
                   <h3 className="text-sm font-black text-gray-900">
                     Arama Sonuçları:
                   </h3>
@@ -260,7 +267,8 @@ export function CashboxDateFilterBar({
                   )}
                 </div>
                 <p className="text-xs text-gray-500 font-medium">
-                  {isRange ? `${formatDateTr(startDate)} ile ${formatDateTr(endDate)} tarihleri arasında` : 'Tüm kayıtlarda'}{' '}
+                  <span className="font-semibold text-emerald-700">Yalnızca {moduleTitle || 'bu modüle'} ait kayıtlar taranmaktadır.</span>{' '}
+                  {isRange ? `${formatDateTr(startDate)} ile ${formatDateTr(endDate)} tarihleri arasında` : 'Tüm tarihlerde'}{' '}
                   toplam <span className="font-bold text-gray-900">{searchResults.length}</span> eşleşen hareket bulundu.
                 </p>
               </div>
@@ -308,9 +316,10 @@ export function CashboxDateFilterBar({
                 <tbody className="divide-y divide-gray-100 bg-white">
                   {searchResults.map((item, idx) => {
                     const badgeColor = 
-                      item.category === 'GİRİŞ' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                      item.category === 'ÇIKIŞ' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                      item.category === 'POS' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      item.category.includes('GİRİŞ') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      item.category.includes('ÇIKIŞ') ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                      item.category.includes('POS') ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      item.category.includes('CARİ') ? 'bg-purple-50 text-purple-700 border-purple-200' :
                       'bg-blue-50 text-blue-700 border-blue-200';
 
                     return (
