@@ -456,10 +456,28 @@ export function GirisCikisPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const lastGirisCikisUpdatedAtRef = useRef<string>('');
+  const isUserDirtyRef = useRef(false);
+
+  const [serverTotals, setServerTotals] = useState<{
+    anaKasaTotal: number | null;
+    netKalan: number | null;
+    bakiyeFarki: number | null;
+    girisTotal: number | null;
+    cikisTotal: number | null;
+    posTotal: number | null;
+  }>({
+    anaKasaTotal: null,
+    netKalan: null,
+    bakiyeFarki: null,
+    girisTotal: null,
+    cikisTotal: null,
+    posTotal: null,
+  });
 
   // Load from Supabase (with continuous background polling & fallback to localStorage / template)
   useEffect(() => {
     let isCancelled = false;
+    isUserDirtyRef.current = false;
 
     async function loadData(isSilent = false) {
       if (!isSilent) setIsLoadingDb(true);
@@ -491,12 +509,29 @@ export function GirisCikisPage() {
               setPosList(data.pos_list);
             }
 
+            setServerTotals({
+              anaKasaTotal: data.ana_kasa_total !== null && data.ana_kasa_total !== undefined ? parseNum(data.ana_kasa_total) : null,
+              netKalan: data.net_kalan !== null && data.net_kalan !== undefined ? parseNum(data.net_kalan) : null,
+              bakiyeFarki: data.bakiye_farki !== null && data.bakiye_farki !== undefined ? parseNum(data.bakiye_farki) : null,
+              girisTotal: data.giris_total !== null && data.giris_total !== undefined ? parseNum(data.giris_total) : null,
+              cikisTotal: data.cikis_total !== null && data.cikis_total !== undefined ? parseNum(data.cikis_total) : null,
+              posTotal: data.pos_total !== null && data.pos_total !== undefined ? parseNum(data.pos_total) : null,
+            });
+
             setLastSyncSource(data.source || 'office_pc_sync');
             setIsSaved(true);
             if (!isSilent) setIsLoadingDb(false);
             return;
           } else if (!isSilent) {
             lastGirisCikisUpdatedAtRef.current = '';
+            setServerTotals({
+              anaKasaTotal: null,
+              netKalan: null,
+              bakiyeFarki: null,
+              girisTotal: null,
+              cikisTotal: null,
+              posTotal: null,
+            });
             // Supabase'de veri yok: Bu gün kesinlikle boştur, eski localStorage çöpünü temizle!
             localStorage.removeItem(storageKey);
 
@@ -586,6 +621,7 @@ export function GirisCikisPage() {
 
   // Giriş veya Çıkış listesi güncellendiğinde Ana Kasa'daki DEPO satırının Gün Sonu tutarını otomatik ve canlı günceller
   useEffect(() => {
+    if (!isUserDirtyRef.current) return;
     setAnaKasaList(prev => {
       let changed = false;
       const next = prev.map(item => {
@@ -803,16 +839,33 @@ export function GirisCikisPage() {
     }, 0);
   }, [anaKasaList]);
 
-  // TÜM TOPLAMLAR TABLOLARDAN DİNAMİK VE DOĞRUDAN HESAPLANIR
-  const posTotal = calcPosTotal;
-  const girisTotal = calcGirisTotal; // Devir bakiye dahil tüm girişler
-  const cikisTotal = calcCikisTotal; // Tüm çıkışlar
-  const netKalan = girisTotal - cikisTotal; // Devir dahil Giriş-Çıkış Kalanı
-  const anaKasaTotal = calcAnaKasaTotal; // Ana Kasa Sonu sütununun toplamı
-  const bakiyeFarki = anaKasaTotal - netKalan;
+  // Kullanıcı hücrelerde düzenleme yapmadıysa doğrudan Excel'den çekilen orijinal toplamlar gösterilir.
+  // Kullanıcı bir hücreyi değiştirdiği anda (isUserDirtyRef.current === true) dinamik hesaplama devreye girer.
+  const posTotal = (!isUserDirtyRef.current && serverTotals.posTotal !== null)
+    ? serverTotals.posTotal
+    : calcPosTotal;
+
+  const girisTotal = (!isUserDirtyRef.current && serverTotals.girisTotal !== null)
+    ? serverTotals.girisTotal
+    : calcGirisTotal;
+
+  const cikisTotal = (!isUserDirtyRef.current && serverTotals.cikisTotal !== null)
+    ? serverTotals.cikisTotal
+    : calcCikisTotal;
+
+  const netKalan = (!isUserDirtyRef.current && serverTotals.netKalan !== null)
+    ? serverTotals.netKalan
+    : (girisTotal - cikisTotal);
+
+  const anaKasaTotal = (!isUserDirtyRef.current && serverTotals.anaKasaTotal !== null)
+    ? serverTotals.anaKasaTotal
+    : calcAnaKasaTotal;
+
+  const bakiyeFarki = (!isUserDirtyRef.current && serverTotals.bakiyeFarki !== null)
+    ? serverTotals.bakiyeFarki
+    : (anaKasaTotal - netKalan);
 
   // Auto Save to localStorage and Supabase (Only when user explicitly edits)
-  const isUserDirtyRef = useRef(false);
 
   useEffect(() => {
     if (!isUserDirtyRef.current) {

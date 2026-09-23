@@ -72,19 +72,35 @@ function cleanNum(val) {
   if (val === null || val === undefined || val === '') return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
   let s = String(val).trim().replace(/₺|TL/g, '').trim();
-  if (s.includes('.') && s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
-  else if (s.includes(',')) s = s.replace(',', '.');
-  const res = parseFloat(s);
-  return isNaN(res) ? 0 : res;
+  const isNegative = s.startsWith('-');
+  s = s.replace(/-/g, '');
+
+  if (s.includes('.') && s.includes(',')) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (s.includes(',')) {
+    s = s.replace(',', '.');
+  } else if (s.includes('.')) {
+    const parts = s.split('.');
+    if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+      s = s.replace(/\./g, '');
+    }
+  }
+
+  const clean = s.replace(/[^0-9.]/g, '');
+  const res = parseFloat(clean);
+  if (isNaN(res)) return 0;
+  return isNegative ? -res : res;
 }
 
 function formatMoney(num) {
-  if (num === 0 || num === '' || num === null || num === undefined) return '';
+  if (num === '' || num === null || num === undefined) return '';
+  if (num === 0) return '0,00';
   return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
 }
 
 function formatInt(num) {
-  if (num === 0 || num === '' || num === null || num === undefined) return '';
+  if (num === '' || num === null || num === undefined) return '';
+  if (num === 0) return '0';
   return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(num);
 }
 
@@ -462,7 +478,7 @@ async function processGirisCikisWorkbook(wb, filePath) {
         pos: pos !== 0 ? formatInt(pos) : '',
         duzeltme: duzeltme !== 0 ? formatInt(duzeltme) : '',
         gunSonu: (hasFinancialData && (gunSonu !== 0 || rawName !== ''))
-          ? formatInt(gunSonu)
+          ? (gunSonu === 0 ? '0' : formatInt(gunSonu))
           : ''
       };
     }
@@ -475,15 +491,15 @@ async function processGirisCikisWorkbook(wb, filePath) {
     // DIRECT EXCEL VALUES
     const actualNetKalan = excelNetKalan !== null ? excelNetKalan : (excelGirisTotal !== null && excelCikisTotal !== null ? (excelGirisTotal - excelCikisTotal) : (girisTotal - cikisTotal));
     
-    // Toplam Kasa Bakiyesi: Ana Kasa'daki Gün Sonu sütununun toplamıdır
+    // Toplam Kasa Bakiyesi: Öncelik doğrudan Excel hücresinden (R sütunu özet satırı) okunan değerdedir
     let computedAnaKasaTotal = 0;
     for (const item of anaKasaList) {
       if (item.gunSonu !== '' && item.gunSonu !== undefined && item.gunSonu !== null) {
         computedAnaKasaTotal += cleanNum(item.gunSonu);
       }
     }
-    const actualAnaKasaTotal = computedAnaKasaTotal;
-    const actualBakiyeFarki = actualAnaKasaTotal - actualNetKalan;
+    const actualAnaKasaTotal = excelAnaKasaTotal !== null ? excelAnaKasaTotal : computedAnaKasaTotal;
+    const actualBakiyeFarki = excelKasaFarki !== null ? excelKasaFarki : (actualAnaKasaTotal - actualNetKalan);
 
     const { error } = await supabase
       .from('cashbox_giris_cikis_reports')
