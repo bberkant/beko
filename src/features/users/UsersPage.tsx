@@ -112,6 +112,27 @@ export function UsersPage() {
     if (error) notify(error.message, 'error'); else { notify('Kullanıcı güncellendi.', 'success'); await refresh(); }
   };
 
+  const deleteMember = async (member: Member) => {
+    if (member.user_id === user?.id) {
+      notify('Kendi kullanıcınızı silemezsiniz.', 'error');
+      return;
+    }
+    if (!window.confirm(`${member.full_name || member.email} kullanıcısını tamamen silmek istediğinize emin misiniz?`)) {
+      return;
+    }
+    const { error } = await supabase
+      .from('organization_members')
+      .delete()
+      .eq('user_id', member.user_id);
+
+    if (error) {
+      notify(error.message, 'error');
+    } else {
+      notify('Kullanıcı sistemden tamamen silindi.', 'success');
+      await refresh();
+    }
+  };
+
   if (!isAdmin) return <div className="mx-auto max-w-7xl"><PageHeader title="Yetkisiz Erişim" description="Kullanıcılar modülünü yalnızca yöneticiler görüntüleyebilir."/></div>;
   return <div className="mx-auto max-w-7xl">
     <PageHeader title="Kullanıcılar" description="Şirket kullanıcılarını, rollerini ve erişim durumlarını yönetin."
@@ -131,7 +152,12 @@ export function UsersPage() {
         <td className="table-td">
           <div className="flex items-center gap-2">
             <button className="btn-secondary py-2" onClick={() => openEditModal(m)}>Düzenle</button>
-            {isAdmin&&<button className="btn-secondary py-2" onClick={()=>void manage(m,m.role,!m.active)}>{m.active?'Pasifleştir':'Aktifleştir'}</button>}
+            {isAdmin && (
+              <>
+                <button className="btn-secondary py-2" onClick={()=>void manage(m,m.role,!m.active)}>{m.active?'Pasifleştir':'Aktifleştir'}</button>
+                <button className="btn-secondary py-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200" onClick={()=>void deleteMember(m)}>Sil</button>
+              </>
+            )}
           </div>
         </td>
       </tr>)}</tbody></table></div>
