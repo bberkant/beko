@@ -157,8 +157,8 @@ export const navItems: NavItem[] = [
       { label: 'Giriş Çıkış', to: '/ana-kasa/giris-cikis' },
       { label: 'Günlük Hesap', to: '/ana-kasa/gunluk-hesap' },
       { label: 'Günlük POS Takip', to: '/pos' },
-      { label: 'Pos Cihazları', to: '/ana-kasa/pos-cihazlari' },
       { label: 'Banka Hesap Hareketleri', to: '/finans/banka-hesap-hareketleri' },
+      { label: 'Pos Cihazları', to: '/ana-kasa/pos-cihazlari' },
     ]
   },
   { label: 'Ay Sonu', to: '/ay-sonu', icon: TrendingUp },

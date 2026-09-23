@@ -17,8 +17,27 @@ interface PosDevicesContextType {
 
 const PosDevicesContext = createContext<PosDevicesContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY = 'beko_pos_devices_cache_v1';
+const LOCAL_STORAGE_KEY = 'beko_pos_devices_cache_v2';
 const DB_CONFIG_DATE = '1970-01-01'; // POS cihazları kayıt anahtarı
+
+export const normalizeDevice = (raw: any): PosDevice | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  // If object is empty or test record without device info
+  if (!raw.merchantNo && !raw.terminalNo && !raw.bank) return null;
+  return {
+    id: String(raw.id || 'pos-' + Math.random().toString(36).slice(2, 9)),
+    merchantNo: String(raw.merchantNo || ''),
+    terminalNo: String(raw.terminalNo || ''),
+    location: String(raw.location || 'MERKEZ').toUpperCase(),
+    bank: String(raw.bank || 'Ziraat Bankası'),
+    deviceModel: raw.deviceModel ? String(raw.deviceModel) : undefined,
+    serialNo: raw.serialNo ? String(raw.serialNo) : undefined,
+    status: raw.status === 'pasif' ? 'pasif' : raw.status === 'arizali' ? 'arizali' : 'aktif',
+    notes: raw.notes ? String(raw.notes) : undefined,
+    createdAt: raw.createdAt ? String(raw.createdAt) : new Date().toISOString(),
+    updatedAt: raw.updatedAt ? String(raw.updatedAt) : new Date().toISOString()
+  };
+};
 
 export const PosDevicesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -28,7 +47,10 @@ export const PosDevicesProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          const valid = parsed.map(normalizeDevice).filter((d): d is PosDevice => d !== null);
+          if (valid.length > 0) return valid;
+        }
       }
     } catch (e) {
       console.warn('Pos devices localStorage parse error:', e);
@@ -88,10 +110,19 @@ export const PosDevicesProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         .eq('date', DB_CONFIG_DATE)
         .maybeSingle();
 
-      if (!error && data && Array.isArray(data.left_table) && data.left_table.length > 0) {
-        const cloudDevices = data.left_table as PosDevice[];
-        setDevices(cloudDevices);
-        saveToLocal(cloudDevices);
+      if (!error && data && Array.isArray(data.left_table)) {
+        const validDevices = data.left_table
+          .map(normalizeDevice)
+          .filter((d): d is PosDevice => d !== null);
+
+        if (validDevices.length > 0) {
+          setDevices(validDevices);
+          saveToLocal(validDevices);
+        } else {
+          setDevices(initialSeedPosDevices);
+          saveToLocal(initialSeedPosDevices);
+          void syncToCloud(initialSeedPosDevices);
+        }
       } else {
         // If not in cloud, seed the cloud
         if (devices.length > 0) {

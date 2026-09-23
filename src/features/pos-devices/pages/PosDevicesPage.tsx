@@ -12,7 +12,8 @@ import {
   MapPin, 
   MoreVertical,
   X,
-  Printer
+  Printer,
+  AlertCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PageHeader } from '../../../components/ui/PageHeader';
@@ -149,7 +150,7 @@ function InlineTextCell({
   );
 }
 
-export function PosDevicesPage() {
+function PosDevicesPageContent() {
   const { notify } = useToast();
   const { devices, loading, saving, addDevice, updateDevice, deleteDevice } = usePosDevices();
 
@@ -170,34 +171,40 @@ export function PosDevicesPage() {
   const availableBanks = useMemo(() => {
     const set = new Set<string>();
     POPULAR_BANKS.forEach(b => set.add(b));
-    devices.forEach(d => { if (d.bank) set.add(d.bank); });
+    devices.forEach(d => { if (d?.bank) set.add(String(d.bank)); });
     return Array.from(set);
   }, [devices]);
 
   const availableLocations = useMemo(() => {
     const set = new Set<string>();
     POPULAR_LOCATIONS.forEach(l => set.add(l));
-    devices.forEach(d => { if (d.location) set.add(d.location.toUpperCase()); });
+    devices.forEach(d => { if (d?.location) set.add(String(d.location).toUpperCase()); });
     return Array.from(set);
   }, [devices]);
 
   // Filtering
   const filteredDevices = useMemo(() => {
     return devices.filter((d) => {
+      if (!d) return false;
+      const merchant = String(d.merchantNo || '');
+      const terminal = String(d.terminalNo || '');
+      const loc = String(d.location || '');
+      const bank = String(d.bank || '');
+
       if (search) {
         const q = search.toLocaleLowerCase('tr-TR');
         const match =
-          d.merchantNo.toLocaleLowerCase('tr-TR').includes(q) ||
-          d.terminalNo.toLocaleLowerCase('tr-TR').includes(q) ||
-          d.location.toLocaleLowerCase('tr-TR').includes(q) ||
-          d.bank.toLocaleLowerCase('tr-TR').includes(q) ||
+          merchant.toLocaleLowerCase('tr-TR').includes(q) ||
+          terminal.toLocaleLowerCase('tr-TR').includes(q) ||
+          loc.toLocaleLowerCase('tr-TR').includes(q) ||
+          bank.toLocaleLowerCase('tr-TR').includes(q) ||
           (d.deviceModel || '').toLocaleLowerCase('tr-TR').includes(q) ||
           (d.serialNo || '').toLocaleLowerCase('tr-TR').includes(q) ||
           (d.notes || '').toLocaleLowerCase('tr-TR').includes(q);
         if (!match) return false;
       }
-      if (selectedBank !== 'all' && d.bank !== selectedBank) return false;
-      if (selectedLocation !== 'all' && d.location.toUpperCase() !== selectedLocation.toUpperCase()) return false;
+      if (selectedBank !== 'all' && bank !== selectedBank) return false;
+      if (selectedLocation !== 'all' && loc.toUpperCase() !== selectedLocation.toUpperCase()) return false;
       if (selectedStatus !== 'all' && d.status !== selectedStatus) return false;
       return true;
     });
@@ -206,12 +213,20 @@ export function PosDevicesPage() {
   // KPIs
   const kpis = useMemo(() => {
     const totalCount = devices.length;
-    const activeCount = devices.filter(d => d.status === 'aktif').length;
+    const activeCount = devices.filter(d => d && d.status === 'aktif').length;
     
-    const banks = new Set(devices.map(d => d.bank.trim().toUpperCase()));
-    const locations = new Set(devices.map(d => d.location.trim().toUpperCase()));
+    const banks = new Set(
+      devices
+        .map(d => String(d?.bank || '').trim().toUpperCase())
+        .filter(Boolean)
+    );
+    const locations = new Set(
+      devices
+        .map(d => String(d?.location || '').trim().toUpperCase())
+        .filter(Boolean)
+    );
 
-    const merkezCount = devices.filter(d => d.location.toUpperCase().includes('MERKEZ')).length;
+    const merkezCount = devices.filter(d => String(d?.location || '').toUpperCase().includes('MERKEZ')).length;
     const subeCount = totalCount - merkezCount;
 
     return {
@@ -570,10 +585,10 @@ export function PosDevicesPage() {
 
                       {/* 1. İşyeri No (Inline Edit) */}
                       <InlineTextCell
-                        value={d.merchantNo}
+                        value={d.merchantNo || ''}
                         displayValue={
                           <span className="font-mono text-sm font-black text-gray-900 tracking-wider">
-                            {d.merchantNo}
+                            {d.merchantNo || '—'}
                           </span>
                         }
                         onSave={(val) => updateDevice(d.id, { merchantNo: val.trim() })}
@@ -584,10 +599,10 @@ export function PosDevicesPage() {
 
                       {/* 2. Pos No / Terminal No (Inline Edit) */}
                       <InlineTextCell
-                        value={d.terminalNo}
+                        value={d.terminalNo || ''}
                         displayValue={
                           <span className="font-mono text-sm font-black text-blue-700 tracking-wider bg-blue-50/60 px-2 py-0.5 rounded border border-blue-100">
-                            {d.terminalNo}
+                            {d.terminalNo || '—'}
                           </span>
                         }
                         onSave={(val) => updateDevice(d.id, { terminalNo: val.trim() })}
@@ -598,11 +613,11 @@ export function PosDevicesPage() {
 
                       {/* 3. Nerede (Konum) */}
                       <InlineTextCell
-                        value={d.location}
+                        value={d.location || ''}
                         displayValue={
-                          <span className={`inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-0.5 rounded-md border ${getLocationBadgeStyle(d.location)}`}>
+                          <span className={`inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-0.5 rounded-md border ${getLocationBadgeStyle(d.location || '')}`}>
                             <MapPin size={11} className="shrink-0" />
-                            {d.location}
+                            {d.location || 'MERKEZ'}
                           </span>
                         }
                         onSave={(val) => updateDevice(d.id, { location: val.trim().toUpperCase() })}
@@ -611,12 +626,12 @@ export function PosDevicesPage() {
 
                       {/* 4. Banka */}
                       <InlineTextCell
-                        value={d.bank}
+                        value={d.bank || ''}
                         displayValue={
                           <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center gap-1.5 text-xs font-extrabold px-2.5 py-1 rounded-lg border shadow-2xs ${getBankBadgeStyle(d.bank)}`}>
+                            <span className={`inline-flex items-center gap-1.5 text-xs font-extrabold px-2.5 py-1 rounded-lg border shadow-2xs ${getBankBadgeStyle(d.bank || '')}`}>
                               <Building2 size={13} className="shrink-0" />
-                              {d.bank}
+                              {d.bank || 'Banka'}
                             </span>
                           </div>
                         }
@@ -763,3 +778,58 @@ export function PosDevicesPage() {
     </div>
   );
 }
+
+class PosDevicesErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: any }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, info: any) {
+    console.error('PosDevices ErrorBoundary caught error:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="card p-8 text-center max-w-xl mx-auto my-12 space-y-4 bg-white border border-red-200 shadow-lg">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+            <AlertCircle size={24} />
+          </div>
+          <h3 className="text-base font-bold text-gray-900">Sayfa Yüklenirken Bir Hata Oluştu</h3>
+          <p className="text-xs text-gray-500">
+            {this.state.error?.message || 'Beklenmeyen bir veri formatı hatası oluştu.'}
+          </p>
+          <button
+            type="button"
+            className="btn-primary text-xs px-4 py-2 font-bold cursor-pointer"
+            onClick={() => {
+              localStorage.removeItem('beko_pos_devices_cache_v1');
+              localStorage.removeItem('beko_pos_devices_cache_v2');
+              window.location.reload();
+            }}
+          >
+            Önbelleği Temizle ve Yeniden Yükle
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export function PosDevicesPage() {
+  return (
+    <PosDevicesErrorBoundary>
+      <PosDevicesPageContent />
+    </PosDevicesErrorBoundary>
+  );
+}
+
