@@ -15,7 +15,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 import * as XLSX from 'xlsx';
-import { CashboxDateFilterBar, SearchResultItem } from '../main-cashbox/components/CashboxDateFilterBar';
+import { CashboxDateFilterBar, SearchResultItem, getYesterdayStr } from '../main-cashbox/components/CashboxDateFilterBar';
 
 interface LeftRow {
   bank: string;
@@ -127,23 +127,13 @@ export function PosPage() {
   const { notify } = useToast();
   const dateInputRef = useRef<HTMLInputElement>(null);
   
-  // State variables
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    const saved = localStorage.getItem('pos_selected_date');
-    if (saved) return saved;
+  // State variables (Varsayılan olarak her zaman dünün tarihi açılır)
+  const [selectedDate, setSelectedDate] = useState<string>(() => getYesterdayStr());
 
-    const today = new Date();
-    // Return YYYY-MM-DD
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, '0');
-    const d = String(today.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  });
-
-  // Persist selected date across refreshes
+  // Eski localStorage önbelleğini temizle (sabit geçmiş tarihe takılmayı önlemek için)
   useEffect(() => {
-    localStorage.setItem('pos_selected_date', selectedDate);
-  }, [selectedDate]);
+    localStorage.removeItem('pos_selected_date');
+  }, []);
 
   const handlePrevDay = () => {
     const d = new Date(selectedDate);
@@ -171,8 +161,8 @@ export function PosPage() {
   // Search & Range States for CashboxDateFilterBar
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isRange, setIsRange] = useState<boolean>(false);
-  const [startDate, setStartDate] = useState<string>(selectedDate);
-  const [endDate, setEndDate] = useState<string>(selectedDate);
+  const [startDate, setStartDate] = useState<string>(() => getYesterdayStr());
+  const [endDate, setEndDate] = useState<string>(() => getYesterdayStr());
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
 

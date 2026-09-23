@@ -32,7 +32,7 @@ import type { ArkaSayfaData } from './types/arkaSayfa';
 import { defaultArkaSayfaData } from './types/arkaSayfa';
 import type { GunlukHesapBanks, BankAccountData } from './types/gunlukHesap';
 import { DEFAULT_BANK_ORDER, emptyBankData } from './types/gunlukHesap';
-import { CashboxDateFilterBar, SearchResultItem } from './components/CashboxDateFilterBar';
+import { CashboxDateFilterBar, SearchResultItem, getYesterdayStr } from './components/CashboxDateFilterBar';
 
 export interface AnaKasaCikisItem {
   description: string;
@@ -126,11 +126,11 @@ export function MainCashboxPage() {
   } else if (location.pathname.includes('/rapor') || location.pathname === '/ana-kasa') {
     activeSection = 'rapor_yeni';
   }
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(() => getYesterdayStr());
   const [isRange, setIsRange] = useState(false);
   const [isAllDates] = useState(false);
-  const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState<string>(() => getYesterdayStr());
+  const [endDate, setEndDate] = useState<string>(() => getYesterdayStr());
   
   // Data States
   const [transactions, setTransactions] = useState<CashboxTransaction[]>([]);
@@ -155,8 +155,13 @@ export function MainCashboxPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [showExcluded, setShowExcluded] = useState<boolean>(false);
 
-  // Submodüller arası geçişte önceki arama geçmişini ve sonuçlarını temizle
+  // Submodüller arası geçişte her zaman dünün tarihine ve temiz arama durumuna getir
   useEffect(() => {
+    const yesterday = getYesterdayStr();
+    setSelectedDate(yesterday);
+    setStartDate(yesterday);
+    setEndDate(yesterday);
+    setIsRange(false);
     setQuery('');
     setSearchResults([]);
     setIsSearching(false);

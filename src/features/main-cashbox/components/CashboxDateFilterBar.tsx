@@ -30,6 +30,12 @@ export const getTodayStr = (): string => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
+export const getYesterdayStr = (): string => {
+  const now = new Date();
+  now.setDate(now.getDate() - 1);
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
 export const formatDateTr = (dateStr?: string | null): string => {
   if (!dateStr) return '-';
   const parts = String(dateStr).split('-');

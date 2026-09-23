@@ -13,7 +13,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useToast } from '../../lib/toast';
 import { supabase } from '../../lib/supabase';
-import { formatDateTr } from './components/CashboxDateFilterBar';
+import { formatDateTr, getYesterdayStr } from './components/CashboxDateFilterBar';
 
 // Interfaces
 export interface SearchResultItem {
@@ -350,12 +350,6 @@ const fitAnaKasaRows = (raw: any[], girisRaw?: any[], cikisRaw?: any[]): AnaKasa
   }
 
   return sanitized.slice(0, ANA_KASA_ROWS);
-};
-
-const getYesterdayStr = (): string => {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
 export function GirisCikisPage() {
