@@ -31,13 +31,15 @@ interface RightRow {
 }
 
 const DEFAULT_LEFT_ROWS: LeftRow[] = [
-  { bank: 'ZİRAAT', colB: '', banka_gecen: '186.279,65', kesinti: '', komisyon: '' },
-  { bank: 'GARANTİ', colB: '', banka_gecen: '58.713,11', kesinti: '', komisyon: '' },
-  { bank: 'DENİZBANK', colB: '', banka_gecen: '43.125,38', kesinti: '', komisyon: '' },
-  { bank: 'KUVEYT', colB: '', banka_gecen: '16.866,57', kesinti: '', komisyon: '' },
-  { bank: 'ALBARAKA', colB: '', banka_gecen: '18.565,45', kesinti: '', komisyon: '' },
-  { bank: 'Ö. ZİRAAT', colB: '389.173,00', banka_gecen: '1.180,61', kesinti: '', komisyon: '' },
-  { bank: 'AKBANK', colB: '', banka_gecen: '505,00', kesinti: '', komisyon: '' },
+  { bank: 'ZİRAAT', colB: '', banka_gecen: '', kesinti: '', komisyon: '' },
+  { bank: 'MARİF ZİRAAT', colB: '', banka_gecen: '', kesinti: '', komisyon: '' },
+  { bank: 'DENİZBANK', colB: '', banka_gecen: '', kesinti: '', komisyon: '' },
+  { bank: 'GARANTİ', colB: '', banka_gecen: '', kesinti: '', komisyon: '' },
+  { bank: 'KUVEYT', colB: '', banka_gecen: '', kesinti: '', komisyon: '' },
+  { bank: 'YAPI', colB: '', banka_gecen: '', kesinti: '', komisyon: '' },
+  { bank: 'ALBARAKA', colB: '', banka_gecen: '', kesinti: '', komisyon: '' },
+  { bank: 'AKBANK', colB: '', banka_gecen: '', kesinti: '', komisyon: '' },
+  { bank: 'Ö. ZİRAAT', colB: '', banka_gecen: '', kesinti: '', komisyon: '' },
 ];
 
 const DEFAULT_RIGHT_ROWS: RightRow[] = [
@@ -102,20 +104,30 @@ const formatTRNum = (val: number | null) => {
   }).format(val);
 };
 
-// Match Left Table bank/POS names to Right Table şube/amount names (including Denizbank vs Deniz mapping)
+// Normalize bank name keys for consistent matching across UI, DB, and Excel
+const normalizeBankKey = (b: string): string => {
+  if (!b) return '';
+  const norm = b.trim().toLocaleUpperCase('tr-TR').replace(/\s+/g, '');
+  if (norm === 'DENIZ' || norm === 'DENİZ' || norm === 'DENIZBANK' || norm === 'DENİZBANK') return 'DENİZBANK';
+  if (norm === 'Ö.ZIRAAT' || norm === 'Ö.ZİRAAT' || norm === 'OZIRAAT' || norm === 'ÖZİRAAT') return 'Ö. ZİRAAT';
+  if (norm === 'MARİFZİRAAT' || norm === 'MARIFZIRAAT' || norm === 'M.ZİRAAT' || norm === 'M.ZIRAAT' || norm === 'MARİF' || norm === 'MARIF') return 'MARİF ZİRAAT';
+  if (norm === 'YAPI' || norm === 'YAPIKREDİ' || norm === 'YAPIKREDI') return 'YAPI';
+  if (norm === 'GARANTI' || norm === 'GARANTİ') return 'GARANTİ';
+  if (norm === 'ZIRAAT' || norm === 'ZİRAAT') return 'ZİRAAT';
+  if (norm === 'KUVEYT' || norm === 'KUVEYTTÜRK' || norm === 'KUVEYTTURK') return 'KUVEYT';
+  return norm;
+};
+
+// Match Left Table bank/POS names to Right Table şube/amount names
 const matchPOSName = (leftBank: string, rightName: string): boolean => {
-  const normLeft = leftBank.replace(/\s+/g, '').toLocaleUpperCase('tr-TR');
-  const normRight = rightName.replace(/\s+/g, '').toLocaleUpperCase('tr-TR');
+  const normLeft = normalizeBankKey(leftBank);
+  const normRight = normalizeBankKey(rightName);
 
   if (normLeft === '' || normRight === '') return false;
-
-  // Specific mapping for Denizbank vs Deniz
-  if (normLeft === 'DENİZBANK' && normRight === 'DENİZ') return true;
-  if (normLeft === 'DENİZ' && normRight === 'DENİZBANK') return true;
-
-  // Explicit check to prevent Ö.Ziraat matching Ziraat
-  if (normLeft === 'ZİRAAT' && normRight === 'Ö.ZİRAAT') return false;
-  if (normLeft === 'Ö.ZİRAAT' && normRight === 'ZİRAAT') return false;
+  if (normLeft === 'ZİRAAT' && normRight === 'Ö. ZİRAAT') return false;
+  if (normLeft === 'Ö. ZİRAAT' && normRight === 'ZİRAAT') return false;
+  if (normLeft === 'MARİF ZİRAAT' && normRight === 'ZİRAAT') return false;
+  if (normLeft === 'ZİRAAT' && normRight === 'MARİF ZİRAAT') return false;
 
   return normLeft === normRight;
 };
@@ -263,29 +275,54 @@ export function PosPage() {
     handleFocus();
   };
   
-  // Pad arrays to 22 rows each to match the Excel sheet layout
-   // Pad arrays to match the Excel sheet layout and keep all templates visible
+  // Pad arrays to match the Excel sheet layout and keep all templates visible
   const padLeftRows = (rows: LeftRow[]): LeftRow[] => {
-    const active = rows.filter(r => r.bank.trim() !== '');
+    const active = rows.filter(r => r.bank && r.bank.trim() !== '' && !r.bank.trim().toLocaleUpperCase('tr-TR').startsWith('TOPLAM'));
     const valueMap = new Map<string, LeftRow>();
     active.forEach(r => {
-      valueMap.set(r.bank.trim().toUpperCase(), r);
+      const key = normalizeBankKey(r.bank);
+      valueMap.set(key, r);
     });
 
-    return TEMPLATE_LEFT_ROWS.map(templateRow => {
-      const bankKey = templateRow.bank.trim().toUpperCase();
-      if (valueMap.has(bankKey)) {
-        const match = valueMap.get(bankKey)!;
+    const usedKeys = new Set<string>();
+    const result: LeftRow[] = TEMPLATE_LEFT_ROWS.map(templateRow => {
+      const key = normalizeBankKey(templateRow.bank);
+      usedKeys.add(key);
+      if (valueMap.has(key)) {
+        const match = valueMap.get(key)!;
+        const colB = match.colB || (match as any).tutar || ((match as any).calculated_val !== undefined ? String((match as any).calculated_val) : '');
+        const banka_gecen = match.banka_gecen !== undefined && match.banka_gecen !== '' ? String(match.banka_gecen) : ((match as any).gecen !== undefined ? String((match as any).gecen) : '');
+        let kesinti = match.kesinti || (match as any).colC || '';
+        let komisyon = match.komisyon || (match as any).colD || '';
+
+        // Auto compute kesinti & komisyon if missing but colB and banka_gecen exist
+        const numB = parseFormattedNumber(colB);
+        const numC = parseFormattedNumber(banka_gecen);
+        if (numB > 0 && banka_gecen.trim() !== '' && (!kesinti || !komisyon)) {
+          const numKes = numB - numC;
+          kesinti = formatTRNum(numKes);
+          komisyon = formatTRNum(Math.abs((numKes / numB) * 100));
+        }
+
         return {
           ...templateRow,
-          colB: match.colB || '',
-          banka_gecen: match.banka_gecen || '',
-          kesinti: match.kesinti || '',
-          komisyon: match.komisyon || ''
+          colB,
+          banka_gecen,
+          kesinti,
+          komisyon
         };
       }
       return templateRow;
     });
+
+    // Append any extra banks from the data that were not in TEMPLATE_LEFT_ROWS
+    valueMap.forEach((extraRow, key) => {
+      if (!usedKeys.has(key)) {
+        result.push(extraRow);
+      }
+    });
+
+    return result;
   };
 
   const isRedBranchName = (name: string) => {
@@ -376,8 +413,8 @@ export function PosPage() {
         // Safe mapping support for backward schema compatibility
         const mappedLeft = (data.left_table || []).map((row: any) => ({
           bank: row.bank || '',
-          colB: row.colB || (row.calculated_val !== undefined ? String(row.calculated_val) : ''),
-          banka_gecen: row.banka_gecen !== undefined ? String(row.banka_gecen) : '',
+          colB: row.colB || (row.tutar !== undefined && row.tutar !== '' ? String(row.tutar) : (row.calculated_val !== undefined ? String(row.calculated_val) : '')),
+          banka_gecen: (row.banka_gecen !== undefined && row.banka_gecen !== '') ? String(row.banka_gecen) : (row.gecen !== undefined ? String(row.gecen) : ''),
           kesinti: row.kesinti || row.colC || '',
           komisyon: row.komisyon || row.colD || ''
         }));
@@ -475,61 +512,53 @@ export function PosPage() {
     };
   }, [leftRows, rightRows]);
 
-  // Automatically calculate left table's colB, kesinti, and komisyon values
+  // Fill colB from rightRows ONLY if colB is empty and right table has matching entries
   useEffect(() => {
     setLeftRows(prevLeft => {
       let changed = false;
       const nextLeft = prevLeft.map(row => {
-        // 1. Calculate colB (sum of rightRows tutar)
-        let sumB = 0;
-        rightRows.forEach((r) => {
-          if (matchPOSName(row.bank, r.name)) {
-            sumB += parseFormattedNumber(r.amount);
+        const currentB = (row.colB || '').trim();
+        if (!currentB || currentB === '0,00' || currentB === '0') {
+          let sumB = 0;
+          rightRows.forEach((r) => {
+            if (matchPOSName(row.bank, r.name)) {
+              sumB += parseFormattedNumber(r.amount);
+            }
+          });
+          if (sumB > 0) {
+            changed = true;
+            const formattedB = formatTRNum(sumB);
+            const valC = parseFormattedNumber(row.banka_gecen);
+            let formattedD = row.kesinti;
+            let formattedE = row.komisyon;
+
+            if (row.banka_gecen && row.banka_gecen.trim() !== '') {
+              const valD = sumB - valC;
+              formattedD = formatTRNum(valD);
+              formattedE = formatTRNum(Math.abs((valD / sumB) * 100));
+            }
+
+            return {
+              ...row,
+              colB: formattedB,
+              kesinti: formattedD,
+              komisyon: formattedE
+            };
           }
-        });
-        const formattedB = sumB > 0 ? formatTRNum(sumB) : '';
-
-        // 2. Calculate kesinti = colB - banka_gecen
-        const valB = sumB;
-        const valC = parseFormattedNumber(row.banka_gecen);
-        
-        let valD = 0;
-        let formattedD = row.kesinti;
-        let formattedE = row.komisyon;
-
-        const hasBankaGecen = row.banka_gecen.trim() !== '';
-
-        if (valB > 0 && hasBankaGecen) {
-          valD = valB - valC;
-          formattedD = formatTRNum(valD);
-
-          // 3. Calculate komisyon = (kesinti / colB) * 100
-          const valE = Math.abs((valD / valB) * 100);
-          formattedE = formatTRNum(valE);
-        }
-
-        if (row.colB !== formattedB || row.kesinti !== formattedD || row.komisyon !== formattedE) {
-          changed = true;
-          return {
-            ...row,
-            colB: formattedB,
-            kesinti: formattedD,
-            komisyon: formattedE
-          };
         }
         return row;
       });
       return changed ? nextLeft : prevLeft;
     });
-  }, [rightRows, leftRows]);
+  }, [rightRows]);
 
   // Save report data to Supabase
   const saveReport = async (updatedLeft: LeftRow[], updatedRight: RightRow[]) => {
     const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
     setSaving(true);
     try {
-      // Clean empty rows before saving
-      const cleanLeft = updatedLeft.filter(r => r.bank || r.colB || r.banka_gecen || r.kesinti || r.komisyon);
+      // Clean empty rows before saving, excluding footer TOPLAM
+      const cleanLeft = updatedLeft.filter(r => r.bank && !r.bank.trim().toLocaleUpperCase('tr-TR').startsWith('TOPLAM') && (r.colB || r.banka_gecen || r.kesinti || r.komisyon));
       const cleanRight = updatedRight.filter(r => r.name || r.amount);
 
       const { error } = await supabase
@@ -545,7 +574,6 @@ export function PosPage() {
           { onConflict: 'organization_id,date' }
         );
 
-
       if (error) throw error;
     } catch (error: any) {
       console.error('POS verileri kaydedilirken hata oluştu:', error);
@@ -554,6 +582,7 @@ export function PosPage() {
       setSaving(false);
     }
   };
+
 
   // Excel style arrow & Enter keyboard navigation
   const handleKeyDown = (
@@ -740,10 +769,24 @@ export function PosPage() {
   const handleLeftCellChange = (rowIndex: number, field: keyof LeftRow, val: string) => {
     pushToHistory();
     const updated = [...leftRows];
-    updated[rowIndex] = {
+    const currentRow = {
       ...updated[rowIndex],
       [field]: val
     };
+
+    if (field === 'colB' || field === 'banka_gecen') {
+      const targetB = field === 'colB' ? val : currentRow.colB;
+      const targetC = field === 'banka_gecen' ? val : currentRow.banka_gecen;
+      const numB = parseFormattedNumber(targetB);
+      const numC = parseFormattedNumber(targetC);
+      if (numB > 0 && targetC.trim() !== '') {
+        const numKes = numB - numC;
+        currentRow.kesinti = formatTRNum(numKes);
+        currentRow.komisyon = formatTRNum(Math.abs((numKes / numB) * 100));
+      }
+    }
+
+    updated[rowIndex] = currentRow;
     setLeftRows(updated);
     void saveReport(updated, rightRows);
   };
@@ -1117,13 +1160,21 @@ export function PosPage() {
                       />
                     </td>
 
-                    {/* Column B: Manual Spacing / Custom column */}
+                    {/* Column B: TUTAR / ŞUBELER */}
                     <td className="border border-gray-300 p-0 bg-yellow-50/5">
                       <input
                         type="text"
-                        className="w-full text-center py-1.5 px-2 border-none focus:ring-0 focus:outline-none bg-gray-100/50 font-bold text-gray-700 text-[13px] cursor-not-allowed"
+                        className="w-full text-center py-1.5 px-2 border-none focus:ring-0 focus:outline-none bg-transparent font-bold text-gray-800 text-[13px]"
                         value={row.colB}
-                        readOnly
+                        onChange={(e) => handleLeftCellChange(index, 'colB', e.target.value)}
+                        placeholder="0,00"
+                        data-table="left"
+                        data-col="colB"
+                        data-row={index}
+                        onKeyDown={(e) => handleKeyDown(e, 'left', 'colB', index)}
+                        onFocus={handleInputFocus}
+                        onPaste={(e) => handlePasteColumn(e, 'left', 'colB', index)}
+                        onBlur={(e) => handleAmountBlur('left', index, 'colB', e.target.value)}
                         draggable={false}
                         onDragStart={(e) => e.preventDefault()}
                       />

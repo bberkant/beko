@@ -561,6 +561,74 @@ async function processGirisCikisWorkbook(wb, filePath) {
         source: 'office_pc_sync',
         updated_at: new Date().toISOString()
       }, { onConflict: 'report_date' });
+
+    // POS Tablosu Senkronizasyonu (M51..Q65 POSLAR dökümü)
+    try {
+      let headerRow = -1;
+      for (let r = 45; r <= 70; r++) {
+        const cellM = ws['M' + r];
+        const valM = cellM && cellM.v ? String(cellM.v).trim().toUpperCase('tr-TR') : '';
+        if (valM.includes('POS')) {
+          headerRow = r;
+          break;
+        }
+      }
+
+      if (headerRow !== -1) {
+        const leftTable = [];
+        for (let r = headerRow + 1; r <= headerRow + 15; r++) {
+          const cellM = ws['M' + r];
+          if (!cellM || cellM.v === undefined || cellM.v === '') continue;
+          const rawBank = String(cellM.v).trim();
+          if (rawBank.toUpperCase().startsWith('TOPLAM')) break;
+
+          const tutar = cleanNum(ws['N' + r] ? ws['N' + r].v : 0);
+          const gecen = cleanNum(ws['O' + r] ? ws['O' + r].v : 0);
+          let kom = cleanNum(ws['P' + r] ? ws['P' + r].v : 0);
+          if (kom > 0 && kom < 1) kom = kom * 100;
+          const kes = cleanNum(ws['Q' + r] ? ws['Q' + r].v : 0);
+
+          let bankName = rawBank.toLocaleUpperCase('tr-TR');
+          if (bankName === 'DENİZ' || bankName === 'DENIZ') bankName = 'DENİZBANK';
+          if (bankName === 'Ö.ZİRAAT' || bankName === 'Ö.ZIRAAT' || bankName === 'ÖZİRAAT') bankName = 'Ö. ZİRAAT';
+          if (bankName === 'M.ZİRAAT' || bankName === 'M.ZIRAAT' || bankName === 'MARİFZİRAAT') bankName = 'MARİF ZİRAAT';
+
+          leftTable.push({
+            bank: bankName,
+            colB: formatMoney(tutar),
+            banka_gecen: formatMoney(gecen),
+            komisyon: kom !== 0 ? formatMoney(kom) : '',
+            kesinti: kes !== 0 ? formatMoney(kes) : ''
+          });
+        }
+
+        if (leftTable.length > 0) {
+          const orgId = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+          const { data: existingPos } = await supabase
+            .from('pos_reports')
+            .select('right_table')
+            .eq('organization_id', orgId)
+            .eq('date', reportDate)
+            .maybeSingle();
+
+          const existingRight = existingPos?.right_table || [];
+
+          await supabase
+            .from('pos_reports')
+            .upsert({
+              organization_id: orgId,
+              date: reportDate,
+              left_table: leftTable,
+              right_table: existingRight,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'organization_id,date' });
+          log(`[POS Senkronizasyonu] ${reportDate} tarihi için ${leftTable.length} banka POS verisi güncellendi.`);
+        }
+      }
+    } catch (posErr) {
+      log(`[POS Parse Hatası] ${reportDate}: ${posErr.message}`);
+    }
+
     count++;
   }
 

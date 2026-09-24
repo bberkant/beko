@@ -590,8 +590,9 @@ const processDayData = async (reportDate, worksheet, isMonthly = false) => {
           r.bank.trim().toLocaleUpperCase('tr-TR').replace(/\s+/g, '') === row.bank.trim().toLocaleUpperCase('tr-TR').replace(/\s+/g, '')
         );
         const existingVal = existingRow ? String(existingRow.banka_gecen || '').trim() : '';
-        // If the database has an existing value, ALWAYS keep it. Never clear or overwrite it.
-        const finalBankaGecen = (existingVal !== '' && existingVal !== '0,00' && existingVal !== '0') ? existingVal : (row.banka_gecen || '');
+        // Learn kuralı kaldırıldı: Excel verisi ofis bilgisayarında elle girildiği için birincil kaynaktır.
+        const hasExcelGecen = row.banka_gecen && row.banka_gecen.trim() !== '';
+        const finalBankaGecen = hasExcelGecen ? row.banka_gecen : existingVal;
         return {
           ...row,
           banka_gecen: finalBankaGecen
