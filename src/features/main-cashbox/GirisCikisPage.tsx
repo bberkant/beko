@@ -803,9 +803,15 @@ export function GirisCikisPage() {
     }).format(num);
   };
 
-  // Calculated totals: DEVİR BAKİYE dahil tüm satırlar toplanır
+  // Calculated totals: Giriş Toplamı (Excel formülüne birebir uygun: DEVİR BAKİYE hariç satırlar toplanır)
   const calcGirisTotal = useMemo(() => {
-    return girisList.reduce((sum, item) => sum + parseNum(item.amount), 0);
+    return girisList.reduce((sum, item, idx) => {
+      const desc = (item.description || '').trim().toLocaleUpperCase('tr-TR');
+      if (idx === 0 || desc.includes('DEVİR') || desc.includes('DEVIR')) {
+        return sum;
+      }
+      return sum + parseNum(item.amount);
+    }, 0);
   }, [girisList]);
 
   const calcCikisTotal = useMemo(() => {
@@ -823,18 +829,12 @@ export function GirisCikisPage() {
         return sum + parseNum(item.gunSonu);
       }
       if (item.name || item.devir || item.movement || item.pos || item.duzeltme) {
-        const upper = String(item.name || '').trim().toLocaleUpperCase('tr-TR');
-        const isKasa = upper === 'KASA';
-        const devirNum = parseNum(item.devir);
-        const moveNum = parseNum(item.movement);
-        const posNum = parseNum(item.pos);
-        const duzNum = parseNum(item.duzeltme);
-        const computed = isKasa ? (moveNum + posNum + duzNum) : (devirNum + moveNum + posNum + duzNum);
-        return sum + computed;
+        const computed = calcRowGunSonu(item.name, item.devir, item.movement, item.pos, item.duzeltme, girisList, cikisList);
+        return sum + parseNum(computed);
       }
       return sum;
     }, 0);
-  }, [anaKasaList]);
+  }, [anaKasaList, girisList, cikisList]);
 
   // Kullanıcı hücrelerde düzenleme yapmadıysa doğrudan Excel'den çekilen orijinal toplamlar gösterilir.
   // Kullanıcı bir hücreyi değiştirdiği anda (isUserDirtyRef.current === true) dinamik hesaplama devreye girer.

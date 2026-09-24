@@ -351,19 +351,63 @@ async function processGirisCikisWorkbook(wb, filePath) {
       excelNetKalan = cleanNum(ws['C22'].v);
     }
 
-    // 2. DIRECT EXCEL R41, R42, R43 EXTRACTION
-    // In the user's Excel sheet, R41 = TOPLAM KASA BAKİYESİ, R42 = GİRİŞ-ÇIKIŞ KALANI, R43 = KASA
-    let summaryRowMin = 41;
+    // 2. DYNAMIC EXCEL SUMMARY ROWS EXTRACTION (TOPLAM KASA BAKİYESİ, GİRİŞ-ÇIKIŞ KALANI, KASA)
+    let summaryRowMin = 999;
     let excelAnaKasaTotal = null;
     let excelKasaFarki = 0;
 
-    if (ws['R41'] && ws['R41'].v !== undefined && ws['R41'].v !== '' &&
-        ws['R42'] && ws['R42'].v !== undefined && ws['R42'].v !== '') {
-      excelAnaKasaTotal = cleanNum(ws['R41'].v);
-      excelNetKalan = cleanNum(ws['R42'].v);
-      excelKasaFarki = (ws['R43'] && ws['R43'].v !== undefined && ws['R43'].v !== '') ? cleanNum(ws['R43'].v) : 0;
-      summaryRowMin = 41;
-    } else {
+    // A) Formula in Column R: SUM(R4:R... veya TOPLAM(R4:R...
+    for (let r = 20; r <= 65; r++) {
+      const cell = ws['R' + r];
+      if (cell && cell.f) {
+        const f = cell.f.toUpperCase().replace(/\s+/g, '');
+        if (f.startsWith('SUM(R4:R') || f.startsWith('TOPLAM(R4:R')) {
+          summaryRowMin = r;
+          excelAnaKasaTotal = cleanNum(cell.v);
+          const nextCell = ws['R' + (r + 1)];
+          if (nextCell && nextCell.v !== undefined && nextCell.v !== '') {
+            excelNetKalan = cleanNum(nextCell.v);
+          }
+          const farkCell = ws['R' + (r + 2)];
+          if (farkCell && farkCell.v !== undefined && farkCell.v !== '') {
+            excelKasaFarki = cleanNum(farkCell.v);
+          }
+          break;
+        }
+      }
+    }
+
+    // B) Text Label Match in Column M, L, K, N
+    if (excelAnaKasaTotal === null) {
+      for (let r = 20; r <= 65; r++) {
+        for (const col of ['M', 'L', 'K', 'N']) {
+          const cell = ws[col + r];
+          if (cell && cell.v) {
+            const text = String(cell.v).trim().toUpperCase();
+            if (text.includes('TOPLAM KASA') || text.includes('KASA BAKİYE') || text.includes('KASA BAKIYE')) {
+              summaryRowMin = r;
+              const rCell = ws['R' + r];
+              if (rCell && rCell.v !== undefined && rCell.v !== '') {
+                excelAnaKasaTotal = cleanNum(rCell.v);
+              }
+              const nextCell = ws['R' + (r + 1)];
+              if (nextCell && nextCell.v !== undefined && nextCell.v !== '') {
+                excelNetKalan = cleanNum(nextCell.v);
+              }
+              const farkCell = ws['R' + (r + 2)];
+              if (farkCell && farkCell.v !== undefined && farkCell.v !== '') {
+                excelKasaFarki = cleanNum(farkCell.v);
+              }
+              break;
+            }
+          }
+        }
+        if (excelAnaKasaTotal !== null) break;
+      }
+    }
+
+    // C) Match Net Kalan in Column R (C22 formula or value match)
+    if (excelAnaKasaTotal === null) {
       const rCells = [];
       for (let r = 20; r <= 65; r++) {
         const cell = ws['R' + r];
@@ -395,12 +439,11 @@ async function processGirisCikisWorkbook(wb, filePath) {
         summaryRowMin = last3[0].r;
         if (excelNetKalan === null) excelNetKalan = last3[1].v;
         excelKasaFarki = last3[2].v;
-      } else if (rCells.length === 2) {
-        const last2 = rCells.slice(-2);
-        excelAnaKasaTotal = last2[0].v;
-        summaryRowMin = last2[0].r;
-        excelKasaFarki = last2[1].v;
       }
+    }
+
+    if (summaryRowMin === 999) {
+      summaryRowMin = 41;
     }
 
     // 3. PARSE ANA KASA ACCOUNT ROWS (STRICTLY ABOVE summaryRowMin)
@@ -414,7 +457,7 @@ async function processGirisCikisWorkbook(wb, filePath) {
       gunSonu: ''
     }));
 
-    for (let r = 4; r < summaryRowMin && r <= 44; r++) {
+    for (let r = 4; r < summaryRowMin; r++) {
       const idx = r - 4;
       if (idx >= 42) break;
 
