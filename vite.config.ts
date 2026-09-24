@@ -137,7 +137,7 @@ const marifPdfPlugin = (): Plugin => ({
 });
 
 export default defineConfig({
-  base: './',
+  base: '/',
   plugins: [react(), marifPdfPlugin()],
   server: {
     watch: {
