@@ -17,6 +17,7 @@ const SUPABASE_KEY = "sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const DEFAULT_BASE_DIRS = [
+  String.raw`C:\Users\berka\Downloads`,
   String.raw`C:\Users\berka\.gemini\antigravity\scratch\beko-guncel\dosyalar`,
   String.raw`\\Desktop-qjg3lnb\f\ANA KASA GÜNLÜK`,
   String.raw`\\Desktop-qjg3lnb\f\GİRİŞ-ÇIKIŞ GÜNLÜK`,
@@ -540,8 +541,12 @@ async function processGirisCikisWorkbook(wb, filePath) {
         computedAnaKasaTotal += cleanNum(item.gunSonu);
       }
     }
-    const actualAnaKasaTotal = excelAnaKasaTotal !== null ? excelAnaKasaTotal : computedAnaKasaTotal;
-    const actualBakiyeFarki = excelKasaFarki !== null ? excelKasaFarki : (actualAnaKasaTotal - actualNetKalan);
+    let actualAnaKasaTotal = excelAnaKasaTotal !== null ? excelAnaKasaTotal : computedAnaKasaTotal;
+    let actualBakiyeFarki = excelKasaFarki !== null ? excelKasaFarki : (actualAnaKasaTotal - actualNetKalan);
+    if (Math.abs(actualAnaKasaTotal - actualNetKalan) < 0.05 || Math.abs(actualBakiyeFarki) < 0.05) {
+      actualBakiyeFarki = 0;
+      actualAnaKasaTotal = actualNetKalan;
+    }
 
     await supabase
       .from('cashbox_giris_cikis_reports')
@@ -1072,7 +1077,7 @@ async function processFile(filePath) {
     else if (wb.SheetNames.some(s => s.toUpperCase().includes('ANA KASA') || s.toUpperCase().includes('ARKA SAYFA') || s.toUpperCase().includes('RAPOR ARKA'))) {
       await processAnaKasaWorkbook(wb, filePath);
     }
-    else if (wb.SheetNames.some(s => s.toUpperCase().includes('HESAP') || s.toUpperCase().includes('BANKA'))) {
+    else if (wb.SheetNames.some(s => s.toUpperCase().includes('HESAP') || s.toUpperCase().includes('BANKA')) || (wb.Sheets['Sayfa1'] && String(wb.Sheets['Sayfa1']['A1']?.v || '').toUpperCase().includes('HALKBANK'))) {
       await processGunlukHesapWorkbook(wb, filePath);
     }
     else {

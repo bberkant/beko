@@ -854,13 +854,20 @@ export function GirisCikisPage() {
     ? serverTotals.netKalan
     : (girisTotal - cikisTotal);
 
-  const anaKasaTotal = (!isUserDirtyRef.current && serverTotals.anaKasaTotal !== null)
+  let anaKasaTotal = (!isUserDirtyRef.current && serverTotals.anaKasaTotal !== null)
     ? serverTotals.anaKasaTotal
     : calcAnaKasaTotal;
 
-  const bakiyeFarki = (!isUserDirtyRef.current && serverTotals.bakiyeFarki !== null)
+  let bakiyeFarki = (!isUserDirtyRef.current && serverTotals.bakiyeFarki !== null)
     ? serverTotals.bakiyeFarki
     : (anaKasaTotal - netKalan);
+
+  if (Math.abs(calcAnaKasaTotal - netKalan) < 0.05 || Math.abs(bakiyeFarki) < 0.05) {
+    bakiyeFarki = 0;
+    if (Math.abs(anaKasaTotal - netKalan) > 0.05) {
+      anaKasaTotal = netKalan;
+    }
+  }
 
   // Auto Save to localStorage and Supabase (Only when user explicitly edits)
 

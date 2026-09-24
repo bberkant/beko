@@ -18,6 +18,7 @@ const SUPABASE_KEY = "sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const DEFAULT_BASE_DIRS = [
+  String.raw`C:\Users\berka\Downloads`,
   String.raw`C:\Users\berka\.gemini\antigravity\scratch\beko-guncel\dosyalar`,
   String.raw`\\Desktop-qjg3lnb\f\ANA KASA GÜNLÜK`,
   String.raw`\\Desktop-qjg3lnb\f\GİRİŞ-ÇIKIŞ GÜNLÜK`,
@@ -541,8 +542,12 @@ async function processGirisCikisWorkbook(wb, filePath) {
         computedAnaKasaTotal += cleanNum(item.gunSonu);
       }
     }
-    const actualAnaKasaTotal = excelAnaKasaTotal !== null ? excelAnaKasaTotal : computedAnaKasaTotal;
-    const actualBakiyeFarki = excelKasaFarki !== null ? excelKasaFarki : (actualAnaKasaTotal - actualNetKalan);
+    let actualAnaKasaTotal = excelAnaKasaTotal !== null ? excelAnaKasaTotal : computedAnaKasaTotal;
+    let actualBakiyeFarki = excelKasaFarki !== null ? excelKasaFarki : (actualAnaKasaTotal - actualNetKalan);
+    if (Math.abs(actualAnaKasaTotal - actualNetKalan) < 0.05 || Math.abs(actualBakiyeFarki) < 0.05) {
+      actualBakiyeFarki = 0;
+      actualAnaKasaTotal = actualNetKalan;
+    }
 
     const { error } = await supabase
       .from('cashbox_giris_cikis_reports')
@@ -937,12 +942,14 @@ async function processFile(filePath) {
     const buf = fs.readFileSync(filePath);
     const wb = XLSX.read(buf, { type: 'buffer' });
 
-    // 1. ÖNCELİK: Dosya adında ANA KASA varsa
-    if (upperFileName.includes('ANA KASA')) {
+    const upperPath = filePath.toUpperCase();
+
+    // 1. ÖNCELİK: Dosya adında/yolunda ANA KASA varsa veya ilk sayfa ANA KASA RAPORU içeriyorsa
+    if (upperPath.includes('ANA KASA') || (wb.Sheets[wb.SheetNames[0]] && String(wb.Sheets[wb.SheetNames[0]]['B1']?.v || '').toUpperCase().includes('ANA KASA'))) {
       await processAnaKasaWorkbook(wb, filePath);
     } 
-    // 2. ÖNCELİK: Dosya adında GÜNLÜK HESAP varsa
-    else if (upperFileName.includes('GÜNLÜK HESAP') || upperFileName.includes('GUNLUK HESAP')) {
+    // 2. ÖNCELİK: Dosya adında/yolunda GÜNLÜK HESAP varsa veya Sayfa1 HALKBANK içeriyorsa
+    else if (upperPath.includes('GÜNLÜK HESAP') || upperPath.includes('GUNLUK HESAP') || (wb.Sheets['Sayfa1'] && String(wb.Sheets['Sayfa1']['A1']?.v || '').toUpperCase().includes('HALKBANK'))) {
       await processGunlukHesapWorkbook(wb, filePath);
     } 
     // 3. ÖNCELİK: GİRİŞ ÇIKIŞ
