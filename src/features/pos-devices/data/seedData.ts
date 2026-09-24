@@ -1,12 +1,66 @@
 import type { PosDevice } from '../types';
 
+export function normalizeBankName(raw?: string): string {
+  if (!raw) return 'ZİRAAT';
+  const clean = String(raw).trim();
+  const upper = clean.toLocaleUpperCase('tr-TR');
+
+  if (upper.includes('Ö. ZİRAAT') || upper.includes('Ö.ZİRAAT') || upper.includes('OZİRAAT') || upper.includes('O. ZIRAAT') || upper.includes('Ö. ZIRAAT')) {
+    return 'Ö. ZİRAAT';
+  }
+  if (upper.includes('MARİF') || upper.includes('MARIF')) {
+    return 'MARİF ZİRAAT';
+  }
+  if (upper.includes('ZİRAAT') || upper.includes('ZIRAAT')) {
+    return 'ZİRAAT';
+  }
+  if (upper.includes('GARANTİ') || upper.includes('GARANTI') || upper.includes('BBVA')) {
+    return 'GARANTİ';
+  }
+  if (upper.includes('DENİZ') || upper.includes('DENIZ')) {
+    return 'DENİZ';
+  }
+  if (upper.includes('KUVEYT') || upper.includes('KUVEYTTURK')) {
+    return 'KUVEYT';
+  }
+  if (upper.includes('ALBARAKA')) {
+    return 'ALBARAKA';
+  }
+  if (upper.includes('AKBANK')) {
+    return 'AKBANK';
+  }
+  if (upper.includes('HALK')) {
+    return 'HALK';
+  }
+  if (upper.includes('VAKIF') || upper.includes('VAKIFBANK')) {
+    return 'VAKIF';
+  }
+  if (upper.includes('YAPI') || upper.includes('KREDİ') || upper.includes('KREDI')) {
+    return 'YAPI';
+  }
+  if (upper.includes('İŞ') || upper.includes('ISBANK') || upper.includes('İŞBANK')) {
+    return 'İŞBANK';
+  }
+  if (upper.includes('ŞEKER') || upper.includes('SEKER')) {
+    return 'ŞEKER';
+  }
+  if (upper.includes('TEB')) {
+    return 'TEB';
+  }
+  if (upper.includes('QNB') || upper.includes('FİNANS') || upper.includes('FINANS')) {
+    return 'QNB FİNANS';
+  }
+
+  return upper;
+}
+
 export const initialSeedPosDevices: PosDevice[] = [
   {
     id: 'pos-101',
     merchantNo: '104829104',
     terminalNo: '84920192',
     location: 'MERKEZ',
-    bank: 'Ziraat Bankası',
+    bank: 'ZİRAAT',
     deviceModel: 'Yazarkasa POS (Hugin)',
     serialNo: 'ZG9948201',
     status: 'aktif',
@@ -19,7 +73,7 @@ export const initialSeedPosDevices: PosDevice[] = [
     merchantNo: '492019481',
     terminalNo: '39104821',
     location: 'MERKEZ',
-    bank: 'Garanti BBVA',
+    bank: 'GARANTİ',
     deviceModel: 'Android Akıllı POS (Beko)',
     serialNo: 'GB8839201',
     status: 'aktif',
@@ -32,7 +86,7 @@ export const initialSeedPosDevices: PosDevice[] = [
     merchantNo: '301948271',
     terminalNo: '77201948',
     location: 'ATAKUM',
-    bank: 'Denizbank',
+    bank: 'DENİZ',
     deviceModel: 'Sabit Masaüstü POS (Ingenico)',
     serialNo: 'DZ1192837',
     status: 'aktif',
@@ -45,7 +99,7 @@ export const initialSeedPosDevices: PosDevice[] = [
     merchantNo: '582019384',
     terminalNo: '19482019',
     location: 'MERKEZ',
-    bank: 'Kuveyt Türk',
+    bank: 'KUVEYT',
     deviceModel: 'Mobil Kablosuz POS (Pax)',
     serialNo: 'KT5592817',
     status: 'aktif',
@@ -58,7 +112,7 @@ export const initialSeedPosDevices: PosDevice[] = [
     merchantNo: '673920194',
     terminalNo: '55920184',
     location: 'ATAKUM',
-    bank: 'Albaraka Türk',
+    bank: 'ALBARAKA',
     deviceModel: 'Android Akıllı POS',
     serialNo: 'AB7749201',
     status: 'aktif',
@@ -71,7 +125,7 @@ export const initialSeedPosDevices: PosDevice[] = [
     merchantNo: '104829105',
     terminalNo: '84920193',
     location: 'DEPO',
-    bank: 'Ö. Ziraat',
+    bank: 'Ö. ZİRAAT',
     deviceModel: 'Masaüstü Sabit POS',
     serialNo: 'OZ3392810',
     status: 'aktif',
@@ -84,7 +138,7 @@ export const initialSeedPosDevices: PosDevice[] = [
     merchantNo: '928301948',
     terminalNo: '66392014',
     location: 'MERKEZ',
-    bank: 'Akbank',
+    bank: 'AKBANK',
     deviceModel: 'Yazarkasa POS (Profilo)',
     serialNo: 'AK4492819',
     status: 'aktif',
@@ -97,7 +151,7 @@ export const initialSeedPosDevices: PosDevice[] = [
     merchantNo: '401928374',
     terminalNo: '88291047',
     location: 'MERKEZ',
-    bank: 'Halkbank',
+    bank: 'HALK',
     deviceModel: 'Mobil POS',
     serialNo: 'HB2281938',
     status: 'aktif',
@@ -110,7 +164,7 @@ export const initialSeedPosDevices: PosDevice[] = [
     merchantNo: '512938471',
     terminalNo: '99482015',
     location: 'ATAKUM',
-    bank: 'Vakıfbank',
+    bank: 'VAKIF',
     deviceModel: 'Yazarkasa POS',
     serialNo: 'VB6649281',
     status: 'aktif',
@@ -121,19 +175,21 @@ export const initialSeedPosDevices: PosDevice[] = [
 ];
 
 export const POPULAR_BANKS = [
-  'Ziraat Bankası',
-  'Garanti BBVA',
-  'Denizbank',
-  'Kuveyt Türk',
-  'Albaraka Türk',
-  'Ö. Ziraat',
-  'Akbank',
-  'Halkbank',
-  'Vakıfbank',
-  'Yapı Kredi',
-  'İş Bankası',
-  'QNB Finansbank',
-  'TEB'
+  'ZİRAAT',
+  'GARANTİ',
+  'DENİZ',
+  'KUVEYT',
+  'ALBARAKA',
+  'Ö. ZİRAAT',
+  'AKBANK',
+  'HALK',
+  'VAKIF',
+  'YAPI',
+  'İŞBANK',
+  'TEB',
+  'ŞEKER',
+  'QNB FİNANS',
+  'MARİF ZİRAAT'
 ];
 
 export const POPULAR_LOCATIONS = [

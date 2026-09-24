@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import { useToast } from '../../../lib/toast';
 import type { PosDevice, PosDeviceFormInput } from '../types';
-import { initialSeedPosDevices } from './seedData';
+import { initialSeedPosDevices, normalizeBankName } from './seedData';
 
 interface PosDevicesContextType {
   devices: PosDevice[];
@@ -17,7 +17,7 @@ interface PosDevicesContextType {
 
 const PosDevicesContext = createContext<PosDevicesContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY = 'beko_pos_devices_cache_v2';
+const LOCAL_STORAGE_KEY = 'beko_pos_devices_cache_v3';
 const DB_CONFIG_DATE = '1970-01-01'; // POS cihazları kayıt anahtarı
 
 export const normalizeDevice = (raw: any): PosDevice | null => {
@@ -28,8 +28,8 @@ export const normalizeDevice = (raw: any): PosDevice | null => {
     id: String(raw.id || 'pos-' + Math.random().toString(36).slice(2, 9)),
     merchantNo: String(raw.merchantNo || ''),
     terminalNo: String(raw.terminalNo || ''),
-    location: String(raw.location || 'MERKEZ').toUpperCase(),
-    bank: String(raw.bank || 'Ziraat Bankası'),
+    location: String(raw.location || 'MERKEZ').toLocaleUpperCase('tr-TR'),
+    bank: normalizeBankName(raw.bank),
     deviceModel: raw.deviceModel ? String(raw.deviceModel) : undefined,
     serialNo: raw.serialNo ? String(raw.serialNo) : undefined,
     status: raw.status === 'pasif' ? 'pasif' : raw.status === 'arizali' ? 'arizali' : 'aktif',
@@ -145,6 +145,8 @@ export const PosDevicesProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const newDevice: PosDevice = {
       id: 'pos-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6),
       ...input,
+      location: (input.location || 'MERKEZ').toLocaleUpperCase('tr-TR'),
+      bank: normalizeBankName(input.bank),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -164,6 +166,8 @@ export const PosDevicesProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return {
           ...d,
           ...input,
+          location: input.location ? input.location.toLocaleUpperCase('tr-TR') : d.location,
+          bank: input.bank ? normalizeBankName(input.bank) : d.bank,
           updatedAt: new Date().toISOString()
         };
       }

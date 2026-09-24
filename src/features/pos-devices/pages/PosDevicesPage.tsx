@@ -20,7 +20,7 @@ import { PageHeader } from '../../../components/ui/PageHeader';
 import { useToast } from '../../../lib/toast';
 import { usePosDevices } from '../data/store';
 import { PosDeviceModal } from '../components/PosDeviceModal';
-import { POPULAR_BANKS, POPULAR_LOCATIONS } from '../data/seedData';
+import { POPULAR_BANKS, POPULAR_LOCATIONS, normalizeBankName } from '../data/seedData';
 import type { PosDevice, PosDeviceFormInput } from '../types';
 
 // Clean, corporate bank badge styling (sade ve şık)
@@ -130,14 +130,14 @@ function PosDevicesPageContent() {
   const availableBanks = useMemo(() => {
     const set = new Set<string>();
     POPULAR_BANKS.forEach(b => set.add(b));
-    devices.forEach(d => { if (d?.bank) set.add(String(d.bank)); });
+    devices.forEach(d => { if (d?.bank) set.add(normalizeBankName(d.bank)); });
     return Array.from(set);
   }, [devices]);
 
   const availableLocations = useMemo(() => {
     const set = new Set<string>();
     POPULAR_LOCATIONS.forEach(l => set.add(l));
-    devices.forEach(d => { if (d?.location) set.add(String(d.location).toUpperCase()); });
+    devices.forEach(d => { if (d?.location) set.add(String(d.location).toLocaleUpperCase('tr-TR')); });
     return Array.from(set);
   }, [devices]);
 
@@ -148,7 +148,7 @@ function PosDevicesPageContent() {
       const merchant = String(d.merchantNo || '');
       const terminal = String(d.terminalNo || '');
       const loc = String(d.location || '');
-      const bank = String(d.bank || '');
+      const bank = normalizeBankName(d.bank);
 
       if (search) {
         const q = search.toLocaleLowerCase('tr-TR');
@@ -163,7 +163,7 @@ function PosDevicesPageContent() {
         if (!match) return false;
       }
       if (selectedBank !== 'all' && bank !== selectedBank) return false;
-      if (selectedLocation !== 'all' && loc.toUpperCase() !== selectedLocation.toUpperCase()) return false;
+      if (selectedLocation !== 'all' && loc.toLocaleUpperCase('tr-TR') !== selectedLocation.toLocaleUpperCase('tr-TR')) return false;
       if (selectedStatus !== 'all' && d.status !== selectedStatus) return false;
       return true;
     });
@@ -176,16 +176,16 @@ function PosDevicesPageContent() {
     
     const banks = new Set(
       devices
-        .map(d => String(d?.bank || '').trim().toUpperCase())
+        .map(d => normalizeBankName(d?.bank))
         .filter(Boolean)
     );
     const locations = new Set(
       devices
-        .map(d => String(d?.location || '').trim().toUpperCase())
+        .map(d => String(d?.location || '').trim().toLocaleUpperCase('tr-TR'))
         .filter(Boolean)
     );
 
-    const merkezCount = devices.filter(d => String(d?.location || '').toUpperCase().includes('MERKEZ')).length;
+    const merkezCount = devices.filter(d => String(d?.location || '').toLocaleUpperCase('tr-TR').includes('MERKEZ')).length;
     const subeCount = totalCount - merkezCount;
 
     return {
@@ -206,7 +206,7 @@ function PosDevicesPageContent() {
         'İşyeri No': d.merchantNo,
         'Pos No / Terminal No': d.terminalNo,
         'Nerede': d.location,
-        'Banka': d.bank,
+        'Banka': normalizeBankName(d.bank),
         'Cihaz Modeli': d.deviceModel || '—',
         'Seri No': d.serialNo || '—',
         'Durum': d.status === 'aktif' ? 'Aktif' : d.status === 'pasif' ? 'Pasif' : 'Arızalı',
@@ -269,7 +269,7 @@ function PosDevicesPageContent() {
                   <td class="text-center font-mono font-bold">${d.merchantNo}</td>
                   <td class="text-center font-mono font-bold">${d.terminalNo}</td>
                   <td><strong>${d.location}</strong></td>
-                  <td>${d.bank}</td>
+                  <td>${normalizeBankName(d.bank)}</td>
                   <td>${d.deviceModel || '—'}</td>
                   <td class="font-mono">${d.serialNo || '—'}</td>
                   <td class="text-center">${d.status === 'aktif' ? 'Aktif' : d.status === 'pasif' ? 'Pasif' : 'Arızalı'}</td>
@@ -579,24 +579,24 @@ function PosDevicesPageContent() {
                             {d.location || 'MERKEZ'}
                           </span>
                         }
-                        onSave={(val) => updateDevice(d.id, { location: val.trim().toUpperCase() })}
+                        onSave={(val) => updateDevice(d.id, { location: val.trim().toLocaleUpperCase('tr-TR') })}
                         placeholder="Konum..."
                       />
 
                       {/* 4. Banka */}
                       <InlineTextCell
-                        value={d.bank || ''}
+                        value={normalizeBankName(d.bank)}
                         displayValue={
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-md bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-500 shrink-0">
                               <Building2 size={13} />
                             </div>
-                            <span className="text-sm font-semibold text-slate-900 tracking-tight">
-                              {d.bank || 'Banka'}
+                            <span className="text-sm font-semibold text-slate-900 tracking-tight uppercase">
+                              {normalizeBankName(d.bank)}
                             </span>
                           </div>
                         }
-                        onSave={(val) => updateDevice(d.id, { bank: val.trim() })}
+                        onSave={(val) => updateDevice(d.id, { bank: normalizeBankName(val).toLocaleUpperCase('tr-TR') })}
                         placeholder="Banka..."
                       />
 

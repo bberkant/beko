@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../../../components/ui/Modal';
-import { POPULAR_BANKS, POPULAR_LOCATIONS } from '../data/seedData';
+import { POPULAR_BANKS, POPULAR_LOCATIONS, normalizeBankName } from '../data/seedData';
 import type { PosDevice, PosDeviceFormInput, PosDeviceStatus } from '../types';
 
 interface PosDeviceModalProps {
@@ -14,7 +14,7 @@ export function PosDeviceModal({ open, onClose, onSubmit, device }: PosDeviceMod
   const [merchantNo, setMerchantNo] = useState('');
   const [terminalNo, setTerminalNo] = useState('');
   const [location, setLocation] = useState('MERKEZ');
-  const [bank, setBank] = useState('Ziraat Bankası');
+  const [bank, setBank] = useState('ZİRAAT');
   const [customBank, setCustomBank] = useState('');
   const [isOtherBank, setIsOtherBank] = useState(false);
   const [customLocation, setCustomLocation] = useState('');
@@ -31,25 +31,27 @@ export function PosDeviceModal({ open, onClose, onSubmit, device }: PosDeviceMod
       setTerminalNo(device.terminalNo || '');
 
       // Check if location in predefined
-      if (POPULAR_LOCATIONS.includes(device.location)) {
-        setLocation(device.location);
+      const normLoc = (device.location || 'MERKEZ').toLocaleUpperCase('tr-TR');
+      if (POPULAR_LOCATIONS.includes(normLoc)) {
+        setLocation(normLoc);
         setIsOtherLocation(false);
         setCustomLocation('');
       } else {
         setLocation('DIGER');
         setIsOtherLocation(true);
-        setCustomLocation(device.location || '');
+        setCustomLocation(normLoc);
       }
 
       // Check if bank in predefined
-      if (POPULAR_BANKS.includes(device.bank)) {
-        setBank(device.bank);
+      const normBank = normalizeBankName(device.bank);
+      if (POPULAR_BANKS.includes(normBank)) {
+        setBank(normBank);
         setIsOtherBank(false);
         setCustomBank('');
       } else {
         setBank('DIGER');
         setIsOtherBank(true);
-        setCustomBank(device.bank || '');
+        setCustomBank(normBank);
       }
 
       setDeviceModel(device.deviceModel || '');
@@ -62,7 +64,7 @@ export function PosDeviceModal({ open, onClose, onSubmit, device }: PosDeviceMod
       setLocation('MERKEZ');
       setIsOtherLocation(false);
       setCustomLocation('');
-      setBank('Ziraat Bankası');
+      setBank('ZİRAAT');
       setIsOtherBank(false);
       setCustomBank('');
       setDeviceModel('');
@@ -76,15 +78,16 @@ export function PosDeviceModal({ open, onClose, onSubmit, device }: PosDeviceMod
     e.preventDefault();
     if (!merchantNo.trim() || !terminalNo.trim()) return;
 
-    const finalLocation = (isOtherLocation ? customLocation.trim() : location) || 'MERKEZ';
-    const finalBank = (isOtherBank ? customBank.trim() : bank) || 'Ziraat Bankası';
+    const finalLocation = ((isOtherLocation ? customLocation.trim() : location) || 'MERKEZ').toLocaleUpperCase('tr-TR');
+    const chosenBank = (isOtherBank ? customBank.trim() : bank) || 'ZİRAAT';
+    const finalBank = normalizeBankName(chosenBank).toLocaleUpperCase('tr-TR');
 
     setSubmitting(true);
     try {
       await onSubmit({
         merchantNo: merchantNo.trim(),
         terminalNo: terminalNo.trim(),
-        location: finalLocation.toUpperCase(),
+        location: finalLocation,
         bank: finalBank,
         deviceModel: deviceModel.trim() || undefined,
         serialNo: serialNo.trim() || undefined,
@@ -168,7 +171,7 @@ export function PosDeviceModal({ open, onClose, onSubmit, device }: PosDeviceMod
                 className="input w-full mt-1.5 text-xs font-medium"
                 placeholder="Özel şube / konum adı girin..."
                 value={customLocation}
-                onChange={(e) => setCustomLocation(e.target.value)}
+                onChange={(e) => setCustomLocation(e.target.value.toLocaleUpperCase('tr-TR'))}
                 autoFocus
               />
             )}
@@ -204,7 +207,7 @@ export function PosDeviceModal({ open, onClose, onSubmit, device }: PosDeviceMod
                 className="input w-full mt-1.5 text-xs font-medium"
                 placeholder="Banka adını girin..."
                 value={customBank}
-                onChange={(e) => setCustomBank(e.target.value)}
+                onChange={(e) => setCustomBank(e.target.value.toLocaleUpperCase('tr-TR'))}
                 autoFocus
               />
             )}
