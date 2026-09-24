@@ -23,55 +23,14 @@ import { PosDeviceModal } from '../components/PosDeviceModal';
 import { POPULAR_BANKS, POPULAR_LOCATIONS } from '../data/seedData';
 import type { PosDevice, PosDeviceFormInput } from '../types';
 
-// Bank badge color styling
-export const getBankBadgeStyle = (bankName: string) => {
-  const upper = (bankName || '').toUpperCase();
-  if (upper.includes('ZİRAAT') || upper.includes('ZIRAAT')) {
-    return 'bg-red-50 text-red-700 border-red-200';
-  }
-  if (upper.includes('GARANTİ') || upper.includes('GARANTI')) {
-    return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  }
-  if (upper.includes('DENİZ') || upper.includes('DENIZ')) {
-    return 'bg-blue-50 text-blue-700 border-blue-200';
-  }
-  if (upper.includes('KUVEYT')) {
-    return 'bg-teal-50 text-teal-700 border-teal-200';
-  }
-  if (upper.includes('ALBARAKA')) {
-    return 'bg-amber-50 text-amber-800 border-amber-200';
-  }
-  if (upper.includes('AKBANK')) {
-    return 'bg-rose-50 text-rose-700 border-rose-200';
-  }
-  if (upper.includes('HALK')) {
-    return 'bg-sky-50 text-sky-700 border-sky-200';
-  }
-  if (upper.includes('VAKIF')) {
-    return 'bg-amber-50 text-amber-700 border-amber-300';
-  }
-  if (upper.includes('YAPI KREDİ') || upper.includes('YAPI KREDI')) {
-    return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-  }
-  return 'bg-gray-100 text-gray-800 border-gray-200';
+// Clean, corporate bank badge styling (sade ve şık)
+export const getBankBadgeStyle = (_bankName?: string) => {
+  return 'bg-slate-50 text-slate-800 border-slate-200/80';
 };
 
-// Location badge styling
-export const getLocationBadgeStyle = (location: string) => {
-  const upper = (location || '').toUpperCase();
-  if (upper.includes('MERKEZ')) {
-    return 'bg-purple-50 text-purple-700 border-purple-200';
-  }
-  if (upper.includes('ATAKUM')) {
-    return 'bg-cyan-50 text-cyan-700 border-cyan-200';
-  }
-  if (upper.includes('DEPO')) {
-    return 'bg-amber-50 text-amber-700 border-amber-200';
-  }
-  if (upper.includes('FABRİKA') || upper.includes('FABRIKA')) {
-    return 'bg-orange-50 text-orange-700 border-orange-200';
-  }
-  return 'bg-gray-50 text-gray-700 border-gray-200';
+// Clean, corporate location badge styling (sade ve şık)
+export const getLocationBadgeStyle = (_location?: string) => {
+  return 'bg-slate-50 text-slate-700 border-slate-200';
 };
 
 // Inline editable text cell matching BillListPage
@@ -425,25 +384,25 @@ function PosDevicesPageContent() {
 
         <div className="card p-4">
           <span className="text-xs font-medium text-gray-500 block">Aktif Banka Sayısı</span>
-          <p className="mt-2 text-xl font-bold text-blue-700">{kpis.bankCount} Banka</p>
+          <p className="mt-2 text-xl font-bold text-gray-900">{kpis.bankCount} Banka</p>
           <p className="text-[11px] text-gray-400 mt-0.5">anlaşmalı POS altyapısı</p>
         </div>
 
         <div className="card p-4">
           <span className="text-xs font-medium text-gray-500 block">Konum / Şube</span>
-          <p className="mt-2 text-xl font-bold text-purple-700">{kpis.locationCount} Lokasyon</p>
+          <p className="mt-2 text-xl font-bold text-gray-900">{kpis.locationCount} Lokasyon</p>
           <p className="text-[11px] text-gray-400 mt-0.5">cihaz noktaları</p>
         </div>
 
         <div className="card p-4">
           <span className="text-xs font-medium text-gray-500 block">Merkez Kasa Cihazları</span>
-          <p className="mt-2 text-xl font-bold text-emerald-700">{kpis.merkezCount} Adet</p>
+          <p className="mt-2 text-xl font-bold text-gray-900">{kpis.merkezCount} Adet</p>
           <p className="text-[11px] text-gray-400 mt-0.5">merkezde konuşlu terminaller</p>
         </div>
 
         <div className="card p-4">
           <span className="text-xs font-medium text-gray-500 block">Şubeler & Depo</span>
-          <p className="mt-2 text-xl font-bold text-amber-700">{kpis.subeCount} Adet</p>
+          <p className="mt-2 text-xl font-bold text-gray-900">{kpis.subeCount} Adet</p>
           <p className="text-[11px] text-gray-400 mt-0.5">şube, depo ve diğer noktalar</p>
         </div>
       </div>
@@ -601,7 +560,7 @@ function PosDevicesPageContent() {
                       <InlineTextCell
                         value={d.terminalNo || ''}
                         displayValue={
-                          <span className="font-mono text-sm font-black text-blue-700 tracking-wider bg-blue-50/60 px-2 py-0.5 rounded border border-blue-100">
+                          <span className="font-mono text-sm font-semibold text-slate-800 tracking-wider bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
                             {d.terminalNo || '—'}
                           </span>
                         }
@@ -615,8 +574,8 @@ function PosDevicesPageContent() {
                       <InlineTextCell
                         value={d.location || ''}
                         displayValue={
-                          <span className={`inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-0.5 rounded-md border ${getLocationBadgeStyle(d.location || '')}`}>
-                            <MapPin size={11} className="shrink-0" />
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 border border-slate-200">
+                            <MapPin size={12} className="text-slate-400 shrink-0" />
                             {d.location || 'MERKEZ'}
                           </span>
                         }
@@ -629,8 +588,10 @@ function PosDevicesPageContent() {
                         value={d.bank || ''}
                         displayValue={
                           <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center gap-1.5 text-xs font-extrabold px-2.5 py-1 rounded-lg border shadow-2xs ${getBankBadgeStyle(d.bank || '')}`}>
-                              <Building2 size={13} className="shrink-0" />
+                            <div className="w-6 h-6 rounded-md bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-500 shrink-0">
+                              <Building2 size={13} />
+                            </div>
+                            <span className="text-sm font-semibold text-slate-900 tracking-tight">
                               {d.bank || 'Banka'}
                             </span>
                           </div>
