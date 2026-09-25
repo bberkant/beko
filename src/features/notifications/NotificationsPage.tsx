@@ -58,14 +58,18 @@ export function NotificationsPage() {
       .neq('status', 'kaybedildi')
       .neq('status', 'iptal');
 
-    const p2 = supabase
+    let notesQuery = supabase
       .from('calendar_notes')
       .select('id,content,date,completed')
       .eq('organization_id', orgId)
       .eq('completed', false)
       .not('date', 'is', null);
 
-    Promise.all([p1, p2]).then(([{ data: tenderData }, { data: noteData }]) => {
+    if (user?.id) {
+      notesQuery = notesQuery.eq('created_by', user.id);
+    }
+
+    Promise.all([p1, notesQuery]).then(([{ data: tenderData }, { data: noteData }]) => {
       const list: NotificationItem[] = [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);

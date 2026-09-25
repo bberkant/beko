@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { CalendarDays, Car, ChevronLeft, ChevronRight, CreditCard, Gavel, ShieldCheck, Plus, Trash2, CheckSquare, Square, ListTodo, Pencil } from 'lucide-react';
+import { CalendarDays, Car, ChevronLeft, ChevronRight, CreditCard, Gavel, ShieldCheck, Plus, Trash2, CheckSquare, Square, ListTodo, Pencil, Calendar as CalendarIcon, X, Filter, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { SectionCard } from '../../components/ui/SectionCard';
@@ -9,7 +9,9 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { resolveCardDueDate, resolveCardOutstandingDebt } from '../credit-cards/lib/billingDateEngine';
 
-type EventType = 'credit-card' | 'inspection' | 'insurance' | 'tender' | 'note';
+export type EventType = 'credit-card' | 'inspection' | 'insurance' | 'tender' | 'note';
+export const ALL_EVENT_TYPES: EventType[] = ['credit-card', 'inspection', 'insurance', 'tender', 'note'];
+
 interface CalendarEvent { 
   id: string; 
   date: string; 
@@ -39,16 +41,36 @@ interface TenderRow {
   teminat_mektubu?: string; 
 }
 
-const styles:Record<EventType,{label:string;dot:string;badge:string}>={
-  'credit-card':{label:'KART',dot:'bg-red-500',badge:'bg-red-50 text-red-700 border border-red-200'},
-  inspection:{label:'MUAYENE',dot:'bg-amber-500',badge:'bg-amber-50 text-amber-700 border border-amber-200'},
-  insurance:{label:'SİGORTA',dot:'bg-blue-500',badge:'bg-blue-50 text-blue-700 border border-blue-200'},
-  tender:{label:'İHALE',dot:'bg-purple-500',badge:'bg-purple-50 text-purple-700 border border-purple-200'},
-  note:{label:'NOT',dot:'bg-emerald-500',badge:'bg-emerald-50 text-emerald-700 border border-emerald-200'},
+const styles: Record<EventType, { label: string; dot: string; badge: string }> = {
+  'credit-card': { label: 'KART', dot: 'bg-red-500', badge: 'bg-red-50 text-red-700 border border-red-200' },
+  inspection: { label: 'MUAYENE', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
+  insurance: { label: 'SİGORTA', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border border-blue-200' },
+  tender: { label: 'İHALE', dot: 'bg-purple-500', badge: 'bg-purple-50 text-purple-700 border border-purple-200' },
+  note: { label: 'NOT', dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
 };
-const dateKey=(value:string)=>value.slice(0,10);
-const parseDate=(value:string)=>{const [y,m,d]=dateKey(value).split('-').map(Number);return new Date(y,m-1,d)};
-const formatDate=(value:string)=>parseDate(value).toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'});
+const dateKey = (value: string) => value.slice(0, 10);
+const parseDate = (value: string) => { const [y, m, d] = dateKey(value).split('-').map(Number); return new Date(y, m - 1, d); };
+const formatDate = (value: string) => parseDate(value).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+const formatDateShort = (value: string) => {
+  try {
+    const [y, m, d] = dateKey(value).split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    const dayStr = dt.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+    const todayDt = new Date();
+    todayDt.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((dt.getTime() - todayDt.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return `${dayStr} (Bugün)`;
+    if (diffDays === 1) return `${dayStr} (Yarın)`;
+    if (diffDays === -1) return `${dayStr} (Dün)`;
+    if (diffDays > 1 && diffDays <= 7) return `${dayStr} (${diffDays} gün sonra)`;
+    if (diffDays > 7 && diffDays <= 30) return `${dayStr} (${Math.round(diffDays / 7)} hf sonra)`;
+    if (diffDays < -1) return `${dayStr} (${Math.abs(diffDays)} gün önce)`;
+    return dayStr;
+  } catch {
+    return value;
+  }
+};
 
 const DEFAULT_ORG_ID = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
 
@@ -187,30 +209,98 @@ export function useCalendarEvents(){
   return {events,loading};
 }
 
-interface CalendarNote { id: string; content: string; completed: boolean; date: string | null; }
+interface CalendarNote { 
+  id: string; 
+  content: string; 
+  completed: boolean; 
+  date: string | null; 
+  created_by?: string;
+}
 
-export function CalendarPage({embedded=false}:{embedded?:boolean}){
-  const {user}=useAuth();
-  const {events,loading}=useCalendarEvents();
-  const [month,setMonth]=useState(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1)});
-  const [selected,setSelected]=useState(()=>dateKey(new Date().toISOString()));
+export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
+  const { user } = useAuth();
+  const { events, loading } = useCalendarEvents();
+  const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [selected, setSelected] = useState(() => dateKey(new Date().toISOString()));
 
-  // 0ms Instant Hydration from Local Storage
+  const userKey = user?.id || user?.email || 'default';
+  const notesStorageKey = `dars_calendar_notes_${userKey}`;
+  const filterStorageKey = `dars_calendar_filters_${userKey}`;
+
+  // 1. Dynamic Event Types Filter (Persisted per user)
+  const [activeTypes, setActiveTypes] = useState<EventType[]>(() => {
+    try {
+      const saved = localStorage.getItem(`dars_calendar_filters_${user?.id || user?.email || 'default'}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return ALL_EVENT_TYPES;
+  });
+
+  // Re-sync filter preferences if user identity finishes resolving
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(filterStorageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setActiveTypes(parsed);
+        }
+      }
+    } catch {}
+  }, [filterStorageKey]);
+
+  const toggleEventType = (type: EventType) => {
+    setActiveTypes(prev => {
+      let next: EventType[];
+      if (prev.includes(type)) {
+        next = prev.filter(t => t !== type);
+      } else {
+        next = [...prev, type];
+      }
+      try {
+        localStorage.setItem(filterStorageKey, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const enableAllTypes = () => {
+    setActiveTypes(ALL_EVENT_TYPES);
+    try {
+      localStorage.setItem(filterStorageKey, JSON.stringify(ALL_EVENT_TYPES));
+    } catch {}
+  };
+
+  // 2. User-Isolated Notes State & Cache
   const [notes, setNotes] = useState<CalendarNote[]>(() => {
     try {
-      const local = localStorage.getItem('notes-global');
+      const local = localStorage.getItem(`dars_calendar_notes_${user?.id || user?.email || 'default'}`);
       if (local) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
     return [];
   });
+
+  const saveNotesCache = useCallback((updated: CalendarNote[]) => {
+    try {
+      localStorage.setItem(`dars_calendar_notes_${user?.id || user?.email || 'default'}`, JSON.stringify(updated));
+    } catch {}
+  }, [user?.id, user?.email]);
+
   const [newNote, setNewNote] = useState('');
   const [newDateNote, setNewDateNote] = useState('');
+  const [noteTargetDate, setNoteTargetDate] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+
   const [notesLoading, setNotesLoading] = useState(() => {
     try {
-      const local = localStorage.getItem('notes-global');
+      const local = localStorage.getItem(`dars_calendar_notes_${user?.id || user?.email || 'default'}`);
       return !local || JSON.parse(local).length === 0;
     } catch {
       return false;
@@ -220,15 +310,34 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
   const [editContent, setEditContent] = useState('');
   const [showCompletedDateNotes, setShowCompletedDateNotes] = useState(false);
 
-  // Resilient Supabase Sync Routine
+  // Sync cache if user identity finishes resolving
+  useEffect(() => {
+    if (!user?.id && !user?.email) return;
+    try {
+      const local = localStorage.getItem(notesStorageKey);
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) {
+          setNotes(parsed);
+        }
+      }
+    } catch {}
+  }, [notesStorageKey, user?.id, user?.email]);
+
+  // Fetch only this user's notes from Supabase
   const fetchNotes = useCallback(async () => {
     const orgId = user?.organizationId || DEFAULT_ORG_ID;
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('calendar_notes')
-        .select('id,content,completed,date')
-        .eq('organization_id', orgId)
-        .order('created_at', { ascending: true });
+        .select('id,content,completed,date,created_by')
+        .eq('organization_id', orgId);
+
+      if (user?.id) {
+        query = query.eq('created_by', user.id);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: true });
 
       if (error) {
         console.warn('Notes load error, preserving local cache:', error);
@@ -236,55 +345,28 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
       }
 
       if (Array.isArray(data)) {
-        if (data.length > 0) {
-          setNotes(data);
-          try {
-            localStorage.setItem('notes-global', JSON.stringify(data));
-          } catch {}
-        } else {
-          // If server returned 0 notes, check local storage to avoid accidental wipe
-          const local = localStorage.getItem('notes-global');
-          if (local) {
-            try {
-              const parsed = JSON.parse(local);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                setNotes(parsed);
-                // Synchronize local notes to Supabase if session is ready
-                for (const n of parsed) {
-                  void (async () => {
-                    try {
-                      await supabase.from('calendar_notes').insert({
-                        organization_id: orgId,
-                        content: n.content,
-                        completed: Boolean(n.completed),
-                        date: n.date || null
-                      });
-                    } catch {}
-                  })();
-                }
-                return;
-              }
-            } catch {}
-          }
-          setNotes([]);
-          try {
-            localStorage.setItem('notes-global', JSON.stringify([]));
-          } catch {}
-        }
+        setNotes(data);
+        saveNotesCache(data);
       }
     } catch (err) {
       console.warn('Calendar notes fetch exception:', err);
     } finally {
       setNotesLoading(false);
     }
-  }, [user?.organizationId]);
+  }, [user?.id, user?.organizationId, saveNotesCache]);
 
   useEffect(() => {
     void fetchNotes();
 
+    const channelName = user?.id ? `calendar_notes_user_${user.id}` : 'calendar_notes_channel';
     const channel = supabase
-      .channel('calendar_notes_realtime_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_notes' }, () => {
+      .channel(channelName)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'calendar_notes',
+        ...(user?.id ? { filter: `created_by=eq.${user.id}` } : {})
+      }, () => {
         void fetchNotes();
       })
       .subscribe();
@@ -292,38 +374,47 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [fetchNotes]);
+  }, [user?.id, fetchNotes]);
 
+  // Add note from Yapılacaklar & Notlar box (with optional reminder date)
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = newNote.trim();
     const orgId = user?.organizationId || DEFAULT_ORG_ID;
     if (!text) return;
 
+    const targetDate = noteTargetDate || null;
     const tempId = crypto.randomUUID?.() || Math.random().toString(36).substring(2);
-    const freshNote: CalendarNote = { id: tempId, content: text, completed: false, date: null };
+    const freshNote: CalendarNote = { 
+      id: tempId, 
+      content: text, 
+      completed: false, 
+      date: targetDate,
+      created_by: user?.id
+    };
     const updatedNotes = [...notes, freshNote];
     setNotes(updatedNotes);
     setNewNote('');
-    try {
-      localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
-    } catch {}
+    setNoteTargetDate('');
+    setShowDatePicker(false);
+    saveNotesCache(updatedNotes);
 
     try {
       const { data, error } = await supabase
         .from('calendar_notes')
         .insert({
           organization_id: orgId,
+          created_by: user?.id,
           content: text,
           completed: false,
-          date: null
+          date: targetDate
         })
         .select('id')
         .single();
       if (!error && data) {
         setNotes(prev => {
           const synced = prev.map(n => n.id === tempId ? { ...n, id: data.id } : n);
-          try { localStorage.setItem('notes-global', JSON.stringify(synced)); } catch {}
+          saveNotesCache(synced);
           return synced;
         });
       }
@@ -332,6 +423,7 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
     }
   };
 
+  // Add note for selected calendar date from bottom detail table
   const handleAddDateNote = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = newDateNote.trim();
@@ -339,19 +431,24 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
     if (!text) return;
 
     const tempId = crypto.randomUUID?.() || Math.random().toString(36).substring(2);
-    const freshNote: CalendarNote = { id: tempId, content: text, completed: false, date: selected };
+    const freshNote: CalendarNote = { 
+      id: tempId, 
+      content: text, 
+      completed: false, 
+      date: selected,
+      created_by: user?.id
+    };
     const updatedNotes = [...notes, freshNote];
     setNotes(updatedNotes);
     setNewDateNote('');
-    try {
-      localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
-    } catch {}
+    saveNotesCache(updatedNotes);
 
     try {
       const { data, error } = await supabase
         .from('calendar_notes')
         .insert({
           organization_id: orgId,
+          created_by: user?.id,
           content: text,
           completed: false,
           date: selected
@@ -361,7 +458,7 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
       if (!error && data) {
         setNotes(prev => {
           const synced = prev.map(n => n.id === tempId ? { ...n, id: data.id } : n);
-          try { localStorage.setItem('notes-global', JSON.stringify(synced)); } catch {}
+          saveNotesCache(synced);
           return synced;
         });
       }
@@ -373,11 +470,11 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
   const handleToggleNote = async (id: string, completed: boolean) => {
     const updatedNotes = notes.map(n => n.id === id ? { ...n, completed: !completed } : n);
     setNotes(updatedNotes);
+    saveNotesCache(updatedNotes);
     try {
-      localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
-    } catch {}
-    try {
-      await supabase.from('calendar_notes').update({ completed: !completed }).eq('id', id);
+      let query = supabase.from('calendar_notes').update({ completed: !completed }).eq('id', id);
+      if (user?.id) query = query.eq('created_by', user.id);
+      await query;
     } catch (err) {
       console.error(err);
     }
@@ -386,13 +483,28 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
   const handleDeleteNote = async (id: string) => {
     const updatedNotes = notes.filter(n => n.id !== id);
     setNotes(updatedNotes);
+    saveNotesCache(updatedNotes);
     try {
-      localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
-    } catch {}
-    try {
-      await supabase.from('calendar_notes').delete().eq('id', id);
+      let query = supabase.from('calendar_notes').delete().eq('id', id);
+      if (user?.id) query = query.eq('created_by', user.id);
+      await query;
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleClearAllNotes = async () => {
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
+    setNotes([]);
+    setConfirmClear(false);
+    saveNotesCache([]);
+
+    try {
+      let query = supabase.from('calendar_notes').delete().eq('organization_id', orgId);
+      if (user?.id) query = query.eq('created_by', user.id);
+      await query;
+    } catch (err) {
+      console.error('Notes clear all error:', err);
     }
   };
 
@@ -404,18 +516,27 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
     }
     const updatedNotes = notes.map(n => n.id === id ? { ...n, content: text } : n);
     setNotes(updatedNotes);
-    try {
-      localStorage.setItem('notes-global', JSON.stringify(updatedNotes));
-    } catch {}
+    saveNotesCache(updatedNotes);
     setEditingNoteId(null);
     try {
-      await supabase.from('calendar_notes').update({ content: text }).eq('id', id);
+      let query = supabase.from('calendar_notes').update({ content: text }).eq('id', id);
+      if (user?.id) query = query.eq('created_by', user.id);
+      await query;
     } catch (err) {
       console.error(err);
     }
   };
 
-  const cells=useMemo(()=>{const first=new Date(month.getFullYear(),month.getMonth(),1);const start=new Date(first);start.setDate(1-((first.getDay()+6)%7));return Array.from({length:42},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);return d})},[month]);
+  const cells = useMemo(() => {
+    const first = new Date(month.getFullYear(), month.getMonth(), 1);
+    const start = new Date(first);
+    start.setDate(1 - ((first.getDay() + 6) % 7));
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
+    });
+  }, [month]);
   
   const noteEvents = useMemo<CalendarEvent[]>(() => {
     return notes
@@ -431,11 +552,15 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
       }));
   }, [notes]);
 
+  // All events strictly filtered by activeTypes selected by user!
   const allEvents = useMemo(() => {
-    return [...noteEvents, ...events];
-  }, [events, noteEvents]);
+    return [...noteEvents, ...events].filter(e => activeTypes.includes(e.type));
+  }, [events, noteEvents, activeTypes]);
 
-  const byDate = useMemo(() => allEvents.reduce<Record<string,CalendarEvent[]>>((acc,event)=>{(acc[event.date]??=[]).push(event);return acc},{}), [allEvents]);
+  const byDate = useMemo(() => allEvents.reduce<Record<string, CalendarEvent[]>>((acc, event) => {
+    (acc[event.date] ??= []).push(event);
+    return acc;
+  }, {}), [allEvents]);
   
   const hasCompletedNotesForSelectedDate = useMemo(() => {
     const rawEvents = byDate[selected] ?? [];
@@ -459,148 +584,404 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
       return true;
     });
   }, [byDate, selected, notes, showCompletedDateNotes]);
-  const today=dateKey(new Date().toISOString());
 
-  return <div className={embedded?'':'mx-auto max-w-7xl'}>{!embedded&&<PageHeader title="Takvim" description="Ödeme, araç ve ihale son tarihlerini tek ekrandan takip edin." actions={<button className="btn-secondary" onClick={()=>{const d=new Date();setMonth(new Date(d.getFullYear(),d.getMonth(),1));setSelected(today)}}>Bugün</button>}/>} 
-    <div className="mb-4 flex flex-wrap gap-2">{(Object.entries(styles) as [EventType,typeof styles[EventType]][]).map(([key,s])=><span key={key} className={`rounded-full px-3 py-1 text-xs font-medium ${s.badge}`}><span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${s.dot}`}/>{s.label}</span>)}</div>
-    {/* 1. Üst Kısım: Takvim (Sol) + Genel Yapılacaklar & Notlar (Sağ) */}
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] mb-6">
-      {/* Sol: Takvim Kartı */}
-      <div className="card overflow-hidden shadow-sm">
-        <div className="flex items-center justify-between border-b border-gray-100 p-4 bg-white">
-          <button className="btn-secondary !p-2" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))} aria-label="Önceki ay"><ChevronLeft size={18}/></button>
-          <h2 className="text-base font-semibold capitalize text-gray-900">{month.toLocaleDateString('tr-TR',{month:'long',year:'numeric'})}</h2>
-          <button className="btn-secondary !p-2" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))} aria-label="Sonraki ay"><ChevronRight size={18}/></button>
-        </div>
-        <div className="grid grid-cols-7 border-b bg-gray-50/80">
-          {['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'].map(x=>(
-            <div key={x} className="p-2 text-center text-xs font-semibold text-gray-500">{x}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7">
-          {cells.map(d=>{
-            const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-            const dayEvents = (byDate[key] ?? []).filter(e => {
-              if (e.type === 'note') {
-                const noteId = e.id.replace('note-', '');
-                return !notes.find(n => n.id === noteId)?.completed;
-              }
-              return true;
-            });
-            const current=d.getMonth()===month.getMonth();
+  const today = dateKey(new Date().toISOString());
+
+  // Sorted user notes for Yapılacaklar & Notlar:
+  // Incomplete first (dated ones by date, then undated), completed at the bottom
+  const displayNotes = useMemo(() => {
+    return [...notes].sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      if (a.date && b.date) return a.date.localeCompare(b.date);
+      if (a.date && !b.date) return -1;
+      if (!a.date && b.date) return 1;
+      return 0;
+    });
+  }, [notes]);
+
+  return (
+    <div className={embedded ? '' : 'mx-auto max-w-7xl'}>
+      {!embedded && (
+        <PageHeader 
+          title="Takvim" 
+          description="Ödeme, araç ve ihale son tarihlerini tek ekrandan takip edin." 
+          actions={
+            <button 
+              className="btn-secondary" 
+              onClick={() => {
+                const d = new Date();
+                setMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+                setSelected(today);
+              }}
+            >
+              Bugün
+            </button>
+          }
+        />
+      )} 
+
+      {/* Filtre Rozetleri / Kategori Seçimi */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-white/70 p-2.5 rounded-xl border border-gray-100 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-gray-500 mr-1 flex items-center gap-1.5 pl-1">
+            <Filter size={13} className="text-gray-400" />
+            <span>Görünüm Filtreleri:</span>
+          </span>
+          {(Object.entries(styles) as [EventType, typeof styles[EventType]][]).map(([key, s]) => {
+            const isActive = activeTypes.includes(key);
             return (
-              <button 
-                key={key} 
-                onClick={()=>setSelected(key)} 
-                className={`min-h-24 border-b border-r border-gray-100 p-2 text-left transition-colors hover:bg-gray-50 ${selected===key?'bg-brand-50/80 ring-2 ring-inset ring-brand-400':''} ${current?'bg-white':'bg-gray-50/50 text-gray-300'}`}
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleEventType(key)}
+                title={isActive ? `${s.label} filtresini gizle` : `${s.label} filtresini göster`}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all cursor-pointer select-none ${
+                  isActive 
+                    ? `${s.badge} shadow-xs ring-1 ring-black/5 hover:brightness-95` 
+                    : 'bg-gray-100 text-gray-400 border border-gray-200 opacity-60 hover:opacity-100 hover:text-gray-600'
+                }`}
               >
-                <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${key===today?'bg-brand-600 text-white shadow-sm font-bold': selected===key ? 'bg-brand-100 text-brand-800' : 'text-gray-700'}`}>
-                  {d.getDate()}
-                </span>
-                <div className="mt-1 space-y-1">
-                  {dayEvents.slice(0, 3).map(e => (
-                    <div key={e.id} className="flex items-center gap-1 truncate text-[10px] text-gray-600">
-                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${styles[e.type].dot}`}/>
-                      <span className="truncate">{e.title}</span>
-                    </div>
-                  ))}
-                  {dayEvents.length > 3 && (
-                    <div className="text-[10px] font-semibold text-brand-600">
-                      +{dayEvents.length - 3} etkinlik
-                    </div>
-                  )}
-                </div>
+                <span className={`inline-block h-2 w-2 rounded-full transition-colors ${isActive ? s.dot : 'bg-gray-300'}`} />
+                <span className={isActive ? '' : 'line-through'}>{s.label}</span>
+                {isActive && <Check size={11} className="stroke-[3] opacity-60 ml-0.5" />}
               </button>
             );
           })}
         </div>
+
+        {activeTypes.length < ALL_EVENT_TYPES.length && (
+          <button
+            type="button"
+            onClick={enableAllTypes}
+            className="text-xs font-bold text-brand-600 hover:text-brand-800 transition-colors pr-1"
+          >
+            Tümünü Göster ({ALL_EVENT_TYPES.length})
+          </button>
+        )}
       </div>
 
-      {/* Sağ: Genel Yapılacaklar & Notlar */}
-      <div className="h-full flex flex-col">
-        <SectionCard 
-          title="Yapılacaklar & Notlar" 
-          icon={<ListTodo size={16} className="text-gray-400"/>}
-          className="shadow-sm flex-1 flex flex-col"
-        >
-          <form onSubmit={handleAddNote} className="mb-4 flex gap-1.5 border-b border-gray-100 pb-3">
-            <input 
-              type="text" 
-              className="input !py-1.5 !text-sm flex-1" 
-              placeholder="Yeni not veya görev ekle..." 
-              value={newNote} 
-              onChange={e => setNewNote(e.target.value)}
-            />
-            <button type="submit" className="btn-primary !p-2 shrink-0">
-              <Plus size={16}/>
-            </button>
-          </form>
-
-          {notesLoading ? (
-            <p className="py-6 text-center text-xs text-gray-400">Notlar yükleniyor...</p>
-          ) : notes.filter(n => !n.date).length === 0 ? (
-            <p className="py-8 text-center text-xs text-gray-400">Henüz genel not alınmamış.</p>
-          ) : (
-            <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-              {notes.filter(n => !n.date).map(note => (
-                <div key={note.id} className="group flex items-start justify-between gap-2.5 rounded-lg border border-gray-100 p-2.5 transition-all hover:border-brand-200 hover:bg-brand-50/30">
-                  <button 
-                    type="button"
-                    onClick={() => void handleToggleNote(note.id, note.completed)}
-                    className="mt-0.5 shrink-0 text-gray-400 hover:text-brand-600 transition-colors"
-                  >
-                    {note.completed ? (
-                      <CheckSquare size={18} className="text-brand-600" />
-                    ) : (
-                      <Square size={18} />
+      {/* 1. Üst Kısım: Takvim (Sol) + Genel Yapılacaklar & Notlar (Sağ) */}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] mb-6">
+        {/* Sol: Takvim Kartı */}
+        <div className="card overflow-hidden shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 p-4 bg-white">
+            <button className="btn-secondary !p-2" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="Önceki ay"><ChevronLeft size={18}/></button>
+            <h2 className="text-base font-semibold capitalize text-gray-900">{month.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</h2>
+            <button className="btn-secondary !p-2" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="Sonraki ay"><ChevronRight size={18}/></button>
+          </div>
+          <div className="grid grid-cols-7 border-b bg-gray-50/80">
+            {['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].map(x => (
+              <div key={x} className="p-2 text-center text-xs font-semibold text-gray-500">{x}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {cells.map(d => {
+              const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              const dayEvents = (byDate[key] ?? []).filter(e => {
+                if (e.type === 'note') {
+                  const noteId = e.id.replace('note-', '');
+                  return !notes.find(n => n.id === noteId)?.completed;
+                }
+                return true;
+              });
+              const current = d.getMonth() === month.getMonth();
+              return (
+                <button 
+                  key={key} 
+                  onClick={() => setSelected(key)} 
+                  className={`min-h-24 border-b border-r border-gray-100 p-2 text-left transition-colors hover:bg-gray-50 ${selected === key ? 'bg-brand-50/80 ring-2 ring-inset ring-brand-400' : ''} ${current ? 'bg-white' : 'bg-gray-50/50 text-gray-300'}`}
+                >
+                  <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${key === today ? 'bg-brand-600 text-white shadow-sm font-bold' : selected === key ? 'bg-brand-100 text-brand-800' : 'text-gray-700'}`}>
+                    {d.getDate()}
+                  </span>
+                  <div className="mt-1 space-y-1">
+                    {dayEvents.slice(0, 3).map(e => (
+                      <div key={e.id} className="flex items-center gap-1 truncate text-[10px] text-gray-600">
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${styles[e.type].dot}`}/>
+                        <span className="truncate">{e.title}</span>
+                      </div>
+                    ))}
+                    {dayEvents.length > 3 && (
+                      <div className="text-[10px] font-semibold text-brand-600">
+                        +{dayEvents.length - 3} etkinlik
+                      </div>
                     )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Sağ: Kullanıcıya Özel Yapılacaklar & Notlar */}
+        <div className="h-full flex flex-col">
+          <SectionCard 
+            title="Yapılacaklar & Notlar" 
+            icon={<ListTodo size={16} className="text-gray-400"/>}
+            className="shadow-sm flex-1 flex flex-col"
+            bodyClassName="flex-1 flex flex-col"
+          >
+            {/* Note Input & Calendar Date Picker Form */}
+            <form onSubmit={handleAddNote} className="mb-3 border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-1.5">
+                <input 
+                  type="text" 
+                  className="input !py-1.5 !text-sm flex-1" 
+                  placeholder="Yeni not veya görev ekle..." 
+                  value={newNote} 
+                  onChange={e => setNewNote(e.target.value)}
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowDatePicker(v => !v)}
+                  title="Tarih veya Hatırlatma Seç"
+                  className={`p-2 rounded-lg border transition-colors shrink-0 ${
+                    noteTargetDate 
+                      ? 'bg-brand-50 border-brand-300 text-brand-700 font-bold' 
+                      : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                  }`}
+                >
+                  <CalendarIcon size={16} />
+                </button>
+                <button type="submit" className="btn-primary !p-2 shrink-0" title="Not Ekle">
+                  <Plus size={16}/>
+                </button>
+              </div>
+
+              {/* Active Selected Date Badge */}
+              {noteTargetDate && (
+                <div className="mt-2 flex items-center justify-between bg-brand-50 border border-brand-200/80 rounded-lg px-2.5 py-1 text-xs text-brand-800">
+                  <span className="flex items-center gap-1.5 font-semibold">
+                    <CalendarIcon size={12} className="text-brand-600" />
+                    <span>Hatırlatma: {formatDateShort(noteTargetDate)}</span>
+                  </span>
+                  <button 
+                    type="button" 
+                    onClick={() => setNoteTargetDate('')}
+                    className="text-brand-600 hover:text-brand-900 p-0.5"
+                    title="Tarihi Kaldır"
+                  >
+                    <X size={13} />
                   </button>
-                  {editingNoteId === note.id ? (
-                    <input
-                      type="text"
-                      className="flex-1 input !py-1 !px-2 !text-sm font-medium"
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void handleSaveNote(note.id, editContent);
-                        else if (e.key === 'Escape') setEditingNoteId(null);
-                      }}
-                      onBlur={() => void handleSaveNote(note.id, editContent)}
-                      autoFocus
-                    />
-                  ) : (
-                    <span className={`flex-1 text-[13.5px] sm:text-sm font-semibold text-gray-800 leading-snug break-words ${note.completed ? 'line-through text-gray-400 font-normal' : ''}`}>
-                      {note.content}
-                    </span>
-                  )}
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
+                </div>
+              )}
+
+              {/* Date Picker Popdown with Quick Presets */}
+              {showDatePicker && (
+                <div className="mt-2 p-2.5 bg-gray-50/90 border border-gray-200 rounded-xl space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-gray-700 font-bold text-[11px]">
+                    <span>Hatırlatma / Vade Tarihi:</span>
                     <button 
+                      type="button" 
+                      onClick={() => setShowDatePicker(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      Kapat
+                    </button>
+                  </div>
+                  <input 
+                    type="date" 
+                    min={today}
+                    value={noteTargetDate} 
+                    onChange={e => {
+                      setNoteTargetDate(e.target.value);
+                      if (e.target.value) setShowDatePicker(false);
+                    }}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  />
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    <button
                       type="button"
                       onClick={() => {
-                        setEditingNoteId(note.id);
-                        setEditContent(note.content);
+                        setNoteTargetDate(today);
+                        setShowDatePicker(false);
                       }}
-                      className="text-gray-400 hover:text-brand-600 transition-colors p-1 rounded hover:bg-white"
-                      title="Notu Düzenle"
+                      className="px-2 py-0.5 rounded bg-white hover:bg-gray-100 border border-gray-200 text-[10px] font-medium text-gray-700"
                     >
-                      <Pencil size={14} />
+                      Bugün
                     </button>
-                    <button 
+                    <button
                       type="button"
-                      onClick={() => void handleDeleteNote(note.id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-white"
-                      title="Notu Sil"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        setNoteTargetDate(dateKey(d.toISOString()));
+                        setShowDatePicker(false);
+                      }}
+                      className="px-2 py-0.5 rounded bg-white hover:bg-gray-100 border border-gray-200 text-[10px] font-medium text-gray-700"
                     >
-                      <Trash2 size={14} />
+                      Yarın
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 7);
+                        setNoteTargetDate(dateKey(d.toISOString()));
+                        setShowDatePicker(false);
+                      }}
+                      className="px-2 py-0.5 rounded bg-brand-50 hover:bg-brand-100 border border-brand-200 text-[10px] font-bold text-brand-700"
+                    >
+                      1 Hafta Sonra
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setMonth(d.getMonth() + 1);
+                        setNoteTargetDate(dateKey(d.toISOString()));
+                        setShowDatePicker(false);
+                      }}
+                      className="px-2 py-0.5 rounded bg-white hover:bg-gray-100 border border-gray-200 text-[10px] font-medium text-gray-700"
+                    >
+                      1 Ay Sonra
                     </button>
                   </div>
                 </div>
-              ))}
+              )}
+            </form>
+
+            {/* Notes List */}
+            <div className="flex-1 overflow-hidden flex flex-col">
+              {notesLoading ? (
+                <p className="py-6 text-center text-xs text-gray-400">Notlar yükleniyor...</p>
+              ) : displayNotes.length === 0 ? (
+                <p className="py-8 text-center text-xs text-gray-400">Henüz not veya görev eklenmemiş.</p>
+              ) : (
+                <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                  {displayNotes.map(note => (
+                    <div 
+                      key={note.id} 
+                      className={`group flex items-start justify-between gap-2.5 rounded-lg border p-2.5 transition-all ${
+                        note.completed 
+                          ? 'border-gray-100 bg-gray-50/50 opacity-60' 
+                          : 'border-gray-100 hover:border-brand-200 hover:bg-brand-50/20 bg-white'
+                      }`}
+                    >
+                      <button 
+                        type="button"
+                        onClick={() => void handleToggleNote(note.id, note.completed)}
+                        className="mt-0.5 shrink-0 text-gray-400 hover:text-brand-600 transition-colors"
+                        title={note.completed ? 'Tamamlanmadı yap' : 'Tamamlandı işaretle'}
+                      >
+                        {note.completed ? (
+                          <CheckSquare size={18} className="text-brand-600" />
+                        ) : (
+                          <Square size={18} />
+                        )}
+                      </button>
+                      
+                      <div className="min-w-0 flex-1">
+                        {editingNoteId === note.id ? (
+                          <input
+                            type="text"
+                            className="input !py-1 !px-2 !text-sm w-full font-medium"
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') void handleSaveNote(note.id, editContent);
+                              else if (e.key === 'Escape') setEditingNoteId(null);
+                            }}
+                            onBlur={() => void handleSaveNote(note.id, editContent)}
+                            autoFocus
+                          />
+                        ) : (
+                          <p className={`text-[13px] sm:text-sm font-semibold text-gray-800 leading-snug break-words ${
+                            note.completed ? 'line-through text-gray-400 font-normal' : ''
+                          }`}>
+                            {note.content}
+                          </p>
+                        )}
+
+                        {/* Date Badge if note has a scheduled date */}
+                        {note.date && (
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelected(note.date!)}
+                              title="Takvimde bu tarihi seç ve incele"
+                              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold transition-all ${
+                                note.date < today 
+                                  ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100' 
+                                  : note.date === today 
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' 
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                              }`}
+                            >
+                              <CalendarIcon size={10} />
+                              <span>{formatDateShort(note.date)}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setEditingNoteId(note.id);
+                            setEditContent(note.content);
+                          }}
+                          className="text-gray-400 hover:text-brand-600 transition-colors p-1 rounded hover:bg-white"
+                          title="Notu Düzenle"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => void handleDeleteNote(note.id)}
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-white"
+                          title="Notu Sil"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </SectionCard>
+
+            {/* Sağ Alt: Not Sayacı ve Tümünü Temizle Butonu */}
+            <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+              <span className="text-[11px] text-gray-400 font-medium">
+                {notes.length} not {notes.filter(n => n.completed).length > 0 && `(${notes.filter(n => n.completed).length} tamamlandı)`}
+              </span>
+              {notes.length > 0 && (
+                confirmClear ? (
+                  <div className="flex items-center gap-1.5 animate-in fade-in">
+                    <span className="text-[11px] text-red-600 font-semibold">Tümü silinsin mi?</span>
+                    <button
+                      type="button"
+                      onClick={() => void handleClearAllNotes()}
+                      className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold transition-colors shadow-xs"
+                    >
+                      Evet, Sil
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmClear(false)}
+                      className="px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-medium transition-colors"
+                    >
+                      İptal
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClear(true)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 transition-colors"
+                    title="Tüm notları kalıcı olarak temizle"
+                  >
+                    <Trash2 size={12} />
+                    <span>Tümünü Temizle</span>
+                  </button>
+                )
+              )}
+            </div>
+          </SectionCard>
+        </div>
       </div>
-    </div>
 
     {/* 2. Alt Kısım: Seçili Günün Detaylı Tablo Listesi (Takas Çekleri Tarzı Tablo) */}
     <div className="pb-10">
@@ -819,6 +1200,7 @@ export function CalendarPage({embedded=false}:{embedded?:boolean}){
       </div>
     </div>
   </div>
+  );
 }
 
 export function DashboardCalendar(){
