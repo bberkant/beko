@@ -117,6 +117,20 @@ export async function getSupabaseCache(company: string): Promise<EfaturaCacheEnt
 
     if (error || !data) {
       if (error) console.warn('Supabase cache query error:', error.message);
+      try {
+        const staticRes = await fetch(`/data/${company}_incoming_cache.json`);
+        if (staticRes.ok) {
+          const staticList = await staticRes.json();
+          if (Array.isArray(staticList) && staticList.length > 0) {
+            return {
+              company,
+              invoices: sanitizeInvoices(staticList),
+              recordCount: staticList.length,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+        }
+      } catch {}
       return null;
     }
 
@@ -130,7 +144,21 @@ export async function getSupabaseCache(company: string): Promise<EfaturaCacheEnt
       updatedAt: data.updated_at,
     };
   } catch (err) {
-    console.warn('Error fetching Supabase cache:', err);
+    console.warn('Error fetching Supabase cache, attempting static fallback:', err);
+    try {
+      const staticRes = await fetch(`/data/${company}_incoming_cache.json`);
+      if (staticRes.ok) {
+        const staticList = await staticRes.json();
+        if (Array.isArray(staticList) && staticList.length > 0) {
+          return {
+            company,
+            invoices: sanitizeInvoices(staticList),
+            recordCount: staticList.length,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      }
+    } catch {}
     return null;
   }
 }

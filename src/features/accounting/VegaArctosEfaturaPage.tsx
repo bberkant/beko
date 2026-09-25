@@ -223,8 +223,17 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         // Gerçek Gelen GİB e-Faturalarını Supabase önbelleğinden birleştiriyoruz (hem Etik hem Marif için)
         try {
           const { data: supaCache } = await supabase.from('vega_efatura_cache').select('invoices').eq('company', company).single();
-          if (supaCache?.invoices && Array.isArray(supaCache.invoices)) {
-            const supaGelen = supaCache.invoices.filter((i: any) => {
+          let supaInvoices = supaCache?.invoices;
+          if (!Array.isArray(supaInvoices) || supaInvoices.length === 0) {
+            try {
+              const staticRes = await fetch(`/data/${company}_incoming_cache.json`);
+              if (staticRes.ok) {
+                supaInvoices = await staticRes.json();
+              }
+            } catch {}
+          }
+          if (Array.isArray(supaInvoices) && supaInvoices.length > 0) {
+            const supaGelen = supaInvoices.filter((i: any) => {
               if ((i.direction || 'gelen') !== 'gelen') return false;
               const invNo = (i.invoiceNo || '').trim().toUpperCase();
               return !invNo.startsWith('A000') && !invNo.startsWith('A00');
@@ -281,6 +290,28 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
       }
     } catch (err: any) {
       console.warn('e-Faturalar canlı çekilemedi (önbellek devrede):', err);
+      // Fallback: Supabase veya statik CDN önbelleğinden en güncel veriyi yükle
+      try {
+        const supaData = await getSupabaseCache(company);
+        if (supaData && Array.isArray(supaData.invoices) && supaData.invoices.length > 0) {
+          setInvoices(supaData.invoices);
+          setCacheSource('Supabase');
+          const d = supaData.updatedAt ? new Date(supaData.updatedAt) : new Date();
+          setLastSyncTime(
+            `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} (${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')})`
+          );
+          void setLocalCache(company, supaData.invoices, supaData.updatedAt);
+          setStoredCooldown(company, COOLDOWN_DURATION_SECONDS);
+          setCooldownSeconds(COOLDOWN_DURATION_SECONDS);
+          if (showNotification) {
+            notify(`${company === 'etik' ? 'Etik' : 'Marif'} güncel faturaları yüklendi. (${supaData.invoices.length} fatura)`, 'success');
+          }
+          return;
+        }
+      } catch (fallbackErr) {
+        console.warn('Supabase fallback da başarısız oldu:', fallbackErr);
+      }
+
       if (showNotification) {
         notify('Vega yerel sunucu servisine şu an ulaşılamıyor. Önbellekteki veriler gösterilmeye devam ediyor.', 'info');
       }

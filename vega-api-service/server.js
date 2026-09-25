@@ -601,7 +601,11 @@ app.get(['/api/:company/efaturalar', '/api/efaturalar'], async (req, res) => {
     if (company === 'marif') {
       const force = req.query.force === 'true';
       if (force) {
-        try { syncMarifIncomingInvoices(true).catch(() => {}); } catch (e) {}
+        try {
+          await syncMarifIncomingInvoices(true);
+        } catch (e) {
+          console.warn('[MARİF SYNC] Force sync uyarısı:', e.message);
+        }
       }
 
       // 1. Vega Veritabanı Marif Faturaları (VEGADB - F0102)
@@ -1494,148 +1498,167 @@ async function syncMarifIncomingInvoices(force = false) {
     }
 
     const currentYear = new Date().getFullYear();
-    const yearsToScan = force ? [currentYear, currentYear - 1, 2024, 2023] : [currentYear, currentYear - 1];
+    const currentMonth = new Date().getMonth(); // 0-indexed
+
+    // Yıl ve ay listesi oluştur (Hızlı ve kota korumalı tarama)
+    let scanMonths = [];
+    if (force === 'all') {
+      const yearsToScan = [currentYear, currentYear - 1, 2024, 2023];
+      for (const yr of yearsToScan) {
+        for (let mo = 0; mo <= 11; mo++) {
+          scanMonths.push({ yr, mo });
+        }
+      }
+    } else {
+      // Güncel ay ve önceki 3 ayı tara (Kota ve IP kısıtını korumak için hızlı ve hafif tarama)
+      for (let i = 0; i < 4; i++) {
+        let mo = currentMonth - i;
+        let yr = currentYear;
+        if (mo < 0) {
+          mo += 12;
+          yr -= 1;
+        }
+        scanMonths.push({ yr, mo });
+      }
+      scanMonths.push({ yr: currentYear - 1, mo: 11 }); // Yıl devri için
+    }
 
     // 1. INBOX (GELEN FATURALAR)
-    for (const yr of yearsToScan) {
-      for (let mo = 0; mo <= 11; mo++) {
-        let page = 0;
-        let hasMore = true;
+    for (const { yr, mo } of scanMonths) {
+      let page = 0;
+      let hasMore = true;
 
-        while (hasMore) {
-          const qs = `/accounting/api/inbox/getInboxes?year=${yr}&month=${mo}&headerSearch=&notInList=false&documentIds=&multipleVkn=&chemistWarehouseFilter=ALL&page=${page}&size=100&sort=receivedDate,desc&isArchive=0`;
+      while (hasMore) {
+        const qs = `/accounting/api/inbox/getInboxes?year=${yr}&month=${mo}&headerSearch=&notInList=false&documentIds=&multipleVkn=&chemistWarehouseFilter=ALL&page=${page}&size=100&sort=receivedDate,desc&isArchive=0`;
 
-          const res = await new Promise((resolve) => {
-            const req = https.request({
-              hostname: 'portal.mikrokomdonusum.com',
-              port: 443,
-              path: qs,
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json;charset=UTF-8',
-                'User-Agent': 'Mozilla/5.0'
-              },
-              secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
-            }, (response) => {
-              let d = '';
-              response.on('data', c => d += c);
-              response.on('end', () => resolve({ statusCode: response.statusCode, data: d }));
-            });
-            req.on('error', () => resolve({ statusCode: 500, data: '' }));
-            req.end();
+        const res = await new Promise((resolve) => {
+          const req = https.request({
+            hostname: 'portal.mikrokomdonusum.com',
+            port: 443,
+            path: qs,
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json;charset=UTF-8',
+              'User-Agent': 'Mozilla/5.0'
+            },
+            secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
+          }, (response) => {
+            let d = '';
+            response.on('data', c => d += c);
+            response.on('end', () => resolve({ statusCode: response.statusCode, data: d }));
           });
+          req.on('error', () => resolve({ statusCode: 500, data: '' }));
+          req.end();
+        });
 
-          if (res.statusCode === 200) {
-            try {
-              const j = JSON.parse(res.data);
-              const items = j.content || [];
-              for (const item of items) {
-                const invObj = {
-                  id: item.recordId,
-                  invoiceNo: item.documentId,
-                  ettn: item.documentUuid,
-                  year: yr,
-                  date: item.documentIssueDate || item.receivedDate,
-                  receivedDate: item.receivedDate,
-                  cariCode: item.sourceId || '',
-                  vkn: item.sourceId || '',
-                  cariName: item.sourceTitle || 'Bilinmeyen Cari',
-                  matrah: item.taxExclusiveAmount != null ? Number(item.taxExclusiveAmount) : (Number(item.invoiceTotal || 0) - Number(item.taxTotalAmount || 0)),
-                  kdv: Number(item.taxTotalAmount || 0),
-                  amount: Number(item.taxInclusiveAmount || item.invoiceTotal || 0),
-                  direction: 'gelen',
-                  type: item.documentProfile || 'e-Fatura',
-                  profile: item.documentProfile || 'TEMELFATURA',
-                  status: item.responseCode || (item.responseValidationState === 2 ? 'KABUL' : 'Alındı')
-                };
-                if (invObj.invoiceNo) {
-                  invoiceMap.set(invObj.invoiceNo, invObj);
-                }
+        if (res.statusCode === 200) {
+          try {
+            const j = JSON.parse(res.data);
+            const items = j.content || [];
+            for (const item of items) {
+              const invObj = {
+                id: item.recordId,
+                invoiceNo: item.documentId,
+                ettn: item.documentUuid,
+                year: yr,
+                date: item.documentIssueDate || item.receivedDate,
+                receivedDate: item.receivedDate,
+                cariCode: item.sourceId || '',
+                vkn: item.sourceId || '',
+                cariName: item.sourceTitle || 'Bilinmeyen Cari',
+                matrah: item.taxExclusiveAmount != null ? Number(item.taxExclusiveAmount) : (Number(item.invoiceTotal || 0) - Number(item.taxTotalAmount || 0)),
+                kdv: Number(item.taxTotalAmount || 0),
+                amount: Number(item.taxInclusiveAmount || item.invoiceTotal || 0),
+                direction: 'gelen',
+                type: item.documentProfile || 'e-Fatura',
+                profile: item.documentProfile || 'TEMELFATURA',
+                status: item.responseCode || (item.responseValidationState === 2 ? 'KABUL' : 'Alındı')
+              };
+              if (invObj.invoiceNo) {
+                invoiceMap.set(invObj.invoiceNo, invObj);
               }
-              if (items.length < 100 || (page + 1) * 100 >= (j.totalElements || 0)) {
-                hasMore = false;
-              } else {
-                page++;
-              }
-            } catch (e) {
-              hasMore = false;
             }
-          } else {
+            if (items.length < 100 || (page + 1) * 100 >= (j.totalElements || 0)) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+          } catch (e) {
             hasMore = false;
           }
+        } else {
+          hasMore = false;
         }
       }
     }
 
     // 2. OUTBOX (GİDEN FATURALAR)
-    for (const yr of yearsToScan) {
-      for (let mo = 0; mo <= 11; mo++) {
-        let page = 0;
-        let hasMore = true;
+    for (const { yr, mo } of scanMonths) {
+      let page = 0;
+      let hasMore = true;
 
-        while (hasMore) {
-          const qs = `/accounting/api/outbox/getOutboxes?year=${yr}&month=${mo}&page=${page}&size=100`;
+      while (hasMore) {
+        const qs = `/accounting/api/outbox/getOutboxes?year=${yr}&month=${mo}&page=${page}&size=100`;
 
-          const res = await new Promise((resolve) => {
-            const req = https.request({
-              hostname: 'portal.mikrokomdonusum.com',
-              port: 443,
-              path: qs,
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json;charset=UTF-8',
-                'User-Agent': 'Mozilla/5.0'
-              },
-              secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
-            }, (response) => {
-              let d = '';
-              response.on('data', c => d += c);
-              response.on('end', () => resolve({ statusCode: response.statusCode, data: d }));
-            });
-            req.on('error', () => resolve({ statusCode: 500, data: '' }));
-            req.end();
+        const res = await new Promise((resolve) => {
+          const req = https.request({
+            hostname: 'portal.mikrokomdonusum.com',
+            port: 443,
+            path: qs,
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json;charset=UTF-8',
+              'User-Agent': 'Mozilla/5.0'
+            },
+            secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT
+          }, (response) => {
+            let d = '';
+            response.on('data', c => d += c);
+            response.on('end', () => resolve({ statusCode: response.statusCode, data: d }));
           });
+          req.on('error', () => resolve({ statusCode: 500, data: '' }));
+          req.end();
+        });
 
-          if (res.statusCode === 200) {
-            try {
-              const j = JSON.parse(res.data);
-              const items = j.content || [];
-              for (const item of items) {
-                const invObj = {
-                  id: item.recordId,
-                  invoiceNo: item.documentId,
-                  ettn: item.documentUuid,
-                  year: yr,
-                  date: item.documentIssueDate || item.receivedDate,
-                  receivedDate: item.receivedDate,
-                  cariCode: item.destinationId || '',
-                  vkn: item.destinationId || '',
-                  cariName: item.destinationTitle || 'Bilinmeyen Cari',
-                  matrah: item.taxExclusiveAmount != null ? Number(item.taxExclusiveAmount) : (Number(item.invoiceTotal || 0) - Number(item.taxTotalAmount || 0)),
-                  kdv: Number(item.taxTotalAmount || 0),
-                  amount: Number(item.taxInclusiveAmount || item.invoiceTotal || 0),
-                  direction: 'giden',
-                  type: item.documentProfile || 'e-Fatura',
-                  profile: item.documentProfile || 'TEMELFATURA',
-                  status: item.resultExplanation || item.responseCode || (item.processState === 500 ? 'Başarılı' : 'Gönderildi')
-                };
-                if (invObj.invoiceNo) {
-                  invoiceMap.set(invObj.invoiceNo, invObj);
-                }
+        if (res.statusCode === 200) {
+          try {
+            const j = JSON.parse(res.data);
+            const items = j.content || [];
+            for (const item of items) {
+              const invObj = {
+                id: item.recordId,
+                invoiceNo: item.documentId,
+                ettn: item.documentUuid,
+                year: yr,
+                date: item.documentIssueDate || item.receivedDate,
+                receivedDate: item.receivedDate,
+                cariCode: item.destinationId || '',
+                vkn: item.destinationId || '',
+                cariName: item.destinationTitle || 'Bilinmeyen Cari',
+                matrah: item.taxExclusiveAmount != null ? Number(item.taxExclusiveAmount) : (Number(item.invoiceTotal || 0) - Number(item.taxTotalAmount || 0)),
+                kdv: Number(item.taxTotalAmount || 0),
+                amount: Number(item.taxInclusiveAmount || item.invoiceTotal || 0),
+                direction: 'giden',
+                type: item.documentProfile || 'e-Fatura',
+                profile: item.documentProfile || 'TEMELFATURA',
+                status: item.resultExplanation || item.responseCode || (item.processState === 500 ? 'Başarılı' : 'Gönderildi')
+              };
+              if (invObj.invoiceNo) {
+                invoiceMap.set(invObj.invoiceNo, invObj);
               }
-              if (items.length < 100 || (page + 1) * 100 >= (j.totalElements || 0)) {
-                hasMore = false;
-              } else {
-                page++;
-              }
-            } catch (e) {
-              hasMore = false;
             }
-          } else {
+            if (items.length < 100 || (page + 1) * 100 >= (j.totalElements || 0)) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+          } catch (e) {
             hasMore = false;
           }
+        } else {
+          hasMore = false;
         }
       }
     }
