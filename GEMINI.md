@@ -347,15 +347,21 @@ Mikrokom ve Vega e-Fatura entegratör sorgu kotalarını korumak ve kullanıcıl
 
 Cari yaşlandırma, risk analizi ve borç-alacak raporlama algoritmaları geliştirilirken veya güncellenirken aşağıdaki ticari ve teknik kurallara KESİNLİKLE uyulacaktır:
 
-1. **Açık Hesap ve Dönen Bakiye Prensibi (Continuous Open Balance Invariant):**
-   - Şirket ticari faaliyeti gereği malı vadeli alır ve vadeli satar. Aktif çalışan carilerde hesap bakiyesinin sıfırlanması beklenmez; hesapta sürekli olarak devreden açık bir borç bakiyesi (`balance > 0`) bulunması doğal ticari akışın bir parçasıdır.
-   - Bu nedenle açık bir bakiyenin bulunması tek başına carinin "vadesi geçmiş", "sorunlu" veya "yüksek riskli" olduğu anlamına gelmez.
+1. **Evrensel Vadeli Satış Prensibi (Universal Credit Sales Invariant):**
+   - Şirket istisnasız **tüm müşterilerine vadeli mal vermektedir**. Sistemde müşteriler için "peşin satış / aynı gün temerrüt" gibi bir varsayım kesinlikle uygulanamaz.
+   - Aktif çalışan carilerde hesap bakiyesinin sıfırlanması beklenmez; hesapta sürekli olarak devreden açık bir borç bakiyesi (`balance > 0`) bulunması doğal vadeli ticaretin temelidir.
 
-2. **Dinamizm ve Tahsilat Düzenliliği Esası:**
-   - Cari risk analizi yapılırken bakiye büyüklüğünden ziyade carinin **hareket canlılığı (devir hızı)** ve **tahsilat akışının düzenliliği** esas alınmalıdır.
-   - Örneğin; yüksek bakiyesi olsa dahi düzenli aralıklarla (haftalık, 2-3 günde bir) ödeme/havale gönderen ve mal alımına devam eden cari hesaplar, hareketsiz ve ödeme yapmayan atıl borçlularla aynı risk kefesine konulamaz.
+2. **1 Aylık "Doğal Vadeli Çalışma Bakiyesi" (Emtia/Kg Bazlı Güvenli Eşik):**
+   - Her cari için `Aylık Ortalama Kg Alımı × Güncel Et Kg Fiyatı` formülü ile bir **"Doğal Vadeli Çalışma Bakiyesi"** tanımlanır.
+   - Müşterinin içerideki toplam borcunun bu 1 aylık alım tutarına kadar olan kısmı, şirketin müşteriye tanıdığı olağan çalışma kredisidir; **asla vadesi geçmiş veya gecikmiş alacak sayılamaz**.
+   - Vade gecikmesi ve finansal risk, ancak ve ancak toplam borcun bu **1 aylık doğal limiti aştığı tutar** üzerinden hesaplanabilir.
 
-3. **Tek Faturaya İndirgememe ve FIFO Bakiye Yaşlandırma Zorunluluğu:**
+3. **Dinamizm ve Tahsilat Düzenliliği Esası:**
+   - Cari risk analizi yapılırken salt bakiye büyüklüğü değil, carinin hareket canlılığı (devir hızı) ve düzenli ödeme/havale akışı esas alınmalıdır.
+   - Düzenli tahsilat veren ve alımları 1 aylık doğal vadeli sınırında seyreden cariler düşük/kontrollü risk grubundadır.
+
+4. **Tek Faturaya İndirgememe ve FIFO Bakiye Yaşlandırma Zorunluluğu:**
    - Cari yaşlandırma hesaplamalarında carinin toplam borcu kesinlikle yalnızca "en son kesilen faturaya" veya tekil bir harekete indirgenemez.
-   - Açık bakiye, geriye dönük olarak tahsilatlarla faturaların sırasıyla eritildiği **FIFO (İlk Giren İlk Çıkar)** yöntemiyle analiz edilmelidir. Böylece açıkta kalan paranın ne kadarının taze vadeli alımlardan, ne kadarının ise vadesi aşılmış eski dönemden kaldığı net olarak ayrıştırılmalıdır.
+   - Açık bakiye, geriye dönük tahsilatlarla faturaların sırasıyla eritildiği FIFO yöntemiyle analiz edilmeli; doğal vadeli sınırın üzerinde kalan kısım hangi tarihten kalmışsa gecikme o tutar için işletilmelidir.
+
 
