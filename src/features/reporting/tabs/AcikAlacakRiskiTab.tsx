@@ -206,10 +206,10 @@ export function AcikAlacakRiskiTab({ rows, loading }: Props) {
           </div>
         </div>
 
-        {/* KPI 2: Güvenli Rotasyonel Bakiye */}
+        {/* KPI 2: Açık Alacak Limiti */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Güvenli Vadeli Bakiye (1x)</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Açık Alacak Limiti (1x)</span>
             <div className="rounded-lg bg-indigo-50 p-2.5 text-indigo-600">
               <CheckCircle2 size={20} />
             </div>
@@ -456,13 +456,13 @@ export function AcikAlacakRiskiTab({ rows, loading }: Props) {
                   </div>
                 </th>
 
-                {/* 4. Güvenli Vadeli Limit (1x) (TL) */}
+                {/* 4. Açık Alacak Limiti (1x) (TL) */}
                 <th 
                   onClick={() => handleSort('safeLimit')}
                   className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 select-none transition-colors group"
                 >
                   <div className="flex items-center justify-end gap-1.5">
-                    <span>Güvenli Vadeli Limit (1x)</span>
+                    <span>Açık Alacak Limiti (1x)</span>
                     {renderSortIcon('safeLimit')}
                   </div>
                 </th>

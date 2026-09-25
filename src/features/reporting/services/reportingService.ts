@@ -552,7 +552,7 @@ export function exportCariAgingToExcel(rows: CariAgingRow[]): void {
     'Güncel Net Bakiye (TL)': r.balance,
     'Aylık Ort. Tüketim (Kg)': r.monthlyAvgKg,
     'Aylık Ort. Alım Tutarı (TL)': r.monthlyAvgAmount,
-    'Güvenli Vadeli Limit (TL)': r.safeLimit,
+    'Açık Alacak Limiti (TL)': r.safeLimit,
     'Gerçek Riskli / Aşan Tutar (TL)': r.riskAmount,
     'Vade Gecikmesi (Gün)': r.overdueDays,
     'Vade Dilimi': r.bucket === 'current' ? 'Vadesinde / Güvenli' : `${r.bucket} Gün`,
@@ -614,7 +614,7 @@ export function exportAcikAlacakRiskiToExcel(rows: CariAgingRow[]): void {
     'Cari Tipi': r.type,
     'Güncel Net Bakiye (TL)': r.balance,
     'Aylık Ort. Tüketim (Kg)': r.monthlyAvgKg,
-    'Güvenli Vadeli Limit (1x) (TL)': r.safeLimit,
+    'Açık Alacak Limiti (1x) (TL)': r.safeLimit,
     'Gerçek Riskli / Aşan Tutar (TL)': r.riskAmount,
     'Vade Gecikmesi (Gün)': r.overdueDays,
     'Vade Dilimi': r.bucket === 'current' ? 'Vadesinde / Güvenli' : `${r.bucket} Gün`,
@@ -672,12 +672,12 @@ export function generateCariWhatsAppMessage(row: CariAgingRow): string {
   let text = `Sayın *${row.cariName}*,\n\n`;
 
   if (row.riskAmount && row.riskAmount > 0) {
-    text += `Firmamız nezdindeki cari hesabınızda ${dateStr} tarihi itibarıyla vadeli güvenli limitinizi aşan *${riskAmountFormatted} TL* vadesi geçmiş bakiye bulunmaktadır.\n`;
+    text += `Firmamız nezdindeki cari hesabınızda ${dateStr} tarihi itibarıyla açık alacak limitinizi aşan *${riskAmountFormatted} TL* vadesi geçmiş bakiye bulunmaktadır.\n`;
     if (row.overdueDays > 0) {
       text += `Aşan hesap bakiyeniz yaklaşık *${row.overdueDays} gündür* vadesini aşmış durumdadır.\n`;
     }
   } else {
-    text += `Firmamız nezdindeki cari hesabınız güvenli vadeli limitiniz dahilindedir (Güncel bakiye: *${balanceDisplayText}*).\n`;
+    text += `Firmamız nezdindeki cari hesabınız açık alacak limitiniz dahilindedir (Güncel bakiye: *${balanceDisplayText}*).\n`;
     text += `Hesap hareketlerinizin mutabakatı ve güncel durum bilgisi için bilgi ve ilginizi rica ederiz.\n`;
   }
 
