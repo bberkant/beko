@@ -309,6 +309,7 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [showCompletedDateNotes, setShowCompletedDateNotes] = useState(false);
+  const [datePickerNoteId, setDatePickerNoteId] = useState<string | null>(null);
 
   // Sync cache if user identity finishes resolving
   useEffect(() => {
@@ -524,6 +525,19 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
       await query;
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleAssignNoteDate = async (id: string, newDate: string | null) => {
+    const updatedNotes = notes.map(n => n.id === id ? { ...n, date: newDate } : n);
+    setNotes(updatedNotes);
+    saveNotesCache(updatedNotes);
+    try {
+      let query = supabase.from('calendar_notes').update({ date: newDate }).eq('id', id);
+      if (user?.id) query = query.eq('created_by', user.id);
+      await query;
+    } catch (err) {
+      console.error('Note date update error:', err);
     }
   };
 
@@ -895,7 +909,7 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
 
                         {/* Date Badge if note has a scheduled date */}
                         {note.date && (
-                          <div className="mt-1 flex items-center gap-1.5">
+                          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                             <button
                               type="button"
                               onClick={() => setSelected(note.date!)}
@@ -911,11 +925,139 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
                               <CalendarIcon size={10} />
                               <span>{formatDateShort(note.date)}</span>
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => setDatePickerNoteId(prev => prev === note.id ? null : note.id)}
+                              className="text-[10px] text-gray-400 hover:text-brand-600 transition-colors cursor-pointer"
+                              title="Tarihi değiştir"
+                            >
+                              (tarihi değiştir)
+                            </button>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
+                      <div className={`flex items-center gap-1 shrink-0 transition-opacity mt-0.5 ${
+                        datePickerNoteId === note.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}>
+                        {/* Not Yanına Takvim İkonu: Tarih Atama / Değiştirme */}
+                        <div className="relative">
+                          <button 
+                            type="button"
+                            onClick={() => setDatePickerNoteId(prev => prev === note.id ? null : note.id)}
+                            className={`p-1 rounded transition-colors ${
+                              note.date 
+                                ? 'text-brand-600 bg-brand-50 hover:bg-brand-100' 
+                                : 'text-gray-400 hover:text-brand-600 hover:bg-white'
+                            }`}
+                            title={note.date ? `Tarihi Değiştir (${formatDateShort(note.date)})` : 'Tarih / Hatırlatma Ata'}
+                          >
+                            <CalendarIcon size={14} />
+                          </button>
+
+                          {datePickerNoteId === note.id && (
+                            <div 
+                              className="absolute right-0 top-7 z-30 w-60 rounded-xl border border-gray-200 bg-white p-3 shadow-xl animate-in fade-in zoom-in-95 duration-100"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex items-center justify-between border-b border-gray-100 pb-1.5 mb-2">
+                                <span className="text-[11px] font-bold text-gray-800">Tarih / Hatırlatma Ata</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setDatePickerNoteId(null)}
+                                  className="text-gray-400 hover:text-gray-600 p-0.5"
+                                  title="Kapat"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+
+                              <input
+                                type="date"
+                                min={today}
+                                defaultValue={note.date || ''}
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    void handleAssignNoteDate(note.id, e.target.value);
+                                    setDatePickerNoteId(null);
+                                  }
+                                }}
+                                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-500 mb-2"
+                              />
+
+                              <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void handleAssignNoteDate(note.id, today);
+                                    setDatePickerNoteId(null);
+                                  }}
+                                  className="rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 px-2 py-1 font-medium text-gray-700 text-center transition-colors"
+                                >
+                                  Bugün
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const d = new Date();
+                                    d.setDate(d.getDate() + 1);
+                                    void handleAssignNoteDate(note.id, dateKey(d.toISOString()));
+                                    setDatePickerNoteId(null);
+                                  }}
+                                  className="rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 px-2 py-1 font-medium text-gray-700 text-center transition-colors"
+                                >
+                                  Yarın
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const d = new Date();
+                                    d.setDate(d.getDate() + 7);
+                                    void handleAssignNoteDate(note.id, dateKey(d.toISOString()));
+                                    setDatePickerNoteId(null);
+                                  }}
+                                  className="col-span-2 rounded border border-brand-200 bg-brand-50 hover:bg-brand-100 px-2 py-1 font-bold text-brand-700 text-center transition-colors flex items-center justify-center gap-1"
+                                >
+                                  <CalendarIcon size={12} />
+                                  <span>1 Hafta Sonra</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const d = new Date();
+                                    d.setMonth(d.getMonth() + 1);
+                                    void handleAssignNoteDate(note.id, dateKey(d.toISOString()));
+                                    setDatePickerNoteId(null);
+                                  }}
+                                  className="rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 px-2 py-1 font-medium text-gray-700 text-center transition-colors"
+                                >
+                                  1 Ay Sonra
+                                </button>
+                                {note.date ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void handleAssignNoteDate(note.id, null);
+                                      setDatePickerNoteId(null);
+                                    }}
+                                    className="col-span-2 rounded border border-red-200 bg-red-50 hover:bg-red-100 px-2 py-1 font-bold text-red-600 text-center transition-colors"
+                                  >
+                                    Tarihi Kaldır
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDatePickerNoteId(null)}
+                                    className="col-span-2 rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 px-2 py-1 font-medium text-gray-500 text-center transition-colors"
+                                  >
+                                    Vazgeç
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
                         <button 
                           type="button"
                           onClick={() => {
