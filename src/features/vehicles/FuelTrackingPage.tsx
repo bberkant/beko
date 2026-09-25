@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Fuel, 
   Plus, 
@@ -14,7 +15,9 @@ import {
   CheckCircle2, 
   X, 
   Download, 
-  ChevronRight
+  ChevronRight,
+  ExternalLink,
+  Filter
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Modal } from '../../components/ui/Modal';
@@ -204,6 +207,11 @@ export function FuelTrackingPage() {
   const [selectedPlateFilter, setSelectedPlateFilter] = useState<string>('all');
   const [selectedStationFilter, setSelectedStationFilter] = useState<string>('all');
 
+  // Quick Detail Modal (Plate or Station)
+  const navigate = useNavigate();
+  const [detailModal, setDetailModal] = useState<{ type: 'plate' | 'station'; value: string } | null>(null);
+  const [detailQuery, setDetailQuery] = useState('');
+
   // Manual Add/Edit Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<FuelFormState>(emptyForm());
@@ -370,6 +378,71 @@ export function FuelTrackingPage() {
 
     return Array.from(map.values()).sort((a, b) => b.totalAmount - a.totalAmount);
   }, [items]);
+
+  // Detail Modal data
+  const {
+    modalRecords,
+    modalFilteredRecords,
+    modalTotalAmount,
+    modalTotalQty,
+    modalAvgPrice,
+    modalVehicle,
+    modalStationCity,
+    modalStationVehicleCount
+  } = useMemo(() => {
+    if (!detailModal) {
+      return {
+        modalRecords: [] as VehicleFuelEntry[],
+        modalFilteredRecords: [] as VehicleFuelEntry[],
+        modalTotalAmount: 0,
+        modalTotalQty: 0,
+        modalAvgPrice: 0,
+        modalVehicle: undefined as any,
+        modalStationCity: '',
+        modalStationVehicleCount: 0
+      };
+    }
+
+    let records: VehicleFuelEntry[] = [];
+    let vehicle: any = undefined;
+    let stationCity = '';
+    let stationVehicleCount = 0;
+
+    if (detailModal.type === 'plate') {
+      const targetPlate = cleanPlate(detailModal.value);
+      records = items.filter((x) => cleanPlate(x.plate) === targetPlate);
+      vehicle = vehicles.find((v) => cleanPlate(v.plate) === targetPlate || v.id === records[0]?.vehicle_id);
+    } else {
+      const targetStation = detailModal.value.trim().toLocaleLowerCase('tr-TR');
+      records = items.filter((x) => (x.station || '').trim().toLocaleLowerCase('tr-TR') === targetStation);
+      const cities = Array.from(new Set(records.map((r) => r.city).filter(Boolean)));
+      stationCity = cities.join(', ');
+      stationVehicleCount = new Set(records.map((r) => cleanPlate(r.plate))).size;
+    }
+
+    const totalAmount = records.reduce((s, x) => s + x.total_amount, 0);
+    const totalQty = records.reduce((s, x) => s + x.quantity, 0);
+    const avgPrice = totalQty > 0 ? totalAmount / totalQty : 0;
+
+    const q = detailQuery.trim().toLocaleLowerCase('tr-TR');
+    const filtered = records.filter((x) => {
+      if (!q) return true;
+      const v = vehicles.find((item) => item.id === x.vehicle_id || cleanPlate(item.plate) === cleanPlate(x.plate));
+      const str = `${x.plate} ${v?.brand || ''} ${v?.model || ''} ${x.station || ''} ${x.city || ''} ${x.driver_name || ''} ${x.fuel_type || ''} ${x.notes || ''}`.toLocaleLowerCase('tr-TR');
+      return str.includes(q);
+    });
+
+    return {
+      modalRecords: records,
+      modalFilteredRecords: filtered,
+      modalTotalAmount: totalAmount,
+      modalTotalQty: totalQty,
+      modalAvgPrice: avgPrice,
+      modalVehicle: vehicle,
+      modalStationCity: stationCity,
+      modalStationVehicleCount: stationVehicleCount
+    };
+  }, [detailModal, items, vehicles, detailQuery]);
 
   // Form helpers
   const handleOpenAdd = () => {
@@ -1008,9 +1081,18 @@ export function FuelTrackingPage() {
                           ) : null}
                         </td>
                         <td className="table-td font-semibold">
-                          <span className="rounded bg-gray-100 px-2.5 py-1 text-xs font-mono font-bold text-gray-900 border border-gray-200">
-                            {x.plate}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDetailQuery('');
+                              setDetailModal({ type: 'plate', value: x.plate });
+                            }}
+                            className="inline-flex items-center gap-1 rounded bg-gray-100 px-2.5 py-1 text-xs font-mono font-bold text-gray-900 border border-gray-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 transition-colors shadow-2xs group cursor-pointer text-left"
+                            title="Plaka hareket dökümünü incele"
+                          >
+                            <span>{x.plate}</span>
+                            <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-600" />
+                          </button>
                         </td>
                         <td className="table-td">
                           {vehicle ? (
@@ -1036,7 +1118,24 @@ export function FuelTrackingPage() {
                           {money(x.total_amount)}
                         </td>
                         <td className="table-td">
-                          <div className="font-medium text-gray-900">{x.station || '—'}</div>
+                          <div className="font-medium text-gray-900">
+                            {x.station ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDetailQuery('');
+                                  setDetailModal({ type: 'station', value: x.station || '' });
+                                }}
+                                className="text-left font-medium text-gray-900 hover:text-brand-600 hover:underline transition-colors group inline-flex items-center gap-1 cursor-pointer"
+                                title="İstasyon hareket dökümünü incele"
+                              >
+                                <span>{x.station}</span>
+                                <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-600" />
+                              </button>
+                            ) : (
+                              '—'
+                            )}
+                          </div>
                           {x.city && <div className="text-xs text-gray-400">{x.city}</div>}
                         </td>
                         <td className="table-td">
@@ -1103,9 +1202,18 @@ export function FuelTrackingPage() {
                   return (
                     <tr key={s.plate} className="border-t border-gray-100 hover:bg-gray-50/50">
                       <td className="table-td font-semibold">
-                        <span className="rounded bg-gray-100 px-2.5 py-1 text-xs font-mono font-bold text-gray-900 border border-gray-200">
-                          {s.plate}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDetailQuery('');
+                            setDetailModal({ type: 'plate', value: s.plate });
+                          }}
+                          className="inline-flex items-center gap-1 rounded bg-gray-100 px-2.5 py-1 text-xs font-mono font-bold text-gray-900 border border-gray-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 transition-colors shadow-2xs group cursor-pointer text-left"
+                          title="Plaka hareket dökümünü incele"
+                        >
+                          <span>{s.plate}</span>
+                          <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-600" />
+                        </button>
                       </td>
                       <td className="table-td font-medium text-gray-800">{s.brandModel}</td>
                       <td className="table-td text-center font-bold text-gray-700">{s.count} kez</td>
@@ -1124,10 +1232,10 @@ export function FuelTrackingPage() {
                       <td className="table-td text-gray-700">{s.lastStation}</td>
                       <td className="table-td text-right">
                         <button
-                          className="btn-secondary !py-1 !text-xs"
+                          className="btn-secondary !py-1 !text-xs cursor-pointer"
                           onClick={() => {
-                            setSelectedPlateFilter(s.plate);
-                            setActiveTab('all');
+                            setDetailQuery('');
+                            setDetailModal({ type: 'plate', value: s.plate });
                           }}
                         >
                           Hareketleri Gör
@@ -1172,7 +1280,20 @@ export function FuelTrackingPage() {
                   const share = totalAmount > 0 ? (s.totalAmount / totalAmount) * 100 : 0;
                   return (
                     <tr key={s.station} className="border-t border-gray-100 hover:bg-gray-50/50">
-                      <td className="table-td font-semibold text-gray-900">{s.station}</td>
+                      <td className="table-td font-semibold text-gray-900">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDetailQuery('');
+                            setDetailModal({ type: 'station', value: s.station });
+                          }}
+                          className="text-left font-semibold text-gray-900 hover:text-brand-600 hover:underline transition-colors group inline-flex items-center gap-1 cursor-pointer"
+                          title="İstasyon hareket dökümünü incele"
+                        >
+                          <span>{s.station}</span>
+                          <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-600" />
+                        </button>
+                      </td>
                       <td className="table-td text-gray-600">{s.city}</td>
                       <td className="table-td text-center font-bold text-gray-700">{s.count}</td>
                       <td className="table-td text-right font-bold text-blue-700">
@@ -1194,10 +1315,10 @@ export function FuelTrackingPage() {
                       </td>
                       <td className="table-td text-right">
                         <button
-                          className="btn-secondary !py-1 !text-xs"
+                          className="btn-secondary !py-1 !text-xs cursor-pointer"
                           onClick={() => {
-                            setSelectedStationFilter(s.station);
-                            setActiveTab('all');
+                            setDetailQuery('');
+                            setDetailModal({ type: 'station', value: s.station });
                           }}
                         >
                           Hareketleri Gör
@@ -1212,6 +1333,278 @@ export function FuelTrackingPage() {
           </table>
         </div>
       )}
+
+      {/* Detail Breakdown Modal (Plate or Station) */}
+      <Modal
+        open={Boolean(detailModal)}
+        onClose={() => setDetailModal(null)}
+        title={
+          detailModal?.type === 'plate'
+            ? `Araç / Plaka Hareket Dökümü: ${detailModal.value}`
+            : `İstasyon Hareket Dökümü: ${detailModal?.value}`
+        }
+        description={
+          detailModal?.type === 'plate'
+            ? (modalVehicle ? `${modalVehicle.brand} ${modalVehicle.model} · Toplam ${modalRecords.length} dolum kaydı` : `Kayıtsız Araç · Toplam ${modalRecords.length} dolum kaydı`)
+            : `${modalStationCity ? `${modalStationCity} · ` : ''}${modalStationVehicleCount} farklı araç · Toplam ${modalRecords.length} dolum işlemi`
+        }
+        size="4xl"
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="btn-secondary !text-xs !py-1.5 cursor-pointer"
+                onClick={() => {
+                  if (!detailModal) return;
+                  if (detailModal.type === 'plate') {
+                    setSelectedPlateFilter(detailModal.value);
+                  } else {
+                    setSelectedStationFilter(detailModal.value);
+                  }
+                  setActiveTab('all');
+                  setDetailModal(null);
+                }}
+              >
+                <Filter size={14} />
+                Ana Tabloda Filtrele
+              </button>
+              {detailModal?.type === 'plate' && modalVehicle?.id && (
+                <button
+                  type="button"
+                  className="btn-secondary !text-xs !py-1.5 cursor-pointer"
+                  onClick={() => {
+                    navigate(`/arac-yonetimi/${modalVehicle.id}`);
+                  }}
+                >
+                  <ExternalLink size={14} />
+                  Araç Profiline Git
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              className="btn-secondary !text-xs !py-1.5 cursor-pointer"
+              onClick={() => setDetailModal(null)}
+            >
+              Kapat
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {/* Summary KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-gray-100 bg-emerald-50/50 p-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-emerald-800">Toplam Harcama</span>
+                <CircleDollarSign size={16} className="text-emerald-600" />
+              </div>
+              <div className="mt-1 text-lg font-bold text-emerald-700">
+                {money(modalTotalAmount)}
+              </div>
+              <div className="text-[11px] text-emerald-600/80">KDV Dahil</div>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-blue-50/50 p-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-blue-800">Toplam Litre</span>
+                <Droplet size={16} className="text-blue-600" />
+              </div>
+              <div className="mt-1 text-lg font-bold text-blue-700">
+                {formatNumber(modalTotalQty, 2)} Lt
+              </div>
+              <div className="text-[11px] text-blue-600/80">Akaryakıt Hacmi</div>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-amber-50/50 p-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-amber-800">Ort. Litre Fiyatı</span>
+                <Fuel size={16} className="text-amber-600" />
+              </div>
+              <div className="mt-1 text-lg font-bold text-amber-700">
+                {money(modalAvgPrice)} / Lt
+              </div>
+              <div className="text-[11px] text-amber-600/80">Ağırlıklı Ortalama</div>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-purple-50/50 p-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-purple-800">
+                  {detailModal?.type === 'plate' ? 'Dolum Sayısı' : 'İşlem Sayısı'}
+                </span>
+                <Building2 size={16} className="text-purple-600" />
+              </div>
+              <div className="mt-1 text-lg font-bold text-purple-700">
+                {modalRecords.length} Adet
+              </div>
+              <div className="text-[11px] text-purple-600/80">
+                {detailModal?.type === 'plate'
+                  ? 'Farklı akaryakıt alımı'
+                  : `${modalStationVehicleCount} farklı araç`}
+              </div>
+            </div>
+          </div>
+
+          {/* Search bar inside modal */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+              <input
+                type="text"
+                placeholder={
+                  detailModal?.type === 'plate'
+                    ? 'İstasyon, il, şoför veya tarih ara...'
+                    : 'Plaka, araç, şoför veya tarih ara...'
+                }
+                value={detailQuery}
+                onChange={(e) => setDetailQuery(e.target.value)}
+                className="input pl-9 !py-1.5 !text-sm"
+              />
+            </div>
+            {detailQuery && (
+              <button
+                type="button"
+                onClick={() => setDetailQuery('')}
+                className="text-xs text-gray-500 hover:text-gray-800 cursor-pointer"
+              >
+                Filtreyi Temizle
+              </button>
+            )}
+          </div>
+
+          {/* Table */}
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto max-h-[50vh]">
+              <table className="min-w-full text-xs">
+                <thead className="bg-gray-50/80 sticky top-0 z-10 border-b border-gray-200">
+                  <tr>
+                    <th className="table-th py-2">Tarih</th>
+                    {detailModal?.type === 'station' ? (
+                      <>
+                        <th className="table-th py-2">Plaka</th>
+                        <th className="table-th py-2">Araç Bilgisi</th>
+                      </>
+                    ) : (
+                      <th className="table-th py-2">İstasyon & İl</th>
+                    )}
+                    <th className="table-th py-2">Yakıt Tipi</th>
+                    <th className="table-th py-2 text-right">Litre</th>
+                    <th className="table-th py-2 text-right">Birim Fiyat</th>
+                    <th className="table-th py-2 text-right">Tutar</th>
+                    <th className="table-th py-2">Sürücü / Not</th>
+                    {canWrite && <th className="table-th py-2 text-right">İşlem</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {modalFilteredRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-gray-400">
+                        Kayıt bulunamadı.
+                      </td>
+                    </tr>
+                  ) : (
+                    modalFilteredRecords.map((x) => {
+                      const v = vehicles.find((item) => item.id === x.vehicle_id || cleanPlate(item.plate) === cleanPlate(x.plate));
+                      return (
+                        <tr key={x.id} className="hover:bg-gray-50/60">
+                          <td className="table-td py-2 whitespace-nowrap">
+                            {new Date(x.date).toLocaleDateString('tr-TR')}
+                            {!x.date?.includes('T12:00:00') && !x.date?.includes('T00:00:00') ? (
+                              <span className="text-[11px] text-gray-400 ml-1 font-mono">
+                                {new Date(x.date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            ) : null}
+                          </td>
+                          {detailModal?.type === 'station' ? (
+                            <>
+                              <td className="table-td py-2 font-mono font-bold text-gray-900">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDetailQuery('');
+                                    setDetailModal({ type: 'plate', value: x.plate });
+                                  }}
+                                  className="text-brand-600 hover:underline cursor-pointer"
+                                  title="Bu aracın tüm dökümüne geç"
+                                >
+                                  {x.plate}
+                                </button>
+                              </td>
+                              <td className="table-td py-2 text-gray-700">
+                                {v ? `${v.brand} ${v.model}` : <span className="italic text-gray-400">Harici Araç</span>}
+                              </td>
+                            </>
+                          ) : (
+                            <td className="table-td py-2">
+                              <div className="font-medium text-gray-900">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (x.station) {
+                                      setDetailQuery('');
+                                      setDetailModal({ type: 'station', value: x.station || '' });
+                                    }
+                                  }}
+                                  className="text-left hover:text-brand-600 hover:underline cursor-pointer"
+                                  title="Bu istasyonun dökümüne geç"
+                                >
+                                  {x.station || '—'}
+                                </button>
+                              </div>
+                              {x.city && <div className="text-[10px] text-gray-400">{x.city}</div>}
+                            </td>
+                          )}
+                          <td className="table-td py-2">
+                            <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700 font-medium">
+                              {x.fuel_type || 'Motorin'}
+                            </span>
+                          </td>
+                          <td className="table-td py-2 text-right font-bold text-gray-900">
+                            {formatNumber(x.quantity, 2)} Lt
+                          </td>
+                          <td className="table-td py-2 text-right text-gray-600">
+                            {money(x.unit_price)}
+                          </td>
+                          <td className="table-td py-2 text-right font-bold text-emerald-700">
+                            {money(x.total_amount)}
+                          </td>
+                          <td className="table-td py-2">
+                            <div className="text-gray-800">{x.driver_name || '—'}</div>
+                            {x.notes && <div className="text-[10px] text-gray-400 truncate max-w-[140px]" title={x.notes}>{x.notes}</div>}
+                          </td>
+                          {canWrite && (
+                            <td className="table-td py-2 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  className="text-gray-500 hover:text-brand-600 p-1 cursor-pointer"
+                                  onClick={() => {
+                                    handleOpenEdit(x);
+                                  }}
+                                  title="Düzenle"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  className="text-gray-400 hover:text-red-600 p-1 cursor-pointer"
+                                  onClick={() => void handleDelete(x.id)}
+                                  title="Sil"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       {/* Manual Entry Modal */}
       <Modal
