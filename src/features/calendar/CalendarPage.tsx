@@ -19,7 +19,6 @@ import {
   Check,
   Landmark,
   Receipt,
-  AlertTriangle,
   RotateCcw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -34,33 +33,32 @@ import { fixCorruptedTurkishText } from '../../lib/turkishTextFixer';
 import { resolveCardDueDate, resolveCardOutstandingDebt } from '../credit-cards/lib/billingDateEngine';
 
 export type EventType = 
-  | 'check' 
+  | 'note'
   | 'credit-card' 
-  | 'bill' 
   | 'tender' 
-  | 'inspection' 
+  | 'check' 
   | 'insurance' 
-  | 'fine' 
-  | 'note';
+  | 'inspection' 
+  | 'bill';
 
 export const ALL_EVENT_TYPES: EventType[] = [
-  'check', 
-  'credit-card', 
-  'bill', 
-  'tender', 
-  'inspection', 
-  'insurance', 
-  'fine', 
-  'note'
+  'note',
+  'credit-card',
+  'tender',
+  'check',
+  'insurance',
+  'inspection',
+  'bill'
 ];
 
 export const DEFAULT_ACTIVE_EVENT_TYPES: EventType[] = [
-  'check', 
-  'credit-card', 
-  'bill', 
-  'tender', 
-  'inspection', 
-  'note'
+  'note',
+  'credit-card',
+  'tender',
+  'check',
+  'insurance',
+  'inspection',
+  'bill'
 ];
 
 interface CalendarEvent { 
@@ -107,14 +105,13 @@ interface CheckRow {
 }
 
 const styles: Record<EventType, { label: string; dot: string; badge: string }> = {
-  check: { label: 'ÇEK / SENET', dot: 'bg-emerald-600', badge: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
-  'credit-card': { label: 'KART', dot: 'bg-red-500', badge: 'bg-red-50 text-red-700 border border-red-200' },
-  bill: { label: 'FATURA', dot: 'bg-orange-500', badge: 'bg-orange-50 text-orange-800 border border-orange-200' },
-  tender: { label: 'İHALE', dot: 'bg-purple-600', badge: 'bg-purple-50 text-purple-700 border border-purple-200' },
-  inspection: { label: 'MUAYENE', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
-  insurance: { label: 'SİGORTA', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border border-blue-200' },
-  fine: { label: 'CEZA', dot: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700 border border-rose-200' },
   note: { label: 'NOT', dot: 'bg-indigo-500', badge: 'bg-indigo-50 text-indigo-700 border border-indigo-200' },
+  'credit-card': { label: 'KART', dot: 'bg-red-500', badge: 'bg-red-50 text-red-700 border border-red-200' },
+  tender: { label: 'İHALE', dot: 'bg-purple-600', badge: 'bg-purple-50 text-purple-700 border border-purple-200' },
+  check: { label: 'ÇEK / SENET', dot: 'bg-emerald-600', badge: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
+  insurance: { label: 'SİGORTA', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border border-blue-200' },
+  inspection: { label: 'MUAYENE', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
+  bill: { label: 'FATURA', dot: 'bg-orange-500', badge: 'bg-orange-50 text-orange-800 border border-orange-200' },
 };
 
 const dateKey = (value: string) => value.slice(0, 10);
@@ -146,7 +143,7 @@ const DEFAULT_ORG_ID = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
 export function useCalendarEvents(){
   const { user } = useAuth();
   const { cards, statements } = useStore();
-  const { vehicles, fines } = useVehicles();
+  const { vehicles } = useVehicles();
   const billsContext = useSafeBills();
 
   const [tenders, setTenders] = useState<TenderRow[]>(() => {
@@ -406,36 +403,7 @@ export function useCalendarEvents(){
       }
     }
 
-    // 5. Trafik Cezaları
-    const finesList = fines || [];
-    for (const f of finesList) {
-      const isPaid = (f.paymentStatus || '').toLowerCase().trim() === 'odendi';
-      if (isPaid) continue;
-      const targetDate = f.notificationDate || f.fineDate;
-      if (!targetDate) continue;
-
-      const vehicle = vehicles.find(v => v.id === f.vehicleId);
-      const plate = vehicle?.plate || 'Araç';
-
-      result.push({
-        id: `fine-${f.id}`,
-        date: dateKey(targetDate),
-        code: f.fineNumber || plate || 'CEZA',
-        title: `Trafik Cezası - ${plate}`,
-        subtitle: `${f.violationType || 'Trafik İhlali'}${f.location ? ` · ${f.location}` : ''}`,
-        institution: f.location || 'Emniyet / Karayolları',
-        detail: `${f.violationType || 'Trafik İhlali'} - No: ${f.fineNumber || '—'}`,
-        type: 'fine',
-        to: '/arac-yonetimi/trafik-cezalari',
-        amount: Number(f.amount) > 0 ? `${Number(f.amount).toLocaleString('tr-TR')} ₺` : '—',
-        teminat: '—',
-        statusLabel: 'Ceza Bekliyor',
-        statusClass: 'bg-rose-50 text-rose-700 border border-rose-200',
-        timeStr: formatDate(targetDate)
-      });
-    }
-
-    // 6. İhaleler
+    // 5. İhaleler
     for (const tender of tenders) {
       if (['kazanildi', 'kaybedildi', 'iptal'].includes(tender.status)) continue;
       const d = new Date(tender.deadline_at);
@@ -462,7 +430,7 @@ export function useCalendarEvents(){
     }
 
     return result.sort((a, b) => a.date.localeCompare(b.date));
-  }, [cards, statements, vehicles, fines, tenders, checks, billsContext?.bills, billsContext?.invoices]);
+  }, [cards, statements, vehicles, tenders, checks, billsContext?.bills, billsContext?.invoices]);
 
   return { events, loading };
 }
@@ -931,7 +899,8 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
             <Filter size={13} className="text-gray-400" />
             <span>Görünüm Filtreleri:</span>
           </span>
-          {(Object.entries(styles) as [EventType, typeof styles[EventType]][]).map(([key, s]) => {
+          {ALL_EVENT_TYPES.map(key => {
+            const s = styles[key];
             const isActive = activeTypes.includes(key);
             const count = typeCounts[key] || 0;
             return (
@@ -1678,14 +1647,13 @@ export function DashboardCalendar() {
     .slice(0, 8);
 
   const icon: Record<EventType, any> = {
-    'credit-card': CreditCard,
-    inspection: Car,
-    insurance: ShieldCheck,
-    tender: Gavel,
     note: ListTodo,
+    'credit-card': CreditCard,
+    tender: Gavel,
     check: Landmark,
-    bill: Receipt,
-    fine: AlertTriangle
+    insurance: ShieldCheck,
+    inspection: Car,
+    bill: Receipt
   };
 
   return (
