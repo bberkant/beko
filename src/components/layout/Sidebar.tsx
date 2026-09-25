@@ -165,7 +165,17 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
   const isYonetici = user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Yönetici' || user?.role === 'Süper Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.rawRole === 'developer';
   const isSuper = user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Süper Yönetici' || user?.rawRole === 'super_admin' || user?.rawRole === 'developer';
   const isDeveloper = user?.role === 'Developer' || user?.rawRole === 'developer';
+  const isBerkant = (user?.email || '').toLowerCase().includes('berkant') || 
+                    (user?.name || '').toLowerCase().includes('berkant');
+  const isAdminOrBerkant = isYonetici || isBerkant;
   const isWhatsAppOperasyonAllowed = (user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Süper Yönetici' || user?.role === 'Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local') && !isDeveloper;
+
+  const isChildVisible = (child: { to: string }) => {
+    if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
+    if (child.to === '/finans/findeks' && !isYonetici) return false;
+    if (child.to === '/ayarlar/yedekler' && !isAdminOrBerkant) return false;
+    return true;
+  };
   
   const [sidebarTheme, setSidebarTheme] = useState<'banking' | 'classic' | 'banking_trial' | 'dia_v3' | 'one_dars_v4' | 'bulut_erp'>(() => {
     try {
@@ -463,8 +473,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
       if (!item.children) return item;
       
       const filteredChildren = item.children.filter(child => {
-        if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
-        if (child.to === '/finans/findeks' && !isYonetici) return false;
+        if (!isChildVisible(child)) return false;
         if (
           (child.to === '/finans/banka-hesaplari' || child.to === '/finans/banka-hesap-hareketleri') && 
           !isSuper
@@ -566,11 +575,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
             {!collapsed && isExpanded && (
               <div className="mb-1 ml-6 border-l border-gray-100 pl-2">
                 {item.children!
-                  .filter(child => {
-                    if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
-                    if (child.to === '/finans/findeks' && !isYonetici) return false;
-                    return true;
-                  })
+                  .filter(isChildVisible)
                   .map((child) => {
                     const isSubActive = child.to === '/arac-yonetimi' || child.to === '/cekler' || child.to === '/kesim-listesi' || child.to === '/ihaleler' || child.to === '/ayarlar' || child.to === '/ana-kasa'
                       ? location.pathname === child.to
@@ -661,11 +666,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
             {!collapsed && isExpanded && (
               <div className="bg-[#002d5c] border-t border-white/5">
                 {item.children!
-                  .filter(child => {
-                    if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
-                    if (child.to === '/finans/findeks' && !isYonetici) return false;
-                    return true;
-                  })
+                  .filter(isChildVisible)
                   .map((child) => {
                     const isSubActive = child.to === '/arac-yonetimi' || child.to === '/cekler' || child.to === '/kesim-listesi' || child.to === '/ihaleler' || child.to === '/ayarlar' || child.to === '/ana-kasa'
                       ? location.pathname === child.to
@@ -755,11 +756,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
             {!collapsed && isExpanded && (
               <div className="bg-slate-50/40 py-0.5 border-t border-gray-100">
                 {item.children!
-                  .filter(child => {
-                    if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
-                    if (child.to === '/finans/findeks' && !isYonetici) return false;
-                    return true;
-                  })
+                  .filter(isChildVisible)
                   .map((child) => {
                     const isSubActive = child.to === '/arac-yonetimi' || child.to === '/cekler' || child.to === '/kesim-listesi' || child.to === '/ihaleler' || child.to === '/ayarlar' || child.to === '/ana-kasa'
                       ? location.pathname === child.to
@@ -853,11 +850,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
           {!collapsed && isExpanded && (
             <div className="bg-[#f8fafc] border-t border-slate-100">
               {item.children!
-                .filter(child => {
-                  if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
-                  if (child.to === '/finans/findeks' && !isYonetici) return false;
-                  return true;
-                })
+                .filter(isChildVisible)
                 .map((child) => {
                   const isSubActive = child.to === '/arac-yonetimi' || child.to === '/cekler' || child.to === '/kesim-listesi' || child.to === '/ihaleler' || child.to === '/ayarlar' || child.to === '/ana-kasa'
                     ? location.pathname === child.to

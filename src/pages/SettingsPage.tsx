@@ -187,22 +187,108 @@ export function SettingsPage() {
     }
   };
 
+  const isBerkant = (user?.email || '').toLowerCase().includes('berkant') || 
+                    (user?.name || '').toLowerCase().includes('berkant');
+
+  const isAdminOrBerkant = 
+    isBerkant ||
+    ['Admin', 'Süper Admin', 'Developer', 'Yönetici', 'Süper Yönetici'].includes(user?.role || '') ||
+    ['admin', 'super_admin', 'developer'].includes((user?.rawRole || '').toLowerCase()) ||
+    user?.email === 'admin@dars.local' || 
+    user?.email === 'admin@ets360.local';
+
   return <div className="mx-auto max-w-4xl">
     <PageHeader 
       title="Ayarlar" 
       description="Hesap, güvenlik ve bildirim servislerinizi yönetin."
       actions={
-        <Link 
-          to="/ayarlar/yedekler" 
-          className="btn btn-secondary flex items-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 shadow-sm"
-        >
-          <Database size={15} className="text-indigo-600" />
-          Sistem Yedekleri & Geri Yükleme
-        </Link>
+        isAdminOrBerkant ? (
+          <Link 
+            to="/ayarlar/yedekler" 
+            className="btn btn-secondary flex items-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 shadow-sm"
+          >
+            <Database size={15} className="text-indigo-600" />
+            Sistem Yedekleri & Geri Yükleme
+          </Link>
+        ) : null
       }
     />
     <div className="grid gap-5 lg:grid-cols-2">
-      {/* Sol Menü Tasarım Seçeneği */}
+      {/* 1. Sol Menü (Sidebar) Düzeni - Tasarımın Üstünde */}
+      <section className="card p-6 lg:col-span-2">
+        <div className="mb-5 flex items-start justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700">
+              <Settings size={19} />
+            </div>
+            <div>
+              <h2 className="font-semibold text-gray-900">Sol Menü (Sidebar) Düzeni</h2>
+              <p className="mt-1 text-sm text-gray-500">Menüdeki başlıkların sırasını ve görünürlüğünü kendinize göre ayarlayın.</p>
+            </div>
+          </div>
+          <button className="btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1 hover:shadow-sm transition-shadow" onClick={resetSidebarConfig}>
+            <RotateCcw size={13} /> Varsayılana Sıfırla
+          </button>
+        </div>
+
+        <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-100 bg-gray-50/20">
+          {sidebarConfig.order.map((label, index) => {
+            const item = navItems.find(n => n.label === label);
+            if (!item) return null;
+            const isHidden = sidebarConfig.hidden.includes(label);
+            const Icon = item.icon;
+            const isDragging = index === draggedIndex;
+            
+            return (
+              <div 
+                key={label} 
+                draggable="true"
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`flex items-center justify-between px-4 py-3 bg-white transition-all select-none ${
+                  isHidden ? 'opacity-65 bg-gray-50/30' : 'hover:bg-gray-50/20'
+                } ${isDragging ? 'opacity-30 bg-indigo-50/40 border border-indigo-250 border-dashed rounded-lg scale-[0.98] shadow-inner' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+                  <GripVertical className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0" size={16} />
+                  <Icon size={16} className={isHidden ? 'text-gray-400' : 'text-brand-600'} />
+                  <span className={`text-sm font-medium ${isHidden ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{label}</span>
+                </div>
+                
+                <div className="flex items-center gap-1">
+                  <button 
+                    disabled={index === 0} 
+                    onClick={() => moveItem(index, 'up')}
+                    className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    title="Yukarı Taşı"
+                  >
+                    <ArrowUp size={14} />
+                  </button>
+                  <button 
+                    disabled={index === sidebarConfig.order.length - 1} 
+                    onClick={() => moveItem(index, 'down')}
+                    className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    title="Aşağı Taşı"
+                  >
+                    <ArrowDown size={14} />
+                  </button>
+                  <select
+                    value={isHidden ? 'gizle' : 'goster'}
+                    onChange={(e) => setVisibility(label, e.target.value === 'goster')}
+                    className="select !py-1 !px-2.5 !text-xs w-[85px] bg-white border border-gray-200 rounded-md font-medium text-gray-700 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 cursor-pointer shrink-0"
+                  >
+                    <option value="goster">Göster</option>
+                    <option value="gizle">Gizle</option>
+                  </select>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 2. Sol Menü (Sidebar) Tasarımı */}
       <section className="card p-6 lg:col-span-2">
         <div className="mb-5 flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
@@ -334,79 +420,6 @@ export function SettingsPage() {
               Sol menü ile uyumlu kurumsal bankacılık renkleri, şık beyaz tablolar, özel input odaklamaları ve bütünleşik mavi üst bar (Topbar) tasarımı.
             </p>
           </button>
-        </div>
-      </section>
-
-      <section className="card p-6 lg:col-span-2">
-        <div className="mb-5 flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700">
-              <Settings size={19} />
-            </div>
-            <div>
-              <h2 className="font-semibold text-gray-900">Sol Menü (Sidebar) Düzeni</h2>
-              <p className="mt-1 text-sm text-gray-500">Menüdeki başlıkların sırasını ve görünürlüğünü kendinize göre ayarlayın.</p>
-            </div>
-          </div>
-          <button className="btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1 hover:shadow-sm transition-shadow" onClick={resetSidebarConfig}>
-            <RotateCcw size={13} /> Varsayılana Sıfırla
-          </button>
-        </div>
-
-        <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-100 bg-gray-50/20">
-          {sidebarConfig.order.map((label, index) => {
-            const item = navItems.find(n => n.label === label);
-            if (!item) return null;
-            const isHidden = sidebarConfig.hidden.includes(label);
-            const Icon = item.icon;
-            const isDragging = index === draggedIndex;
-            
-            return (
-              <div 
-                key={label} 
-                draggable="true"
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDragEnd={handleDragEnd}
-                className={`flex items-center justify-between px-4 py-3 bg-white transition-all select-none ${
-                  isHidden ? 'opacity-65 bg-gray-50/30' : 'hover:bg-gray-50/20'
-                } ${isDragging ? 'opacity-30 bg-indigo-50/40 border border-indigo-250 border-dashed rounded-lg scale-[0.98] shadow-inner' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  <GripVertical className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0" size={16} />
-                  <Icon size={16} className={isHidden ? 'text-gray-400' : 'text-brand-600'} />
-                  <span className={`text-sm font-medium ${isHidden ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{label}</span>
-                </div>
-                
-                <div className="flex items-center gap-1">
-                  <button 
-                    disabled={index === 0} 
-                    onClick={() => moveItem(index, 'up')}
-                    className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                    title="Yukarı Taşı"
-                  >
-                    <ArrowUp size={14} />
-                  </button>
-                  <button 
-                    disabled={index === sidebarConfig.order.length - 1} 
-                    onClick={() => moveItem(index, 'down')}
-                    className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-gray-100 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                    title="Aşağı Taşı"
-                  >
-                    <ArrowDown size={14} />
-                  </button>
-                  <select
-                    value={isHidden ? 'gizle' : 'goster'}
-                    onChange={(e) => setVisibility(label, e.target.value === 'goster')}
-                    className="select !py-1 !px-2.5 !text-xs w-[85px] bg-white border border-gray-200 rounded-md font-medium text-gray-700 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 cursor-pointer shrink-0"
-                  >
-                    <option value="goster">Göster</option>
-                    <option value="gizle">Gizle</option>
-                  </select>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </section>
 

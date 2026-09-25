@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Modal } from '../../components/ui/Modal';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 import { 
@@ -27,13 +28,31 @@ import {
   restoreFromBackup, 
   deleteBackup, 
   downloadBackupFile, 
-  parseBackupFile,
+  parseBackupFile, 
   saveBackup 
 } from './backupService';
 
 export function BackupsPage() {
   const { user } = useAuth();
   const { notify } = useToast();
+  const navigate = useNavigate();
+
+  const isBerkant = (user?.email || '').toLowerCase().includes('berkant') || 
+                    (user?.name || '').toLowerCase().includes('berkant');
+
+  const isAdminOrBerkant = 
+    isBerkant ||
+    ['Admin', 'Süper Admin', 'Developer', 'Yönetici', 'Süper Yönetici'].includes(user?.role || '') ||
+    ['admin', 'super_admin', 'developer'].includes((user?.rawRole || '').toLowerCase()) ||
+    user?.email === 'admin@dars.local' || 
+    user?.email === 'admin@ets360.local';
+
+  useEffect(() => {
+    if (user && !isAdminOrBerkant) {
+      notify('Sistem yedeklerine erişim yetkiniz bulunmuyor.', 'error');
+      navigate('/ayarlar');
+    }
+  }, [user, isAdminOrBerkant, navigate, notify]);
 
   const [backups, setBackups] = useState<SystemBackup[]>([]);
   const [loading, setLoading] = useState(false);
