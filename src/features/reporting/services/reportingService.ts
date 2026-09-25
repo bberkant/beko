@@ -301,11 +301,11 @@ export async function fetchCariAgingData(): Promise<CariAgingRow[]> {
       isVolumeShrunk = true;
     }
 
-    // Safe Limit Calculation (1.25x natural monthly capacity)
-    const originalSafeLimit = Number((monthlyAvgAmount * 1.25).toFixed(2));
+    // Safe Limit Calculation (1.0x natural monthly capacity)
+    const originalSafeLimit = Number(monthlyAvgAmount.toFixed(2));
     let safeLimit = originalSafeLimit;
     if (isVolumeShrunk) {
-      safeLimit = Number((recentMonthlyAmount * 1.25).toFixed(2));
+      safeLimit = Number(recentMonthlyAmount.toFixed(2));
     }
 
     // Real excess risk amount

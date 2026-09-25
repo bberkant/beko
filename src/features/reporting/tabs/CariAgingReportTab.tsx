@@ -426,13 +426,13 @@ export function CariAgingReportTab({ rows, loading }: Props) {
                   </div>
                 </th>
 
-                {/* 4. Güvenli Vadeli Limit (1.25x) (TL) */}
+                {/* 4. Güvenli Vadeli Limit (1x) (TL) */}
                 <th 
                   onClick={() => handleSort('safeLimit')}
                   className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 select-none"
                 >
                   <div className="flex items-center justify-end gap-1">
-                    <span>Güvenli Vadeli Limit (1.25x)</span>
+                    <span>Güvenli Vadeli Limit (1x)</span>
                     {sortField === 'safeLimit' && (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
                   </div>
                 </th>
@@ -503,7 +503,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
                       {(row.monthlyAvgKg ?? 0).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} KG
                     </td>
 
-                    {/* 4. Güvenli Vadeli Limit (1.25x) (TL) */}
+                    {/* 4. Güvenli Vadeli Limit (1x) (TL) */}
                     <td className="px-4 py-3 text-right whitespace-nowrap font-mono text-xs font-medium text-indigo-700">
                       {(row.safeLimit ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
                     </td>
