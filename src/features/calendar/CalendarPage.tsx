@@ -20,7 +20,6 @@ import {
   Landmark,
   Receipt,
   AlertTriangle,
-  Beef,
   RotateCcw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -42,7 +41,6 @@ export type EventType =
   | 'inspection' 
   | 'insurance' 
   | 'fine' 
-  | 'kesim' 
   | 'note';
 
 export const ALL_EVENT_TYPES: EventType[] = [
@@ -53,7 +51,6 @@ export const ALL_EVENT_TYPES: EventType[] = [
   'inspection', 
   'insurance', 
   'fine', 
-  'kesim', 
   'note'
 ];
 
@@ -109,17 +106,6 @@ interface CheckRow {
   check_type: string | null;
 }
 
-interface KesimRow {
-  id: string;
-  slaughter_date: string;
-  supplier: string | null;
-  animal_type: string | null;
-  piece_count: number | null;
-  carcass_weight: number | null;
-  total_amount: number | null;
-  payment_status: string | null;
-}
-
 const styles: Record<EventType, { label: string; dot: string; badge: string }> = {
   check: { label: 'ÇEK / SENET', dot: 'bg-emerald-600', badge: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
   'credit-card': { label: 'KART', dot: 'bg-red-500', badge: 'bg-red-50 text-red-700 border border-red-200' },
@@ -128,7 +114,6 @@ const styles: Record<EventType, { label: string; dot: string; badge: string }> =
   inspection: { label: 'MUAYENE', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
   insurance: { label: 'SİGORTA', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border border-blue-200' },
   fine: { label: 'CEZA', dot: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700 border border-rose-200' },
-  kesim: { label: 'KESİM', dot: 'bg-teal-600', badge: 'bg-teal-50 text-teal-800 border border-teal-200' },
   note: { label: 'NOT', dot: 'bg-indigo-500', badge: 'bg-indigo-50 text-indigo-700 border border-indigo-200' },
 };
 
@@ -175,14 +160,6 @@ export function useCalendarEvents(){
   const [checks, setChecks] = useState<CheckRow[]>(() => {
     try {
       const cached = localStorage.getItem('dars_cached_checks');
-      if (cached) return JSON.parse(cached);
-    } catch {}
-    return [];
-  });
-
-  const [kesimler, setKesimler] = useState<KesimRow[]>(() => {
-    try {
-      const cached = localStorage.getItem('dars_cached_kesim');
       if (cached) return JSON.parse(cached);
     } catch {}
     return [];
@@ -243,31 +220,7 @@ export function useCalendarEvents(){
       }
     };
 
-    const fetchKesim = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('kesim_listesi')
-          .select('id, slaughter_date, supplier, animal_type, piece_count, carcass_weight, total_amount, payment_status')
-          .eq('organization_id', orgId)
-          .not('slaughter_date', 'is', null)
-          .order('slaughter_date', { ascending: false })
-          .limit(1000);
-
-        if (!active) return;
-        if (error) {
-          console.warn('Takvim kesim verileri yüklenemedi:', error);
-        } else if (data) {
-          setKesimler(data as KesimRow[]);
-          try {
-            localStorage.setItem('dars_cached_kesim', JSON.stringify(data));
-          } catch {}
-        }
-      } catch (err) {
-        console.warn('Takvim kesim sorgu hatası:', err);
-      }
-    };
-
-    void Promise.allSettled([fetchTenders(), fetchChecks(), fetchKesim()]).then(() => {
+    void Promise.allSettled([fetchTenders(), fetchChecks()]).then(() => {
       if (active) setLoading(false);
     });
 
@@ -278,9 +231,6 @@ export function useCalendarEvents(){
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ebs_checks' }, () => {
         void fetchChecks();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'kesim_listesi' }, () => {
-        void fetchKesim();
       })
       .subscribe();
 
@@ -511,31 +461,8 @@ export function useCalendarEvents(){
       });
     }
 
-    // 7. Kesim Listesi (Operasyon / Tedarik)
-    for (const k of kesimler) {
-      if (!k.slaughter_date) continue;
-      const isPaid = (k.payment_status || '').toLowerCase().trim() === 'odendi';
-
-      result.push({
-        id: `kesim-${k.id}`,
-        date: dateKey(k.slaughter_date),
-        code: k.animal_type || 'KESİM',
-        title: `Kesim: ${k.supplier || 'Tedarikçi'}`,
-        subtitle: `${k.piece_count ? `${k.piece_count} Adet ` : ''}${k.carcass_weight ? `· ${Number(k.carcass_weight).toLocaleString('tr-TR')} kg` : ''}`,
-        institution: k.supplier || 'Kesimhane',
-        detail: `${k.animal_type || 'Büyükbaş'} kesim işlemi`,
-        type: 'kesim',
-        to: '/kesim-listesi',
-        amount: k.total_amount ? `${Number(k.total_amount).toLocaleString('tr-TR')} ₺` : '—',
-        teminat: '—',
-        statusLabel: isPaid ? 'Ödendi' : 'Kesim Kaydı',
-        statusClass: isPaid ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-teal-50 text-teal-700 border border-teal-200',
-        timeStr: formatDate(k.slaughter_date)
-      });
-    }
-
     return result.sort((a, b) => a.date.localeCompare(b.date));
-  }, [cards, statements, vehicles, fines, tenders, checks, kesimler, billsContext?.bills, billsContext?.invoices]);
+  }, [cards, statements, vehicles, fines, tenders, checks, billsContext?.bills, billsContext?.invoices]);
 
   return { events, loading };
 }
@@ -1758,8 +1685,7 @@ export function DashboardCalendar() {
     note: ListTodo,
     check: Landmark,
     bill: Receipt,
-    fine: AlertTriangle,
-    kesim: Beef
+    fine: AlertTriangle
   };
 
   return (
