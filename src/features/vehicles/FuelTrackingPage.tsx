@@ -37,6 +37,110 @@ const formatNumber = (value: number, decimals: number = 2) =>
 
 const cleanPlate = (p: string) => (p || '').replace(/[^A-Za-z0-9]/g, '').toLocaleUpperCase('tr-TR');
 
+export function parseUniversalNumber(val: any): number {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  let str = String(val).trim();
+  if (!str) return 0;
+
+  // Clean currency symbols, spaces, quotes, letters (like TL, Lt, etc.)
+  str = str.replace(/[₺$€£\s\u00A0TLtlA-Za-z]/g, '');
+
+  const hasComma = str.includes(',');
+  const hasDot = str.includes('.');
+
+  if (hasComma && hasDot) {
+    const lastComma = str.lastIndexOf(',');
+    const lastDot = str.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      // e.g. 1.234,56 -> dot is thousand, comma is decimal
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      // e.g. 1,234.56 -> comma is thousand, dot is decimal
+      str = str.replace(/,/g, '');
+    }
+  } else if (hasComma) {
+    // Only comma: 95,11 or 1,234,567
+    const parts = str.split(',');
+    if (parts.length > 2) {
+      str = str.replace(/,/g, '');
+    } else {
+      str = str.replace(',', '.');
+    }
+  } else if (hasDot) {
+    // Only dot: 95.11 or 1.234.567
+    const parts = str.split('.');
+    if (parts.length > 2) {
+      str = str.replace(/\./g, '');
+    }
+  }
+
+  // Remove any remaining unexpected chars except 0-9, dot, minus
+  str = str.replace(/[^0-9.-]/g, '');
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : num;
+}
+
+export function parseUniversalDate(rawDate: any): string {
+  if (!rawDate && rawDate !== 0) return new Date().toISOString();
+
+  if (rawDate instanceof Date) {
+    if (!isNaN(rawDate.getTime())) {
+      const y = rawDate.getFullYear();
+      const m = String(rawDate.getMonth() + 1).padStart(2, '0');
+      const d = String(rawDate.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}T12:00:00.000Z`;
+    }
+  }
+
+  const str = String(rawDate).trim();
+  if (!str) return new Date().toISOString();
+
+  // Excel numeric date check (number or integer/float string without date separators)
+  if (typeof rawDate === 'number' || (/^\d+(\.\d+)?$/.test(str) && !str.includes('-') && !str.includes('/') && !str.includes(':'))) {
+    const num = typeof rawDate === 'number' ? rawDate : parseFloat(str);
+    if (num > 30000 && num < 80000) {
+      const utcMs = Math.round((num - 25569) * 86400 * 1000);
+      const d = new Date(utcMs);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${day}T12:00:00.000Z`;
+    }
+  }
+
+  // DD.MM.YYYY or DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    const hour = dmyMatch[4] ? dmyMatch[4].padStart(2, '0') : '12';
+    const min = dmyMatch[5] ? dmyMatch[5].padStart(2, '0') : '00';
+    const sec = dmyMatch[6] ? dmyMatch[6].padStart(2, '0') : '00';
+    return `${year}-${month}-${day}T${hour}:${min}:${sec}.000Z`;
+  }
+
+  // YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = str.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+  if (ymdMatch) {
+    const year = ymdMatch[1];
+    const month = ymdMatch[2].padStart(2, '0');
+    const day = ymdMatch[3].padStart(2, '0');
+    const hour = ymdMatch[4] ? ymdMatch[4].padStart(2, '0') : '12';
+    const min = ymdMatch[5] ? ymdMatch[5].padStart(2, '0') : '00';
+    const sec = ymdMatch[6] ? ymdMatch[6].padStart(2, '0') : '00';
+    return `${year}-${month}-${day}T${hour}:${min}:${sec}.000Z`;
+  }
+
+  const dt = new Date(str);
+  if (!isNaN(dt.getTime())) {
+    return dt.toISOString();
+  }
+
+  return new Date().toISOString();
+}
+
 interface FuelFormState {
   id?: string;
   vehicle_id?: string;
@@ -457,7 +561,7 @@ export function FuelTrackingPage() {
     const wb = XLSX.read(buffer, { type: 'array' });
     const sheetName = wb.SheetNames[0];
     const sheet = wb.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { raw: false, defval: '' });
+    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { raw: true, defval: '' });
 
     if (!rows || rows.length === 0) {
       throw new Error('Excel dosyasında veri bulunamadı.');
@@ -466,12 +570,13 @@ export function FuelTrackingPage() {
     const parsed: ParsedRow[] = [];
 
     for (const r of rows) {
-      // Find key matching patterns
+      // Find key matching patterns (case-insensitive & Turkish locale friendly)
       const findVal = (keys: string[]) => {
         for (const k of Object.keys(r)) {
           const normK = k.trim().toLocaleLowerCase('tr-TR');
           for (const key of keys) {
-            if (normK === key.toLocaleLowerCase('tr-TR') || normK.includes(key.toLocaleLowerCase('tr-TR'))) {
+            const normKey = key.toLocaleLowerCase('tr-TR');
+            if (normK === normKey || normK.includes(normKey) || normKey.includes(normK)) {
               return r[k];
             }
           }
@@ -480,61 +585,49 @@ export function FuelTrackingPage() {
       };
 
       const rawPlate = String(findVal(['plaka', 'araç plaka', 'arac plaka', 'plate', 'plaka no'])).trim();
-      const rawDate = String(findVal(['kayıt tarihi', 'kayit tarihi', 'tarih', 'işlem tarihi', 'islem tarihi', 'satış tarihi', 'date', 'zaman'])).trim();
+      const rawDate = findVal(['kayıt tarihi', 'kayit tarihi', 'tarih', 'işlem tarihi', 'islem tarihi', 'satış tarihi', 'date', 'zaman']);
       const rawFuelType = String(findVal(['yakıt tipi', 'yakit tipi', 'ürün', 'urun', 'yakıt', 'yakit', 'product'])).trim() || 'Motorin';
-      const rawPrice = String(findVal(['alış fiyatı', 'alis fiyati', 'birim fiyat', 'b.fiyat', 'litre fiyatı', 'fiyat', 'unit price'])).trim();
-      const rawTotal = String(findVal(['tutar', 'toplam tutar', 'net tutar', 'kdv dahil tutar', 'satış tutarı', 'amount', 'total'])).trim();
-      const rawQty = String(findVal(['litre', 'miktar', 'hacim', 'lt', 'quantity', 'volume'])).trim();
+      const rawPrice = findVal(['alış fiyat', 'alis fiyat', 'alış fiyatı', 'alis fiyati', 'birim fiyat', 'b.fiyat', 'litre fiyatı', 'fiyat', 'unit price']);
+      const rawTotal = findVal(['tutar', 'toplam tutar', 'net tutar', 'kdv dahil tutar', 'satış tutarı', 'amount', 'total']);
+      const rawQty = findVal(['litre', 'miktar', 'hacim', 'lt', 'quantity', 'volume']);
       const rawStation = String(findVal(['istasyon', 'istasyon adı', 'istasyon adi', 'bayi', 'bayi adı', 'nokta', 'station'])).trim();
       const rawCity = String(findVal(['il', 'şehir', 'sehir', 'il/ilçe', 'city', 'bölge'])).trim();
-      const rawKm = String(findVal(['km', 'kilometre', 'odometer'])).trim();
+      const rawKm = findVal(['km', 'kilometre', 'odometer']);
       const rawCard = String(findVal(['kart no', 'yakıt kartı', 'filo kartı', 'card no'])).trim();
       const rawDriver = String(findVal(['sürücü', 'surucu', 'şoför', 'sofor', 'driver'])).trim();
 
-      if (!rawPlate && !rawTotal && !rawQty) {
+      const numTotal = parseUniversalNumber(rawTotal);
+      const numQty = parseUniversalNumber(rawQty);
+      let numPrice = parseUniversalNumber(rawPrice);
+
+      if (!rawPlate && numTotal <= 0 && numQty <= 0) {
         continue; // skip empty headers or trailing lines
       }
 
-      const numTotal = parseFloat(rawTotal.replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
-      const numQty = parseFloat(rawQty.replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
-      const numPrice = parseFloat(rawPrice.replace(/[^0-9,-]/g, '').replace(',', '.')) || (numQty > 0 ? numTotal / numQty : 0);
-
-      let parsedDate = new Date().toISOString();
-      if (rawDate) {
-        const parts = rawDate.split(/[ ./: -]/);
-        if (parts.length >= 3) {
-          // Check DD.MM.YYYY
-          if (parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
-            const d = parts[0].padStart(2, '0');
-            const m = parts[1].padStart(2, '0');
-            const y = parts[2];
-            const time = parts.slice(3).join(':') || '12:00:00';
-            parsedDate = new Date(`${y}-${m}-${d}T${time}`).toISOString();
-          } else {
-            const d = new Date(rawDate);
-            if (!isNaN(d.getTime())) parsedDate = d.toISOString();
-          }
-        }
+      if (numPrice === 0 && numQty > 0 && numTotal > 0) {
+        numPrice = Math.round((numTotal / numQty) * 100) / 100;
       }
 
+      const computedTotal = numTotal > 0 ? numTotal : (numQty > 0 && numPrice > 0 ? Math.round(numQty * numPrice * 100) / 100 : 0);
+      const parsedDate = parseUniversalDate(rawDate);
       const cleanedP = cleanPlate(rawPlate);
       const matched = vehicles.find((v) => cleanPlate(v.plate) === cleanedP);
 
       parsed.push({
-        plate: rawPlate.toUpperCase() || 'PLAKA BELİRTİLMEMİŞ',
+        plate: rawPlate.toLocaleUpperCase('tr-TR') || 'PLAKA BELİRTİLMEMİŞ',
         date: parsedDate,
         fuel_type: rawFuelType,
         unit_price: numPrice,
         quantity: numQty,
-        total_amount: numTotal > 0 ? numTotal : numQty * numPrice,
+        total_amount: computedTotal,
         station: rawStation,
         city: rawCity,
         fuel_card_no: rawCard,
-        km: rawKm ? parseFloat(rawKm) : undefined,
+        km: rawKm ? parseUniversalNumber(rawKm) || undefined : undefined,
         driver_name: rawDriver,
         notes: `Excel aktarımı (${file.name})`,
         matchedVehicleId: matched?.id,
-        isValid: Boolean(rawPlate && (numTotal > 0 || numQty > 0))
+        isValid: Boolean(rawPlate && (computedTotal > 0 || numQty > 0))
       });
     }
 
@@ -581,19 +674,16 @@ export function FuelTrackingPage() {
       const dateMatch = line.match(dateRegex);
 
       if (plateMatches && plateMatches.length > 0) {
-        const foundPlate = plateMatches[0].replace(/\s+/g, ' ').toUpperCase();
+        const foundPlate = plateMatches[0].replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
         
         let rowDate = new Date().toISOString();
         if (dateMatch) {
-          const d = dateMatch[1].padStart(2, '0');
-          const m = dateMatch[2].padStart(2, '0');
-          const y = dateMatch[3];
-          rowDate = new Date(`${y}-${m}-${d}T12:00:00`).toISOString();
+          rowDate = parseUniversalDate(dateMatch[0]);
         }
 
         // Find numbers in line (liters, amounts)
         const numbers = Array.from(line.matchAll(amountRegex)).map((m) =>
-          parseFloat(m[1].replace(/\./g, '').replace(',', '.'))
+          parseUniversalNumber(m[1])
         );
 
         let quantity = 0;
@@ -910,7 +1000,12 @@ export function FuelTrackingPage() {
                     return (
                       <tr key={x.id} className="border-t border-gray-100 hover:bg-gray-50/50">
                         <td className="table-td whitespace-nowrap">
-                          {new Date(x.date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}
+                          {new Date(x.date).toLocaleDateString('tr-TR')}
+                          {!x.date?.includes('T12:00:00') && !x.date?.includes('T00:00:00') ? (
+                            <span className="text-xs text-gray-400 ml-1.5 font-mono">
+                              {new Date(x.date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          ) : null}
                         </td>
                         <td className="table-td font-semibold">
                           <span className="rounded bg-gray-100 px-2.5 py-1 text-xs font-mono font-bold text-gray-900 border border-gray-200">
