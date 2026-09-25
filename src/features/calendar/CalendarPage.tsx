@@ -1,16 +1,70 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { CalendarDays, Car, ChevronLeft, ChevronRight, CreditCard, Gavel, ShieldCheck, Plus, Trash2, CheckSquare, Square, ListTodo, Pencil, Calendar as CalendarIcon, X, Filter, Check } from 'lucide-react';
+import { 
+  CalendarDays, 
+  Car, 
+  ChevronLeft, 
+  ChevronRight, 
+  CreditCard, 
+  Gavel, 
+  ShieldCheck, 
+  Plus, 
+  Trash2, 
+  CheckSquare, 
+  Square, 
+  ListTodo, 
+  Pencil, 
+  Calendar as CalendarIcon, 
+  X, 
+  Filter, 
+  Check,
+  Landmark,
+  Receipt,
+  AlertTriangle,
+  Beef,
+  RotateCcw
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { SectionCard } from '../../components/ui/SectionCard';
 import { useStore } from '../credit-cards/data/store';
 import { useVehicles } from '../vehicles/store';
+import { useSafeBills } from '../bills/data/store';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
+import { fixCorruptedTurkishText } from '../../lib/turkishTextFixer';
 import { resolveCardDueDate, resolveCardOutstandingDebt } from '../credit-cards/lib/billingDateEngine';
 
-export type EventType = 'credit-card' | 'inspection' | 'insurance' | 'tender' | 'note';
-export const ALL_EVENT_TYPES: EventType[] = ['credit-card', 'inspection', 'insurance', 'tender', 'note'];
+export type EventType = 
+  | 'check' 
+  | 'credit-card' 
+  | 'bill' 
+  | 'tender' 
+  | 'inspection' 
+  | 'insurance' 
+  | 'fine' 
+  | 'kesim' 
+  | 'note';
+
+export const ALL_EVENT_TYPES: EventType[] = [
+  'check', 
+  'credit-card', 
+  'bill', 
+  'tender', 
+  'inspection', 
+  'insurance', 
+  'fine', 
+  'kesim', 
+  'note'
+];
+
+export const DEFAULT_ACTIVE_EVENT_TYPES: EventType[] = [
+  'check', 
+  'credit-card', 
+  'bill', 
+  'tender', 
+  'inspection', 
+  'note'
+];
 
 interface CalendarEvent { 
   id: string; 
@@ -28,6 +82,7 @@ interface CalendarEvent {
   statusClass?: string; 
   timeStr?: string; 
 }
+
 interface TenderRow { 
   id: string; 
   tender_number: string; 
@@ -41,13 +96,42 @@ interface TenderRow {
   teminat_mektubu?: string; 
 }
 
+interface CheckRow {
+  id: string;
+  amount: number | null;
+  due_date: string;
+  debtor: string | null;
+  creditor: string | null;
+  kesideci: string | null;
+  bank_name: string | null;
+  status: string | null;
+  check_no: string | null;
+  check_type: string | null;
+}
+
+interface KesimRow {
+  id: string;
+  slaughter_date: string;
+  supplier: string | null;
+  animal_type: string | null;
+  piece_count: number | null;
+  carcass_weight: number | null;
+  total_amount: number | null;
+  payment_status: string | null;
+}
+
 const styles: Record<EventType, { label: string; dot: string; badge: string }> = {
+  check: { label: 'ÇEK / SENET', dot: 'bg-emerald-600', badge: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
   'credit-card': { label: 'KART', dot: 'bg-red-500', badge: 'bg-red-50 text-red-700 border border-red-200' },
+  bill: { label: 'FATURA', dot: 'bg-orange-500', badge: 'bg-orange-50 text-orange-800 border border-orange-200' },
+  tender: { label: 'İHALE', dot: 'bg-purple-600', badge: 'bg-purple-50 text-purple-700 border border-purple-200' },
   inspection: { label: 'MUAYENE', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
   insurance: { label: 'SİGORTA', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border border-blue-200' },
-  tender: { label: 'İHALE', dot: 'bg-purple-500', badge: 'bg-purple-50 text-purple-700 border border-purple-200' },
-  note: { label: 'NOT', dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+  fine: { label: 'CEZA', dot: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700 border border-rose-200' },
+  kesim: { label: 'KESİM', dot: 'bg-teal-600', badge: 'bg-teal-50 text-teal-800 border border-teal-200' },
+  note: { label: 'NOT', dot: 'bg-indigo-500', badge: 'bg-indigo-50 text-indigo-700 border border-indigo-200' },
 };
+
 const dateKey = (value: string) => value.slice(0, 10);
 const parseDate = (value: string) => { const [y, m, d] = dateKey(value).split('-').map(Number); return new Date(y, m - 1, d); };
 const formatDate = (value: string) => parseDate(value).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -75,20 +159,39 @@ const formatDateShort = (value: string) => {
 const DEFAULT_ORG_ID = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
 
 export function useCalendarEvents(){
-  const {user}=useAuth();
-  const {cards,statements}=useStore();
-  const {vehicles}=useVehicles();
-  const [tenders,setTenders]=useState<TenderRow[]>(() => {
+  const { user } = useAuth();
+  const { cards, statements } = useStore();
+  const { vehicles, fines } = useVehicles();
+  const billsContext = useSafeBills();
+
+  const [tenders, setTenders] = useState<TenderRow[]>(() => {
     try {
       const cached = localStorage.getItem('dars_cached_tenders');
       if (cached) return JSON.parse(cached);
     } catch {}
     return [];
   });
-  const [loading,setLoading]=useState(false);
 
-  useEffect(()=>{
-    let active=true;
+  const [checks, setChecks] = useState<CheckRow[]>(() => {
+    try {
+      const cached = localStorage.getItem('dars_cached_checks');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+
+  const [kesimler, setKesimler] = useState<KesimRow[]>(() => {
+    try {
+      const cached = localStorage.getItem('dars_cached_kesim');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
     const orgId = user?.organizationId || DEFAULT_ORG_ID;
 
     const fetchTenders = async () => {
@@ -110,31 +213,129 @@ export function useCalendarEvents(){
         }
       } catch (err) {
         console.warn('Takvim ihale sorgu hatası:', err);
-      } finally {
-        if (active) setLoading(false);
       }
     };
 
-    void fetchTenders();
-    return()=>{active=false};
-  },[user?.organizationId]);
+    const fetchChecks = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ebs_checks')
+          .select('id, amount, due_date, debtor, creditor, kesideci, bank_name, status, check_no, check_type')
+          .eq('organization_id', orgId)
+          .neq('status', 'Ödendi')
+          .neq('status', 'Tahsil Edildi')
+          .neq('status', 'İptal')
+          .not('due_date', 'is', null)
+          .order('due_date', { ascending: true })
+          .limit(3000);
 
-  const events=useMemo<CalendarEvent[]>(()=>{
-    const result:CalendarEvent[]=[];
-    for(const card of cards){
-      const debt = resolveCardOutstandingDebt(card, statements);
-      if(card.status!=='aktif'||card.limit<=0||debt<=0)continue;
-      const dueDate=resolveCardDueDate(card,statements).date;
+        if (!active) return;
+        if (error) {
+          console.warn('Takvim çek verileri yüklenemedi:', error);
+        } else if (data) {
+          setChecks(data as CheckRow[]);
+          try {
+            localStorage.setItem('dars_cached_checks', JSON.stringify(data));
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('Takvim çek sorgu hatası:', err);
+      }
+    };
+
+    const fetchKesim = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('kesim_listesi')
+          .select('id, slaughter_date, supplier, animal_type, piece_count, carcass_weight, total_amount, payment_status')
+          .eq('organization_id', orgId)
+          .not('slaughter_date', 'is', null)
+          .order('slaughter_date', { ascending: false })
+          .limit(1000);
+
+        if (!active) return;
+        if (error) {
+          console.warn('Takvim kesim verileri yüklenemedi:', error);
+        } else if (data) {
+          setKesimler(data as KesimRow[]);
+          try {
+            localStorage.setItem('dars_cached_kesim', JSON.stringify(data));
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('Takvim kesim sorgu hatası:', err);
+      }
+    };
+
+    void Promise.allSettled([fetchTenders(), fetchChecks(), fetchKesim()]).then(() => {
+      if (active) setLoading(false);
+    });
+
+    const channel = supabase
+      .channel('calendar_all_entities_channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenders' }, () => {
+        void fetchTenders();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ebs_checks' }, () => {
+        void fetchChecks();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kesim_listesi' }, () => {
+        void fetchKesim();
+      })
+      .subscribe();
+
+    return () => {
+      active = false;
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.organizationId]);
+
+  const events = useMemo<CalendarEvent[]>(() => {
+    const result: CalendarEvent[] = [];
+
+    // 1. Çek & Senetler (Portföy / Borç Çeklerimiz)
+    for (const c of checks) {
+      if (!c.due_date) continue;
+      const isCustomer = c.check_type === 'alinan' || c.check_type === 'Musteri';
+      const person = fixCorruptedTurkishText(c.kesideci || c.debtor || c.creditor || 'Çek');
+      const bank = fixCorruptedTurkishText(c.bank_name || 'Banka Belirtilmemiş');
+      const dKey = dateKey(c.due_date);
+
       result.push({
-        id:`card-${card.id}`,
-        date:dateKey(dueDate),
+        id: `check-${c.id}`,
+        date: dKey,
+        code: c.check_no ? `Çek: ${c.check_no}` : (isCustomer ? 'Müşteri Çeki' : 'Kendi Çekimiz'),
+        title: person || 'Çek Kaydı',
+        subtitle: `${isCustomer ? 'Portföy (Müşteri)' : 'Kendi Çekimiz'} · ${bank}`,
+        institution: bank,
+        detail: `${bank} · No: ${c.check_no || '—'} · ${person}`,
+        type: 'check',
+        to: '/muhasebe/cek-senet',
+        amount: `${Number(c.amount || 0).toLocaleString('tr-TR')} ₺`,
+        teminat: c.status === 'Teminata Verildi' ? 'Teminata Verildi' : '—',
+        statusLabel: c.status || (isCustomer ? 'Portföyde' : 'Kesilen Çek'),
+        statusClass: isCustomer 
+          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+          : 'bg-rose-50 text-rose-700 border border-rose-200',
+        timeStr: formatDate(c.due_date)
+      });
+    }
+
+    // 2. Kredi Kartları
+    for (const card of cards) {
+      const debt = resolveCardOutstandingDebt(card, statements);
+      if (card.status !== 'aktif' || card.limit <= 0 || debt <= 0) continue;
+      const dueDate = resolveCardDueDate(card, statements).date;
+      result.push({
+        id: `card-${card.id}`,
+        date: dateKey(dueDate),
         code: `•••• ${card.last4}`,
         title: `${card.bank} (${card.cardName || 'Kart'})`,
-        subtitle:`${card.cardName} •••• ${card.last4}`,
+        subtitle: `${card.cardName} •••• ${card.last4}`,
         institution: card.holder ? `Kullanan: ${card.holder}` : 'Şirket Kartı',
-        detail:`${card.cardName} •••• ${card.last4}`,
-        type:'credit-card',
-        to:`/finans/kredi-kartlari/${card.id}`,
+        detail: `${card.cardName} •••• ${card.last4}`,
+        type: 'credit-card',
+        to: `/finans/kredi-kartlari/${card.id}`,
         amount: `${Number(debt).toLocaleString('tr-TR')} ₺`,
         teminat: '—',
         statusLabel: 'Ödeme Bekliyor',
@@ -142,71 +343,201 @@ export function useCalendarEvents(){
         timeStr: formatDate(dueDate)
       });
     }
-    for(const vehicle of vehicles){
-      if(vehicle.inspectionDate) {
+
+    // 3. Şirket Faturaları (Elektrik, Su, Doğalgaz, İnternet vb.)
+    const bills = billsContext?.bills || [];
+    const invoices = billsContext?.invoices || [];
+
+    for (const b of bills) {
+      if (!b.dueDate || b.billStatus === 'odendi') continue;
+      const dKey = dateKey(b.dueDate);
+      result.push({
+        id: `bill-${b.id}`,
+        date: dKey,
+        code: b.subscriberNo ? `Abn: ${b.subscriberNo}` : 'FATURA',
+        title: b.name || 'Şirket Faturası',
+        subtitle: `${(b.category || 'FATURA').toUpperCase()} · ${b.company || 'Genel'}`,
+        institution: b.name || 'Kurumsal Fatura',
+        detail: `${(b.category || '').toUpperCase()} faturası ${b.notes ? `(${b.notes})` : ''}`,
+        type: 'bill',
+        to: '/faturalar',
+        amount: b.currentAmount > 0 ? `${Number(b.currentAmount).toLocaleString('tr-TR')} ₺` : '—',
+        teminat: '—',
+        statusLabel: b.autoPayment ? 'Otomatik Ödeme' : 'Ödeme Bekliyor',
+        statusClass: b.autoPayment 
+          ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+          : 'bg-orange-50 text-orange-700 border border-orange-200',
+        timeStr: formatDate(b.dueDate)
+      });
+    }
+
+    for (const inv of invoices) {
+      if (!inv.dueDate || inv.status === 'odendi') continue;
+      const dKey = dateKey(inv.dueDate);
+      const exists = result.some(e => e.id === `bill-${inv.billId}` && e.date === dKey);
+      if (exists) continue;
+
+      const parentBill = bills.find(b => b.id === inv.billId);
+      const remaining = Number(inv.amount || 0) - Number(inv.paidAmount || 0);
+
+      result.push({
+        id: `bill-inv-${inv.id}`,
+        date: dKey,
+        code: inv.invoiceNo || (parentBill?.subscriberNo ? `Abn: ${parentBill.subscriberNo}` : 'FATURA'),
+        title: parentBill?.name || 'Şirket Faturası',
+        subtitle: `${inv.period ? `${inv.period} Dönemi · ` : ''}${parentBill ? parentBill.category.toUpperCase() : 'FATURA'}`,
+        institution: parentBill?.name || 'Kurumsal Fatura',
+        detail: `${parentBill?.name || 'Fatura'} · No: ${inv.invoiceNo || '—'}`,
+        type: 'bill',
+        to: '/faturalar',
+        amount: remaining > 0 ? `${remaining.toLocaleString('tr-TR')} ₺` : '—',
+        teminat: '—',
+        statusLabel: inv.status === 'kismi' ? 'Kısmi Ödendi' : 'Ödeme Bekliyor',
+        statusClass: inv.status === 'kismi' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-orange-50 text-orange-700 border border-orange-200',
+        timeStr: formatDate(inv.dueDate)
+      });
+    }
+
+    // 4. Araç Muayene, Sigorta ve Kasko
+    for (const vehicle of vehicles) {
+      if (vehicle.inspectionDate) {
         result.push({
-          id:`inspection-${vehicle.id}`,
-          date:dateKey(vehicle.inspectionDate),
+          id: `inspection-${vehicle.id}`,
+          date: dateKey(vehicle.inspectionDate),
           code: vehicle.plate,
           title: `${vehicle.brand} ${vehicle.model}`,
-          subtitle: `${vehicle.brand} ${vehicle.model} · Muayene`,
-          institution:'Araç Muayene İstasyonu',
-          detail:`${vehicle.brand} ${vehicle.model}`,
-          type:'inspection',
-          to:`/arac-yonetimi/${vehicle.id}`,
-          amount:'—',
-          teminat:'—',
-          statusLabel:'Muayene',
-          statusClass:'bg-amber-50 text-amber-700 border border-amber-200',
+          subtitle: `${vehicle.brand} ${vehicle.model} · Periyodik Muayene`,
+          institution: 'Araç Muayene İstasyonu (TÜVTÜRK)',
+          detail: `${vehicle.brand} ${vehicle.model} - ${vehicle.plate}`,
+          type: 'inspection',
+          to: `/arac-yonetimi/${vehicle.id}`,
+          amount: '—',
+          teminat: '—',
+          statusLabel: 'Muayene',
+          statusClass: 'bg-amber-50 text-amber-700 border border-amber-200',
           timeStr: formatDate(vehicle.inspectionDate)
         });
       }
-      if(vehicle.insuranceDate) {
+      if (vehicle.insuranceDate) {
         result.push({
-          id:`insurance-${vehicle.id}`,
-          date:dateKey(vehicle.insuranceDate),
+          id: `insurance-${vehicle.id}`,
+          date: dateKey(vehicle.insuranceDate),
           code: vehicle.plate,
           title: `${vehicle.brand} ${vehicle.model}`,
-          subtitle: `${vehicle.brand} ${vehicle.model} · Sigorta Poliçesi`,
-          institution:'Trafik Sigortası / Kasko',
-          detail:`${vehicle.brand} ${vehicle.model}`,
-          type:'insurance',
-          to:`/arac-yonetimi/${vehicle.id}`,
-          amount:'—',
-          teminat:'—',
-          statusLabel:'Sigorta',
-          statusClass:'bg-blue-50 text-blue-700 border border-blue-200',
+          subtitle: `${vehicle.brand} ${vehicle.model} · Trafik Sigortası`,
+          institution: vehicle.insuranceCompany || 'Trafik Sigortası',
+          detail: `${vehicle.brand} ${vehicle.model} - ${vehicle.plate}`,
+          type: 'insurance',
+          to: `/arac-yonetimi/${vehicle.id}`,
+          amount: '—',
+          teminat: '—',
+          statusLabel: 'Trafik Sigortası',
+          statusClass: 'bg-blue-50 text-blue-700 border border-blue-200',
           timeStr: formatDate(vehicle.insuranceDate)
         });
       }
+      if (vehicle.cascoDate) {
+        result.push({
+          id: `casco-${vehicle.id}`,
+          date: dateKey(vehicle.cascoDate),
+          code: vehicle.plate,
+          title: `${vehicle.brand} ${vehicle.model}`,
+          subtitle: `${vehicle.brand} ${vehicle.model} · Kasko Poliçesi`,
+          institution: vehicle.kaskoCompany || 'Kasko Sigortası',
+          detail: `${vehicle.brand} ${vehicle.model} - ${vehicle.plate}`,
+          type: 'insurance',
+          to: `/arac-yonetimi/${vehicle.id}`,
+          amount: '—',
+          teminat: '—',
+          statusLabel: 'Kasko',
+          statusClass: 'bg-blue-50 text-blue-700 border border-blue-200',
+          timeStr: formatDate(vehicle.cascoDate)
+        });
+      }
     }
-    for(const tender of tenders){
-      if(['kazanildi','kaybedildi','iptal'].includes(tender.status))continue;
+
+    // 5. Trafik Cezaları
+    const finesList = fines || [];
+    for (const f of finesList) {
+      const isPaid = (f.paymentStatus || '').toLowerCase().trim() === 'odendi';
+      if (isPaid) continue;
+      const targetDate = f.notificationDate || f.fineDate;
+      if (!targetDate) continue;
+
+      const vehicle = vehicles.find(v => v.id === f.vehicleId);
+      const plate = vehicle?.plate || 'Araç';
+
+      result.push({
+        id: `fine-${f.id}`,
+        date: dateKey(targetDate),
+        code: f.fineNumber || plate || 'CEZA',
+        title: `Trafik Cezası - ${plate}`,
+        subtitle: `${f.violationType || 'Trafik İhlali'}${f.location ? ` · ${f.location}` : ''}`,
+        institution: f.location || 'Emniyet / Karayolları',
+        detail: `${f.violationType || 'Trafik İhlali'} - No: ${f.fineNumber || '—'}`,
+        type: 'fine',
+        to: '/arac-yonetimi/trafik-cezalari',
+        amount: Number(f.amount) > 0 ? `${Number(f.amount).toLocaleString('tr-TR')} ₺` : '—',
+        teminat: '—',
+        statusLabel: 'Ceza Bekliyor',
+        statusClass: 'bg-rose-50 text-rose-700 border border-rose-200',
+        timeStr: formatDate(targetDate)
+      });
+    }
+
+    // 6. İhaleler
+    for (const tender of tenders) {
+      if (['kazanildi', 'kaybedildi', 'iptal'].includes(tender.status)) continue;
       const d = new Date(tender.deadline_at);
       const timeStr = !isNaN(d.getTime()) 
         ? `${d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`
         : formatDate(tender.deadline_at);
 
       result.push({
-        id:`tender-${tender.id}`,
-        date:dateKey(tender.deadline_at),
+        id: `tender-${tender.id}`,
+        date: dateKey(tender.deadline_at),
         code: tender.tender_number,
         title: tender.title || `${tender.tender_number} İhale`,
-        subtitle:`${tender.tender_number}${tender.tender_type ? ` · ${tender.tender_type}` : ' · İhale'}`,
+        subtitle: `${tender.tender_number}${tender.tender_type ? ` · ${tender.tender_type}` : ' · İhale'}`,
         institution: tender.institution || '—',
-        detail:`${tender.title} · ${tender.institution}`,
-        type:'tender',
-        to:'/ihaleler',
+        detail: `${tender.title} · ${tender.institution}`,
+        type: 'tender',
+        to: '/ihaleler',
         amount: tender.bid_amount ? `${Number(tender.bid_amount).toLocaleString('tr-TR')} ${tender.currency || '₺'}` : '—',
         teminat: tender.teminat_mektubu || '—',
         statusLabel: tender.status === 'hazirlaniyor' ? 'Hazırlanıyor' : tender.status === 'teklif_verildi' ? 'Teklif Verildi' : 'Hazırlanıyor',
-        statusClass: 'bg-amber-50 text-amber-700 border border-amber-200',
+        statusClass: 'bg-purple-50 text-purple-700 border border-purple-200',
         timeStr: timeStr
       });
     }
-    return result.sort((a,b)=>a.date.localeCompare(b.date));
-  },[cards,statements,vehicles,tenders]);
-  return {events,loading};
+
+    // 7. Kesim Listesi (Operasyon / Tedarik)
+    for (const k of kesimler) {
+      if (!k.slaughter_date) continue;
+      const isPaid = (k.payment_status || '').toLowerCase().trim() === 'odendi';
+
+      result.push({
+        id: `kesim-${k.id}`,
+        date: dateKey(k.slaughter_date),
+        code: k.animal_type || 'KESİM',
+        title: `Kesim: ${k.supplier || 'Tedarikçi'}`,
+        subtitle: `${k.piece_count ? `${k.piece_count} Adet ` : ''}${k.carcass_weight ? `· ${Number(k.carcass_weight).toLocaleString('tr-TR')} kg` : ''}`,
+        institution: k.supplier || 'Kesimhane',
+        detail: `${k.animal_type || 'Büyükbaş'} kesim işlemi`,
+        type: 'kesim',
+        to: '/kesim-listesi',
+        amount: k.total_amount ? `${Number(k.total_amount).toLocaleString('tr-TR')} ₺` : '—',
+        teminat: '—',
+        statusLabel: isPaid ? 'Ödendi' : 'Kesim Kaydı',
+        statusClass: isPaid ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-teal-50 text-teal-700 border border-teal-200',
+        timeStr: formatDate(k.slaughter_date)
+      });
+    }
+
+    return result.sort((a, b) => a.date.localeCompare(b.date));
+  }, [cards, statements, vehicles, fines, tenders, checks, kesimler, billsContext?.bills, billsContext?.invoices]);
+
+  return { events, loading };
 }
 
 interface CalendarNote { 
@@ -227,16 +558,19 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
   const notesStorageKey = `dars_calendar_notes_${userKey}`;
   const filterStorageKey = `dars_calendar_filters_${userKey}`;
 
-  // 1. Dynamic Event Types Filter (Persisted per user)
+  // 1. Dynamic Event Types Filter (Persisted per user, default: widely used operational types)
   const [activeTypes, setActiveTypes] = useState<EventType[]>(() => {
     try {
       const saved = localStorage.getItem(`dars_calendar_filters_${user?.id || user?.email || 'default'}`);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter((t: any) => ALL_EVENT_TYPES.includes(t));
+          if (valid.length > 0) return valid;
+        }
       }
     } catch {}
-    return ALL_EVENT_TYPES;
+    return DEFAULT_ACTIVE_EVENT_TYPES;
   });
 
   // Re-sync filter preferences if user identity finishes resolving
@@ -246,7 +580,10 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setActiveTypes(parsed);
+          const valid = parsed.filter((t: any) => ALL_EVENT_TYPES.includes(t));
+          if (valid.length > 0) {
+            setActiveTypes(valid);
+          }
         }
       }
     } catch {}
@@ -273,6 +610,18 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
       localStorage.setItem(filterStorageKey, JSON.stringify(ALL_EVENT_TYPES));
     } catch {}
   };
+
+  const resetToDefaultTypes = () => {
+    setActiveTypes(DEFAULT_ACTIVE_EVENT_TYPES);
+    try {
+      localStorage.setItem(filterStorageKey, JSON.stringify(DEFAULT_ACTIVE_EVENT_TYPES));
+    } catch {}
+  };
+
+  const isCustomFilter = useMemo(() => {
+    if (activeTypes.length !== DEFAULT_ACTIVE_EVENT_TYPES.length) return true;
+    return !DEFAULT_ACTIVE_EVENT_TYPES.every(t => activeTypes.includes(t));
+  }, [activeTypes]);
 
   // 2. User-Isolated Notes State & Cache
   const [notes, setNotes] = useState<CalendarNote[]>(() => {
@@ -566,10 +915,24 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
       }));
   }, [notes]);
 
+  // Merge notes with all system events
+  const rawAllEvents = useMemo(() => {
+    return [...noteEvents, ...events];
+  }, [noteEvents, events]);
+
+  // Real-time counts per category for the filter badges
+  const typeCounts = useMemo(() => {
+    const counts: Partial<Record<EventType, number>> = {};
+    for (const e of rawAllEvents) {
+      counts[e.type] = (counts[e.type] || 0) + 1;
+    }
+    return counts;
+  }, [rawAllEvents]);
+
   // All events strictly filtered by activeTypes selected by user!
   const allEvents = useMemo(() => {
-    return [...noteEvents, ...events].filter(e => activeTypes.includes(e.type));
-  }, [events, noteEvents, activeTypes]);
+    return rawAllEvents.filter(e => activeTypes.includes(e.type));
+  }, [rawAllEvents, activeTypes]);
 
   const byDate = useMemo(() => allEvents.reduce<Record<string, CalendarEvent[]>>((acc, event) => {
     (acc[event.date] ??= []).push(event);
@@ -635,43 +998,71 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
       )} 
 
       {/* Filtre Rozetleri / Kategori Seçimi */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-white/70 p-2.5 rounded-xl border border-gray-100 shadow-2xs">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500 mr-1 flex items-center gap-1.5 pl-1">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-gray-200/80 shadow-xs">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="text-xs font-bold text-gray-500 mr-1 flex items-center gap-1.5 pl-1">
             <Filter size={13} className="text-gray-400" />
             <span>Görünüm Filtreleri:</span>
           </span>
           {(Object.entries(styles) as [EventType, typeof styles[EventType]][]).map(([key, s]) => {
             const isActive = activeTypes.includes(key);
+            const count = typeCounts[key] || 0;
             return (
               <button
                 key={key}
                 type="button"
                 onClick={() => toggleEventType(key)}
                 title={isActive ? `${s.label} filtresini gizle` : `${s.label} filtresini göster`}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all cursor-pointer select-none ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer select-none ${
                   isActive 
                     ? `${s.badge} shadow-xs ring-1 ring-black/5 hover:brightness-95` 
-                    : 'bg-gray-100 text-gray-400 border border-gray-200 opacity-60 hover:opacity-100 hover:text-gray-600'
+                    : 'bg-gray-50 text-gray-400 border border-gray-200 opacity-60 hover:opacity-100 hover:text-gray-600'
                 }`}
               >
                 <span className={`inline-block h-2 w-2 rounded-full transition-colors ${isActive ? s.dot : 'bg-gray-300'}`} />
                 <span className={isActive ? '' : 'line-through'}>{s.label}</span>
+                {count > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${isActive ? 'bg-black/10' : 'bg-gray-200 text-gray-500'}`}>
+                    {count}
+                  </span>
+                )}
                 {isActive && <Check size={11} className="stroke-[3] opacity-60 ml-0.5" />}
               </button>
             );
           })}
         </div>
 
-        {activeTypes.length < ALL_EVENT_TYPES.length && (
-          <button
-            type="button"
-            onClick={enableAllTypes}
-            className="text-xs font-bold text-brand-600 hover:text-brand-800 transition-colors pr-1"
-          >
-            Tümünü Göster ({ALL_EVENT_TYPES.length})
-          </button>
-        )}
+        <div className="flex items-center gap-2 pr-1">
+          {isCustomFilter && (
+            <button
+              type="button"
+              onClick={resetToDefaultTypes}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors"
+              title="En çok kullanılan varsayılan filtrelere dön"
+            >
+              <RotateCcw size={12} />
+              <span>Varsayılan</span>
+            </button>
+          )}
+
+          {activeTypes.length < ALL_EVENT_TYPES.length ? (
+            <button
+              type="button"
+              onClick={enableAllTypes}
+              className="text-xs font-bold text-brand-600 hover:text-brand-800 transition-colors"
+            >
+              Tümünü Göster ({ALL_EVENT_TYPES.length})
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={resetToDefaultTypes}
+              className="text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Varsayılana Dön
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 1. Üst Kısım: Takvim (Sol) + Genel Yapılacaklar & Notlar (Sağ) */}
@@ -1345,10 +1736,82 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
   );
 }
 
-export function DashboardCalendar(){
-  const {events,loading}=useCalendarEvents();
-  const today=new Date();today.setHours(0,0,0,0);const limit=new Date(today);limit.setDate(limit.getDate()+45);
-  const upcoming=events.filter(e=>{const d=parseDate(e.date);return d>=today&&d<=limit}).slice(0,7);
-  const icon={ 'credit-card':CreditCard,inspection:Car,insurance:ShieldCheck,tender:Gavel,note:ListTodo } as const;
-  return <SectionCard title="Yaklaşan Tarihler" icon={<CalendarDays size={16} className="text-gray-400"/>} action={<Link to="/takvim" className="text-xs font-medium text-brand-600 hover:text-brand-700">Takvimi Aç</Link>} className="mb-6" bodyClassName="!p-0"><div className="grid divide-y divide-gray-100 md:grid-cols-2 md:divide-x md:divide-y-0">{loading?<p className="p-6 text-center text-sm text-gray-400 md:col-span-2">Tarihler yükleniyor...</p>:upcoming.length===0?<p className="p-6 text-center text-sm text-gray-400 md:col-span-2">Önümüzdeki 45 gün içinde yaklaşan tarih yok.</p>:[upcoming.filter((_,i)=>i%2===0),upcoming.filter((_,i)=>i%2===1)].map((group,index)=><div key={index} className="divide-y divide-gray-100">{group.map(e=>{const Icon=icon[e.type];const days=Math.ceil((parseDate(e.date).getTime()-today.getTime())/86400000);return <Link key={e.id} to={e.to} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-500"><Icon size={15}/></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-gray-800">{e.title}</p><p className="text-xs text-gray-400">{formatDate(e.date)}</p></div><span className={`rounded-md px-2 py-1 text-[10px] font-medium ${styles[e.type].badge}`}>{days===0?'Bugün':`${days} gün`}</span></Link>})}</div>)}</div></SectionCard>
+export function DashboardCalendar() {
+  const { events, loading } = useCalendarEvents();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const limit = new Date(today);
+  limit.setDate(limit.getDate() + 45);
+
+  const upcoming = events
+    .filter(e => {
+      const d = parseDate(e.date);
+      return d >= today && d <= limit;
+    })
+    .slice(0, 8);
+
+  const icon: Record<EventType, any> = {
+    'credit-card': CreditCard,
+    inspection: Car,
+    insurance: ShieldCheck,
+    tender: Gavel,
+    note: ListTodo,
+    check: Landmark,
+    bill: Receipt,
+    fine: AlertTriangle,
+    kesim: Beef
+  };
+
+  return (
+    <SectionCard
+      title="Yaklaşan Tarihler"
+      icon={<CalendarDays size={16} className="text-gray-400" />}
+      action={
+        <Link to="/takvim" className="text-xs font-medium text-brand-600 hover:text-brand-700">
+          Takvimi Aç
+        </Link>
+      }
+      className="mb-6"
+      bodyClassName="!p-0"
+    >
+      <div className="grid divide-y divide-gray-100 md:grid-cols-2 md:divide-x md:divide-y-0">
+        {loading ? (
+          <p className="p-6 text-center text-sm text-gray-400 md:col-span-2">Tarihler yükleniyor...</p>
+        ) : upcoming.length === 0 ? (
+          <p className="p-6 text-center text-sm text-gray-400 md:col-span-2">Önümüzdeki 45 gün içinde yaklaşan tarih yok.</p>
+        ) : (
+          [upcoming.filter((_, i) => i % 2 === 0), upcoming.filter((_, i) => i % 2 === 1)].map((group, index) => (
+            <div key={index} className="divide-y divide-gray-100">
+              {group.map(e => {
+                const Icon = icon[e.type] || CalendarDays;
+                const days = Math.ceil((parseDate(e.date).getTime() - today.getTime()) / 86400000);
+                const targetUrl = e.to || '/takvim';
+                return (
+                  <Link
+                    key={e.id}
+                    to={targetUrl}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
+                      <Icon size={15} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-gray-800">{e.title}</p>
+                      <p className="text-xs text-gray-400">
+                        {formatDate(e.date)}
+                        {e.amount && e.amount !== '—' ? ` · ${e.amount}` : ''}
+                      </p>
+                    </div>
+                    <span className={`rounded-md px-2 py-1 text-[10px] font-medium ${styles[e.type]?.badge || 'bg-gray-100 text-gray-700'}`}>
+                      {days === 0 ? 'Bugün' : `${days} gün`}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))
+        )}
+      </div>
+    </SectionCard>
+  );
 }

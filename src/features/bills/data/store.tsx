@@ -19,7 +19,7 @@ interface BillsContextType {
   getInvoicesByBillId: (billId: string) => BillInvoice[];
 }
 
-const BillsContext = createContext<BillsContextType | undefined>(undefined);
+export const BillsContext = createContext<BillsContextType | undefined>(undefined);
 
 // Initial fallback seed data
 const initialSeedBills: CompanyBill[] = [
@@ -583,3 +583,8 @@ export const useBills = () => {
   }
   return context;
 };
+
+export const useSafeBills = () => {
+  return useContext(BillsContext);
+};
+
