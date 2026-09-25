@@ -125,66 +125,73 @@ export async function fetchCariAgingData(): Promise<CariAgingRow[]> {
   const d60Str = new Date(today.getTime() - 60 * 24 * 3600 * 1000).toISOString();
   const pageSize = 1000;
 
-  // 1. Fetch All Cariler with pagination loop
-  let allCariler: any[] = [];
-  let fromC = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from('vega_cariler')
-      .select('code, name, company_code, city, type, balance, last_transaction_date')
-      .order('balance', { ascending: false })
-      .range(fromC, fromC + pageSize - 1);
+  // 1 & 2. Concurrently fetch Cariler and Movements in parallel
+  const fetchCarilerPromise = (async () => {
+    let allCariler: any[] = [];
+    let fromC = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('vega_cariler')
+        .select('code, name, company_code, city, type, balance, last_transaction_date')
+        .order('balance', { ascending: false })
+        .range(fromC, fromC + pageSize - 1);
 
-    if (error) {
-      console.error('Cariler fetch error:', error);
-      throw error;
-    }
-    if (!data || data.length === 0) break;
-    allCariler = allCariler.concat(data);
-    if (data.length < pageSize) break;
-    fromC += pageSize;
-  }
-
-  // 2. Fetch Movements within 180 days with parallel chunked range pagination loop
-  let allMovements: any[] = [];
-  let fromM = 0;
-  const batchPages = 4;
-  let hasMoreMovements = true;
-
-  while (hasMoreMovements) {
-    const pagePromises = [];
-    for (let i = 0; i < batchPages; i++) {
-      const from = fromM + i * pageSize;
-      pagePromises.push(
-        supabase
-          .from('vega_cari_hareketler')
-          .select('cari_code, date, invoice_no, izahat, description, product_name, unit_name, unit_price, quantity, line_tutar, borc, alacak, vade, type, amount')
-          .gte('date', d180Str)
-          .order('date', { ascending: false })
-          .range(from, from + pageSize - 1)
-      );
-    }
-
-    const results = await Promise.all(pagePromises);
-    for (const res of results) {
-      if (res.error) {
-        console.warn('Movements fetch warning:', res.error);
-        hasMoreMovements = false;
-        break;
+      if (error) {
+        console.error('Cariler fetch error:', error);
+        throw error;
       }
-      if (res.data && res.data.length > 0) {
-        allMovements = allMovements.concat(res.data);
-        if (res.data.length < pageSize) {
+      if (!data || data.length === 0) break;
+      allCariler = allCariler.concat(data);
+      if (data.length < pageSize) break;
+      fromC += pageSize;
+    }
+    return allCariler;
+  })();
+
+  const fetchMovementsPromise = (async () => {
+    let allMovements: any[] = [];
+    let fromM = 0;
+    const batchPages = 8;
+    let hasMoreMovements = true;
+
+    while (hasMoreMovements) {
+      const pagePromises = [];
+      for (let i = 0; i < batchPages; i++) {
+        const from = fromM + i * pageSize;
+        pagePromises.push(
+          supabase
+            .from('vega_cari_hareketler')
+            .select('cari_code, date, invoice_no, izahat, product_name, unit_price, quantity, line_tutar, borc, alacak, vade, type, amount')
+            .gte('date', d180Str)
+            .order('date', { ascending: false })
+            .range(from, from + pageSize - 1)
+        );
+      }
+
+      const results = await Promise.all(pagePromises);
+      for (const res of results) {
+        if (res.error) {
+          console.warn('Movements fetch warning:', res.error);
           hasMoreMovements = false;
           break;
         }
-      } else {
-        hasMoreMovements = false;
-        break;
+        if (res.data && res.data.length > 0) {
+          allMovements = allMovements.concat(res.data);
+          if (res.data.length < pageSize) {
+            hasMoreMovements = false;
+            break;
+          }
+        } else {
+          hasMoreMovements = false;
+          break;
+        }
       }
+      fromM += batchPages * pageSize;
     }
-    fromM += batchPages * pageSize;
-  }
+    return allMovements;
+  })();
+
+  const [allCariler, allMovements] = await Promise.all([fetchCarilerPromise, fetchMovementsPromise]);
 
   // 3. Dynamic Product Price Engine
   const dynamicPrices = calculateDynamicProductPrices(allMovements);

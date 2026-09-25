@@ -17,28 +17,78 @@ import { CashFlowReportTab } from './tabs/CashFlowReportTab';
 import { SlaughterEfficiencyTab } from './tabs/SlaughterEfficiencyTab';
 import { ExpenseBreakdownTab } from './tabs/ExpenseBreakdownTab';
 
+const CARI_AGING_CACHE_KEY = 'dars_cari_aging_cache_v2';
+
 export function ReportingPage() {
   const { notify } = useToast();
   const [activeTab, setActiveTab] = useState<'aging' | 'acik-alacak' | 'cashflow' | 'slaughter' | 'expenses'>('aging');
-  const [cariRows, setCariRows] = useState<CariAgingRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Instant Cache Initialization - 0ms page load on refresh
+  const [cariRows, setCariRows] = useState<CariAgingRow[]>(() => {
+    try {
+      const cached = localStorage.getItem(CARI_AGING_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed?.rows) && parsed.rows.length > 0) {
+          return parsed.rows;
+        }
+      }
+    } catch (e) {
+      console.warn('Cache read error:', e);
+    }
+    return [];
+  });
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const [loading, setLoading] = useState<boolean>(() => {
+    try {
+      const cached = localStorage.getItem(CARI_AGING_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed?.rows) && parsed.rows.length > 0) {
+          return false;
+        }
+      }
+    } catch {}
+    return true;
+  });
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = useCallback(async (isManual = false) => {
+    if (isManual) {
+      setRefreshing(true);
+    } else if (cariRows.length === 0) {
+      setLoading(true);
+    }
+
     try {
       const data = await fetchCariAgingData();
       setCariRows(data);
+      try {
+        localStorage.setItem(CARI_AGING_CACHE_KEY, JSON.stringify({
+          timestamp: Date.now(),
+          rows: data
+        }));
+      } catch (storageErr) {
+        console.warn('Cache write warning:', storageErr);
+      }
+      if (isManual) {
+        notify('Cari verileri başarıyla güncellendi.', 'success');
+      }
     } catch (err: any) {
       console.error(err);
-      notify('Cari verileri çekilirken bir sorun oluştu.', 'error');
+      if (isManual || cariRows.length === 0) {
+        notify('Cari verileri çekilirken bir sorun oluştu.', 'error');
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [notify]);
+  }, [cariRows.length, notify]);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    void loadData(false);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -47,12 +97,12 @@ export function ReportingPage() {
         description="Cari yaşlandırma ve risk analizi, nakit akışı ve çek projeksiyonu, kesimhane randımanları ve gider dökümlerini tek ekrandan yönetin."
         actions={
           <button
-            onClick={() => void loadData()}
-            disabled={loading}
+            onClick={() => void loadData(true)}
+            disabled={loading || refreshing}
             className="btn btn-secondary flex items-center gap-2 text-xs font-semibold shadow-sm"
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Verileri Yenile
+            <RefreshCw size={14} className={loading || refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'Güncelleniyor...' : 'Verileri Yenile'}
           </button>
         }
       />
