@@ -14,7 +14,8 @@ import {
   Upload,
   PlusCircle,
   CheckCircle,
-  XCircle
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Modal } from '../../components/ui/Modal';
@@ -265,29 +266,52 @@ const formatExcelPaymentDate = (val: any): string => {
 const parseExcelDate = (val: any, selectedYear?: string, selectedMonth?: string): string | null => {
   if (val === undefined || val === null) return null;
   
+  if (val instanceof Date) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
   const clean = String(val).trim();
   if (!clean) return null;
 
-  // 1. Check for standard formats using separators
-  if (clean.includes('.') || clean.includes('-')) {
-    const parts = clean.includes('.') ? clean.split('.') : clean.split('-');
-    if (parts.length === 3) {
-      let year = parts[2].trim();
-      if (year.length === 2) {
-        year = '20' + year;
-      }
-      return `${year}-${parts[1].trim().padStart(2, '0')}-${parts[0].trim().padStart(2, '0')}`;
-    }
-    if (parts.length === 2 && selectedYear) {
-      return `${selectedYear}-${parts[1].trim().padStart(2, '0')}-${parts[0].trim().padStart(2, '0')}`;
+  // 1. Slashes, dots, or dashes regex match (DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD)
+  let mMatch = clean.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (mMatch) {
+    return `${mMatch[1]}-${String(mMatch[2]).padStart(2, '0')}-${String(mMatch[3]).padStart(2, '0')}`;
+  }
+  mMatch = clean.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (mMatch) {
+    return `${mMatch[3]}-${String(mMatch[2]).padStart(2, '0')}-${String(mMatch[1]).padStart(2, '0')}`;
+  }
+  mMatch = clean.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})\b/);
+  if (mMatch) {
+    return `20${mMatch[3]}-${String(mMatch[2]).padStart(2, '0')}-${String(mMatch[1]).padStart(2, '0')}`;
+  }
+  mMatch = clean.match(/^(\d{1,2})[-/.](\d{1,2})$/);
+  if (mMatch && selectedYear) {
+    return `${selectedYear}-${String(mMatch[2]).padStart(2, '0')}-${String(mMatch[1]).padStart(2, '0')}`;
+  }
+
+  // 2. Turkish month names (e.g. 25 EYLÜL 2026 or 25 EYLÜL)
+  const mText = clean.match(/(\d{1,2})\s+([a-zA-ZçğıöşüÇĞİÖŞÜ]+)(?:\s+(\d{4}))?/i);
+  if (mText) {
+    const day = String(mText[1]).padStart(2, '0');
+    const rawMonth = mText[2].toUpperCase().replace(/İ/g, 'I').replace(/Ş/g, 'S').replace(/Ğ/g, 'G').replace(/Ü/g, 'U').replace(/Ö/g, 'O').replace(/Ç/g, 'C');
+    const trMap: Record<string, string> = { 'OCAK': '01', 'SUBAT': '02', 'MART': '03', 'NISAN': '04', 'MAYIS': '05', 'HAZIRAN': '06', 'TEMMUZ': '07', 'AGUSTOS': '08', 'EYLUL': '09', 'EKIM': '10', 'KASIM': '11', 'ARALIK': '12' };
+    const monthNum = trMap[rawMonth];
+    if (monthNum) {
+      const year = mText[3] || selectedYear || new Date().getFullYear().toString();
+      return `${year}-${monthNum}-${day}`;
     }
   }
 
-  // 2. Check if it's a number (either Excel Serial or day-of-month)
+  // 3. Check if it's a number (either Excel Serial or day-of-month)
   const num = Number(clean);
   if (!isNaN(num)) {
-    // Excel Date Serial number (usually > 30000 and < 60000 for years 1982-2064)
-    if (num > 30000 && num < 60000) {
+    // Excel Date Serial number (usually > 30000 and < 65000 for years 1982-2077)
+    if (num > 30000 && num < 65000) {
       const date = new Date(Math.round((num - 25569) * 86400 * 1000));
       const y = date.getUTCFullYear();
       const m = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -529,11 +553,23 @@ export function KesimListesiPage() {
   const [editingRecord, setEditingRecord] = useState<KesimRecord | null>(null);
   const [formState, setFormState] = useState<FormState>(emptyForm());
 
+  // Sync Status state
+  const [syncStatus, setSyncStatus] = useState<{
+    lastSyncTime: string | null;
+    source: 'api' | 'supabase' | 'cache';
+    latestDate: string | null;
+  }>({
+    lastSyncTime: null,
+    source: 'cache',
+    latestDate: null
+  });
+
   // Fetch records
-  const fetchRecords = useCallback(async () => {
+  const fetchRecords = useCallback(async (force = false) => {
     setLoading(true);
     try {
       let fetchedData: KesimRecord[] | null = null;
+      let usedSource: 'api' | 'supabase' | 'cache' = 'api';
 
       // 1. Mezbaha Canlı API'sinden çek (anında hafıza önbelleği ile döner)
       try {
@@ -541,6 +577,7 @@ export function KesimListesiPage() {
         const params = new URLSearchParams();
         if (startDate) params.append('startDate', startDate);
         if (endDate) params.append('endDate', endDate);
+        if (force) params.append('force', 'true');
         const queryStr = params.toString();
         if (queryStr) apiUrl += `?${queryStr}`;
 
@@ -553,6 +590,7 @@ export function KesimListesiPage() {
           const liveData = await res.json();
           if (Array.isArray(liveData)) {
             fetchedData = liveData;
+            usedSource = 'api';
           }
         }
       } catch (liveErr) {
@@ -561,6 +599,7 @@ export function KesimListesiPage() {
 
       // 2. Fallback: Supabase Veritabanı
       if (!fetchedData) {
+        usedSource = 'supabase';
         try {
           let query = supabase
             .from('kesim_listesi')
@@ -592,6 +631,17 @@ export function KesimListesiPage() {
           localStorage.setItem('dars_kesim_records_cache', JSON.stringify(fetchedData));
         } catch (e) {}
         setRecords(fetchedData);
+
+        const maxDate = fetchedData.reduce((max, r) => (r.slaughter_date > max ? r.slaughter_date : max), '');
+        setSyncStatus({
+          lastSyncTime: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          source: usedSource,
+          latestDate: maxDate || null
+        });
+
+        if (force) {
+          notify(`Mezbaha verileri tazelendi (${fetchedData.length} kayıt).`, 'success');
+        }
       }
     } catch (error: any) {
       notify('Kesim kayıtları yüklenirken bir hata oluştu: ' + error.message, 'error');
@@ -1198,23 +1248,16 @@ export function KesimListesiPage() {
             if (!row || row.length === 0) continue;
 
             const rawTarih = row[colMap.tarih];
+            const parsedDateCandidate = parseExcelDate(rawTarih, selectedYear, selectedMonth);
+            if (parsedDateCandidate) {
+              lastParsedDate = parsedDateCandidate;
+            }
+            const parsedDate = parsedDateCandidate || lastParsedDate;
+
             const rawEl = row[colMap.el];
             const rawKg = row[colMap.kg];
-
             if (!rawEl || !rawKg) continue;
-
-            let parsedDate = parseExcelDate(rawTarih, selectedYear, selectedMonth);
-            if (parsedDate) {
-              lastParsedDate = parsedDate;
-            } else {
-              parsedDate = lastParsedDate;
-            }
-
-            if (!parsedDate) {
-              const defMonth = (selectedMonth && selectedMonth !== 'all' && selectedMonth !== 'custom') ? selectedMonth : '01';
-              const defYear = selectedYear || new Date().getFullYear().toString();
-              parsedDate = `${defYear}-${defMonth.padStart(2, '0')}-01`;
-            }
+            if (!parsedDate) continue;
 
             const parsedSupplier = String(rawEl).trim();
             
@@ -1510,14 +1553,54 @@ export function KesimListesiPage() {
             </div>
 
             <button
-              onClick={fetchRecords}
-              className="rounded-lg p-2 text-gray-400 border border-gray-300 hover:text-gray-700 hover:bg-gray-50 focus:outline-none"
-              title="Yenile"
+              onClick={() => void fetchRecords(true)}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:text-brand-700 hover:border-brand-300 hover:bg-brand-50/50 focus:outline-none transition-all shadow-sm"
+              title="Mezbaha sunucusundaki Excel dosyasını önbelleksiz canlı olarak tekrar okur ve eşitler"
+              disabled={loading}
             >
-              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              <span>Zorla Yenile</span>
             </button>
           </div>
         </div>
+
+        {/* Canlı Senkronizasyon Durum Çubuğu */}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50/90 px-3.5 py-2 text-xs border border-gray-200 text-gray-600">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-semibold text-gray-700">Veri Hattı:</span>
+            <span className="inline-flex items-center rounded bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 border border-emerald-200">
+              Mezbaha Canlı API (Windows Server 2012)
+            </span>
+            {syncStatus.latestDate && (
+              <span className="text-gray-600">
+                • Sunucudaki En Son Kesim: <strong className="text-gray-900 font-semibold">{formatDate(syncStatus.latestDate)}</strong>
+              </span>
+            )}
+            {syncStatus.lastSyncTime && (
+              <span className="text-gray-400">
+                • Son Kontrol: {syncStatus.lastSyncTime}
+              </span>
+            )}
+          </div>
+          <div className="text-gray-500 text-[11.5px] font-medium">
+            {filteredItems.length} kesim kaydı
+          </div>
+        </div>
+
+        {/* 25.09.2026 Bilgi Uyarısı */}
+        {syncStatus.latestDate && syncStatus.latestDate < '2026-09-25' && (
+          <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50/90 px-3.5 py-2.5 text-xs text-amber-900">
+            <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 leading-relaxed">
+              <strong className="font-semibold text-amber-950">Mezbaha Kantar Dosyası Bildirimi:</strong>{' '}
+              Sistemdeki son kesim kaydı <strong>{formatDate(syncStatus.latestDate)}</strong> tarihlidir (Row 148). Mezbaha kantarındaki Excel dosyası kaydedilip kapatıldığında veriler otomatik sisteme yansır. Anlık olarak sunucudaki güncellemeyi çekmek için <strong>"Zorla Yenile"</strong> butonuna basabilir veya elinizdeki kantar Excel dosyasını <strong>"Excel Yükle"</strong> butonuyla doğrudan yükleyebilirsiniz.
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Data Table */}

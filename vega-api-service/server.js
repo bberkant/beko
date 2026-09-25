@@ -1205,147 +1205,237 @@ function postToSupabaseRest(endpoint, body) {
   });
 }
 
+function parseKesimDateString(rawTarih, fallbackYear = '2026') {
+  if (rawTarih === null || rawTarih === undefined) return null;
+  if (rawTarih instanceof Date) {
+    const y = rawTarih.getFullYear();
+    const m = String(rawTarih.getMonth() + 1).padStart(2, '0');
+    const d = String(rawTarih.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  if (typeof rawTarih === 'number') {
+    if (rawTarih > 30000 && rawTarih < 65000) {
+      const utcDays = Math.floor(rawTarih - 25569);
+      const d = new Date(utcDays * 86400 * 1000);
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    }
+  }
+  const s = String(rawTarih).trim();
+  if (!s) return null;
+
+  // 1. DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY
+  let m = s.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (m) {
+    return `${m[3]}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
+  }
+
+  // 2. DD.MM.YY, DD/MM/YY, DD-MM-YY
+  m = s.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})\b/);
+  if (m) {
+    return `20${m[3]}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
+  }
+
+  // 3. DD.MM or DD/MM (year omitted)
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})$/);
+  if (m) {
+    return `${fallbackYear}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
+  }
+
+  // 4. Turkish month names (e.g. "25 EYLÜL 2026" or "25 EYLÜL")
+  const mText = s.match(/(\d{1,2})\s+([a-zA-ZçğıöşüÇĞİÖŞÜ]+)(?:\s+(\d{4}))?/i);
+  if (mText) {
+    const day = String(mText[1]).padStart(2, '0');
+    const rawMonth = mText[2].toUpperCase().replace(/İ/g, 'I').replace(/Ş/g, 'S').replace(/Ğ/g, 'G').replace(/Ü/g, 'U').replace(/Ö/g, 'O').replace(/Ç/g, 'C');
+    const trMap = { 'OCAK': '01', 'SUBAT': '02', 'MART': '03', 'NISAN': '04', 'MAYIS': '05', 'HAZIRAN': '06', 'TEMMUZ': '07', 'AGUSTOS': '08', 'EYLUL': '09', 'EKIM': '10', 'KASIM': '11', 'ARALIK': '12' };
+    const monthNum = trMap[rawMonth];
+    if (monthNum) {
+      const year = mText[3] || fallbackYear;
+      return `${year}-${monthNum}-${day}`;
+    }
+  }
+
+  return null;
+}
+
+let cachedKesimFilesInfo = [];
+
 async function getParsedKesimRecords(force = false) {
-  let targetPath = null;
+  if (!xlsx) {
+    try { xlsx = require('xlsx'); } catch (e) { return cachedKesimRecords; }
+  }
+
+  // Aday klasörleri ve doğrudan dosyaları tara
+  const candidateDirs = [
+    String.raw`D:\yedekler\E D E 2023\EDE - 2021\GÜNLÜK KESİM 2022`,
+    String.raw`D:\yedekler\E D E 2023\EDE - 2021\GÜNLÜK KESİM 2026`,
+    String.raw`D:\yedekler\E D E 2023\EDE - 2021`,
+    String.raw`C:\yedekler\E D E 2023\EDE - 2021\GÜNLÜK KESİM 2022`,
+    path.join(__dirname, 'dosyalar'),
+    __dirname
+  ];
+
+  const foundFiles = [];
+  for (const dir of candidateDirs) {
+    try {
+      if (fs.existsSync(dir)) {
+        const stats = fs.statSync(dir);
+        if (stats.isDirectory()) {
+          const files = fs.readdirSync(dir);
+          for (const f of files) {
+            if ((f.endsWith('.xlsx') || f.endsWith('.xls')) && !f.startsWith('~$')) {
+              const fullP = path.join(dir, f);
+              try {
+                const fStat = fs.statSync(fullP);
+                if (fStat.size > 1000) {
+                  foundFiles.push({ path: fullP, mtimeMs: fStat.mtimeMs, size: fStat.size, name: f });
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Statik yolları da ekle (eğer listede yoksa)
   for (const p of KESIM_EXCEL_PATHS) {
-    if (fs.existsSync(p)) {
-      targetPath = p;
-      break;
-    }
+    try {
+      if (fs.existsSync(p) && !foundFiles.some(f => f.path.toLowerCase() === p.toLowerCase())) {
+        const fStat = fs.statSync(p);
+        foundFiles.push({ path: p, mtimeMs: fStat.mtimeMs, size: fStat.size, name: path.basename(p) });
+      }
+    } catch (e) {}
   }
 
-  if (!targetPath) {
-    const dir = String.raw`D:\yedekler\E D E 2023\EDE - 2021\GÜNLÜK KESİM 2022`;
-    if (fs.existsSync(dir)) {
-      const files = fs.readdirSync(dir);
-      const xlsxFile = files.find(f => (f.endsWith('.xlsx') || f.endsWith('.xls')) && !f.startsWith('~$'));
-      if (xlsxFile) targetPath = path.join(dir, xlsxFile);
-    }
-  }
+  cachedKesimFilesInfo = foundFiles;
 
-  if (!targetPath) return cachedKesimRecords;
+  if (foundFiles.length === 0) return cachedKesimRecords;
 
-  try {
-    const stat = fs.statSync(targetPath);
-    if (!force && cachedKesimRecords.length > 0 && stat.mtimeMs <= lastKesimCacheMtime) {
-      return cachedKesimRecords;
-    }
+  // En yeni dosyaları öne al
+  foundFiles.sort((a, b) => b.mtimeMs - a.mtimeMs);
 
-    if (!xlsx) {
-      try { xlsx = require('xlsx'); } catch (e) { return cachedKesimRecords; }
-    }
-
-    const buf = fs.readFileSync(targetPath);
-    const wb = xlsx.read(buf, { type: 'buffer' });
-    const records = [];
-
-    for (const sheetName of wb.SheetNames) {
-      const ws = wb.Sheets[sheetName];
-      const rows = xlsx.utils.sheet_to_json(ws, { header: 1 });
-      if (!rows || rows.length < 2) continue;
-
-      let headerIdx = -1;
-      for (let i = 0; i < Math.min(rows.length, 25); i++) {
-        const r = rows[i];
-        if (r && r.some(cell => {
-          const strCell = String(cell || '').trim().toUpperCase();
-          return strCell.includes('TARİH') || strCell.includes('TARIH') || strCell.includes('CİNS') || strCell.includes('CINS');
-        })) {
-          headerIdx = i;
-          break;
-        }
-      }
-      if (headerIdx === -1) continue;
-
-      const headers = rows[headerIdx].map(h => String(h || '').trim().toUpperCase());
-      const colMap = {
-        tarih: headers.findIndex(h => h.includes('TARİH') || h.includes('TARIH')),
-        el: headers.findIndex(h => h === 'EL' || h.includes('CARİ') || h.includes('CARI') || h.includes('TEDARİKÇİ') || h.includes('ADI SOYADI') || h.includes('AD SOYAD') || h.includes('ALICI')),
-        adet: headers.findIndex(h => h === 'AD.' || h === 'ADET' || h === 'AD'),
-        cinsi: headers.findIndex(h => h.includes('CİNSİ') || h.includes('CINSI') || h.includes('CİNS') || h.includes('CINS')),
-        kg: headers.findIndex(h => h === 'KG' || h.includes('KARKAS') || h.includes('KİLO') || h.includes('KILO')),
-        fiyat: headers.findIndex(h => h.includes('FİYAT') || h.includes('FIYAT')),
-        pesinat: headers.findIndex(h => h.includes('PEŞİNAT') || h.includes('PESINAT') || h.includes('KESİNTİ') || h.includes('KESINTI') || h === 'TUTAR' || h.includes('ÖDENEN') || h.includes('ODENEN')),
-        aciklama: headers.findIndex(h => h.includes('AÇIKLAMA') || h.includes('ACIKLAMA') || h.includes('NOT')),
-        odeme: headers.findIndex(h => h.includes('ÖDEME') || h.includes('ODEME') || h.includes('TARİHİ') || h.includes('TARIHI'))
-      };
-
-      if (colMap.tarih === -1 || colMap.el === -1 || colMap.kg === -1) continue;
-
-      let lastParsedDate = null;
-      for (let i = headerIdx + 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || row.length === 0) continue;
-
-        const rawTarih = row[colMap.tarih];
-        const rawEl = row[colMap.el];
-        const rawKg = row[colMap.kg];
-        if (!rawEl || !rawKg) continue;
-
-        let parsedDate = null;
-        if (typeof rawTarih === 'number') {
-          if (rawTarih > 35000 && rawTarih < 60000) {
-            const utcDays = Math.floor(rawTarih - 25569);
-            const d = new Date(utcDays * 86400 * 1000);
-            parsedDate = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-          }
-        } else if (rawTarih) {
-          const s = String(rawTarih).trim();
-          const mTr = s.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
-          if (mTr) {
-            parsedDate = `${mTr[3]}-${String(mTr[2]).padStart(2, '0')}-${String(mTr[1]).padStart(2, '0')}`;
-          }
-        }
-
-        if (parsedDate) lastParsedDate = parsedDate;
-        else parsedDate = lastParsedDate;
-        if (!parsedDate) continue;
-
-        const parsedSupplier = String(rawEl).trim();
-        let kgStr = String(rawKg).replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '').trim();
-        const parsedCarcassWeight = parseFloat(kgStr) || 0;
-        if (!parsedSupplier || parsedCarcassWeight <= 0) continue;
-
-        let fiyatStr = colMap.fiyat !== -1 ? String(row[colMap.fiyat] || 0).replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '').trim() : '0';
-        const parsedPricePerKg = parseFloat(fiyatStr) || 0;
-        const parsedAnimalType = colMap.cinsi !== -1 ? String(row[colMap.cinsi] || 'Dana').trim() : 'Dana';
-        const parsedHeadCount = colMap.adet !== -1 ? (parseInt(String(row[colMap.adet])) || 1) : 1;
-
-        let pesinatStr = colMap.pesinat !== -1 ? String(row[colMap.pesinat] || 0).replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '').trim() : '0';
-        const parsedPesinat = parseFloat(pesinatStr) || 0;
-        const parsedNotes = colMap.aciklama !== -1 ? String(row[colMap.aciklama] || '').trim() : '';
-        let parsedPayment = 'CARİ';
-        if (colMap.odeme !== -1 && row[colMap.odeme]) {
-          parsedPayment = String(row[colMap.odeme]).trim();
-        }
-
-        const total = parsedCarcassWeight * parsedPricePerKg;
-
-        records.push({
-          id: `kesim-${parsedDate}-${parsedSupplier}-${parsedCarcassWeight}-${i}`,
-          organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
-          slaughter_date: parsedDate,
-          supplier: parsedSupplier,
-          head_count: parsedHeadCount,
-          animal_type: parsedAnimalType,
-          carcass_weight: parsedCarcassWeight,
-          price_per_kg: parsedPricePerKg,
-          total_amount: total,
-          pesinat: parsedPesinat,
-          kalan_tutar: total - parsedPesinat,
-          notes: parsedNotes || null,
-          payment_date: parsedPayment || null
-        });
-      }
-    }
-
-    cachedKesimRecords = records;
-    lastKesimCacheMtime = stat.mtimeMs;
-    return records;
-  } catch (err) {
-    console.error('[KESİM OKUMA HATASI]:', err.message);
+  // Dosyaların maksimum mtime kontrolü
+  const maxMtime = Math.max(...foundFiles.map(f => f.mtimeMs));
+  if (!force && cachedKesimRecords.length > 0 && maxMtime <= lastKesimCacheMtime) {
     return cachedKesimRecords;
   }
+
+  const allRecordsMap = new Map();
+
+  // En son güncellenen dosyalardan başlayarak tara
+  // Birincil dosya en güncel olanıdır, gerekirse diğer dosyalardan eksikler tamamlanır
+  for (const fileObj of foundFiles.slice(0, 3)) {
+    try {
+      const buf = fs.readFileSync(fileObj.path);
+      const wb = xlsx.read(buf, { type: 'buffer' });
+
+      for (const sheetName of wb.SheetNames) {
+        const ws = wb.Sheets[sheetName];
+        const rows = xlsx.utils.sheet_to_json(ws, { header: 1 });
+        if (!rows || rows.length < 2) continue;
+
+        let headerIdx = -1;
+        for (let i = 0; i < Math.min(rows.length, 30); i++) {
+          const r = rows[i];
+          if (r && r.some(cell => {
+            const strCell = String(cell || '').trim().toUpperCase();
+            return strCell.includes('TARİH') || strCell.includes('TARIH') || strCell.includes('CİNS') || strCell.includes('CINS');
+          })) {
+            headerIdx = i;
+            break;
+          }
+        }
+        if (headerIdx === -1) continue;
+
+        const headers = rows[headerIdx].map(h => String(h || '').trim().toUpperCase());
+        const colMap = {
+          tarih: headers.findIndex(h => h.includes('TARİH') || h.includes('TARIH')),
+          el: headers.findIndex(h => h === 'EL' || h.includes('CARİ') || h.includes('CARI') || h.includes('TEDARİKÇİ') || h.includes('ADI SOYADI') || h.includes('AD SOYAD') || h.includes('ALICI')),
+          adet: headers.findIndex(h => h === 'AD.' || h === 'ADET' || h === 'AD'),
+          cinsi: headers.findIndex(h => h.includes('CİNSİ') || h.includes('CINSI') || h.includes('CİNS') || h.includes('CINS')),
+          kg: headers.findIndex(h => h === 'KG' || h.includes('KARKAS') || h.includes('KİLO') || h.includes('KILO')),
+          fiyat: headers.findIndex(h => h.includes('FİYAT') || h.includes('FIYAT')),
+          pesinat: headers.findIndex(h => h.includes('PEŞİNAT') || h.includes('PESINAT') || h.includes('KESİNTİ') || h.includes('KESINTI') || h === 'TUTAR' || h.includes('ÖDENEN') || h.includes('ODENEN')),
+          aciklama: headers.findIndex(h => h.includes('AÇIKLAMA') || h.includes('ACIKLAMA') || h.includes('NOT')),
+          odeme: headers.findIndex(h => h.includes('ÖDEME') || h.includes('ODEME') || h.includes('TARİHİ') || h.includes('TARIHI'))
+        };
+
+        if (colMap.tarih === -1 || colMap.el === -1 || colMap.kg === -1) continue;
+
+        let lastParsedDate = null;
+        for (let i = headerIdx + 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.length === 0) continue;
+
+          const rawTarih = row[colMap.tarih];
+          const parsedDateCandidate = parseKesimDateString(rawTarih);
+
+          // Tarih başlık satırı desteği: Tarih varsa daima lastParsedDate'i güncelle!
+          if (parsedDateCandidate) {
+            lastParsedDate = parsedDateCandidate;
+          }
+          const activeDate = parsedDateCandidate || lastParsedDate;
+
+          const rawEl = row[colMap.el];
+          const rawKg = row[colMap.kg];
+          // Tarih güncellendikten sonra tedarikçi ve kg kontrolü yap
+          if (!rawEl || !rawKg) continue;
+          if (!activeDate) continue;
+
+          const parsedSupplier = String(rawEl).trim();
+          const suppUpper = parsedSupplier.toUpperCase();
+          if (suppUpper.includes('TOPLAM') || suppUpper.includes('GENEL') || suppUpper === 'EL') continue;
+
+          let kgStr = String(rawKg).replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '').trim();
+          const parsedCarcassWeight = parseFloat(kgStr) || 0;
+          if (!parsedSupplier || parsedCarcassWeight <= 0) continue;
+
+          let fiyatStr = colMap.fiyat !== -1 ? String(row[colMap.fiyat] || 0).replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '').trim() : '0';
+          const parsedPricePerKg = parseFloat(fiyatStr) || 0;
+          const parsedAnimalType = colMap.cinsi !== -1 ? String(row[colMap.cinsi] || 'Dana').trim() : 'Dana';
+          const parsedHeadCount = colMap.adet !== -1 ? (parseInt(String(row[colMap.adet])) || 1) : 1;
+
+          let pesinatStr = colMap.pesinat !== -1 ? String(row[colMap.pesinat] || 0).replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '').trim() : '0';
+          const parsedPesinat = parseFloat(pesinatStr) || 0;
+          const parsedNotes = colMap.aciklama !== -1 ? String(row[colMap.aciklama] || '').trim() : '';
+          let parsedPayment = 'CARİ';
+          if (colMap.odeme !== -1 && row[colMap.odeme]) {
+            parsedPayment = String(row[colMap.odeme]).trim();
+          }
+
+          const total = parsedCarcassWeight * parsedPricePerKg;
+          const uniqueKey = `${activeDate}-${parsedSupplier}-${parsedCarcassWeight}-${parsedAnimalType}`;
+
+          if (!allRecordsMap.has(uniqueKey)) {
+            allRecordsMap.set(uniqueKey, {
+              id: `kesim-${activeDate}-${parsedSupplier}-${parsedCarcassWeight}-${i}`,
+              organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
+              slaughter_date: activeDate,
+              supplier: parsedSupplier,
+              head_count: parsedHeadCount,
+              animal_type: parsedAnimalType,
+              carcass_weight: parsedCarcassWeight,
+              price_per_kg: parsedPricePerKg,
+              total_amount: total,
+              pesinat: parsedPesinat,
+              kalan_tutar: total - parsedPesinat,
+              notes: parsedNotes || null,
+              payment_date: parsedPayment || null
+            });
+          }
+        }
+      }
+    } catch (readErr) {
+      console.error(`[KESİM DOSYA OKUMA HATASI] ${fileObj.path}:`, readErr.message);
+    }
+  }
+
+  const finalRecords = Array.from(allRecordsMap.values());
+  if (finalRecords.length > 0) {
+    cachedKesimRecords = finalRecords;
+    lastKesimCacheMtime = maxMtime;
+  }
+  return cachedKesimRecords;
 }
 
 app.get('/api/kesim/records', async (req, res) => {
@@ -1358,6 +1448,29 @@ app.get('/api/kesim/records', async (req, res) => {
     res.json(filtered);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/kesim/debug', async (req, res) => {
+  try {
+    const records = await getParsedKesimRecords(req.query.force === 'true');
+    const dates = [...new Set(records.map(r => r.slaughter_date))].sort();
+    res.json({
+      success: true,
+      filesScanned: cachedKesimFilesInfo.map(f => ({
+        name: f.name,
+        path: f.path,
+        sizeKb: Math.round(f.size / 1024),
+        lastModified: new Date(f.mtimeMs).toISOString()
+      })),
+      totalRecords: records.length,
+      lastCacheMtime: new Date(lastKesimCacheMtime).toISOString(),
+      latestDate: dates.length > 0 ? dates[dates.length - 1] : null,
+      last5Dates: dates.slice(-5),
+      last5Records: records.slice(-5)
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

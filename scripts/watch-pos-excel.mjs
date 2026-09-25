@@ -187,10 +187,16 @@ const getSlaughterRecordKey = (slaughter_date, supplier, carcass_weight, animal_
 
 const parseExcelDate = (val, selectedYear, selectedMonth) => {
   if (val === undefined || val === null) return null;
+  if (val instanceof Date) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
   
   // 1. Check if it's an Excel Date Serial number
   const num = typeof val === 'number' ? val : Number(String(val).trim());
-  if (!isNaN(num) && num > 30000 && num < 60000) {
+  if (!isNaN(num) && num > 30000 && num < 65000) {
     const date = new Date(Math.round((num - 25569) * 86400 * 1000));
     const y = date.getUTCFullYear();
     const m = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -209,30 +215,27 @@ const parseExcelDate = (val, selectedYear, selectedMonth) => {
   // 3. String date parsing
   const clean = String(val).trim();
   if (clean) {
-    const parts = clean.split('.');
-    if (parts.length === 3) {
-      let year = parts[2];
-      if (year.length === 2) {
-        year = '20' + year;
-      }
-      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    let mMatch = clean.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+    if (mMatch) {
+      return `${mMatch[3]}-${String(mMatch[2]).padStart(2, '0')}-${String(mMatch[1]).padStart(2, '0')}`;
     }
-    if (parts.length === 2 && selectedYear) {
-      return `${selectedYear}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    mMatch = clean.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})\b/);
+    if (mMatch) {
+      return `20${mMatch[3]}-${String(mMatch[2]).padStart(2, '0')}-${String(mMatch[1]).padStart(2, '0')}`;
     }
-    
-    if (clean.includes('-')) {
-      const parts2 = clean.split('-');
-      if (parts2.length === 3) {
-        if (parts2[0].length === 4) {
-          return `${parts2[0]}-${parts2[1].padStart(2, '0')}-${parts2[2].padStart(2, '0')}`;
-        } else {
-          let year = parts2[2];
-          if (year.length === 2) {
-            year = '20' + year;
-          }
-          return `${year}-${parts2[1].padStart(2, '0')}-${parts2[0].padStart(2, '0')}`;
-        }
+    mMatch = clean.match(/^(\d{1,2})[-/.](\d{1,2})$/);
+    if (mMatch && selectedYear) {
+      return `${selectedYear}-${String(mMatch[2]).padStart(2, '0')}-${String(mMatch[1]).padStart(2, '0')}`;
+    }
+    const mText = clean.match(/(\d{1,2})\s+([a-zA-ZçğıöşüÇĞİÖŞÜ]+)(?:\s+(\d{4}))?/i);
+    if (mText) {
+      const day = String(mText[1]).padStart(2, '0');
+      const rawMonth = mText[2].toUpperCase().replace(/İ/g, 'I').replace(/Ş/g, 'S').replace(/Ğ/g, 'G').replace(/Ü/g, 'U').replace(/Ö/g, 'O').replace(/Ç/g, 'C');
+      const trMap = { 'OCAK': '01', 'SUBAT': '02', 'MART': '03', 'NISAN': '04', 'MAYIS': '05', 'HAZIRAN': '06', 'TEMMUZ': '07', 'AGUSTOS': '08', 'EYLUL': '09', 'EKIM': '10', 'KASIM': '11', 'ARALIK': '12' };
+      const monthNum = trMap[rawMonth];
+      if (monthNum) {
+        const year = mText[3] || selectedYear || '2026';
+        return `${year}-${monthNum}-${day}`;
       }
     }
   }
@@ -316,25 +319,22 @@ const processSlaughterSheet = async (sheetName, worksheet, existingRecordsMap) =
       if (!row || row.length === 0) continue;
 
       const rawTarih = row[colMap.tarih];
+      const parsedDateCandidate = parseExcelDate(rawTarih, sheetYear, sheetMonth);
+      if (parsedDateCandidate) {
+        lastParsedDate = parsedDateCandidate;
+      }
+      const parsedDate = parsedDateCandidate || lastParsedDate;
+
       const rawEl = row[colMap.el];
       const rawKg = row[colMap.kg];
-
       if (!rawEl || !rawKg) continue;
-
-      let parsedDate = parseExcelDate(rawTarih, sheetYear, sheetMonth);
-      if (parsedDate) {
-        lastParsedDate = parsedDate;
-      } else {
-        parsedDate = lastParsedDate;
-      }
-
-      if (!parsedDate) {
-        parsedDate = `${sheetYear}-${sheetMonth.padStart(2, '0')}-01`;
-      }
+      if (!parsedDate) continue;
 
       const parsedSupplier = String(rawEl).trim();
-      const parsedCarcassWeight = parseAmount(rawKg);
+      const suppUpper = parsedSupplier.toUpperCase().toLocaleUpperCase('tr-TR');
+      if (suppUpper.includes('TOPLAM') || suppUpper.includes('GENEL') || suppUpper === 'EL') continue;
 
+      const parsedCarcassWeight = parseAmount(rawKg);
       if (!parsedSupplier || parsedCarcassWeight <= 0) continue;
 
       const parsedPricePerKg = colMap.fiyat !== -1 ? parseAmount(row[colMap.fiyat]) : 0;
