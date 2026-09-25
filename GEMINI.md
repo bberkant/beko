@@ -342,3 +342,20 @@ Mikrokom ve Vega e-Fatura entegratör sorgu kotalarını korumak ve kullanıcıl
 2. **Sunucu Tarafı Güvenlik Kilidi (Server-Side Rate Limiting Invariant):**
    - API servisinde (`server.js`), hem Marif hem Etik akışlarında harici entegratör (Mikrokom REST / Vega SOAP) taramaları arasında en az **30 dakikalık** (`SYNC_INTERVAL_MS = 30 * 60 * 1000`) kilit bulunmalıdır.
    - İstemciden istek gelse dahi son başarılı sorgudan bu yana 30 dakika geçmemişse harici servisler tekrar rahatsız edilmeyecek, veritabanı/önbellekteki güncel kayıtlar anında yanıt olarak döndürülecektir.
+
+## Cari Yaşlandırma, Risk Analizi ve Açık Hesap Vadeli Ticaret Standartları (Active Cari Rotational Credit Invariant)
+
+Cari yaşlandırma, risk analizi ve borç-alacak raporlama algoritmaları geliştirilirken veya güncellenirken aşağıdaki ticari ve teknik kurallara KESİNLİKLE uyulacaktır:
+
+1. **Açık Hesap ve Dönen Bakiye Prensibi (Continuous Open Balance Invariant):**
+   - Şirket ticari faaliyeti gereği malı vadeli alır ve vadeli satar. Aktif çalışan carilerde hesap bakiyesinin sıfırlanması beklenmez; hesapta sürekli olarak devreden açık bir borç bakiyesi (`balance > 0`) bulunması doğal ticari akışın bir parçasıdır.
+   - Bu nedenle açık bir bakiyenin bulunması tek başına carinin "vadesi geçmiş", "sorunlu" veya "yüksek riskli" olduğu anlamına gelmez.
+
+2. **Dinamizm ve Tahsilat Düzenliliği Esası:**
+   - Cari risk analizi yapılırken bakiye büyüklüğünden ziyade carinin **hareket canlılığı (devir hızı)** ve **tahsilat akışının düzenliliği** esas alınmalıdır.
+   - Örneğin; yüksek bakiyesi olsa dahi düzenli aralıklarla (haftalık, 2-3 günde bir) ödeme/havale gönderen ve mal alımına devam eden cari hesaplar, hareketsiz ve ödeme yapmayan atıl borçlularla aynı risk kefesine konulamaz.
+
+3. **Tek Faturaya İndirgememe ve FIFO Bakiye Yaşlandırma Zorunluluğu:**
+   - Cari yaşlandırma hesaplamalarında carinin toplam borcu kesinlikle yalnızca "en son kesilen faturaya" veya tekil bir harekete indirgenemez.
+   - Açık bakiye, geriye dönük olarak tahsilatlarla faturaların sırasıyla eritildiği **FIFO (İlk Giren İlk Çıkar)** yöntemiyle analiz edilmelidir. Böylece açıkta kalan paranın ne kadarının taze vadeli alımlardan, ne kadarının ise vadesi aşılmış eski dönemden kaldığı net olarak ayrıştırılmalıdır.
+
