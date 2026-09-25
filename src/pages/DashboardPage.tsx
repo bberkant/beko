@@ -388,7 +388,7 @@ export function DashboardPage() {
             amount: Number(c.amount || 0),
             due_date: c.due_date || '',
             debtor: fixCorruptedTurkishText(c.kesideci || c.debtor || c.creditor || '—'),
-            bank: fixCorruptedTurkishText(c.bank_name || '—'),
+            bank: fixCorruptedTurkishText(c.bank_name || '—', 'bank_name'),
             status: c.status,
             check_number: c.check_no,
           }));
@@ -401,7 +401,7 @@ export function DashboardPage() {
             amount: Number(c.amount || 0),
             due_date: c.due_date || '',
             debtor: fixCorruptedTurkishText(c.kesideci || c.debtor || c.creditor || '—'),
-            bank: fixCorruptedTurkishText(c.bank_name || '—'),
+            bank: fixCorruptedTurkishText(c.bank_name || '—', 'bank_name'),
             status: c.status,
             check_number: c.check_no,
           }));

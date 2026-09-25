@@ -102,6 +102,7 @@ interface CheckRow {
   status: string | null;
   check_no: string | null;
   check_type: string | null;
+  bank_branch?: string | null;
 }
 
 const styles: Record<EventType, { label: string; dot: string; badge: string }> = {
@@ -194,7 +195,7 @@ export function useCalendarEvents(){
       try {
         const { data, error } = await supabase
           .from('ebs_checks')
-          .select('id, amount, due_date, debtor, creditor, kesideci, bank_name, status, check_no, check_type')
+          .select('id, amount, due_date, debtor, creditor, kesideci, bank_name, bank_branch, status, check_no, check_type')
           .eq('organization_id', orgId)
           .neq('status', 'Ödendi')
           .neq('status', 'Tahsil Edildi')
@@ -245,7 +246,9 @@ export function useCalendarEvents(){
       if (!c.due_date) continue;
       const isCustomer = c.check_type === 'alinan' || c.check_type === 'Musteri';
       const person = fixCorruptedTurkishText(c.kesideci || c.debtor || c.creditor || 'Çek');
-      const bank = fixCorruptedTurkishText(c.bank_name || 'Banka Belirtilmemiş');
+      const bank = fixCorruptedTurkishText(c.bank_name || 'Banka Belirtilmemiş', 'bank_name');
+      const branch = fixCorruptedTurkishText(c.bank_branch);
+      const fullBank = branch ? `${bank} (${branch})` : bank;
       const dKey = dateKey(c.due_date);
 
       result.push({
@@ -253,9 +256,9 @@ export function useCalendarEvents(){
         date: dKey,
         code: c.check_no ? `Çek: ${c.check_no}` : (isCustomer ? 'Müşteri Çeki' : 'Kendi Çekimiz'),
         title: person || 'Çek Kaydı',
-        subtitle: `${isCustomer ? 'Portföy (Müşteri)' : 'Kendi Çekimiz'} · ${bank}`,
+        subtitle: `${isCustomer ? 'Portföy (Müşteri)' : 'Kendi Çekimiz'} · ${fullBank}`,
         institution: bank,
-        detail: `${bank} · No: ${c.check_no || '—'} · ${person}`,
+        detail: `${fullBank} · No: ${c.check_no || '—'} · ${person}`,
         type: 'check',
         to: '/muhasebe/cek-senet',
         amount: `${Number(c.amount || 0).toLocaleString('tr-TR')} ₺`,

@@ -111,8 +111,8 @@ export const isHatirAlinan = (c: any): boolean => {
 
 export const getCleanBankName = (debtor: string | null, bankName: string | null): string | null => {
   if (!debtor && !bankName) return null;
-  let d = (debtor || '').toUpperCase().trim();
-  let b = (bankName || '').toUpperCase().trim();
+  let d = fixCorruptedText(debtor || '').toUpperCase().trim();
+  let b = fixCorruptedText(bankName || '', 'bank_name').toUpperCase().trim();
   
   // Filter out generic placeholder names
   const genericWords = ['ÇEKLER', 'CEKLER', 'ıEKLER', 'IEKLER', 'ÇEK', 'CEK', 'ıEK', 'IEK', 'SENET', 'SENETLER', 'BELİRSİZ', 'BILINMIYOR'];
