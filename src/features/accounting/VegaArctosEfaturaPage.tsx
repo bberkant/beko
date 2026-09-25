@@ -198,10 +198,16 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
               const invNo = (i.invoiceNo || '').trim().toUpperCase();
               return !invNo.startsWith('A000') && !invNo.startsWith('A00');
             });
+            const liveRealGelen = finalData.filter((i: any) => {
+              if ((i.direction || 'gelen') !== 'gelen') return false;
+              const invNo = (i.invoiceNo || '').trim().toUpperCase();
+              return !invNo.startsWith('A000') && !invNo.startsWith('A00');
+            });
             const liveGiden = finalData.filter((i: any) => (i.direction || 'giden') === 'giden');
             const map = new Map();
             for (const g of liveGiden) map.set(g.invoiceNo, g);
             for (const g of supaGelen) map.set(g.invoiceNo, g);
+            for (const g of liveRealGelen) map.set(g.invoiceNo, g);
             finalData = Array.from(map.values()).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
           }
         } catch (e) {
@@ -300,8 +306,10 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
           const localHasGelen = localData?.invoices?.some((i: any) => (i.direction || 'gelen') === 'gelen');
           const supaHasGelen = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
 
-          // If local had no data, Supabase is newer, Supabase has more invoices, or local is missing gelen invoices
-          if (!localData || supaTime > localTime || supaCount > localCount || (!localHasGelen && supaHasGelen)) {
+          // If local had no data, Supabase is newer, local is missing gelen, or Supabase has newer invoice dates
+          const supaLatestDate = supaData.invoices[0]?.date || '';
+          const localLatestDate = localData?.invoices?.[0]?.date || '';
+          if (!localData || supaTime > localTime || supaCount > localCount || (!localHasGelen && supaHasGelen) || supaLatestDate > localLatestDate) {
             setInvoices(supaData.invoices);
             const hasIncoming = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
             const hasOutgoing = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'giden');

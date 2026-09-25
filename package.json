@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "ekap:scan": "node --env-file-if-exists=.env.local scripts/ekap-scanner.mjs"
+    "ekap:scan": "node --env-file-if-exists=.env.local scripts/ekap-scanner.mjs",
+    "sync:etik": "node --env-file-if-exists=.env.local scripts/sync-etik-inbox.mjs",
+    "sync:marif": "node --env-file-if-exists=.env.local scripts/sync-marif-inbox.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",

@@ -1,4 +1,4 @@
-﻿import https from 'https';
+import https from 'https';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -242,26 +242,54 @@ export async function syncEtikIncomingInvoices(isFull = false) {
       fs.writeFileSync(p, JSON.stringify(merged, null, 2), 'utf8');
     } catch (e) {}
   }
-
-  // Save to Supabase vega_efatura_cache
+  // Also save to public/data if public exists
   try {
-    const sRes = await fetch(`${SUPABASE_URL}/rest/v1/vega_efatura_cache`, {
-      method: 'POST',
+    const pubData = path.join(process.cwd(), 'public', 'data');
+    if (!fs.existsSync(pubData)) fs.mkdirSync(pubData, { recursive: true });
+    fs.writeFileSync(path.join(pubData, 'etik_incoming_cache.json'), JSON.stringify(merged, null, 2), 'utf8');
+  } catch (e) {}
+
+  // Save to Supabase vega_efatura_cache (giden faturaları koruyarak birleştir)
+  try {
+    let existingGiden = [];
+    const getRes = await fetch(`${SUPABASE_URL}/rest/v1/vega_efatura_cache?company=eq.etik&select=invoices`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (getRes.ok) {
+      const rows = await getRes.json();
+      if (rows?.[0]?.invoices && Array.isArray(rows[0].invoices)) {
+        existingGiden = rows[0].invoices.filter(i => (i.direction || 'giden') === 'giden');
+      }
+    }
+
+    const unifiedMap = new Map();
+    for (const g of existingGiden) unifiedMap.set(g.invoiceNo, g);
+    for (const g of merged) unifiedMap.set(g.invoiceNo, g);
+
+    const unified = Array.from(unifiedMap.values()).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    // Statement timeout'u engellemek için aktif yılları (2026 + 2025 sonu, max 12.000 kayıt) tut
+    const activeUnified = unified.filter(i => (i.date || '').startsWith('2026') || (i.date || '').startsWith('2025-12') || (i.date || '').startsWith('2025-11'));
+    const finalToSave = activeUnified.length > 0 ? activeUnified : unified.slice(0, 12000);
+
+    const sRes = await fetch(`${SUPABASE_URL}/rest/v1/vega_efatura_cache?company=eq.etik`, {
+      method: 'PATCH',
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates'
+        'Prefer': 'return=minimal'
       },
       body: JSON.stringify({
-        company: 'etik',
-        invoices: merged,
-        record_count: merged.length,
+        invoices: finalToSave,
+        record_count: finalToSave.length,
         updated_at: new Date().toISOString(),
         updated_by: 'SOAP Sync Service'
       })
     });
-    console.log(`✅ Etik Gelen Faturalar senkronize edildi. Toplam: ${merged.length} (Supabase HTTP: ${sRes.status})`);
+    console.log(`✅ Etik Faturalar senkronize edildi. Toplam: ${finalToSave.length} (Gelen: ${merged.length}) (Supabase HTTP: ${sRes.status})`);
   } catch (err) {
     console.warn('Supabase kayıt uyarısı:', err.message);
   }

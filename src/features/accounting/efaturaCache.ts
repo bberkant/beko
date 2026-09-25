@@ -141,13 +141,15 @@ export async function getSupabaseCache(company: string): Promise<EfaturaCacheEnt
 export async function saveSupabaseCache(company: string, invoices: any[], userName?: string): Promise<boolean> {
   try {
     const cleanInvoices = sanitizeInvoices(invoices);
+    // Keep active records (up to 12,000 items) to avoid statement timeout on Supabase jsonb column
+    const activeInvoices = cleanInvoices.length > 12000 ? cleanInvoices.slice(0, 12000) : cleanInvoices;
     const nowIso = new Date().toISOString();
     const { error } = await supabase
       .from('vega_efatura_cache')
       .upsert({
         company,
-        invoices: cleanInvoices,
-        record_count: cleanInvoices.length,
+        invoices: activeInvoices,
+        record_count: activeInvoices.length,
         updated_at: nowIso,
         updated_by: userName || 'Kullanıcı',
       });
