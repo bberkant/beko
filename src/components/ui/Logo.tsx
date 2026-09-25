@@ -44,17 +44,23 @@ export function Logo({ collapsed = false }: { collapsed?: boolean }) {
 
   if (sidebarTheme === 'one_dars_v4') {
     return (
-      <div className="flex items-center gap-2">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#004b93] select-none">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#004b93] select-none shadow-sm">
           <div className="h-[18px] w-[6px] bg-white rounded-[1px]" />
         </div>
         {!collapsed && (
-          <div className="flex flex-col select-none">
+          <div className="flex flex-col select-none justify-center">
             <div className="flex items-baseline leading-none">
-              <span className="text-base font-extrabold tracking-tight text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>DARS</span>
+              <span className="text-[16px] font-extrabold tracking-normal text-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>DARS</span>
             </div>
-            <span className="text-[9.5px] font-normal tracking-tighter text-white mt-1 leading-none whitespace-nowrap" style={{ fontFamily: "'Outfit', sans-serif" }}>
-              Data Analysis and Reporting System
+            <span 
+              className="text-[9.5px] font-medium text-slate-200 mt-1 leading-none whitespace-nowrap" 
+              style={{ 
+                fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                letterSpacing: '-0.015em'
+              }}
+            >
+              Data Analysis &amp; Reporting System
             </span>
           </div>
         )}
