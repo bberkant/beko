@@ -600,6 +600,62 @@ export function exportCariAgingToExcel(rows: CariAgingRow[]): void {
 }
 
 /**
+ * Export Acik Alacak Riski table to Excel (.xlsx) with capacity and safe credit metrics
+ */
+export function exportAcikAlacakRiskiToExcel(rows: CariAgingRow[]): void {
+  const exportData = rows.map((r, idx) => ({
+    'Sıra': idx + 1,
+    'Cari Kodu': r.cariCode,
+    'Cari Ünvanı': r.cariName,
+    'Şehir': r.city || '-',
+    'Cari Tipi': r.type,
+    'Güncel Net Bakiye (TL)': r.balance,
+    'Aylık Ort. Tüketim (Kg)': r.monthlyAvgKg,
+    'Güvenli Vadeli Limit (1x) (TL)': r.safeLimit,
+    'Gerçek Riskli / Aşan Tutar (TL)': r.riskAmount,
+    'Vade Gecikmesi (Gün)': r.overdueDays,
+    'Vade Dilimi': r.bucket === 'current' ? 'Vadesinde / Güvenli' : `${r.bucket} Gün`,
+    'Durum Göstergesi': r.statusLabel,
+    'Hacim Değişimi (%)': `${r.volumeDropRate > 0 ? '-' : '+'}${Math.abs(Math.round(r.volumeDropRate))}%`,
+    'Son Mal Alış Tarihi': r.lastInvoiceDate ? new Date(r.lastInvoiceDate).toLocaleDateString('tr-TR') : '-',
+    'Son Fatura No': r.lastInvoiceNo || '-',
+    'Son Fatura Tutarı (TL)': r.lastInvoiceAmount || 0,
+    'Son Tahsilat Tarihi': r.lastPaymentDate ? new Date(r.lastPaymentDate).toLocaleDateString('tr-TR') : '-',
+    'Son Tahsilat Tutarı (TL)': r.lastPaymentAmount || 0,
+    'Son İşlemden Beri (Gün)': r.daysSinceLastActivity,
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Acik Alacak Riski');
+
+  ws['!cols'] = [
+    { wch: 6 },  // Sıra
+    { wch: 15 }, // Cari Kodu
+    { wch: 35 }, // Cari Ünvanı
+    { wch: 14 }, // Şehir
+    { wch: 12 }, // Cari Tipi
+    { wch: 20 }, // Güncel Net Bakiye
+    { wch: 18 }, // Aylık Ort. Tüketim (Kg)
+    { wch: 22 }, // Güvenli Vadeli Limit (1x)
+    { wch: 22 }, // Gerçek Riskli / Aşan Tutar
+    { wch: 16 }, // Vade Gecikmesi
+    { wch: 18 }, // Vade Dilimi
+    { wch: 28 }, // Durum Göstergesi
+    { wch: 16 }, // Hacim Değişimi
+    { wch: 18 }, // Son Mal Alış Tarihi
+    { wch: 16 }, // Son Fatura No
+    { wch: 18 }, // Son Fatura Tutarı
+    { wch: 18 }, // Son Tahsilat Tarihi
+    { wch: 18 }, // Son Tahsilat Tutarı
+    { wch: 18 }, // Son İşlemden Beri
+  ];
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `Acik_Alacak_Riski_Raporu_${dateStr}.xlsx`);
+}
+
+/**
  * Generate context-aware WhatsApp reminder message text
  */
 export function generateCariWhatsAppMessage(row: CariAgingRow): string {

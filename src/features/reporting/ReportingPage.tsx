@@ -4,20 +4,22 @@ import {
   TrendingUp, 
   Beef, 
   Receipt, 
-  RefreshCw
+  RefreshCw,
+  ShieldAlert
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { useToast } from '../../lib/toast';
 import { CariAgingRow } from './types';
 import { fetchCariAgingData } from './services/reportingService';
 import { CariAgingReportTab } from './tabs/CariAgingReportTab';
+import { AcikAlacakRiskiTab } from './tabs/AcikAlacakRiskiTab';
 import { CashFlowReportTab } from './tabs/CashFlowReportTab';
 import { SlaughterEfficiencyTab } from './tabs/SlaughterEfficiencyTab';
 import { ExpenseBreakdownTab } from './tabs/ExpenseBreakdownTab';
 
 export function ReportingPage() {
   const { notify } = useToast();
-  const [activeTab, setActiveTab] = useState<'aging' | 'cashflow' | 'slaughter' | 'expenses'>('aging');
+  const [activeTab, setActiveTab] = useState<'aging' | 'acik-alacak' | 'cashflow' | 'slaughter' | 'expenses'>('aging');
   const [cariRows, setCariRows] = useState<CariAgingRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -74,6 +76,25 @@ export function ReportingPage() {
           </button>
 
           <button
+            onClick={() => setActiveTab('acik-alacak')}
+            className={`flex items-center gap-2 border-b-2 px-3 py-2.5 text-xs font-bold whitespace-nowrap transition-colors ${
+              activeTab === 'acik-alacak'
+                ? 'border-brand-600 text-brand-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            <ShieldAlert size={16} />
+            Açık Alacak Riski
+            <span className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-mono ${
+              cariRows.filter(r => (r.riskAmount || 0) > 0).length > 0
+                ? 'bg-rose-50 text-rose-700 font-bold'
+                : 'bg-emerald-50 text-emerald-700 font-medium'
+            }`}>
+              {cariRows.filter(r => (r.riskAmount || 0) > 0).length} Riskli
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('cashflow')}
             className={`flex items-center gap-2 border-b-2 px-3 py-2.5 text-xs font-bold whitespace-nowrap transition-colors ${
               activeTab === 'cashflow'
@@ -113,6 +134,7 @@ export function ReportingPage() {
 
       {/* Tab Contents */}
       {activeTab === 'aging' && <CariAgingReportTab rows={cariRows} loading={loading} />}
+      {activeTab === 'acik-alacak' && <AcikAlacakRiskiTab rows={cariRows} loading={loading} />}
       {activeTab === 'cashflow' && <CashFlowReportTab />}
       {activeTab === 'slaughter' && <SlaughterEfficiencyTab />}
       {activeTab === 'expenses' && <ExpenseBreakdownTab />}
