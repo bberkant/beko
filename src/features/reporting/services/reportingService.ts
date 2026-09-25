@@ -471,11 +471,7 @@ export async function fetchCariAgingData(): Promise<CariAgingRow[]> {
       statusLabel = `Alım Hacmi Düşüşte (%${roundedDrop})`;
     } else if (riskAmount > 0) {
       statusIndicator = 'limit_exceeded';
-      if (bucket === '61-90' || bucket === '90+') {
-        statusLabel = 'Limit Aşımı - Kritik';
-      } else {
-        statusLabel = 'Limit Aşımı';
-      }
+      statusLabel = 'Limit Aşımı';
     } else {
       statusIndicator = 'normal';
       statusLabel = 'Normal Akış';
@@ -555,7 +551,7 @@ export function exportCariAgingToExcel(rows: CariAgingRow[]): void {
     'Vade Dilimi': r.bucket === 'current' ? 'Vadesinde / Güvenli' : `${r.bucket} Gün`,
     'Durum Göstergesi': r.statusLabel,
     'Hacim Değişimi (%)': `${r.volumeDropRate > 0 ? '-' : '+'}${Math.abs(Math.round(r.volumeDropRate))}%`,
-    'Risk Seviyesi': r.riskLevel.toUpperCase(),
+    'Risk Seviyesi': r.riskLevel === 'kritik' ? 'YÜKSEK' : r.riskLevel.toUpperCase(),
     'Son Mal Alış Tarihi': r.lastInvoiceDate ? new Date(r.lastInvoiceDate).toLocaleDateString('tr-TR') : '-',
     'Son Fatura No': r.lastInvoiceNo || '-',
     'Son Fatura Tutarı (TL)': r.lastInvoiceAmount || 0,

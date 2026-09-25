@@ -263,7 +263,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-rose-800">90+ Gün (Kritik)</span>
+              <span className="text-xs font-bold text-rose-800">90+ Gün</span>
               <span className="text-xs font-semibold text-rose-600">{bucketCounts.counts['90+']}</span>
             </div>
             <div className="mt-2 text-sm font-bold text-rose-900">
@@ -472,7 +472,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
                         row.riskLevel === 'yuksek' ? 'bg-orange-500' :
                         row.riskLevel === 'orta' ? 'bg-amber-400' :
                         'bg-emerald-500'
-                      }`} title={`Risk: ${row.riskLevel}`} />
+                      }`} title={`Risk Durumu: ${row.riskLevel === 'kritik' || row.riskLevel === 'yuksek' ? 'Yüksek' : row.riskLevel === 'orta' ? 'Orta' : 'Düşük'}`} />
                     </td>
 
                     <td className="px-4 py-3 text-right whitespace-nowrap">

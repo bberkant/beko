@@ -136,10 +136,9 @@ export function AcikAlacakRiskiTab({ rows, loading }: Props) {
     }
 
     if (isExceeded) {
-      const isCritical = row.bucket === '61-90' || row.bucket === '90+' || (row.overdueDays || 0) > 60;
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap">
-          🔴 {isCritical ? 'Limit Aşımı - Kritik' : 'Limit Aşımı'}
+          🔴 Limit Aşımı
         </span>
       );
     }
@@ -325,7 +324,7 @@ export function AcikAlacakRiskiTab({ rows, loading }: Props) {
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-rose-800">90+ Gün (Kritik)</span>
+              <span className="text-xs font-bold text-rose-800">90+ Gün</span>
               <span className="text-xs font-semibold text-rose-600">{bucketCounts.counts['90+']}</span>
             </div>
             <div className="mt-2 text-sm font-bold text-rose-900">
