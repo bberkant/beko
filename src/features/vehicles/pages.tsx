@@ -540,12 +540,11 @@ export function VehicleListPage() {
                     />
                   ) : (
                     <div className="flex items-center justify-between gap-1 group/item">
-                      <button
-                        onClick={() => nav(`/arac-yonetimi/${v.id}`)}
-                        className="text-blue-600 hover:text-blue-800 hover:underline font-bold transition-colors cursor-pointer text-left"
+                      <span
+                        className="text-blue-600 hover:text-blue-800 hover:underline font-bold transition-colors text-left"
                       >
                         {v.plate}
-                      </button>
+                      </span>
                       <button
                         onClick={() => {
                           setEditingCell({ vehicleId: v.id, field: "plate" });
@@ -1404,12 +1403,11 @@ export function VehiclePricesPage() {
                 <td className="table-td text-center font-medium text-gray-400 !px-1.5 !py-2.5">{idx + 1}</td>
                 <td className="table-td font-bold w-24 whitespace-nowrap !px-1.5 !py-2.5">
                   <div className="flex items-center justify-between gap-1 group/item">
-                    <button
-                      onClick={() => nav(`/arac-yonetimi/${v.id}`)}
-                      className="text-blue-600 hover:text-blue-800 hover:underline font-bold transition-colors cursor-pointer text-left"
+                    <span
+                      className="text-blue-600 hover:text-blue-800 hover:underline font-bold transition-colors text-left"
                     >
                       {v.plate}
-                    </button>
+                    </span>
                   </div>
                 </td>
                 <td className="table-td font-semibold text-gray-900 max-w-[200px] !px-1.5 !py-2.5" title={v.brand}>
