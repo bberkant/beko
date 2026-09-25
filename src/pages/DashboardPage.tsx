@@ -76,7 +76,7 @@ interface ActivityLogItem {
   old_data: any;
 }
 
-const DASHBOARD_CACHE_KEY = 'dars_dashboard_cache_v5';
+const DASHBOARD_CACHE_KEY = 'dars_dashboard_cache_v6';
 
 interface DashboardCachedData {
   cashboxBalance: number;
@@ -171,7 +171,7 @@ export function DashboardPage() {
 
   // 3. Branches data
   const [branches, setBranches] = useState<BranchSummary[]>(() => initialCache?.branches || BRANCH_CONFIGS);
-  const [totalBranchBalance, setTotalBranchBalance] = useState<number>(() => initialCache?.totalBranchBalance || 0);
+  const [, setTotalBranchBalance] = useState<number>(() => initialCache?.totalBranchBalance || 0);
   const [totalDailyRevenue, setTotalDailyRevenue] = useState<number>(() => initialCache?.totalDailyRevenue || 0);
 
   // 4. Tenders data
@@ -291,7 +291,8 @@ export function DashboardPage() {
             }
           }
         }
-        setCashboxBalance(totalVal);
+        // Canlı ana kasa bakiyesi kullanıcı talebi doğrultusunda şimdilik 0 olarak tutuluyor
+        setCashboxBalance(0);
 
         const revMap = calculateBranchDailyRevenues(latestCashbox.giris_list || []);
         let totalRev = 0;
@@ -304,7 +305,7 @@ export function DashboardPage() {
         })));
 
         saveDashboardCache({
-          cashboxBalance: totalVal,
+          cashboxBalance: 0,
           cashboxReportDate: repDate,
           totalDailyRevenue: totalRev,
         });
@@ -321,17 +322,24 @@ export function DashboardPage() {
   const fetchChecks = useCallback(async (orgId: string) => {
     try {
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const formatYMD = (d: Date) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
 
       const dayOfWeek = today.getDay();
       const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
       const startOfWeek = new Date(today);
       startOfWeek.setDate(today.getDate() + mondayOffset);
-      startOfWeek.setHours(0, 0, 0, 0);
 
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
-      endOfWeek.setHours(23, 59, 59, 999);
+
+      const startOfWeekStr = formatYMD(startOfWeek);
+      const endOfWeekStr = formatYMD(endOfWeek);
+      const todayStr = formatYMD(today);
 
       // Sadece ödenmemiş / aktif çekleri sorgula (ebs_checks sütunları: bank_name, check_no, debtor, kesideci, creditor)
       const { data: checksData, error: checksError } = await supabase
@@ -359,12 +367,10 @@ export function DashboardPage() {
         });
 
         unpaidChecks.forEach(c => {
-          if (c.due_date) {
-            const dueDate = new Date(c.due_date);
-            if (dueDate >= startOfWeek && dueDate <= endOfWeek) {
-              weekSum += Number(c.amount || 0);
-              weekCount += 1;
-            }
+          const dStr = (c.due_date || '').slice(0, 10);
+          if (dStr >= startOfWeekStr && dStr <= endOfWeekStr) {
+            weekSum += Number(c.amount || 0);
+            weekCount += 1;
           }
         });
 
@@ -373,8 +379,8 @@ export function DashboardPage() {
 
         // Vadesi bugün veya ileri tarihli olan bekleyen çekler (tarihe göre artan)
         const upcomingList = unpaidChecks
-          .filter(c => c.due_date && new Date(c.due_date) >= today)
-          .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
+          .filter(c => (c.due_date || '').slice(0, 10) >= todayStr)
+          .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
           .slice(0, 7)
           .map(c => ({
             id: c.id,
@@ -772,15 +778,11 @@ export function DashboardPage() {
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold tracking-tight text-gray-900">
-                {loading && !cashboxReportDate ? (
-                  <div className="h-8 w-32 bg-gray-100 animate-pulse rounded-lg mt-0.5" />
-                ) : (
-                  formatCurrency(cashboxBalance)
-                )}
+                {formatCurrency(cashboxBalance)}
               </h3>
               <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 font-medium">
                 <CheckCircle2 size={12} className="text-emerald-500" />
-                {cashboxReportDate ? `${cashboxReportDate} tarihli kasa sonu` : 'Güncel kasa sonu toplamı'}
+                İleride güncellenecektir
               </p>
             </div>
           </div>
@@ -806,11 +808,7 @@ export function DashboardPage() {
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold tracking-tight text-gray-900">
-                {loading && thisWeekChecksTotal === 0 && thisWeekChecksCount === 0 ? (
-                  <div className="h-8 w-32 bg-gray-100 animate-pulse rounded-lg mt-0.5" />
-                ) : (
-                  formatCurrency(thisWeekChecksTotal)
-                )}
+                {formatCurrency(thisWeekChecksTotal)}
               </h3>
               <p className="text-[11px] text-amber-700/90 mt-1 flex items-center gap-1 font-semibold">
                 <Clock size={12} />
@@ -824,7 +822,7 @@ export function DashboardPage() {
           </div>
         </Link>
 
-        {/* 3. Şubeler Toplam Cari Durumu */}
+        {/* 3. Şubeler Toplam Cirosu (Dünkü Hasılat) */}
         <Link
           to="/subeler/merkez"
           className="group relative rounded-2xl border border-purple-100 bg-gradient-to-br from-white to-purple-50/30 p-5 shadow-sm hover:shadow-md transition-all hover:border-purple-300 flex flex-col justify-between"
@@ -832,7 +830,7 @@ export function DashboardPage() {
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-purple-900/70">
-                Şubeler Toplam Bakiyesi
+                Şubeler Toplam Cirosu
               </span>
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100/70 text-purple-700 group-hover:scale-105 transition-transform">
                 <Store size={18} />
@@ -840,15 +838,11 @@ export function DashboardPage() {
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold tracking-tight text-gray-900">
-                {loading && totalBranchBalance === 0 ? (
-                  <div className="h-8 w-32 bg-gray-100 animate-pulse rounded-lg mt-0.5" />
-                ) : (
-                  formatCurrency(totalBranchBalance)
-                )}
+                {formatCurrency(totalDailyRevenue)}
               </h3>
               <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 font-medium">
                 <Building2 size={12} className="text-purple-500" />
-                6 şubenin konsolide Vega cari bakiyesi
+                {cashboxReportDate ? `${cashboxReportDate} tarihli ` : 'Son kasa raporuna göre '}6 şubenin dünkü toplam cirosu
               </p>
             </div>
           </div>
