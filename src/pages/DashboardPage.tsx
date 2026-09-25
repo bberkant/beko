@@ -34,6 +34,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { CalendarPage } from '../features/calendar/CalendarPage';
+import { fixCorruptedTurkishText } from '../lib/turkishTextFixer';
 
 const TUNNEL_URL = 'https://vega-api.amasyaetas.com';
 
@@ -386,8 +387,8 @@ export function DashboardPage() {
             id: c.id,
             amount: Number(c.amount || 0),
             due_date: c.due_date || '',
-            debtor: c.kesideci || c.debtor || c.creditor || '—',
-            bank: c.bank_name || '—',
+            debtor: fixCorruptedTurkishText(c.kesideci || c.debtor || c.creditor || '—'),
+            bank: fixCorruptedTurkishText(c.bank_name || '—'),
             status: c.status,
             check_number: c.check_no,
           }));
@@ -399,8 +400,8 @@ export function DashboardPage() {
             id: c.id,
             amount: Number(c.amount || 0),
             due_date: c.due_date || '',
-            debtor: c.kesideci || c.debtor || c.creditor || '—',
-            bank: c.bank_name || '—',
+            debtor: fixCorruptedTurkishText(c.kesideci || c.debtor || c.creditor || '—'),
+            bank: fixCorruptedTurkishText(c.bank_name || '—'),
             status: c.status,
             check_number: c.check_no,
           }));
@@ -1017,10 +1018,10 @@ export function DashboardPage() {
                           {c.due_date ? new Date(c.due_date).toLocaleDateString('tr-TR') : '—'}
                         </td>
                         <td className="py-2.5 px-3 text-gray-800 max-w-[140px] truncate font-medium">
-                          {c.debtor || '—'}
+                          {fixCorruptedTurkishText(c.debtor) || '—'}
                         </td>
                         <td className="py-2.5 px-3 text-gray-500 max-w-[100px] truncate">
-                          {c.bank || '—'}
+                          {fixCorruptedTurkishText(c.bank) || '—'}
                         </td>
                         <td className="py-2.5 px-3 text-right font-bold text-gray-900 whitespace-nowrap">
                           {formatCurrency(Number(c.amount || 0))}

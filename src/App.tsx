@@ -17,6 +17,7 @@ import { VehicleListPage, VehicleFormPage, VehicleDetailPage, VehiclePricesPage 
 import { DriversPage } from './features/vehicles/subpages';
 import { UsersPage } from './features/users/UsersPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { BackupsPage } from './features/settings/BackupsPage';
 import { ReportingPage } from './features/reporting/ReportingPage';
 import { TendersPage } from './features/tenders/TendersPage';
@@ -202,6 +203,7 @@ export default function App() {
                 <Route path="/kullanicilar" element={<UsersPage />} />
                 <Route path="/aktivite-gunlugu" element={<ActivityLogsPage />} />
                 <Route path="/raporlama" element={<ReportingPage />} />
+                <Route path="/sifre-degistir" element={<ChangePasswordPage />} />
                 <Route path="/ayarlar" element={<SettingsPage />} />
                 <Route path="/ayarlar/yedekler" element={<BackupsPage />} />
                 <Route path="/" element={<DashboardPage />} />

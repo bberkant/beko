@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, PanelLeft, Bell, Search, ChevronDown, LogOut, Settings, UserRound, Plus } from 'lucide-react';
+import { Menu, PanelLeft, Bell, Search, ChevronDown, LogOut, Settings, Plus, KeyRound } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { useStore } from '../../features/credit-cards/data/store';
 import { useVehicles } from '../../features/vehicles/store';
@@ -253,7 +253,10 @@ export function Topbar({ onToggleSidebar, onOpenMobileSidebar }: TopbarProps) {
           </button>
           
           {bellOpen && (
-            <div className="absolute right-0 top-12 w-80 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-50">
+            <div
+              data-dropdown
+              className="absolute right-0 top-12 w-80 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-50"
+            >
               <div className="border-b border-gray-100 px-4 py-3 bg-gray-50 flex items-center justify-between">
                 <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Bildirimler</span>
                 {notifications.length > 0 && (
@@ -308,10 +311,69 @@ export function Topbar({ onToggleSidebar, onOpenMobileSidebar }: TopbarProps) {
             </div>
             <ChevronDown size={14} className={`hidden text-gray-400 transition-transform sm:block ${profileOpen ? 'rotate-180' : ''}`}/>
           </button>
-          {profileOpen && <div className="absolute right-0 top-12 w-64 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
-            <div className="border-b border-gray-100 px-4 py-3"><div className="flex items-center gap-2 text-sm font-medium text-gray-900"><UserRound size={16}/>{user?.name}</div><div className="mt-1 truncate text-xs text-gray-500">{user?.email}</div></div>
-            <div className="p-1.5"><button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50" onClick={() => { setProfileOpen(false); navigate('/ayarlar'); }}><Settings size={16}/> Profil ve Ayarlar</button><button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50" onClick={() => void signOut()}><LogOut size={16}/> Çıkış Yap</button></div>
-          </div>}
+          {profileOpen && (
+            <div
+              data-dropdown
+              className="profile-menu absolute right-0 top-12 w-72 overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100"
+            >
+              {/* User Header */}
+              <div className="border-b border-gray-100 bg-gradient-to-br from-gray-50 to-white px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 font-bold text-base shadow-sm ring-1 ring-brand-500/20">
+                    {user?.name?.[0]?.toUpperCase() ?? 'U'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-gray-900 truncate">{user?.name ?? 'Kullanıcı'}</p>
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-700/10">
+                        {user?.role ?? 'Admin'}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-gray-500 font-medium">{user?.email}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation Items */}
+              <div className="p-1.5 space-y-0.5">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-100/80 transition-colors"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    navigate('/ayarlar');
+                  }}
+                >
+                  <Settings size={17} className="text-gray-500 shrink-0" />
+                  <span className="text-gray-700 font-medium text-sm">Profil ve Ayarlar</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-100/80 transition-colors"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    navigate('/sifre-degistir');
+                  }}
+                >
+                  <KeyRound size={17} className="text-gray-500 shrink-0" />
+                  <span className="text-gray-700 font-medium text-sm">Şifre Değiştir</span>
+                </button>
+              </div>
+
+              {/* Footer / Logout */}
+              <div className="border-t border-gray-100 p-1.5">
+                <button
+                  type="button"
+                  className="logout-btn flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50/80 transition-colors"
+                  onClick={() => void signOut()}
+                >
+                  <LogOut size={17} className="text-red-600 shrink-0" />
+                  <span className="text-red-600 font-medium text-sm">Çıkış Yap</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>

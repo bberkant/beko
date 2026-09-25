@@ -777,6 +777,81 @@ export function AppLayout() {
           }
         `}</style>
       )}
+      <style>{`
+        /* Header Dropdown Protection (Profile & Notifications) across all themes */
+        header [data-dropdown],
+        header .profile-menu {
+          background-color: #ffffff !important;
+          color: #1f2937 !important;
+        }
+        header [data-dropdown] button,
+        header .profile-menu button {
+          color: #374151 !important;
+          background-color: transparent !important;
+        }
+        header [data-dropdown] button:hover,
+        header .profile-menu button:hover {
+          background-color: #f3f4f6 !important;
+        }
+        header [data-dropdown] button.logout-btn,
+        header .profile-menu button.logout-btn {
+          color: #dc2626 !important;
+        }
+        header [data-dropdown] button.logout-btn:hover,
+        header .profile-menu button.logout-btn:hover {
+          background-color: #fef2f2 !important;
+        }
+        header [data-dropdown] button.logout-btn svg,
+        header [data-dropdown] button.logout-btn svg *,
+        header .profile-menu button.logout-btn svg,
+        header .profile-menu button.logout-btn svg * {
+          color: #dc2626 !important;
+          stroke: #dc2626 !important;
+        }
+        header [data-dropdown] button:not(.logout-btn) svg,
+        header [data-dropdown] button:not(.logout-btn) svg *,
+        header .profile-menu button:not(.logout-btn) svg,
+        header .profile-menu button:not(.logout-btn) svg * {
+          color: #6b7280 !important;
+          stroke: #6b7280 !important;
+        }
+        header [data-dropdown] .text-gray-900,
+        header .profile-menu .text-gray-900 {
+          color: #111827 !important;
+        }
+        header [data-dropdown] .text-gray-700,
+        header .profile-menu .text-gray-700 {
+          color: #374151 !important;
+        }
+        header [data-dropdown] .text-gray-600,
+        header .profile-menu .text-gray-600 {
+          color: #4b5563 !important;
+        }
+        header [data-dropdown] .text-gray-500,
+        header .profile-menu .text-gray-500 {
+          color: #6b7280 !important;
+        }
+        header [data-dropdown] .text-gray-400,
+        header .profile-menu .text-gray-400 {
+          color: #9ca3af !important;
+        }
+        header [data-dropdown] .text-brand-700,
+        header .profile-menu .text-brand-700 {
+          color: #004b93 !important;
+        }
+        header [data-dropdown] .text-brand-600,
+        header .profile-menu .text-brand-600 {
+          color: #004b93 !important;
+        }
+        header [data-dropdown] .text-red-600,
+        header .profile-menu .text-red-600 {
+          color: #dc2626 !important;
+        }
+        header [data-dropdown] .text-red-700,
+        header .profile-menu .text-red-700 {
+          color: #b91c1c !important;
+        }
+      `}</style>
       <Sidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}

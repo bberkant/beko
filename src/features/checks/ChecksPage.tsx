@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Modal } from '../../components/ui/Modal';
+import { fixCorruptedTurkishText } from '../../lib/turkishTextFixer';
 
 const statusCache = new Map<string, string>();
 const cleanStatus = (status: string | null | undefined): string => {
@@ -237,56 +238,7 @@ const FIXED_KAYIP_CHECKS = [
   { creditor: 'MUSTAFA UYUMAZ', bank_name: 'M.ZİRAAT', amountText: '346.398', due_dateText: '30.09.2025' },
 ];
 
-export const fixCorruptedText = (str: string | null | undefined): string => {
-  if (!str) return '';
-  return str
-    // Fix ÇEK becoming ıEK / IEK / İEK
-    .replace(/ıEKLER/g, 'ÇEKLER')
-    .replace(/ıEK/g, 'ÇEK')
-    .replace(/IEKLER/g, 'ÇEKLER')
-    .replace(/İEKLER/g, 'ÇEKLER')
-    .replace(/(^|[^a-zA-ZçÇğĞıİöÖşŞüÜ])IEK($|[^a-zA-ZçÇğĞıİöÖşŞüÜ])/g, '$1ÇEK$2')
-    .replace(/(^|[^a-zA-ZçÇğĞıİöÖşŞüÜ])İEK($|[^a-zA-ZçÇğĞıİöÖşŞüÜ])/g, '$1ÇEK$2')
-    // Common mappings for the Vega sync corruption
-    .replace(/KARİILIKLI/g, 'KARŞILIKLI')
-    .replace(/OİUZ/g, 'OĞUZ')
-    .replace(/OİLU/g, 'OĞLU')
-    .replace(/İOİULLARI/g, 'İOĞULLARI')
-    .replace(/İULLARI/g, 'ĞULLARI')
-    .replace(/DOİU/g, 'DOĞU')
-    .replace(/DOİAL/g, 'DOĞAL')
-    .replace(/DİRT MEVSİM/g, 'DÖRT MEVSİM')
-    .replace(/GİLER/g, 'GÜLER')
-    .replace(/GİNEK/g, 'GÖNEK')
-    .replace(/GİKMEN/g, 'GÖKMEN')
-    .replace(/BAİYURT/g, 'BAŞYURT')
-    .replace(/ATEı/g, 'ATEŞ')
-    .replace(/ıNİAAT/g, 'İNŞAAT')
-    .replace(/ıNSAL/g, 'ÜNSAL')
-    .replace(/ıMER /g, 'ÖMER ')
-    .replace(/AKKOı/g, 'AKKOÇ')
-    .replace(/YEııL/g, 'YEŞİL')
-    .replace(/ CARı/g, ' CARİ')
-    .replace(/LTD\.ıTı/g, 'LTD.ŞTİ')
-    .replace(/LTD ıTı/g, 'LTD ŞTİ')
-    .replace(/ ıTı/g, ' ŞTİ')
-    .replace(/ıLHAMı/g, 'İLHAMİ')
-    .replace(/ERDOİAN/g, 'ERDOĞAN')
-    .replace(/ıENGİL/g, 'ŞENGİL')
-    .replace(/CANDAı/g, 'CANDAŞ')
-    .replace(/BAııUVAN/g, 'BAŞÇIVAN')
-    .replace(/KAYIı/g, 'KAYIŞ')
-    .replace(/ALPTUı/g, 'ALPTUĞ')
-    .replace(/ıAHİN/g, 'ŞAHİN')
-    .replace(/HİSEYİN/g, 'HÜSEYİN')
-    .replace(/ERTİRK/g, 'ERTÜRK')
-    .replace(/İİIK/g, 'IŞIK')
-    .replace(/IİIK/g, 'IŞIK')
-    .replace(/ALTINIİIK/g, 'ALTINIŞIK')
-    .replace(/TÜRKİYE İİ BANKASI/g, 'TÜRKİYE İŞ BANKASI')
-    .replace(/İİ BANKASI/g, 'İŞ BANKASI')
-    .replace(/İİBANK/g, 'İŞBANK');
-};
+export const fixCorruptedText = fixCorruptedTurkishText;
 
 const formatTaksitDesc = (desc: string | null | undefined): string => {
   if (!desc) return '';
