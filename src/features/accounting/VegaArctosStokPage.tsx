@@ -128,9 +128,9 @@ export function VegaArctosStokPage() {
 
   const [selectedProduct, setSelectedProduct] = useState<StockSummary | null>(null);
 
-  // Sorting
-  const [sortField, setSortField] = useState<'productName' | 'totalIn' | 'totalOut' | 'currentStock' | 'avgPurchasePrice' | 'avgSalesPrice' | 'lastMovementDate'>('productName');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  // Sorting (Varsayılan: Toplam Çıkış çoktan aza)
+  const [sortField, setSortField] = useState<'productName' | 'totalIn' | 'totalOut' | 'currentStock' | 'avgPurchasePrice' | 'avgSalesPrice' | 'lastMovementDate'>('totalOut');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Theme & Bulut ERP States
   const [sidebarTheme, setSidebarTheme] = useState<'banking' | 'classic' | 'banking_trial' | 'dia_v3' | 'one_dars_v4' | 'bulut_erp'>(() => {
