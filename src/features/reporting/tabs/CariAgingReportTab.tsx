@@ -11,7 +11,8 @@ import {
   TrendingUp,
   FileSpreadsheet,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowUpDown
 } from 'lucide-react';
 import { CariAgingRow, AgingBucket } from '../types';
 import { exportCariAgingToExcel, generateCariWhatsAppMessage } from '../services/reportingService';
@@ -23,12 +24,14 @@ interface Props {
   loading: boolean;
 }
 
+type SortField = 'cariName' | 'balance' | 'overdueDays' | 'lastInvoiceDate' | 'lastPaymentDate' | 'daysSinceLastActivity' | 'riskLevel';
+
 export function CariAgingReportTab({ rows, loading }: Props) {
   const { notify } = useToast();
   const [search, setSearch] = useState('');
   const [selectedBucket, setSelectedBucket] = useState<AgingBucket | 'all'>('all');
   const [onlyDebtors, setOnlyDebtors] = useState(true);
-  const [sortField, setSortField] = useState<'balance' | 'overdueDays' | 'daysSinceLastActivity'>('balance');
+  const [sortField, setSortField] = useState<SortField>('balance');
   const [sortAsc, setSortAsc] = useState(false);
 
   // WhatsApp Modal
@@ -49,6 +52,27 @@ export function CariAgingReportTab({ rows, loading }: Props) {
       }
       return true;
     }).sort((a, b) => {
+      if (sortField === 'cariName') {
+        const strA = (a.cariName || '').toLocaleLowerCase('tr-TR');
+        const strB = (b.cariName || '').toLocaleLowerCase('tr-TR');
+        return sortAsc ? strA.localeCompare(strB, 'tr-TR') : strB.localeCompare(strA, 'tr-TR');
+      }
+      if (sortField === 'lastInvoiceDate') {
+        const timeA = a.lastInvoiceDate ? new Date(a.lastInvoiceDate).getTime() : 0;
+        const timeB = b.lastInvoiceDate ? new Date(b.lastInvoiceDate).getTime() : 0;
+        return sortAsc ? timeA - timeB : timeB - timeA;
+      }
+      if (sortField === 'lastPaymentDate') {
+        const timeA = a.lastPaymentDate ? new Date(a.lastPaymentDate).getTime() : 0;
+        const timeB = b.lastPaymentDate ? new Date(b.lastPaymentDate).getTime() : 0;
+        return sortAsc ? timeA - timeB : timeB - timeA;
+      }
+      if (sortField === 'riskLevel') {
+        const order: Record<string, number> = { 'kritik': 4, 'yuksek': 3, 'orta': 2, 'dusuk': 1 };
+        const scoreA = order[a.riskLevel] || 0;
+        const scoreB = order[b.riskLevel] || 0;
+        return sortAsc ? scoreA - scoreB : scoreB - scoreA;
+      }
       let valA = a[sortField] || 0;
       let valB = b[sortField] || 0;
       return sortAsc ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
@@ -93,13 +117,24 @@ export function CariAgingReportTab({ rows, loading }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSort = (field: typeof sortField) => {
+  const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
     } else {
       setSortField(field);
       setSortAsc(false);
     }
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField === field) {
+      return sortAsc ? (
+        <ChevronUp size={13} className="text-brand-600 font-bold shrink-0" />
+      ) : (
+        <ChevronDown size={13} className="text-brand-600 font-bold shrink-0" />
+      );
+    }
+    return <ArrowUpDown size={12} className="text-gray-300 group-hover:text-gray-500 shrink-0 transition-colors" />;
   };
 
   if (loading) {
@@ -332,37 +367,69 @@ export function CariAgingReportTab({ rows, loading }: Props) {
           <table className="w-full text-left text-xs text-gray-600">
             <thead className="border-b border-gray-200 bg-gray-50 text-[11px] font-bold uppercase text-gray-700">
               <tr>
-                <th className="px-4 py-3">Cari Kodu & Ünvanı</th>
+                <th 
+                  onClick={() => handleSort('cariName')}
+                  className="px-4 py-3 cursor-pointer hover:bg-gray-100 select-none transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Cari Kodu & Ünvanı</span>
+                    {renderSortIcon('cariName')}
+                  </div>
+                </th>
                 <th 
                   onClick={() => handleSort('balance')}
-                  className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 select-none transition-colors group"
                 >
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="flex items-center justify-end gap-1.5">
                     <span>Güncel Bakiye</span>
-                    {sortField === 'balance' && (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                    {renderSortIcon('balance')}
                   </div>
                 </th>
                 <th 
                   onClick={() => handleSort('overdueDays')}
-                  className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 select-none transition-colors group"
                 >
-                  <div className="flex items-center justify-center gap-1">
+                  <div className="flex items-center justify-center gap-1.5">
                     <span>Vade Gecikmesi</span>
-                    {sortField === 'overdueDays' && (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                    {renderSortIcon('overdueDays')}
                   </div>
                 </th>
-                <th className="px-4 py-3">En Son Mal Alışı / Fatura</th>
-                <th className="px-4 py-3">En Son Tahsilat / Ödeme</th>
+                <th 
+                  onClick={() => handleSort('lastInvoiceDate')}
+                  className="px-4 py-3 cursor-pointer hover:bg-gray-100 select-none transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>En Son Mal Alışı / Fatura</span>
+                    {renderSortIcon('lastInvoiceDate')}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('lastPaymentDate')}
+                  className="px-4 py-3 cursor-pointer hover:bg-gray-100 select-none transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>En Son Tahsilat / Ödeme</span>
+                    {renderSortIcon('lastPaymentDate')}
+                  </div>
+                </th>
                 <th 
                   onClick={() => handleSort('daysSinceLastActivity')}
-                  className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 select-none transition-colors group"
                 >
-                  <div className="flex items-center justify-center gap-1">
+                  <div className="flex items-center justify-center gap-1.5">
                     <span>Pasiflik</span>
-                    {sortField === 'daysSinceLastActivity' && (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                    {renderSortIcon('daysSinceLastActivity')}
                   </div>
                 </th>
-                <th className="px-4 py-3 text-center">Risk</th>
+                <th 
+                  onClick={() => handleSort('riskLevel')}
+                  className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 select-none transition-colors group"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Risk</span>
+                    {renderSortIcon('riskLevel')}
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-right">İşlemler</th>
               </tr>
             </thead>
