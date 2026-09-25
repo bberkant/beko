@@ -860,7 +860,7 @@ export function AppLayout() {
       <div
         className={[
           'flex min-h-screen flex-col transition-[padding] duration-300',
-          collapsed ? 'lg:pl-[72px]' : 'lg:pl-[230px]',
+          collapsed ? 'lg:pl-[72px]' : 'lg:pl-[260px]',
         ].join(' ')}
       >
         <Topbar

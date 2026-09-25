@@ -525,7 +525,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
           : sidebarTheme === 'bulut_erp'
             ? 'bg-white border-r border-gray-200'
             : 'bg-[#f4f6fa]',
-    collapsed ? 'w-[72px]' : 'w-[230px]',
+    collapsed ? 'w-[72px]' : 'w-[260px]',
     'lg:translate-x-0',
     mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
   ].join(' ');

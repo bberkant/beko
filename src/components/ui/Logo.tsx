@@ -49,15 +49,14 @@ export function Logo({ collapsed = false }: { collapsed?: boolean }) {
           <div className="h-[18px] w-[6px] bg-white rounded-[1px]" />
         </div>
         {!collapsed && (
-          <div className="flex flex-col select-none justify-center">
+          <div className="flex flex-col select-none justify-center min-w-0">
             <div className="flex items-baseline leading-none">
               <span className="text-[16px] font-extrabold tracking-normal text-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>DARS</span>
             </div>
             <span 
-              className="text-[9.5px] font-medium text-slate-200 mt-1 leading-none whitespace-nowrap" 
+              className="text-[11px] font-medium text-slate-100 mt-1 leading-none whitespace-nowrap" 
               style={{ 
-                fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-                letterSpacing: '-0.015em'
+                fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
               }}
             >
               Data Analysis &amp; Reporting System

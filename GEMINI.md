@@ -115,8 +115,8 @@ Tablolarda satır içi hızlı düzenleme (`InlineEdit`, `InlinePaymentDate` vb.
 ## Genel Arayüz ve Yerleşim (Layout) Kuralları
 
 1. **Sidebar (Sol Menü) Genişliği:**
-   - Sidebar'ın varsayılan (açık) genişliği ekran yerleşimini daha dengeli göstermek ve "Çek & Senet İşlemleri" başlığının alt satıra kaymasını önlemek amacıyla **`230px`** olarak tanımlanmıştır.
-   - Ana içerik taşıyıcı (`AppLayout.tsx` div container) sol dolgu (padding-left) değeri de sidebar'ın bu genişliğiyle uyumlu olacak şekilde **`lg:pl-[230px]`** olarak ayarlanmalıdır.
+   - Sidebar'ın varsayılan (açık) genişliği sol üst başlığın ("Data Analysis & Reporting System") tek satırda ve net okunması, menü yerleşiminin dengeli durması amacıyla **`260px`** olarak tanımlanmıştır.
+   - Ana içerik taşıyıcı (`AppLayout.tsx` div container) sol dolgu (padding-left) değeri de sidebar'ın bu genişliğiyle uyumlu olacak şekilde **`lg:pl-[260px]`** olarak ayarlanmalıdır.
    - Kapalı (collapsed) durum genişliği **`72px`** ve dolgu değeri **`lg:pl-[72px]`** olarak sabit kalmalıdır.
 
 2. **Topbar (Üst Bar) Buton ve İkon Görünürlüğü (Koyu Renk Temalar):**
