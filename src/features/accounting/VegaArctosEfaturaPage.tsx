@@ -83,6 +83,27 @@ function getInvoicePdfUrl(company: string, invoice: VegaEfatura): string {
 
 
 
+const COOLDOWN_DURATION_SECONDS = 30 * 60; // 30 dakika (1800 saniye)
+
+function getStoredCooldownRemaining(company: string): number {
+  try {
+    const raw = localStorage.getItem(`dars_efatura_cooldown_${company}`);
+    if (!raw) return 0;
+    const expiresAt = parseInt(raw, 10);
+    const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+    return remaining;
+  } catch {
+    return 0;
+  }
+}
+
+function setStoredCooldown(company: string, seconds = COOLDOWN_DURATION_SECONDS) {
+  try {
+    const expiresAt = Date.now() + seconds * 1000;
+    localStorage.setItem(`dars_efatura_cooldown_${company}`, expiresAt.toString());
+  } catch {}
+}
+
 interface VegaArctosEfaturaPageProps {
   company?: 'etik' | 'marif';
 }
@@ -102,7 +123,12 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
   const [cariVknMap, setCariVknMap] = useState<Map<string, string>>(new Map());
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [cacheSource, setCacheSource] = useState<'Önbellek' | 'Supabase' | 'Canlı' | null>(null);
-  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const [cooldownSeconds, setCooldownSeconds] = useState<number>(() => getStoredCooldownRemaining(company));
+
+  // Update cooldown when company tab switches
+  useEffect(() => {
+    setCooldownSeconds(getStoredCooldownRemaining(company));
+  }, [company]);
   
   // Pagination States (50 per page)
   const [currentPage, setCurrentPage] = useState(1);
@@ -167,11 +193,16 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
 
   // Live fetch from Vega/Mikrokom API & sync to Supabase + Local Cache
   const fetchLiveInvoices = async (showNotification = false) => {
-    if (cooldownSeconds > 0 && showNotification) {
-      const waitMsg = cooldownSeconds > 60
-        ? `Mikrokom entegratör kotasını korumak için yeni sorgu en erken ${Math.ceil(cooldownSeconds / 60)} dakika sonra yapılabilir.`
-        : `Veriler günceldir. Yeni sorgu için lütfen ${cooldownSeconds} saniye bekleyin.`;
-      notify(waitMsg, 'info');
+    const remaining = getStoredCooldownRemaining(company);
+    if (remaining > 0) {
+      setCooldownSeconds(remaining);
+      if (showNotification) {
+        const waitMinutes = Math.ceil(remaining / 60);
+        const waitMsg = remaining > 60
+          ? `${company === 'etik' ? 'Vega' : 'Mikrokom'} entegratör kotasını korumak için yeni sorgu en erken ${waitMinutes} dakika sonra yapılabilir. Veriler günceldir.`
+          : `Veriler günceldir. Yeni sorgu için lütfen ${remaining} saniye bekleyin.`;
+        notify(waitMsg, 'info');
+      }
       return;
     }
     setIsSyncing(true);
@@ -236,7 +267,8 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
         setLastSyncTime(timeStr);
         setCacheSource('Canlı');
-        setCooldownSeconds(10);
+        setStoredCooldown(company, COOLDOWN_DURATION_SECONDS);
+        setCooldownSeconds(COOLDOWN_DURATION_SECONDS);
 
         // Save immediately to local IndexedDB
         void setLocalCache(company, finalData, nowIso);
@@ -325,9 +357,9 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
             );
             // Save to IndexedDB for next instant load
             void setLocalCache(company, supaData.invoices, supaData.updatedAt);
-            setCooldownSeconds(0);
-          } else if (localData && company === 'marif') {
-            setCooldownSeconds(0);
+            setCooldownSeconds(getStoredCooldownRemaining(company));
+          } else if (localData) {
+            setCooldownSeconds(getStoredCooldownRemaining(company));
           }
           setIsLoading(false);
           return;

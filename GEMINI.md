@@ -328,3 +328,17 @@ POS Komisyon Farkı Hesaplama modülünde (`/finans/pos-fark-hesaplama` - `PosDi
    - Sayfada bulunan tüm POS kartlarındaki **POS Başlığı** (`title`), **Toplam POS Tutarı** (`pos`), **Anlaşma Oranı** (`baseRate`) ve **Uygulanan Oran** (`appliedRate`) verileri kalıcıdır.
    - Kullanıcı ilgili giriş alanını kendisi manuel olarak silmediği veya değiştirmediği sürece; sayfa yenilemelerinde, oturum açılıp kapanışlarında veya yeni geliştirmelerde bu veriler ASLA varsayılan değerlerle sıfırlanmayacak, üzerine yazılmayacak veya temizlenmeyecektir.
    - Geliştirme ve bakım süreçlerinde bu alanların sıfırlanmasına ya da başlangıç durumuna dönmesine neden olacak herhangi bir otomatik temizleme veya sabit mock veri ataması yapılamaz.
+
+## E-Fatura Entegratör Kota ve İstek Sınırlama Standartları (E-Invoice Integrator Rate Limit Standards)
+
+Mikrokom ve Vega e-Fatura entegratör sorgu kotalarını korumak ve kullanıcıların arayüzden peş peşe "Güncelle" butonuna basarak harici servisleri kilitlemesini engellemek için aşağıdaki kurallara KESİNLİKLE uyulacaktır:
+
+1. **İstemci Tarafı Kalıcı Soğuma Süresi (Client-Side Cooldown & Persistence):**
+   - E-Fatura modülünde (Etik ve Marif) "Güncelle" butonuna tıklandığında soğuma süresi en az **30 dakika (1800 saniye)** olarak işletilmelidir.
+   - Bu süre sadece React yerel bileşen hafızasında (`useState`) tutulmayacak; tarayıcının `localStorage` alanında (`dars_efatura_cooldown_{company}`) zaman damgasıyla kaydedilecektir. Böylece kullanıcı sayfayı yenilese (F5) veya sekmeyi kapatıp açsa dahi 30 dakika dolmadan canlı entegratör sorgusu atılamaz.
+   - Süre dolmadan tıklama yapıldığında arayüzde:
+     `"Entegratör kotasını korumak için yeni sorgu en erken {kalan_dakika} dakika sonra yapılabilir. Veriler günceldir."` bilgi bildirimi gösterilmeli ve ağ isteği engellenmelidir.
+
+2. **Sunucu Tarafı Güvenlik Kilidi (Server-Side Rate Limiting Invariant):**
+   - API servisinde (`server.js`), hem Marif hem Etik akışlarında harici entegratör (Mikrokom REST / Vega SOAP) taramaları arasında en az **30 dakikalık** (`SYNC_INTERVAL_MS = 30 * 60 * 1000`) kilit bulunmalıdır.
+   - İstemciden istek gelse dahi son başarılı sorgudan bu yana 30 dakika geçmemişse harici servisler tekrar rahatsız edilmeyecek, veritabanı/önbellekteki güncel kayıtlar anında yanıt olarak döndürülecektir.
