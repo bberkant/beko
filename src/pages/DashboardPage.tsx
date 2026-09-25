@@ -76,7 +76,7 @@ interface ActivityLogItem {
   old_data: any;
 }
 
-const DASHBOARD_CACHE_KEY = 'dars_dashboard_cache_v4';
+const DASHBOARD_CACHE_KEY = 'dars_dashboard_cache_v5';
 
 interface DashboardCachedData {
   cashboxBalance: number;
@@ -320,33 +320,42 @@ export function DashboardPage() {
   // Sub-routine: Fetch Checks Data
   const fetchChecks = useCallback(async (orgId: string) => {
     try {
-      const { data: checksData } = await supabase
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const dayOfWeek = today.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() + mondayOffset);
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+
+      // Sadece ödenmemiş / aktif çekleri sorgula (ebs_checks sütunları: bank_name, check_no, debtor, kesideci, creditor)
+      const { data: checksData, error: checksError } = await supabase
         .from('ebs_checks')
-        .select('id, amount, due_date, debtor, bank, status, check_number')
+        .select('id, amount, due_date, debtor, creditor, kesideci, bank_name, status, check_no, check_type')
         .eq('organization_id', orgId)
+        .neq('status', 'Ödendi')
+        .neq('status', 'Tahsil Edildi')
+        .neq('status', 'İptal')
         .order('due_date', { ascending: true })
-        .limit(5000);
+        .limit(2000);
+
+      if (checksError) {
+        console.error('Checks fetch error:', checksError);
+        return;
+      }
 
       if (Array.isArray(checksData)) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const dayOfWeek = today.getDay();
-        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() + mondayOffset);
-        startOfWeek.setHours(0, 0, 0, 0);
-
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        endOfWeek.setHours(23, 59, 59, 999);
-
         let weekSum = 0;
         let weekCount = 0;
 
         const unpaidChecks = checksData.filter(c => {
           const st = (c.status || '').toLowerCase().trim();
-          return st !== 'ödendi' && st !== 'odendi' && st !== 'tahsil edildi' && st !== 'tahsil_edildi';
+          return st !== 'ödendi' && st !== 'odendi' && st !== 'tahsil edildi' && st !== 'tahsil_edildi' && st !== 'iptal' && st !== 'iptal edildi';
         });
 
         unpaidChecks.forEach(c => {
@@ -362,20 +371,35 @@ export function DashboardPage() {
         setThisWeekChecksTotal(weekSum);
         setThisWeekChecksCount(weekCount);
 
-        const sortedUpcoming = unpaidChecks
+        // Vadesi bugün veya ileri tarihli olan bekleyen çekler (tarihe göre artan)
+        const upcomingList = unpaidChecks
           .filter(c => c.due_date && new Date(c.due_date) >= today)
-          .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
-          .slice(0, 5);
+          .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
+          .slice(0, 7)
+          .map(c => ({
+            id: c.id,
+            amount: Number(c.amount || 0),
+            due_date: c.due_date || '',
+            debtor: c.kesideci || c.debtor || c.creditor || '—',
+            bank: c.bank_name || '—',
+            status: c.status,
+            check_number: c.check_no,
+          }));
 
-        let finalUpcoming: UpcomingCheck[] = [];
-        if (sortedUpcoming.length < 5) {
-          const allSorted = unpaidChecks
-            .sort((a, b) => new Date(b.due_date || 0).getTime() - new Date(a.due_date || 0).getTime())
-            .slice(0, 5);
-          finalUpcoming = sortedUpcoming.length > 0 ? sortedUpcoming : allSorted;
-        } else {
-          finalUpcoming = sortedUpcoming;
+        // Eğer ileri vadeli çek yoksa en yakın vadeli çekleri listele
+        let finalUpcoming = upcomingList;
+        if (finalUpcoming.length === 0 && unpaidChecks.length > 0) {
+          finalUpcoming = unpaidChecks.slice(0, 6).map(c => ({
+            id: c.id,
+            amount: Number(c.amount || 0),
+            due_date: c.due_date || '',
+            debtor: c.kesideci || c.debtor || c.creditor || '—',
+            bank: c.bank_name || '—',
+            status: c.status,
+            check_number: c.check_no,
+          }));
         }
+
         setUpcomingChecks(finalUpcoming);
 
         saveDashboardCache({
@@ -593,8 +617,8 @@ export function DashboardPage() {
 
     let detail = '';
     if (log.new_data) {
-      if (log.new_data.debtor || log.new_data.bank) {
-        detail = `${log.new_data.debtor || log.new_data.bank}`;
+      if (log.new_data.debtor || log.new_data.kesideci || log.new_data.creditor || log.new_data.bank_name || log.new_data.bank) {
+        detail = `${log.new_data.kesideci || log.new_data.debtor || log.new_data.creditor || log.new_data.bank_name || log.new_data.bank}`;
       } else if (log.new_data.title) {
         detail = `${log.new_data.title.slice(0, 28)}...`;
       } else if (log.new_data.plate) {
