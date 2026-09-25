@@ -1,0 +1,17 @@
+{
+  "name": "whatsapp-gateway-service",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Mezbaha Server 7/24 WhatsApp Web Gateway Servisi",
+  "main": "whatsapp-gateway.mjs",
+  "scripts": {
+    "start": "node whatsapp-gateway.mjs"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@supabase/supabase-js": "^2.45.4",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "pino": "^9.4.0",
+    "qrcode": "^1.5.4"
+  }
+}
