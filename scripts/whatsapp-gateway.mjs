@@ -1,7 +1,9 @@
 import makeWASocket, { 
   useMultiFileAuthState, 
   DisconnectReason, 
-  downloadMediaMessage 
+  downloadMediaMessage,
+  fetchLatestBaileysVersion,
+  Browsers
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode';
@@ -86,13 +88,23 @@ async function startGateway() {
   console.log('  🚀 BEKO ERP - CANLI WHATSAPP GATEWAY SERVİSİ BAŞLATILIYOR');
   console.log('====================================================');
 
+  const { version, isLatest } = await fetchLatestBaileysVersion().catch(() => ({ 
+    version: [2, 3000, 1043857760], 
+    isLatest: true 
+  }));
+  console.log(`📡 WhatsApp Web Protokol Sürümü: ${version.join('.')} (En güncel: ${isLatest})`);
+
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
   const sock = makeWASocket({
+    version,
     auth: state,
     printQRInTerminal: false,
     logger: pino({ level: 'silent' }),
-    browser: ['Beko ERP Gateway', 'Chrome', '120.0.0']
+    browser: Browsers.windows('Desktop'),
+    syncFullHistory: false,
+    connectTimeoutMs: 60000,
+    keepAliveIntervalMs: 25000
   });
 
   sock.ev.on('creds.update', saveCreds);
@@ -102,7 +114,7 @@ async function startGateway() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log('\n📲 [QR KODU ÜRETİLDİ] Lütfen panelden veya terminalden okutun:\n');
+      console.log('\n📲 [YENİ CANLI QR KODU ÜRETİLDİ] Lütfen panelden okutun:\n');
       const terminalQr = await qrcode.toString(qr, { type: 'terminal', small: true });
       console.log(terminalQr);
 
@@ -111,6 +123,7 @@ async function startGateway() {
         status: 'qr_ready',
         qr_code: dataUrl,
         qr_raw: qr,
+        last_heartbeat: new Date().toISOString(),
         error_message: null
       });
     }
@@ -133,11 +146,11 @@ async function startGateway() {
     }
 
     if (connection === 'close') {
-      const shouldReconnect = (lastDisconnect?.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-      const statusCode = lastDisconnect?.error?.output?.statusCode;
-      console.log(`❌ [BAĞLANTI KESİLDİ] Kod: ${statusCode}, Yeniden bağlanılıyor mu: ${shouldReconnect}`);
+      const statusCode = (lastDisconnect?.error instanceof Boom)?.output?.statusCode || lastDisconnect?.error?.output?.statusCode;
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+      console.log(`❌ [BAĞLANTI KESİLDİ] Kod: ${statusCode}, Oturum Silindi mi: ${isLoggedOut}`);
 
-      if (statusCode === DisconnectReason.loggedOut) {
+      if (isLoggedOut) {
         console.log('⚠️ Oturum kapatıldı, auth dizini temizleniyor...');
         if (fs.existsSync(AUTH_DIR)) {
           fs.rmSync(AUTH_DIR, { recursive: true, force: true });
@@ -145,14 +158,15 @@ async function startGateway() {
         await updateGatewayStatus({
           status: 'disconnected',
           qr_code: null,
+          qr_raw: null,
+          last_heartbeat: new Date().toISOString(),
           error_message: 'Oturum kapatıldı. Yeniden QR okutulmalı.'
         });
-      } else {
-        await updateGatewayStatus({
-          status: 'disconnected',
-          error_message: `Bağlantı koptu (${statusCode || 'Bilinmiyor'}). Yeniden deneniyor...`
-        });
         setTimeout(startGateway, 3000);
+      } else {
+        // Geçici kopma (örn: 428 QR yenileme zaman aşımı) -> yeniden bağlan ve yeni QR üret
+        console.log('🔄 Gateway yeniden bağlanıyor...');
+        setTimeout(startGateway, 2000);
       }
     }
   });

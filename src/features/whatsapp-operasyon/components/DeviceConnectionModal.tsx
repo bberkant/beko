@@ -27,6 +27,7 @@ interface GatewaySession {
   device_name?: string | null;
   last_heartbeat?: string | null;
   error_message?: string | null;
+  updated_at?: string | null;
 }
 
 export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
@@ -109,7 +110,16 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
   };
 
   const isConnected = session.status === 'connected';
-  const isQrReady = session.status === 'qr_ready' && !!session.qr_code;
+
+  // WhatsApp QR kodları ~20-40 saniye geçerlidir. Gateway'in canlı olduğunu doğrulamak için
+  // last_heartbeat veya updated_at değerinin son 90 saniye içinde güncellenmiş olması gerekir.
+  const isHeartbeatFresh = Boolean(
+    (session.last_heartbeat || session.updated_at) &&
+    (Date.now() - new Date(session.last_heartbeat || session.updated_at!).getTime()) < 90 * 1000
+  );
+
+  const isQrReady = session.status === 'qr_ready' && !!session.qr_code && isHeartbeatFresh;
+  const isGatewayOffline = !isConnected && (!isHeartbeatFresh || session.status === 'disconnected');
 
   return (
     <Modal
@@ -125,33 +135,33 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
             ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
             : isQrReady 
             ? 'bg-amber-50 border-amber-200 text-amber-900'
-            : 'bg-blue-50 border-blue-200 text-blue-900'
+            : 'bg-rose-50 border-rose-200 text-rose-900'
         }`}>
           <div className="flex items-center gap-3">
             <div className={`w-3.5 h-3.5 rounded-full ${
-              isConnected ? 'bg-emerald-500 animate-pulse' : isQrReady ? 'bg-amber-500 animate-pulse' : 'bg-blue-500'
+              isConnected ? 'bg-emerald-500 animate-pulse' : isQrReady ? 'bg-amber-500 animate-pulse' : 'bg-rose-500'
             }`} />
             <div>
               <div className="font-bold text-sm">
                 {isConnected 
                   ? 'Bağlantı Aktif (Canlı Eşleşme)' 
                   : isQrReady 
-                  ? 'Oturum Bekleniyor (QR Kodu Okutun)' 
-                  : 'Gateway Servisi Başlatılıyor...'}
+                  ? 'Oturum Bekleniyor (Canlı QR Kodu Okutun)' 
+                  : 'Gateway Servisi Kapalı / Bekleniyor'}
               </div>
               <div className="text-xs opacity-80 mt-0.5">
                 {isConnected 
                   ? 'Şirket WhatsApp grupları ve medya akışı panele canlı aktarılıyor.' 
                   : isQrReady
-                  ? 'Telefonunuzdan WhatsApp > Bağlı Cihazlar > Cihaz Bağla adımı ile aşağıdaki kodu okutun.'
-                  : 'Arka plan gateway servisi ile bağlantı kuruluyor...'}
+                  ? 'Telefonunuzdan WhatsApp > Bağlı Cihazlar > Cihaz Bağla adımı ile aşağıdaki canlı kodu okutun.'
+                  : 'Canlı QR kodu üretmek için bilgisayarınızda whatsapp-baslat.bat servisini çalıştırın.'}
               </div>
             </div>
           </div>
           <button
             onClick={handleResetSession}
             disabled={isRefreshing}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-1"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-1 cursor-pointer"
           >
             <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
             Yenile
@@ -240,11 +250,17 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
                   />
                 </div>
               ) : (
-                /* Loading QR placeholder */
-                <div className="w-56 h-56 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-3 flex flex-col items-center justify-center text-white text-center relative overflow-hidden">
-                  <RefreshCw size={36} className="animate-spin text-emerald-400 mb-3" />
-                  <span className="text-xs font-bold text-gray-200">WhatsApp Gateway</span>
-                  <span className="text-[10px] text-gray-400 mt-1">Canlı QR Kodu Hazırlanıyor...</span>
+                /* Offline / Loading placeholder */
+                <div className="w-56 h-56 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-4 flex flex-col items-center justify-center text-white text-center relative overflow-hidden">
+                  <RefreshCw size={32} className={`mb-2.5 ${isGatewayOffline ? 'text-amber-400' : 'text-emerald-400 animate-spin'}`} />
+                  <span className="text-xs font-bold text-gray-100">
+                    {isGatewayOffline ? 'Gateway Servisi Kapalı' : 'WhatsApp Gateway'}
+                  </span>
+                  <span className="text-[11px] text-gray-300 mt-1.5 leading-snug px-1">
+                    {isGatewayOffline
+                      ? 'Canlı QR kodu üretmek için whatsapp-baslat.bat dosyasını çalıştırın.'
+                      : 'Canlı QR Kodu Hazırlanıyor...'}
+                  </span>
                 </div>
               )}
 
