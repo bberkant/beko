@@ -17,7 +17,7 @@ import { CashFlowReportTab } from './tabs/CashFlowReportTab';
 import { SlaughterEfficiencyTab } from './tabs/SlaughterEfficiencyTab';
 import { ExpenseBreakdownTab } from './tabs/ExpenseBreakdownTab';
 
-const CARI_AGING_CACHE_KEY = 'dars_cari_aging_cache_v2';
+const CARI_AGING_CACHE_KEY = 'dars_cari_aging_cache_v3';
 
 export function ReportingPage() {
   const { notify } = useToast();

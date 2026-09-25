@@ -121,7 +121,7 @@ export function calculateDynamicProductPrices(movements: any[]): Map<string, num
  */
 export async function fetchCariAgingData(): Promise<CariAgingRow[]> {
   const today = new Date();
-  const d180Str = new Date(today.getTime() - 180 * 24 * 3600 * 1000).toISOString();
+  const d365Str = new Date(today.getTime() - 365 * 24 * 3600 * 1000).toISOString();
   const d60Str = new Date(today.getTime() - 60 * 24 * 3600 * 1000).toISOString();
   const pageSize = 1000;
 
@@ -162,7 +162,7 @@ export async function fetchCariAgingData(): Promise<CariAgingRow[]> {
           supabase
             .from('vega_cari_hareketler')
             .select('cari_code, date, invoice_no, izahat, product_name, unit_price, quantity, line_tutar, borc, alacak, vade, type, amount')
-            .gte('date', d180Str)
+            .gte('date', d365Str)
             .order('date', { ascending: false })
             .range(from, from + pageSize - 1)
         );
@@ -217,37 +217,43 @@ export async function fetchCariAgingData(): Promise<CariAgingRow[]> {
     // Latest Payment / Collection (alacak > 0)
     const lastPayment = cariMoves.find(m => Number(m.alacak) > 0 || (m.type && ['TAHSILAT', 'ODEME', 'HAVALE', 'EFT', 'KASA', 'BANKA'].some((t: string) => m.type.toUpperCase().includes(t))));
 
-    // Commodity (Kg) & Financial Consumption Calculation in 180d & 60d
-    let totalKg180 = 0;
-    let totalAmt180 = 0;
+    // Commodity (Kg) & Financial Consumption Calculation in 365d (12 Months Annual Baseline) & 60d
+    let totalKg365 = 0;
+    let totalAmt365 = 0;
     let totalKg60 = 0;
     let totalAmt60 = 0;
 
-    const prodQty180 = new Map<string, number>();
-    const prodAmt180 = new Map<string, number>();
-    let nonProdAmt180 = 0;
+    const prodQty365 = new Map<string, number>();
+    const prodAmt365 = new Map<string, number>();
+    let nonProdAmt365 = 0;
 
     const prodQty60 = new Map<string, number>();
     const prodAmt60 = new Map<string, number>();
     let nonProdAmt60 = 0;
 
+    let earliestSaleDate: string | null = null;
+
     for (const m of cariMoves) {
       const isSale = Number(m.borc) > 0 && !isExcludedProductName(m.product_name);
       if (!isSale) continue;
+
+      if (!earliestSaleDate || (m.date && m.date < earliestSaleDate)) {
+        earliestSaleDate = m.date;
+      }
 
       const qty = getNormalizedQuantity(m);
       const lineAmt = Number(m.line_tutar) > 0 ? Number(m.line_tutar) : (Number(m.borc) > 0 ? Number(m.borc) : Number(m.amount) || 0);
       const prodName = (m.product_name || '').trim();
       const prodKey = prodName ? prodName.toLocaleUpperCase('tr-TR') : '';
 
-      totalKg180 += qty;
-      totalAmt180 += lineAmt;
+      totalKg365 += qty;
+      totalAmt365 += lineAmt;
 
       if (prodKey) {
-        prodQty180.set(prodKey, (prodQty180.get(prodKey) || 0) + qty);
-        prodAmt180.set(prodKey, (prodAmt180.get(prodKey) || 0) + lineAmt);
+        prodQty365.set(prodKey, (prodQty365.get(prodKey) || 0) + qty);
+        prodAmt365.set(prodKey, (prodAmt365.get(prodKey) || 0) + lineAmt);
       } else {
-        nonProdAmt180 += lineAmt;
+        nonProdAmt365 += lineAmt;
       }
 
       if (m.date >= d60Str) {
@@ -263,25 +269,36 @@ export async function fetchCariAgingData(): Promise<CariAgingRow[]> {
       }
     }
 
-    // Monthly Averages
-    const monthlyAvgKg = totalKg180 / 6;
+    // New Customer Protection & Active Months Normalization:
+    // If a customer first transacted less than 180 days ago, normalize by active months (so new customers aren't penalized by dividing by 12)
+    let activeMonths = 12;
+    if (earliestSaleDate) {
+      const diffMs = today.getTime() - new Date(earliestSaleDate).getTime();
+      const activeDays = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+      if (activeDays < 180) {
+        activeMonths = Math.max(1, Math.min(12, Math.ceil(activeDays / 30)));
+      }
+    }
+
+    // Monthly Averages (12 months annual baseline, or active months for new accounts)
+    const monthlyAvgKg = totalKg365 / activeMonths;
     const recentMonthlyKg = totalKg60 / 2;
-    const monthlyAvgAmtHist = totalAmt180 / 6;
+    const monthlyAvgAmtHist = totalAmt365 / activeMonths;
     const recentMonthlyAmtHist = totalAmt60 / 2;
 
     // Product-based dynamic monthly amount
-    let dynamicMonthlyAmt180 = 0;
-    prodQty180.forEach((qty, prodKey) => {
-      const mQ = qty / 6;
+    let dynamicMonthlyAmt365 = 0;
+    prodQty365.forEach((qty, prodKey) => {
+      const mQ = qty / activeMonths;
       const p = dynamicPrices.get(prodKey) || 0;
       if (p > 0) {
-        dynamicMonthlyAmt180 += mQ * p;
+        dynamicMonthlyAmt365 += mQ * p;
       } else {
-        dynamicMonthlyAmt180 += (prodAmt180.get(prodKey) || 0) / 6;
+        dynamicMonthlyAmt365 += (prodAmt365.get(prodKey) || 0) / activeMonths;
       }
     });
-    dynamicMonthlyAmt180 += nonProdAmt180 / 6;
-    const monthlyAvgAmount = dynamicMonthlyAmt180 > 0 ? dynamicMonthlyAmt180 : monthlyAvgAmtHist;
+    dynamicMonthlyAmt365 += nonProdAmt365 / activeMonths;
+    const monthlyAvgAmount = dynamicMonthlyAmt365 > 0 ? dynamicMonthlyAmt365 : monthlyAvgAmtHist;
 
     let dynamicMonthlyAmt60 = 0;
     prodQty60.forEach((qty, prodKey) => {
@@ -296,19 +313,21 @@ export async function fetchCariAgingData(): Promise<CariAgingRow[]> {
     dynamicMonthlyAmt60 += nonProdAmt60 / 2;
     const recentMonthlyAmount = dynamicMonthlyAmt60 > 0 ? dynamicMonthlyAmt60 : recentMonthlyAmtHist;
 
-    // Volume Contraction Detection (>= 40% drop)
+    // Volume Contraction Detection (>= 40% drop vs baseline, applicable when active > 2 months)
     let volumeDropRate = 0;
     let isVolumeShrunk = false;
-    if (monthlyAvgKg > 0) {
-      volumeDropRate = ((monthlyAvgKg - recentMonthlyKg) / monthlyAvgKg) * 100;
-    } else if (monthlyAvgAmount > 0) {
-      volumeDropRate = ((monthlyAvgAmount - recentMonthlyAmount) / monthlyAvgAmount) * 100;
-    }
-    if (volumeDropRate >= 40) {
-      isVolumeShrunk = true;
+    if (activeMonths > 2) {
+      if (monthlyAvgKg > 0) {
+        volumeDropRate = ((monthlyAvgKg - recentMonthlyKg) / monthlyAvgKg) * 100;
+      } else if (monthlyAvgAmount > 0) {
+        volumeDropRate = ((monthlyAvgAmount - recentMonthlyAmount) / monthlyAvgAmount) * 100;
+      }
+      if (volumeDropRate >= 40) {
+        isVolumeShrunk = true;
+      }
     }
 
-    // Safe Limit Calculation (1.0x natural monthly capacity)
+    // Safe Limit Calculation (Strictly 1.0x natural monthly capacity)
     const originalSafeLimit = Number(monthlyAvgAmount.toFixed(2));
     let safeLimit = originalSafeLimit;
     if (isVolumeShrunk) {
@@ -377,18 +396,18 @@ export async function fetchCariAgingData(): Promise<CariAgingRow[]> {
         balanceToCover -= unpaid;
       }
 
-      // If balanceToCover > 0 (remainder from before 180 days or opening devir debt), add synthetic DEVIR_BAKIYE invoice
+      // If balanceToCover > 0 (remainder from before 365 days or opening devir debt), add synthetic DEVIR_BAKIYE invoice
       if (balanceToCover > 0) {
-        const threshold180Ms = today.getTime() - 180 * 24 * 3600 * 1000;
+        const threshold365Ms = today.getTime() - 365 * 24 * 3600 * 1000;
         let oldestDate: string;
         if (
           c.last_transaction_date &&
           !isNaN(new Date(c.last_transaction_date).getTime()) &&
-          new Date(c.last_transaction_date).getTime() < threshold180Ms
+          new Date(c.last_transaction_date).getTime() < threshold365Ms
         ) {
           oldestDate = c.last_transaction_date;
         } else {
-          oldestDate = new Date(threshold180Ms).toISOString();
+          oldestDate = new Date(threshold365Ms).toISOString();
         }
         openInvoices.unshift({
           date: oldestDate,
@@ -441,8 +460,8 @@ export async function fetchCariAgingData(): Promise<CariAgingRow[]> {
           }
         }
         if (overdueDays === 0) {
-          overdueDays = 180;
-          weightedOverdueDays = 180;
+          overdueDays = 365;
+          weightedOverdueDays = 365;
         }
       }
 
