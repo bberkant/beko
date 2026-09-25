@@ -818,22 +818,6 @@ export function MainCashboxPage() {
                   });
                 }
               }
-
-              // Arka sayfa cariler
-              const cariler = row.data?.arka_sayfa?.cariler || [];
-              for (const c of cariler) {
-                const name = String(c.name || '').trim();
-                const hasCariVal = c.amount !== undefined && c.amount !== null && c.amount !== '' && c.amount !== 0 && c.amount !== '0';
-                if (name && name.toLocaleLowerCase('tr-TR').includes(q) && hasCariVal) {
-                  results.push({
-                    date: rDate,
-                    category: 'ARKA SAYFA - CARİ',
-                    description: name,
-                    bankOrType: 'RAPOR ARKA SAYFA',
-                    amount: c.amount || ''
-                  });
-                }
-              }
             }
           }
         }
