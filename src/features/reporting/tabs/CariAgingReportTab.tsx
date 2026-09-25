@@ -6,12 +6,13 @@ import {
   Clock, 
   CheckCircle2, 
   Calendar,
-  MessageSquare,
-  Copy,
-  TrendingUp,
-  FileSpreadsheet,
-  ChevronDown,
-  ChevronUp
+  MessageSquare, 
+  Copy, 
+  TrendingUp, 
+  FileSpreadsheet, 
+  ChevronDown, 
+  ChevronUp,
+  ShieldAlert
 } from 'lucide-react';
 import { CariAgingRow, AgingBucket } from '../types';
 import { exportCariAgingToExcel, generateCariWhatsAppMessage } from '../services/reportingService';
@@ -23,12 +24,14 @@ interface Props {
   loading: boolean;
 }
 
+type SortField = 'balance' | 'monthlyAvgKg' | 'safeLimit' | 'riskAmount' | 'overdueDays' | 'daysSinceLastActivity';
+
 export function CariAgingReportTab({ rows, loading }: Props) {
   const { notify } = useToast();
   const [search, setSearch] = useState('');
   const [selectedBucket, setSelectedBucket] = useState<AgingBucket | 'all'>('all');
   const [onlyDebtors, setOnlyDebtors] = useState(true);
-  const [sortField, setSortField] = useState<'balance' | 'overdueDays' | 'daysSinceLastActivity'>('balance');
+  const [sortField, setSortField] = useState<SortField>('balance');
   const [sortAsc, setSortAsc] = useState(false);
 
   // WhatsApp Modal
@@ -49,40 +52,55 @@ export function CariAgingReportTab({ rows, loading }: Props) {
       }
       return true;
     }).sort((a, b) => {
-      let valA = a[sortField] || 0;
-      let valB = b[sortField] || 0;
+      const valA = a[sortField] ?? 0;
+      const valB = b[sortField] ?? 0;
       return sortAsc ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
     });
   }, [rows, search, selectedBucket, onlyDebtors, sortField, sortAsc]);
 
-  // Statistics
+  // Statistics (Overhauled KPI Cards - R5)
   const totalReceivable = useMemo(() => {
     return rows.filter(r => r.balance > 0).reduce((sum, r) => sum + r.balance, 0);
   }, [rows]);
 
-  const overdueReceivable = useMemo(() => {
-    return rows.filter(r => r.balance > 0 && r.overdueDays > 0).reduce((sum, r) => sum + r.balance, 0);
+  const realRiskReceivable = useMemo(() => {
+    return rows.reduce((sum, r) => sum + (r.riskAmount || 0), 0);
   }, [rows]);
 
   const criticalReceivable = useMemo(() => {
-    return rows.filter(r => r.balance > 0 && (r.bucket === '61-90' || r.bucket === '90+')).reduce((sum, r) => sum + r.balance, 0);
+    return rows
+      .filter(r => (r.riskAmount || 0) > 0 && (r.bucket === '61-90' || r.bucket === '90+'))
+      .reduce((sum, r) => sum + (r.riskAmount || 0), 0);
   }, [rows]);
 
   const avgOverdueDays = useMemo(() => {
-    const overdueList = rows.filter(r => r.balance > 0 && r.overdueDays > 0);
-    if (overdueList.length === 0) return 0;
-    const sumDays = overdueList.reduce((sum, r) => sum + r.overdueDays, 0);
-    return Math.round(sumDays / overdueList.length);
+    const riskyAccounts = rows.filter(r => (r.riskAmount || 0) > 0);
+    if (riskyAccounts.length === 0) return 0;
+    const sumDays = riskyAccounts.reduce((sum, r) => sum + (r.overdueDays || 0), 0);
+    return Math.round(sumDays / riskyAccounts.length);
   }, [rows]);
 
-  // Bucket distribution
+  // Aging distribution pyramid (Overhauled - R5)
   const bucketCounts = useMemo(() => {
     const counts = { 'current': 0, '1-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
     const sums = { 'current': 0, '1-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
-    rows.filter(r => r.balance > 0).forEach(r => {
-      counts[r.bucket]++;
-      sums[r.bucket] += r.balance;
+
+    rows.forEach(r => {
+      const risk = r.riskAmount || 0;
+      if (risk === 0) {
+        counts['current']++;
+        if (r.balance > 0) {
+          sums['current'] += Math.min(r.balance, r.safeLimit || r.balance);
+        }
+      } else {
+        const b = r.bucket;
+        if (counts[b] !== undefined) {
+          counts[b]++;
+          sums[b] += risk;
+        }
+      }
     });
+
     return { counts, sums };
   }, [rows]);
 
@@ -93,7 +111,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSort = (field: typeof sortField) => {
+  const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
     } else {
@@ -102,19 +120,57 @@ export function CariAgingReportTab({ rows, loading }: Props) {
     }
   };
 
+  const renderStatusBadge = (row: CariAgingRow) => {
+    const isDrop = Boolean(row.isVolumeShrunk || row.hasVolumeDrop);
+    const isExceeded = (row.riskAmount || 0) > 0;
+    const dropRate = Math.round(row.volumeDropRate ?? row.volumeDropPercent ?? 0);
+
+    if (isDrop && isExceeded) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap">
+          🔴 Limit Aşımı & Hacim Düşüşte (%{dropRate})
+        </span>
+      );
+    }
+
+    if (isDrop) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">
+          🟡 Alım Hacmi Düşüşte (%{dropRate})
+        </span>
+      );
+    }
+
+    if (isExceeded) {
+      const isCritical = row.bucket === '61-90' || row.bucket === '90+' || (row.overdueDays || 0) > 60;
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap">
+          🔴 {isCritical ? 'Limit Aşımı - Kritik' : 'Limit Aşımı'}
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+        Normal Akış
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div className="py-20 text-center">
         <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-brand-600 border-r-transparent" />
-        <p className="mt-3 text-sm text-gray-500 font-medium">Cari hareketleri ve vade analizleri hesaplanıyor...</p>
+        <p className="mt-3 text-sm text-gray-500 font-medium">Cari hareketleri ve dinamik risk analizleri hesaplanıyor...</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
+      {/* KPI Cards (Overhauled - R5) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* KPI 1: Toplam Alacak */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Toplam Alacak</span>
@@ -130,26 +186,30 @@ export function CariAgingReportTab({ rows, loading }: Props) {
           </div>
         </div>
 
+        {/* KPI 2: Gerçek Riskli / Aşan Alacak */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vadesi Geçen Alacak</span>
-            <div className="rounded-lg bg-amber-50 p-2.5 text-amber-600">
-              <Clock size={20} />
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Gerçek Riskli / Aşan Alacak</span>
+            <div className="rounded-lg bg-rose-50 p-2.5 text-rose-600">
+              <ShieldAlert size={20} />
             </div>
           </div>
           <div className="mt-3">
-            <h3 className="text-2xl font-bold text-amber-900">
-              {overdueReceivable.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+            <h3 className="text-2xl font-bold text-rose-700">
+              {realRiskReceivable.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
             </h3>
-            <p className="mt-1 text-xs text-amber-700 font-medium">
-              Toplam alacağın %{totalReceivable > 0 ? Math.round((overdueReceivable / totalReceivable) * 100) : 0}'i gecikmede
+            <p className="mt-1 text-xs text-rose-600 font-medium">
+              {totalReceivable > 0 
+                ? `Toplam alacağın %${Math.round((realRiskReceivable / totalReceivable) * 100)}'i güvenli limit üzerinde`
+                : 'Güvenli limitin üzerindeki riskli borç'}
             </p>
           </div>
         </div>
 
+        {/* KPI 3: 60+ Gün Riskli Aşan Tutar */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">60+ Gün Riskli Tutar</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">60+ Gün Riskli Aşan Tutar</span>
             <div className="rounded-lg bg-rose-50 p-2.5 text-rose-600">
               <AlertTriangle size={20} />
             </div>
@@ -158,10 +218,11 @@ export function CariAgingReportTab({ rows, loading }: Props) {
             <h3 className="text-2xl font-bold text-rose-700">
               {criticalReceivable.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
             </h3>
-            <p className="mt-1 text-xs text-rose-600">60 günden fazla vadesi aşılmış alacaklar</p>
+            <p className="mt-1 text-xs text-rose-600">60 günden fazla vadesi aşılmış gerçek riskli tutar</p>
           </div>
         </div>
 
+        {/* KPI 4: Ortalama Gecikme */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Ortalama Gecikme</span>
@@ -171,12 +232,12 @@ export function CariAgingReportTab({ rows, loading }: Props) {
           </div>
           <div className="mt-3">
             <h3 className="text-2xl font-bold text-gray-900">{avgOverdueDays} Gün</h3>
-            <p className="mt-1 text-xs text-gray-500">Vadesi geçen carilerin ortalama süresi</p>
+            <p className="mt-1 text-xs text-gray-500">Limiti aşan carilerin ortalama gecikme süresi</p>
           </div>
         </div>
       </div>
 
-      {/* Vade Yaşlandırma Piramidi (Aging Pyramid) */}
+      {/* Vade Yaşlandırma Piramidi (Overhauled - R5) */}
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-bold text-gray-900">Vade Yaşlandırma Dağılımı (Filtrelemek İçin Tıklayın)</h4>
@@ -187,6 +248,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           <button
+            type="button"
             onClick={() => setSelectedBucket(selectedBucket === 'current' ? 'all' : 'current')}
             className={`rounded-lg border p-3 text-left transition-all ${
               selectedBucket === 'current'
@@ -195,7 +257,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-800">Vadesi Gelmemiş</span>
+              <span className="text-xs font-bold text-emerald-800">Vadesinde / Güvenli Bakiye</span>
               <span className="text-xs font-semibold text-emerald-600">{bucketCounts.counts['current']}</span>
             </div>
             <div className="mt-2 text-sm font-bold text-gray-900">
@@ -204,6 +266,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
           </button>
 
           <button
+            type="button"
             onClick={() => setSelectedBucket(selectedBucket === '1-30' ? 'all' : '1-30')}
             className={`rounded-lg border p-3 text-left transition-all ${
               selectedBucket === '1-30'
@@ -221,6 +284,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
           </button>
 
           <button
+            type="button"
             onClick={() => setSelectedBucket(selectedBucket === '31-60' ? 'all' : '31-60')}
             className={`rounded-lg border p-3 text-left transition-all ${
               selectedBucket === '31-60'
@@ -238,6 +302,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
           </button>
 
           <button
+            type="button"
             onClick={() => setSelectedBucket(selectedBucket === '61-90' ? 'all' : '61-90')}
             className={`rounded-lg border p-3 text-left transition-all ${
               selectedBucket === '61-90'
@@ -255,6 +320,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
           </button>
 
           <button
+            type="button"
             onClick={() => setSelectedBucket(selectedBucket === '90+' ? 'all' : '90+')}
             className={`rounded-lg border p-3 text-left transition-all ${
               selectedBucket === '90+'
@@ -299,6 +365,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
 
           {selectedBucket !== 'all' && (
             <button
+              type="button"
               onClick={() => setSelectedBucket('all')}
               className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 bg-brand-50 px-2 py-1 rounded"
             >
@@ -309,6 +376,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
 
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => exportCariAgingToExcel(filtered)}
             className="btn btn-secondary flex items-center gap-1.5 text-xs text-emerald-700 hover:bg-emerald-50 border-emerald-200"
           >
@@ -317,6 +385,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
           </button>
 
           <button
+            type="button"
             onClick={() => window.print()}
             className="btn btn-secondary flex items-center gap-1.5 text-xs text-gray-700"
           >
@@ -326,22 +395,60 @@ export function CariAgingReportTab({ rows, loading }: Props) {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table (Overhauled - 9 R5 Columns) */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-gray-600">
             <thead className="border-b border-gray-200 bg-gray-50 text-[11px] font-bold uppercase text-gray-700">
               <tr>
+                {/* 1. Cari Kodu & Ünvanı */}
                 <th className="px-4 py-3">Cari Kodu & Ünvanı</th>
+
+                {/* 2. Güncel Net Bakiye (TL) */}
                 <th 
                   onClick={() => handleSort('balance')}
                   className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 select-none"
                 >
                   <div className="flex items-center justify-end gap-1">
-                    <span>Güncel Bakiye</span>
+                    <span>Güncel Net Bakiye</span>
                     {sortField === 'balance' && (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
                   </div>
                 </th>
+
+                {/* 3. Aylık Ort. Tüketim (Kg) */}
+                <th 
+                  onClick={() => handleSort('monthlyAvgKg')}
+                  className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>Aylık Ort. Tüketim (Kg)</span>
+                    {sortField === 'monthlyAvgKg' && (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                  </div>
+                </th>
+
+                {/* 4. Güvenli Vadeli Limit (1.25x) (TL) */}
+                <th 
+                  onClick={() => handleSort('safeLimit')}
+                  className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>Güvenli Vadeli Limit (1.25x)</span>
+                    {sortField === 'safeLimit' && (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                  </div>
+                </th>
+
+                {/* 5. Gerçek Riskli / Aşan Tutar (TL) */}
+                <th 
+                  onClick={() => handleSort('riskAmount')}
+                  className="px-4 py-3 text-right cursor-pointer hover:bg-gray-100 select-none"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>Gerçek Riskli / Aşan Tutar</span>
+                    {sortField === 'riskAmount' && (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                  </div>
+                </th>
+
+                {/* 6. Vade Gecikmesi (Gün) */}
                 <th 
                   onClick={() => handleSort('overdueDays')}
                   className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 select-none"
@@ -351,31 +458,28 @@ export function CariAgingReportTab({ rows, loading }: Props) {
                     {sortField === 'overdueDays' && (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
                   </div>
                 </th>
-                <th className="px-4 py-3">En Son Mal Alışı / Fatura</th>
-                <th className="px-4 py-3">En Son Tahsilat / Ödeme</th>
-                <th 
-                  onClick={() => handleSort('daysSinceLastActivity')}
-                  className="px-4 py-3 text-center cursor-pointer hover:bg-gray-100 select-none"
-                >
-                  <div className="flex items-center justify-center gap-1">
-                    <span>Pasiflik</span>
-                    {sortField === 'daysSinceLastActivity' && (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-center">Risk</th>
+
+                {/* 7. Durum Göstergesi */}
+                <th className="px-4 py-3 text-center">Durum Göstergesi</th>
+
+                {/* 8. En Son Hareketler */}
+                <th className="px-4 py-3">En Son Hareketler</th>
+
+                {/* 9. İşlemler */}
                 <th className="px-4 py-3 text-right">İşlemler</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 font-normal">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-400">
+                  <td colSpan={9} className="py-12 text-center text-gray-400">
                     Kriterlere uygun cari kaydı bulunamadı.
                   </td>
                 </tr>
               ) : (
                 filtered.map(row => (
                   <tr key={row.cariCode} className="hover:bg-gray-50/70 transition-colors">
+                    {/* 1. Cari Kodu & Ünvanı */}
                     <td className="px-4 py-3">
                       <div className="font-bold text-gray-900">{row.cariName}</div>
                       <div className="text-[10px] text-gray-400 flex items-center gap-2 mt-0.5">
@@ -385,6 +489,7 @@ export function CariAgingReportTab({ rows, loading }: Props) {
                       </div>
                     </td>
 
+                    {/* 2. Güncel Net Bakiye (TL) */}
                     <td className="px-4 py-3 text-right whitespace-nowrap font-mono text-xs">
                       <span className={`font-bold ${
                         row.balance > 0 ? 'text-gray-900' : row.balance < 0 ? 'text-emerald-600' : 'text-gray-400'
@@ -393,9 +498,38 @@ export function CariAgingReportTab({ rows, loading }: Props) {
                       </span>
                     </td>
 
+                    {/* 3. Aylık Ort. Tüketim (Kg) */}
+                    <td className="px-4 py-3 text-right whitespace-nowrap font-mono text-xs font-medium text-gray-700">
+                      {(row.monthlyAvgKg ?? 0).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} KG
+                    </td>
+
+                    {/* 4. Güvenli Vadeli Limit (1.25x) (TL) */}
+                    <td className="px-4 py-3 text-right whitespace-nowrap font-mono text-xs font-medium text-indigo-700">
+                      {(row.safeLimit ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
+                    </td>
+
+                    {/* 5. Gerçek Riskli / Aşan Tutar (TL) */}
+                    <td className="px-4 py-3 text-right whitespace-nowrap font-mono text-xs">
+                      {(row.riskAmount || 0) > 0 ? (
+                        <span className="text-rose-600 font-bold">
+                          {row.riskAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600 font-medium">
+                          0,00 TL
+                        </span>
+                      )}
+                    </td>
+
+                    {/* 6. Vade Gecikmesi (Gün) */}
                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                      {row.overdueDays > 0 ? (
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                      {(row.riskAmount || 0) === 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <CheckCircle2 size={12} className="text-emerald-600" />
+                          Vadesinde
+                        </span>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                           row.bucket === '90+' ? 'bg-rose-100 text-rose-800' :
                           row.bucket === '61-90' ? 'bg-orange-100 text-orange-800' :
                           row.bucket === '31-60' ? 'bg-amber-100 text-amber-800' :
@@ -404,85 +538,52 @@ export function CariAgingReportTab({ rows, loading }: Props) {
                           <Clock size={11} />
                           {row.overdueDays} Gün
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700">
-                          <CheckCircle2 size={10} />
-                          Vadesinde
-                        </span>
                       )}
                     </td>
 
-                    <td className="px-4 py-3">
-                      {row.lastInvoiceDate ? (
-                        <div>
-                          <div className="text-gray-900 font-medium">
-                            {new Date(row.lastInvoiceDate).toLocaleDateString('tr-TR')}
-                            {row.lastInvoiceAmount && (
-                              <span className="text-gray-500 font-mono text-[11px] ml-1.5">
-                                ({row.lastInvoiceAmount.toLocaleString('tr-TR')} TL)
-                              </span>
-                            )}
-                          </div>
-                          {row.lastInvoiceNo && (
-                            <div className="text-[10px] text-gray-400 font-mono truncate max-w-xs">
-                              Fatura: {row.lastInvoiceNo}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-[11px]">-</span>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-3">
-                      {row.lastPaymentDate ? (
-                        <div>
-                          <div className="text-emerald-700 font-medium">
-                            {new Date(row.lastPaymentDate).toLocaleDateString('tr-TR')}
-                            {row.lastPaymentAmount && (
-                              <span className="text-emerald-600 font-mono text-[11px] ml-1.5">
-                                ({row.lastPaymentAmount.toLocaleString('tr-TR')} TL)
-                              </span>
-                            )}
-                          </div>
-                          {row.lastPaymentType && (
-                            <div className="text-[10px] text-gray-400 truncate max-w-xs">
-                              {row.lastPaymentType}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-[11px]">-</span>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-3 text-center whitespace-nowrap text-[11px]">
-                      {row.daysSinceLastActivity > 0 ? (
-                        <span className={`font-mono ${row.daysSinceLastActivity > 60 ? 'text-rose-600 font-bold' : 'text-gray-500'}`}>
-                          {row.daysSinceLastActivity} gün
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">Yeni</span>
-                      )}
-                    </td>
-
+                    {/* 7. Durum Göstergesi */}
                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span className={`inline-block w-2.5 h-2.5 rounded-full ${
-                        row.riskLevel === 'kritik' ? 'bg-rose-500' :
-                        row.riskLevel === 'yuksek' ? 'bg-orange-500' :
-                        row.riskLevel === 'orta' ? 'bg-amber-400' :
-                        'bg-emerald-500'
-                      }`} title={`Risk: ${row.riskLevel}`} />
+                      {renderStatusBadge(row)}
                     </td>
 
+                    {/* 8. En Son Hareketler */}
+                    <td className="px-4 py-3 whitespace-nowrap text-xs">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-gray-700">
+                          <span className="text-[10px] font-semibold text-gray-400 uppercase w-12">Fatura:</span>
+                          {row.lastInvoiceDate ? (
+                            <span className="font-medium text-gray-900">
+                              {new Date(row.lastInvoiceDate).toLocaleDateString('tr-TR')}
+                              {row.lastInvoiceAmount ? ` (${row.lastInvoiceAmount.toLocaleString('tr-TR')} TL)` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-gray-700">
+                          <span className="text-[10px] font-semibold text-emerald-600 uppercase w-12">Tahsilat:</span>
+                          {row.lastPaymentDate ? (
+                            <span className="font-medium text-emerald-700">
+                              {new Date(row.lastPaymentDate).toLocaleDateString('tr-TR')}
+                              {row.lastPaymentAmount ? ` (${row.lastPaymentAmount.toLocaleString('tr-TR')} TL)` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* 9. İşlemler */}
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button
+                        type="button"
                         onClick={() => setActiveMessageRow(row)}
                         title="WhatsApp Hatırlatma Metni Oluştur"
-                        className="btn btn-secondary px-2 py-1 text-[11px] text-emerald-700 hover:bg-emerald-50 border-emerald-200 inline-flex items-center gap-1"
+                        className="btn btn-secondary px-2.5 py-1 text-xs text-emerald-700 hover:bg-emerald-50 border-emerald-200 inline-flex items-center gap-1.5 font-medium"
                       >
-                        <MessageSquare size={12} />
-                        Hatırlatma
+                        <MessageSquare size={13} />
+                        <span>Hatırlatma</span>
                       </button>
                     </td>
                   </tr>
