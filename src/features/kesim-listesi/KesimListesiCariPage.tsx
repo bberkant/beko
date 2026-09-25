@@ -20,7 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 import * as XLSX from 'xlsx';
-import { useLocation } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 const turkishNormalize = (str: string): string => {
   if (!str) return '';
@@ -264,29 +264,52 @@ const formatExcelPaymentDate = (val: any): string => {
 const parseExcelDate = (val: any, selectedYear?: string, selectedMonth?: string): string | null => {
   if (val === undefined || val === null) return null;
   
+  if (val instanceof Date) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
   const clean = String(val).trim();
   if (!clean) return null;
 
-  // 1. Check for standard formats using separators
-  if (clean.includes('.') || clean.includes('-')) {
-    const parts = clean.includes('.') ? clean.split('.') : clean.split('-');
-    if (parts.length === 3) {
-      let year = parts[2].trim();
-      if (year.length === 2) {
-        year = '20' + year;
-      }
-      return `${year}-${parts[1].trim().padStart(2, '0')}-${parts[0].trim().padStart(2, '0')}`;
-    }
-    if (parts.length === 2 && selectedYear) {
-      return `${selectedYear}-${parts[1].trim().padStart(2, '0')}-${parts[0].trim().padStart(2, '0')}`;
+  // 1. Slashes, dots, or dashes regex match (DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD)
+  let mMatch = clean.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (mMatch) {
+    return `${mMatch[1]}-${String(mMatch[2]).padStart(2, '0')}-${String(mMatch[3]).padStart(2, '0')}`;
+  }
+  mMatch = clean.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (mMatch) {
+    return `${mMatch[3]}-${String(mMatch[2]).padStart(2, '0')}-${String(mMatch[1]).padStart(2, '0')}`;
+  }
+  mMatch = clean.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})\b/);
+  if (mMatch) {
+    return `20${mMatch[3]}-${String(mMatch[2]).padStart(2, '0')}-${String(mMatch[1]).padStart(2, '0')}`;
+  }
+  mMatch = clean.match(/^(\d{1,2})[-/.](\d{1,2})$/);
+  if (mMatch && selectedYear) {
+    return `${selectedYear}-${String(mMatch[2]).padStart(2, '0')}-${String(mMatch[1]).padStart(2, '0')}`;
+  }
+
+  // 2. Turkish month names (e.g. 25 EYLÜL 2026 or 25 EYLÜL)
+  const mText = clean.match(/(\d{1,2})\s+([a-zA-ZçğıöşüÇĞİÖŞÜ]+)(?:\s+(\d{4}))?/i);
+  if (mText) {
+    const day = String(mText[1]).padStart(2, '0');
+    const rawMonth = mText[2].toUpperCase().replace(/İ/g, 'I').replace(/Ş/g, 'S').replace(/Ğ/g, 'G').replace(/Ü/g, 'U').replace(/Ö/g, 'O').replace(/Ç/g, 'C');
+    const trMap: Record<string, string> = { 'OCAK': '01', 'SUBAT': '02', 'MART': '03', 'NISAN': '04', 'MAYIS': '05', 'HAZIRAN': '06', 'TEMMUZ': '07', 'AGUSTOS': '08', 'EYLUL': '09', 'EKIM': '10', 'KASIM': '11', 'ARALIK': '12' };
+    const monthNum = trMap[rawMonth];
+    if (monthNum) {
+      const year = mText[3] || selectedYear || new Date().getFullYear().toString();
+      return `${year}-${monthNum}-${day}`;
     }
   }
 
-  // 2. Check if it's a number (either Excel Serial or day-of-month)
+  // 3. Check if it's a number (either Excel Serial or day-of-month)
   const num = Number(clean);
   if (!isNaN(num)) {
-    // Excel Date Serial number (usually > 30000 and < 60000 for years 1982-2064)
-    if (num > 30000 && num < 60000) {
+    // Excel Date Serial number (usually > 30000 and < 65000 for years 1982-2077)
+    if (num > 30000 && num < 65000) {
       const date = new Date(Math.round((num - 25569) * 86400 * 1000));
       const y = date.getUTCFullYear();
       const m = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -462,15 +485,20 @@ export function KesimListesiCariPage() {
   const { user } = useAuth();
   const { notify } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedSupplier = searchParams.get('supplier') || null;
+
+  const handleSelectSupplier = (supplier: string | null) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (supplier) {
+      nextParams.set('supplier', supplier);
+    } else {
+      nextParams.delete('supplier');
+    }
+    setSearchParams(nextParams);
+  };
 
   const [records, setRecords] = useState<KesimRecord[]>(() => globalKesimRecordsCache);
-  const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
-
-  // Reset selected supplier to null when clicking on the sidebar navigation item (location key changes)
-  useEffect(() => {
-    setSelectedSupplier(null);
-  }, [location.key]);
 
   const [sortField, setSortField] = useState<string>('total_amount');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -1343,11 +1371,13 @@ export function KesimListesiCariPage() {
       <PageHeader
         title={selectedSupplier ? `Cari İşlemleri: ${selectedSupplier}` : "Kesim Listesi Cari"}
         description={selectedSupplier ? `${selectedSupplier} carisine ait detaylı hayvan kesim ve ödeme işlemleri.` : "Hayvan kesim, karkas ağırlığı ve ödemeleri cari (tedarikçi) bazında takip edin."}
+        onBack={selectedSupplier ? () => handleSelectSupplier(null) : undefined}
+        backLabel="Kesim Listesi Cari'ye Dön"
         actions={
           <div className="flex items-center gap-2">
             {selectedSupplier ? (
               <button
-                onClick={() => setSelectedSupplier(null)}
+                onClick={() => handleSelectSupplier(null)}
                 className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
               >
                 ← Listeye Dön
@@ -1847,7 +1877,7 @@ export function KesimListesiCariPage() {
                       <tr key={item.supplier} className="hover:bg-gray-50/50 transition-colors text-sm font-medium text-gray-700">
                         <td className="px-3 py-2.5 text-left font-bold text-blue-600 text-[15px]">
                           <button
-                            onClick={() => setSelectedSupplier(item.supplier)}
+                            onClick={() => handleSelectSupplier(item.supplier)}
                             className="text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left font-bold text-[15px]"
                           >
                             {item.supplier}
@@ -1876,7 +1906,7 @@ export function KesimListesiCariPage() {
                         </td>
                         <td className="px-3 py-2.5 text-center">
                           <button
-                            onClick={() => setSelectedSupplier(item.supplier)}
+                            onClick={() => handleSelectSupplier(item.supplier)}
                             className="inline-flex items-center gap-1 rounded bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-700 hover:bg-brand-100 transition-colors"
                           >
                             Detayları Gör

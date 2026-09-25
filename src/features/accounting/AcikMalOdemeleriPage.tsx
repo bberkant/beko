@@ -22,6 +22,7 @@ import {
 import { useToast } from '../../lib/toast';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
+import { PageHeader } from '../../components/ui/PageHeader';
 import * as XLSX from 'xlsx';
 
 // Supplier alias mapping from KesimListesiPage to make name matching robust
@@ -400,11 +401,13 @@ export function AcikMalOdemeleriPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedSupplierDetail = searchParams.get('supplier');
   const setSelectedSupplierDetail = (supplierName: string | null) => {
+    const nextParams = new URLSearchParams(searchParams);
     if (supplierName) {
-      setSearchParams({ supplier: supplierName });
+      nextParams.set('supplier', supplierName);
     } else {
-      setSearchParams({});
+      nextParams.delete('supplier');
     }
+    setSearchParams(nextParams);
   };
 
   // Manual Payment Form Fields
@@ -1107,41 +1110,35 @@ export function AcikMalOdemeleriPage() {
 
     return (
       <div className="space-y-6">
-        {/* Breadcrumb Navigation */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <button
-              onClick={() => setSelectedSupplierDetail(null)}
-              className="group flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-brand-600 transition-colors uppercase tracking-wider mb-1"
-            >
-              <ChevronLeft size={16} /> Açık Mal Ödemelerine Dön
-            </button>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">{selectedSupplierDetail}</h1>
-            <p className="text-sm text-gray-500">Cari Kart Detay ve Açık Mal Hareket Dökümü</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSelectedSupplierDetail(null)}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none"
-            >
-              Geri Dön
-            </button>
-            <button
-              onClick={() => {
-                setPaymentFormDate(new Date().toISOString().split('T')[0]);
-                setPaymentFormAmount('');
-                setPaymentFormNotes('');
-                setPaymentFormType('Banka/EFT');
-                setIsPaymentModalOpen(true);
-              }}
-              className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus:outline-none"
-            >
-              <Plus size={16} />
-              Ödeme Gir
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          title={selectedSupplierDetail || 'Cari Detay'}
+          description="Cari Kart Detay ve Açık Mal Hareket Dökümü"
+          onBack={() => setSelectedSupplierDetail(null)}
+          backLabel="Açık Mal Ödemeleri'ne Dön"
+          actions={
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSelectedSupplierDetail(null)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none"
+              >
+                Geri Dön
+              </button>
+              <button
+                onClick={() => {
+                  setPaymentFormDate(new Date().toISOString().split('T')[0]);
+                  setPaymentFormAmount('');
+                  setPaymentFormNotes('');
+                  setPaymentFormType('Banka/EFT');
+                  setIsPaymentModalOpen(true);
+                }}
+                className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus:outline-none"
+              >
+                <Plus size={16} />
+                Ödeme Gir
+              </button>
+            </div>
+          }
+        />
 
         {/* Cari Kart Detay Bilgileri and Net Bakiye Row */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -1681,72 +1678,68 @@ export function AcikMalOdemeleriPage() {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Açık Mal Ödemeleri</h1>
-          <p className="text-sm text-gray-500">
-            Kesim listesinde olup cari kartı olmayan veya hareketleri Vega'ya henüz işlenmemiş açık mal ödemelerini izleyin ve yönetin.
-          </p>
-        </div>
+      <PageHeader
+        title="Açık Mal Ödemeleri"
+        description="Kesim listesinde olup cari kartı olmayan veya hareketleri Vega'ya henüz işlenmemiş açık mal ödemelerini izleyin ve yönetin."
+        actions={
+          <div className="flex items-center gap-3">
+            {activeTab === 'auto_detect' && (
+              <button
+                onClick={handleDeleteAll}
+                disabled={actionLoading}
+                className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+              >
+                <Trash2 size={16} />
+                Tümünü Sil
+              </button>
+            )}
 
-        <div className="flex items-center gap-3">
-          {activeTab === 'auto_detect' && (
             <button
-              onClick={handleDeleteAll}
-              disabled={actionLoading}
-              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+              onClick={() => void loadData()}
+              disabled={loading}
+              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             >
-              <Trash2 size={16} />
-              Tümünü Sil
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              Yenile
             </button>
-          )}
+            
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            >
+              <FileSpreadsheet size={16} />
+              Excel'e Aktar
+            </button>
 
-          <button
-            onClick={() => void loadData()}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            Yenile
-          </button>
-          
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-          >
-            <FileSpreadsheet size={16} />
-            Excel'e Aktar
-          </button>
+            {activeTab === 'manual' && (
+              <>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImportExcel}
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                >
+                  <Upload size={16} />
+                  Excel Yükle
+                </button>
 
-          {activeTab === 'manual' && (
-            <>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImportExcel}
-                accept=".xlsx,.xls"
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-              >
-                <Upload size={16} />
-                Excel Yükle
-              </button>
-
-              <button
-                onClick={handleOpenAdd}
-                className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-              >
-                <Plus size={16} />
-                Açık Mal Parası Gir
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+                <button
+                  onClick={handleOpenAdd}
+                  className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                >
+                  <Plus size={16} />
+                  Açık Mal Parası Gir
+                </button>
+              </>
+            )}
+          </div>
+        }
+      />
 
       {/* Tabs Menu */}
       <div className="border-b border-gray-200">
