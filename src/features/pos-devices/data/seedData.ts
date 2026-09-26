@@ -3,55 +3,7 @@ import type { PosDevice } from '../types';
 export function normalizeBankName(raw?: string): string {
   if (!raw) return 'ZİRAAT';
   const clean = String(raw).trim();
-  const upper = clean.toLocaleUpperCase('tr-TR');
-
-  if (upper.includes('Ö. ZİRAAT') || upper.includes('Ö.ZİRAAT') || upper.includes('OZİRAAT') || upper.includes('O. ZIRAAT') || upper.includes('Ö. ZIRAAT')) {
-    return 'Ö. ZİRAAT';
-  }
-  if (upper.includes('MARİF') || upper.includes('MARIF')) {
-    return 'MARİF ZİRAAT';
-  }
-  if (upper.includes('ZİRAAT') || upper.includes('ZIRAAT')) {
-    return 'ZİRAAT';
-  }
-  if (upper.includes('GARANTİ') || upper.includes('GARANTI') || upper.includes('BBVA')) {
-    return 'GARANTİ';
-  }
-  if (upper.includes('DENİZ') || upper.includes('DENIZ')) {
-    return 'DENİZ';
-  }
-  if (upper.includes('KUVEYT') || upper.includes('KUVEYTTURK')) {
-    return 'KUVEYT';
-  }
-  if (upper.includes('ALBARAKA')) {
-    return 'ALBARAKA';
-  }
-  if (upper.includes('AKBANK')) {
-    return 'AKBANK';
-  }
-  if (upper.includes('HALK')) {
-    return 'HALK';
-  }
-  if (upper.includes('VAKIF') || upper.includes('VAKIFBANK')) {
-    return 'VAKIF';
-  }
-  if (upper.includes('YAPI') || upper.includes('KREDİ') || upper.includes('KREDI')) {
-    return 'YAPI';
-  }
-  if (upper.includes('İŞ') || upper.includes('ISBANK') || upper.includes('İŞBANK')) {
-    return 'İŞBANK';
-  }
-  if (upper.includes('ŞEKER') || upper.includes('SEKER')) {
-    return 'ŞEKER';
-  }
-  if (upper.includes('TEB')) {
-    return 'TEB';
-  }
-  if (upper.includes('QNB') || upper.includes('FİNANS') || upper.includes('FINANS')) {
-    return 'QNB FİNANS';
-  }
-
-  return upper;
+  return clean ? clean.toLocaleUpperCase('tr-TR') : 'ZİRAAT';
 }
 
 export const initialSeedPosDevices: PosDevice[] = [
@@ -175,10 +127,12 @@ export const initialSeedPosDevices: PosDevice[] = [
 ];
 
 export const POPULAR_BANKS = [
+  'ETİK KUVEYT',
+  'MARİF KUVEYT',
+  'KUVEYT',
   'ZİRAAT',
   'GARANTİ',
   'DENİZ',
-  'KUVEYT',
   'ALBARAKA',
   'Ö. ZİRAAT',
   'AKBANK',

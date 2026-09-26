@@ -585,18 +585,18 @@ function PosDevicesPageContent() {
 
                       {/* 4. Banka */}
                       <InlineTextCell
-                        value={normalizeBankName(d.bank)}
+                        value={d.bank}
                         displayValue={
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-md bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-500 shrink-0">
                               <Building2 size={13} />
                             </div>
                             <span className="text-sm font-semibold text-slate-900 tracking-tight uppercase">
-                              {normalizeBankName(d.bank)}
+                              {d.bank}
                             </span>
                           </div>
                         }
-                        onSave={(val) => updateDevice(d.id, { bank: normalizeBankName(val).toLocaleUpperCase('tr-TR') })}
+                        onSave={(val) => updateDevice(d.id, { bank: val.trim().toLocaleUpperCase('tr-TR') })}
                         placeholder="Banka..."
                       />
 
