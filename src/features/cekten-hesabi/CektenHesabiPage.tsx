@@ -51,16 +51,28 @@ const cleanNumericInput = (val: string): string => {
   return clean;
 };
 
-const formatNumberString = (str: string) => {
-  if (!str) return '';
+const formatNumberString = (val: string | number) => {
+  if (val === null || val === undefined || val === '') return '';
 
-  // Clean all dots (thousands separators)
-  let cleanStr = str.replace(/\./g, '');
+  // If a number is passed (e.g. from DB or state: 15000, 31681.5)
+  if (typeof val === 'number') {
+    if (isNaN(val)) return '';
+    return val.toLocaleString('tr-TR', {
+      minimumFractionDigits: val % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  let s = String(val).trim();
+  if (!s) return '';
+
+  // Strip all dots (thousand separators)
+  const withoutDots = s.replace(/\./g, '');
 
   let cleanVal = '';
   let hasComma = false;
-  for (let i = 0; i < cleanStr.length; i++) {
-    const char = cleanStr[i];
+  for (let i = 0; i < withoutDots.length; i++) {
+    const char = withoutDots[i];
     if (char >= '0' && char <= '9') {
       cleanVal += char;
     } else if (char === ',' && !hasComma) {
@@ -70,20 +82,31 @@ const formatNumberString = (str: string) => {
   }
 
   const parts = cleanVal.split(',');
-  let integerPart = parts[0];
-  let decimalPart = parts[1];
+  let integerPart = parts[0] || '';
+  const decimalPart = parts[1];
+
+  // Strip leading zeros unless it is just '0'
+  if (integerPart.length > 1 && integerPart.startsWith('0')) {
+    integerPart = integerPart.replace(/^0+/, '') || '0';
+  }
+
+  // Format integer part with Turkish thousand separator (.)
   if (integerPart) {
     integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   }
+
   if (hasComma) {
-    return `${integerPart},${decimalPart !== undefined ? decimalPart : ''}`;
+    const dec = decimalPart !== undefined ? decimalPart.slice(0, 2) : '';
+    return (integerPart || '0') + ',' + dec;
   }
+
   return integerPart;
 };
 
-const parseFormattedNumber = (str: string): number => {
-  if (!str) return 0;
-  const clean = str.replace(/\./g, '').replace(/,/g, '.');
+const parseFormattedNumber = (str: string | number): number => {
+  if (str === null || str === undefined || str === '') return 0;
+  if (typeof str === 'number') return isNaN(str) ? 0 : str;
+  const clean = String(str).replace(/\./g, '').replace(/,/g, '.');
   return parseFloat(clean) || 0;
 };
 
@@ -664,8 +687,8 @@ export function CektenHesabiPage() {
     setNewRecord({
       date: r.date,
       supplier: r.supplier,
-      total_amount: isBorc ? formatNumberString(String(r.total_amount)) : '',
-      paid_amount: isBorc ? '' : formatNumberString(String(r.paid_amount)),
+      total_amount: isBorc ? formatNumberString(r.total_amount) : '',
+      paid_amount: isBorc ? '' : formatNumberString(r.paid_amount),
       payment_date: r.payment_date || 'CARİ',
       notes: r.notes || ''
     });

@@ -102,16 +102,28 @@ const turkishNormalize = (str: string): string => {
     .trim();
 };
 
-const formatNumberString = (str: string) => {
-  if (!str) return '';
-  // Replace dot with comma (decimal separator)
-  let val = str.replace(/\./g, ',');
-  
-  // Only keep the first comma, remove all other characters that are not digits or comma
+const formatNumberString = (val: string | number) => {
+  if (val === null || val === undefined || val === '') return '';
+
+  // If a number is passed (e.g. from DB or state: 15000, 31681.5)
+  if (typeof val === 'number') {
+    if (isNaN(val)) return '';
+    return val.toLocaleString('tr-TR', {
+      minimumFractionDigits: val % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  let s = String(val).trim();
+  if (!s) return '';
+
+  // Strip all dots (thousand separators)
+  const withoutDots = s.replace(/\./g, '');
+
   let cleanVal = '';
   let hasComma = false;
-  for (let i = 0; i < val.length; i++) {
-    const char = val[i];
+  for (let i = 0; i < withoutDots.length; i++) {
+    const char = withoutDots[i];
     if (char >= '0' && char <= '9') {
       cleanVal += char;
     } else if (char === ',' && !hasComma) {
@@ -119,24 +131,33 @@ const formatNumberString = (str: string) => {
       hasComma = true;
     }
   }
-  
+
   const parts = cleanVal.split(',');
-  let integerPart = parts[0];
-  let decimalPart = parts[1];
-  
+  let integerPart = parts[0] || '';
+  const decimalPart = parts[1];
+
+  // Strip leading zeros unless it is just '0'
+  if (integerPart.length > 1 && integerPart.startsWith('0')) {
+    integerPart = integerPart.replace(/^0+/, '') || '0';
+  }
+
+  // Format integer part with Turkish thousand separator (.)
   if (integerPart) {
     integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   }
-  
+
   if (hasComma) {
-    return `${integerPart},${decimalPart !== undefined ? decimalPart : ''}`;
+    const dec = decimalPart !== undefined ? decimalPart.slice(0, 2) : '';
+    return (integerPart || '0') + ',' + dec;
   }
+
   return integerPart;
 };
 
-const parseFormattedNumber = (str: string): number => {
-  if (!str) return 0;
-  const clean = str.replace(/\./g, '').replace(/,/g, '.');
+const parseFormattedNumber = (str: string | number): number => {
+  if (str === null || str === undefined || str === '') return 0;
+  if (typeof str === 'number') return isNaN(str) ? 0 : str;
+  const clean = String(str).replace(/\./g, '').replace(/,/g, '.');
   return parseFloat(clean) || 0;
 };
 
@@ -147,21 +168,6 @@ const formatDateForDB = (dateStr: string) => {
     return `${parts[2]}.${parts[1]}.${parts[0]}`; // yyyy-mm-dd to dd.mm.yyyy
   }
   return dateStr;
-};
-
-const cleanNumericInput = (val: string): string => {
-  let clean = '';
-  let hasDecimal = false;
-  for (let i = 0; i < val.length; i++) {
-    const char = val[i];
-    if (char >= '0' && char <= '9') {
-      clean += char;
-    } else if ((char === ',' || char === '.') && !hasDecimal) {
-      clean += char;
-      hasDecimal = true;
-    }
-  }
-  return clean;
 };
 
 function InlineEdit({
@@ -189,7 +195,7 @@ function InlineEdit({
   const [tempVal, setTempVal] = useState(value);
 
   const startEdit = () => {
-    setTempVal(isNumeric ? value.replace(/\./g, '') : value);
+    setTempVal(isNumeric ? formatNumberString(value) : value);
     setEditing(true);
   };
 
@@ -215,7 +221,7 @@ function InlineEdit({
         type={type}
         className={`input !py-0.5 !px-1.5 !text-xs w-full ${inputClassName}`}
         value={tempVal}
-        onChange={(e) => setTempVal(isNumeric ? cleanNumericInput(e.target.value) : e.target.value)}
+        onChange={(e) => setTempVal(isNumeric ? formatNumberString(e.target.value) : e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         autoFocus
@@ -948,8 +954,8 @@ export function AcikMalOdemeleriPage() {
     setSelectedRecord(rec);
     setFormDate(rec.date);
     setFormSupplier(rec.supplier);
-    setFormTotalAmount(formatNumberString(String(rec.total_amount)));
-    setFormRemainingAmount(formatNumberString(String(rec.remaining_amount)));
+    setFormTotalAmount(formatNumberString(rec.total_amount));
+    setFormRemainingAmount(formatNumberString(rec.remaining_amount));
     setFormNotes(rec.notes || '');
     setFormPaymentDate(rec.payment_date || 'CARİ');
     setIsModalOpen(true);
@@ -960,8 +966,8 @@ export function AcikMalOdemeleriPage() {
     setSelectedRecord(null);
     setFormDate(rec.slaughter_date);
     setFormSupplier(rec.supplier);
-    setFormTotalAmount(formatNumberString(String(rec.total_amount)));
-    setFormRemainingAmount(formatNumberString(String(rec.kalan_tutar)));
+    setFormTotalAmount(formatNumberString(rec.total_amount));
+    setFormRemainingAmount(formatNumberString(rec.kalan_tutar));
     setFormNotes('');
     setFormPaymentDate('CARİ');
     setIsModalOpen(true);
