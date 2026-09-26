@@ -54,7 +54,7 @@ export async function sendWhatsAppMessage(payload: {
     body: payload.body,
     media_url: payload.mediaUrl,
     media_caption: payload.mediaCaption,
-    status: 'sent',
+    status: 'pending',
     timestamp: new Date().toISOString()
   };
 
