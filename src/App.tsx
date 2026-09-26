@@ -158,12 +158,14 @@ export default function App() {
                 <Route path="/e-fatura/marif" element={<VegaArctosEfaturaPage company="marif" />} />
                 
                 {/* Dış Muhasebe Rotaları */}
+                <Route path="/dis-muhasebe" element={<Navigate to="/dis-muhasebe/veri-gonderimi" replace />} />
                 <Route path="/dis-muhasebe/veri-gonderimi" element={<DisMuhasebePage activeTab="veri-gonderimi" />} />
                 <Route path="/dis-muhasebe/beyannameler" element={<DisMuhasebePage activeTab="beyannameler" />} />
                 <Route path="/dis-muhasebe/mutabakatlar" element={<DisMuhasebePage activeTab="mutabakatlar" />} />
                 <Route path="/dis-muhasebe/mizan" element={<DisMuhasebePage activeTab="mizan" />} />
 
                 {/* Hukuki İşlemler Rotaları */}
+                <Route path="/hukuk" element={<Navigate to="/hukuk/dosyalar" replace />} />
                 <Route path="/hukuk/dosyalar" element={<HukukiIslemlerPage activeTab="dosyalar" />} />
                 <Route path="/hukuk/takvim" element={<HukukiIslemlerPage activeTab="takvim" />} />
                 <Route path="/hukuk/uyap" element={<HukukiIslemlerPage activeTab="uyap" />} />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   MessageSquare, 
   Smartphone, 
@@ -60,6 +61,7 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
     return () => window.removeEventListener('whatsapp-theme-changed', handleEvent);
   }, [user?.email]);
 
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'chat' | 'media' | 'tasks' | 'settings'>(initialTab);
   const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,6 +77,17 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
       setActiveTab(initialTab);
     }
   }, [initialTab]);
+
+  const handleTabChange = (tab: 'chat' | 'media' | 'tasks' | 'settings') => {
+    setActiveTab(tab);
+    const routeMap = {
+      chat: '/whatsapp/sohbetler',
+      media: '/whatsapp/belgeler',
+      tasks: '/whatsapp/gorevler',
+      settings: '/whatsapp/ayarlar',
+    };
+    navigate(routeMap[tab]);
+  };
 
   const loadStats = useCallback(async () => {
     try {
@@ -243,7 +256,7 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
         isDark ? 'bg-[#202c33] border-[#2a3942]' : 'bg-white border-gray-200'
       }`}>
         <button
-          onClick={() => setActiveTab('chat')}
+          onClick={() => handleTabChange('chat')}
           className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'chat'
               ? isDark ? 'bg-[#00a884] text-[#111b21] shadow-sm' : 'bg-emerald-600 text-white shadow-sm'
@@ -262,7 +275,7 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('media')}
+          onClick={() => handleTabChange('media')}
           className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'media'
               ? isDark ? 'bg-[#00a884] text-[#111b21] shadow-sm' : 'bg-emerald-600 text-white shadow-sm'
@@ -281,7 +294,7 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('tasks')}
+          onClick={() => handleTabChange('tasks')}
           className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'tasks'
               ? isDark ? 'bg-[#00a884] text-[#111b21] shadow-sm' : 'bg-emerald-600 text-white shadow-sm'
@@ -300,7 +313,7 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('settings')}
+          onClick={() => handleTabChange('settings')}
           className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'settings'
               ? isDark ? 'bg-[#00a884] text-[#111b21] shadow-sm' : 'bg-emerald-600 text-white shadow-sm'

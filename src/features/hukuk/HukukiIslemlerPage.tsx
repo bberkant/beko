@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Gavel, 
   Plus, 
@@ -68,9 +69,15 @@ interface VegaCari {
 }
 
 export function HukukiIslemlerPage({ activeTab: initialTab = 'dosyalar' }: HukukiIslemlerPageProps) {
+  const navigate = useNavigate();
   const { notify } = useToast();
   const { user } = useAuth();
   const [currentTab, setCurrentTab] = useState(initialTab);
+
+  const handleTabChange = (tab: 'dosyalar' | 'takvim' | 'uyap' | 'avukatlar') => {
+    setCurrentTab(tab);
+    navigate(`/hukuk/${tab}`);
+  };
 
   // General loading states
   const [loading, setLoading] = useState(false);
@@ -452,7 +459,7 @@ export function HukukiIslemlerPage({ activeTab: initialTab = 'dosyalar' }: Hukuk
       {/* Tabs */}
       <div className="flex border-b border-gray-200">
         <button
-          onClick={() => setCurrentTab('dosyalar')}
+          onClick={() => handleTabChange('dosyalar')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
             currentTab === 'dosyalar'
               ? 'border-[#f37021] text-[#f37021]'
@@ -462,7 +469,7 @@ export function HukukiIslemlerPage({ activeTab: initialTab = 'dosyalar' }: Hukuk
           Dava & İcra Takibi
         </button>
         <button
-          onClick={() => setCurrentTab('takvim')}
+          onClick={() => handleTabChange('takvim')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
             currentTab === 'takvim'
               ? 'border-[#f37021] text-[#f37021]'
@@ -472,7 +479,7 @@ export function HukukiIslemlerPage({ activeTab: initialTab = 'dosyalar' }: Hukuk
           Duruşma & İş Takvimi
         </button>
         <button
-          onClick={() => setCurrentTab('uyap')}
+          onClick={() => handleTabChange('uyap')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
             currentTab === 'uyap'
               ? 'border-[#f37021] text-[#f37021]'
@@ -482,7 +489,7 @@ export function HukukiIslemlerPage({ activeTab: initialTab = 'dosyalar' }: Hukuk
           UYAP Entegrasyon Merkezi
         </button>
         <button
-          onClick={() => setCurrentTab('avukatlar')}
+          onClick={() => handleTabChange('avukatlar')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
             currentTab === 'avukatlar'
               ? 'border-[#f37021] text-[#f37021]'

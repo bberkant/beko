@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Building2, 
   Upload, 
@@ -70,9 +71,15 @@ interface VegaCari {
 }
 
 export function DisMuhasebePage({ activeTab: initialTab = 'veri-gonderimi' }: DisMuhasebePageProps) {
+  const navigate = useNavigate();
   const { notify } = useToast();
   const { user } = useAuth();
   const [currentTab, setCurrentTab] = useState(initialTab);
+
+  const handleTabChange = (tab: 'veri-gonderimi' | 'beyannameler' | 'mutabakatlar' | 'mizan') => {
+    setCurrentTab(tab);
+    navigate(`/dis-muhasebe/${tab}`);
+  };
 
   // Tab 1 (Veri Gönderimi) States
   const [exportCompany, setExportCompany] = useState<'etik' | 'marif'>('marif');
@@ -677,7 +684,7 @@ export function DisMuhasebePage({ activeTab: initialTab = 'veri-gonderimi' }: Di
       {/* Primary Tab Navigation */}
       <div className="flex border-b border-gray-200">
         <button
-          onClick={() => setCurrentTab('veri-gonderimi')}
+          onClick={() => handleTabChange('veri-gonderimi')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
             currentTab === 'veri-gonderimi'
               ? 'border-[#f37021] text-[#f37021]'
@@ -687,7 +694,7 @@ export function DisMuhasebePage({ activeTab: initialTab = 'veri-gonderimi' }: Di
           Veri Gönderim Portalı
         </button>
         <button
-          onClick={() => setCurrentTab('beyannameler')}
+          onClick={() => handleTabChange('beyannameler')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
             currentTab === 'beyannameler'
               ? 'border-[#f37021] text-[#f37021]'
@@ -697,7 +704,7 @@ export function DisMuhasebePage({ activeTab: initialTab = 'veri-gonderimi' }: Di
           Beyanname Deposu
         </button>
         <button
-          onClick={() => setCurrentTab('mutabakatlar')}
+          onClick={() => handleTabChange('mutabakatlar')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
             currentTab === 'mutabakatlar'
               ? 'border-[#f37021] text-[#f37021]'
@@ -707,7 +714,7 @@ export function DisMuhasebePage({ activeTab: initialTab = 'veri-gonderimi' }: Di
           Cari Mutabakat (BA/BS)
         </button>
         <button
-          onClick={() => setCurrentTab('mizan')}
+          onClick={() => handleTabChange('mizan')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
             currentTab === 'mizan'
               ? 'border-[#f37021] text-[#f37021]'
