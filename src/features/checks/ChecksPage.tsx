@@ -242,11 +242,11 @@ export const fixCorruptedText = fixCorruptedTurkishText;
 
 const formatTaksitDesc = (desc: string | null | undefined): string => {
   if (!desc) return '';
-  const clean = fixCorruptedText(desc.trim());
+  const clean = fixCorruptedText(desc.trim()).toLocaleUpperCase('tr-TR');
   const idx = clean.indexOf('-');
   if (idx !== -1) {
     const left = clean.substring(0, idx).trim();
-    const leftUpper = left.toUpperCase();
+    const leftUpper = left.toLocaleUpperCase('tr-TR');
     const isSystem = leftUpper.includes('ALBARAKA') || 
                      leftUpper.includes('KUVEYT') || 
                      leftUpper.includes('TAKSİT') || 
@@ -556,12 +556,12 @@ export function ChecksPage() {
           organization_id: orgId,
           check_type: newCheckType,
           local_id: localId,
-          check_no: newCheckNo,
-          bank_name: newBankName,
-          bank_branch: newCheckType === 'kesilen' ? '' : newBankBranch,
-          debtor: finalDebtor,
-          creditor: newCreditor,
-          kesideci: finalKesideci || null,
+          check_no: newCheckNo ? newCheckNo.trim().toUpperCase() : '',
+          bank_name: newBankName ? newBankName.trim().toLocaleUpperCase('tr-TR') : '',
+          bank_branch: newCheckType === 'kesilen' ? '' : (newBankBranch ? newBankBranch.trim().toLocaleUpperCase('tr-TR') : ''),
+          debtor: finalDebtor ? finalDebtor.trim().toLocaleUpperCase('tr-TR') : '',
+          creditor: newCreditor ? newCreditor.trim().toLocaleUpperCase('tr-TR') : '',
+          kesideci: finalKesideci ? finalKesideci.trim().toLocaleUpperCase('tr-TR') : null,
           due_date: newDueDate || null,
           amount: parseFloat(newAmount) || 0,
           para_birimi: newParaBirimi,
@@ -1825,19 +1825,19 @@ export function ChecksPage() {
       };
 
       if (context.type === 'takas') {
-        insertData.debtor = context.colName;
+        insertData.debtor = context.colName ? context.colName.toLocaleUpperCase('tr-TR') : '';
         insertData.ozel_alan = 'TAKASTA';
         if (field === 'amount') insertData.amount = parsedValue;
-        if (field === 'creditor') insertData.creditor = parsedValue;
+        if (field === 'creditor') insertData.creditor = String(parsedValue).trim().toLocaleUpperCase('tr-TR');
       } else if (context.type === 'nontakas') {
         insertData.ozel_alan = 'TAKASTA OLMAYAN';
         if (field === 'amount') insertData.amount = parsedValue;
-        if (field === 'creditor') insertData.creditor = parsedValue;
-        if (field === 'debtor') insertData.debtor = parsedValue;
+        if (field === 'creditor') insertData.creditor = String(parsedValue).trim().toLocaleUpperCase('tr-TR');
+        if (field === 'debtor') insertData.debtor = String(parsedValue).trim().toLocaleUpperCase('tr-TR');
       } else if (context.type === 'kayip') {
         if (field === 'amount') insertData.amount = parsedValue;
-        if (field === 'creditor') insertData.creditor = parsedValue;
-        if (field === 'bank_name') insertData.bank_name = parsedValue;
+        if (field === 'creditor') insertData.creditor = String(parsedValue).trim().toLocaleUpperCase('tr-TR');
+        if (field === 'bank_name') insertData.bank_name = String(parsedValue).trim().toLocaleUpperCase('tr-TR');
         if (field === 'due_date') insertData.due_date = parsedValue;
       }
 
@@ -4274,9 +4274,9 @@ export function ChecksPage() {
                                 '-'
                               )}
                             </td>
-                            <td className="px-1.5 py-1.5 text-gray-600 font-medium">{check.debtor || '-'}</td>
-                            <td className="px-1.5 py-1.5 text-gray-600 font-medium">{fixCorruptedText(check.kesideci) || '-'}</td>
-                            <td className="px-1.5 py-1.5 text-gray-600 font-medium">{fixCorruptedText(check.creditor) || '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-600 font-medium uppercase">{check.debtor ? fixCorruptedText(check.debtor) : '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-600 font-medium uppercase">{check.kesideci ? fixCorruptedText(check.kesideci) : '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-600 font-medium uppercase">{check.creditor ? fixCorruptedText(check.creditor) : '-'}</td>
                             <td className="px-1.5 py-1.5 font-semibold text-gray-800">
                               <div className="flex items-center gap-1.5">
                                 {isRecordSenet ? (
@@ -4287,11 +4287,11 @@ export function ChecksPage() {
                                 <span>{check.check_no || '-'}</span>
                               </div>
                             </td>
-                            <td className="px-1.5 py-1.5 text-gray-600 font-medium">{check.tahsildar_banka || '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-600 font-medium uppercase">{check.tahsildar_banka || '-'}</td>
                             <td className="px-1.5 py-1.5 text-center font-bold text-gray-900 text-[12.5px] whitespace-nowrap">
                               {formatCurrency(check.amount, check.para_birimi)}
                             </td>
-                            <td className="px-1.5 py-1.5 font-semibold text-gray-700">
+                            <td className="px-1.5 py-1.5 font-semibold text-gray-700 uppercase">
                               <div className="flex items-center gap-1.5">
                                 <Building size={13} className="text-gray-400 flex-shrink-0" />
                                 {check.bank_name || '-'}
@@ -4310,10 +4310,10 @@ export function ChecksPage() {
                                 {displayStatus(check.status, check.check_type)}
                               </span>
                             </td>
-                            <td className="px-1.5 py-1.5 text-gray-500 font-medium">{check.bank_branch || '-'}</td>
-                            <td className="px-1.5 py-1.5 text-gray-500 font-medium">{check.keside_yeri || '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-500 font-medium uppercase">{check.bank_branch || '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-500 font-medium uppercase">{check.keside_yeri || '-'}</td>
                             <td className="px-1.5 py-1.5 text-center text-gray-600 font-medium">{formatDate(check.issue_date || check.created_at)}</td>
-                            <td className="px-1.5 py-1.5 text-gray-600 font-medium">{check.ciro_edilen || '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-600 font-medium uppercase">{check.ciro_edilen ? fixCorruptedText(check.ciro_edilen) : '-'}</td>
                             <td className="px-1.5 py-1.5 text-gray-500 font-semibold">{fixCorruptedText(check.ozel_alan) || (isRecordSenet ? 'SENET' : 'ÇEK')}</td>
                           </>
                         ) : (
@@ -4338,7 +4338,7 @@ export function ChecksPage() {
                                 '-'
                               )}
                             </td>
-                            <td className="px-1.5 py-1.5 text-gray-600 font-medium">{check.creditor || '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-600 font-medium uppercase">{check.creditor ? fixCorruptedText(check.creditor) : '-'}</td>
                             <td className="px-1.5 py-1.5 font-semibold text-gray-800">
                               <div className="flex items-center gap-1.5">
                                 {isRecordSenet ? (
@@ -4349,7 +4349,7 @@ export function ChecksPage() {
                                 <span>{check.check_no || '-'}</span>
                               </div>
                             </td>
-                            <td className="px-1.5 py-1.5 text-gray-600 font-medium">{check.debtor || '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-600 font-medium uppercase">{check.debtor ? fixCorruptedText(check.debtor) : '-'}</td>
                             <td className="px-1.5 py-1.5 text-center font-bold text-gray-900 text-[12.5px] whitespace-nowrap">
                               {formatCurrency(check.amount, check.para_birimi)}
                             </td>
