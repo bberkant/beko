@@ -364,4 +364,22 @@ Cari yaşlandırma, risk analizi ve borç-alacak raporlama algoritmaları geliş
    - Cari yaşlandırma hesaplamalarında carinin toplam borcu kesinlikle yalnızca "en son kesilen faturaya" veya tekil bir harekete indirgenemez.
    - Açık bakiye, geriye dönük tahsilatlarla faturaların sırasıyla eritildiği FIFO yöntemiyle analiz edilmeli; doğal vadeli sınırın üzerinde kalan kısım hangi tarihten kalmışsa gecikme o tutar için işletilmelidir.
 
+## Finansal Tutar Girişleri ve Bin Ayıracı (.) Standartları
+
+Sistem genelinde tutar, ödeme, borç, alacak ve bakiye girişi yapılan tüm bileşenlerde (Modal formları, InlineEdit hücreleri vb.) Türk Lirası muhasebe standartlarına tam uyum sağlanmalıdır:
+
+1. **Binlik ve Ondalık Ayıracı Hiyerarşisi:**
+   - Binlik ayıracı olarak **nokta (`.`)** kullanılmalıdır (Örn: `15.000`, `1.250.000`).
+   - Kuruş / ondalık ayıracı olarak yalnızca **virgül (`,`)** kullanılmalıdır (Örn: `15.000,50`).
+   - Kullanıcı klavyeden nokta girdiğinde veya silme (backspace) işlemi yaptığında nokta kesinlikle virgüle dönüştürülmemelidir.
+
+2. **Dinamik Yazım (Keystroke) ve Silme (Backspace) Standartları:**
+   - Sayı girişi esnasında (`onChange`), metin içerisindeki tüm mevcut noktalar ayıklanmalı; tam sayı kısmı düzenli ifade `\B(?=(\d{3})+(?!\d))` ile soldan sağa 3'erli gruplar halinde dinamik olarak noktalanmalıdır.
+   - Sayı silinirken (backspace), kullanıcının sildiği basamak doğrultusunda binlik noktaları bozulmadan yeniden hesaplanmalıdır (örneğin `15.000` -> bir sıfır silinince `1.500` olmalıdır; `15,00` olmamalıdır).
+
+3. **Çift Yönlü Tip Desteği (String & Number):**
+   - Biçimlendirme yardımcı fonksiyonu (`formatNumberString`), veritabanından gelen saf `number` tiplerini de doğrudan kabul etmeli ve `toLocaleString('tr-TR')` ile biçimlendirmelidir.
+   - Veritabanına yazım öncesi `parseFormattedNumber` fonksiyonu tüm noktaları temizlemeli, virgülü noktaya çevirerek güvenli `number` (`parseFloat`) üretmelidir.
+
+
 
