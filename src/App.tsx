@@ -22,6 +22,7 @@ import { BackupsPage } from './features/settings/BackupsPage';
 import { ReportingPage } from './features/reporting/ReportingPage';
 import { TendersPage } from './features/tenders/TendersPage';
 import { DogrudanTeminPage } from './features/tenders/DogrudanTeminPage';
+import { MektupListPage } from './features/tenders/MektupListPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { HgsAndFinesPage } from './features/vehicles/HgsAndFinesPage';
 import { FuelTrackingPage } from './features/vehicles/FuelTrackingPage';
@@ -193,6 +194,7 @@ export default function App() {
                 <Route path="/arac-yonetimi/:id/duzenle" element={<VehicleFormPage />} />
                 <Route path="/ihaleler" element={<TendersPage />} />
                 <Route path="/ihaleler/dogrudan-teminler" element={<DogrudanTeminPage />} />
+                <Route path="/ihaleler/mektup-listesi" element={<MektupListPage />} />
                 <Route path="/gayrimenkul-listesi" element={<RealEstatesPage />} />
                 <Route path="/kesim-listesi" element={<KesimListesiPage />} />
                 <Route path="/kesim-listesi/cari" element={<KesimListesiCariPage />} />

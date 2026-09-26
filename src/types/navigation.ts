@@ -109,6 +109,7 @@ export const navItems: NavItem[] = [
     children: [
       { label: 'İhaleler', to: '/ihaleler' },
       { label: 'Doğrudan Temin', to: '/ihaleler/dogrudan-teminler' },
+      { label: 'Mektup Listesi', to: '/ihaleler/mektup-listesi' },
     ],
   },
   {
