@@ -134,7 +134,14 @@ export const WhatsAppMessenger: React.FC<WhatsAppMessengerProps> = ({
 
   useEffect(() => {
     loadChats();
-  }, [orgId]);
+    const interval = setInterval(async () => {
+      try {
+        const sessionData = await getGatewaySession(orgId);
+        setSession(sessionData);
+      } catch (e) {}
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [orgId, loadChats]);
 
   useEffect(() => {
     loadMessages();
@@ -232,7 +239,10 @@ export const WhatsAppMessenger: React.FC<WhatsAppMessengerProps> = ({
       {/* Device Connection Modal */}
       <DeviceConnectionModal
         open={isDeviceModalOpen}
-        onClose={() => setIsDeviceModalOpen(false)}
+        onClose={() => {
+          setIsDeviceModalOpen(false);
+          loadChats();
+        }}
         groupsCount={chats.filter(c => c.is_group).length || 5}
       />
 
