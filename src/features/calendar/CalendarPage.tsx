@@ -45,9 +45,9 @@ export const ALL_EVENT_TYPES: EventType[] = [
   'note',
   'credit-card',
   'tender',
-  'check',
   'insurance',
   'inspection',
+  'check',
   'bill'
 ];
 
@@ -55,9 +55,9 @@ export const DEFAULT_ACTIVE_EVENT_TYPES: EventType[] = [
   'note',
   'credit-card',
   'tender',
-  'check',
   'insurance',
   'inspection',
+  'check',
   'bill'
 ];
 
@@ -109,9 +109,9 @@ const styles: Record<EventType, { label: string; dot: string; badge: string }> =
   note: { label: 'NOT', dot: 'bg-indigo-500', badge: 'bg-indigo-50 text-indigo-700 border border-indigo-200' },
   'credit-card': { label: 'KART', dot: 'bg-red-500', badge: 'bg-red-50 text-red-700 border border-red-200' },
   tender: { label: 'İHALE', dot: 'bg-purple-600', badge: 'bg-purple-50 text-purple-700 border border-purple-200' },
-  check: { label: 'ÇEK / SENET', dot: 'bg-emerald-600', badge: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
   insurance: { label: 'SİGORTA', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border border-blue-200' },
   inspection: { label: 'MUAYENE', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
+  check: { label: 'ÇEK / SENET', dot: 'bg-emerald-600', badge: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
   bill: { label: 'FATURA', dot: 'bg-orange-500', badge: 'bg-orange-50 text-orange-800 border border-orange-200' },
 };
 
