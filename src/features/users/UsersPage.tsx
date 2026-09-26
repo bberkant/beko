@@ -3,7 +3,7 @@ import { Check, Copy, Search, ShieldCheck, UserCheck, UserPlus, Users } from 'lu
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Modal } from '../../components/ui/Modal';
 import { supabase } from '../../lib/supabase';
-import { useAuth, type OrganizationRole } from '../../lib/auth';
+import { useAuth, type OrganizationRole, saveCustomStaffPassword } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 
 interface Member { user_id: string; full_name: string; email: string; role: OrganizationRole; active: boolean; joined_at: string }
@@ -66,6 +66,8 @@ export function UsersPage() {
     if (error) {
       notify(error.message, 'error');
     } else {
+      saveCustomStaffPassword(email.trim(), password.trim());
+      saveCustomStaffPassword(fullName.trim(), password.trim());
       notify('Kullanıcı başarıyla oluşturuldu.', 'success');
       setInviteOpen(false);
       setEmail('');
@@ -82,6 +84,12 @@ export function UsersPage() {
       return;
     }
     setEditSaving(true);
+    if (editPassword.trim()) {
+      saveCustomStaffPassword(editingMember.user_id, editPassword.trim());
+      saveCustomStaffPassword(editingMember.email, editPassword.trim());
+      saveCustomStaffPassword(editingMember.full_name, editPassword.trim());
+      saveCustomStaffPassword(editName.trim(), editPassword.trim());
+    }
     const { error } = await supabase.rpc('admin_update_user', {
       target_user_id: editingMember.user_id,
       new_full_name: editName.trim(),

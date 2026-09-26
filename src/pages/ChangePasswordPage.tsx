@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { KeyRound, ShieldCheck, Eye, EyeOff, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
+import { useAuth, saveCustomStaffPassword } from '../lib/auth';
 import { useToast } from '../lib/toast';
 
 export function ChangePasswordPage() {
@@ -33,8 +33,15 @@ export function ChangePasswordPage() {
     setSuccess(false);
 
     try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
+      if (user?.id) saveCustomStaffPassword(user.id, password.trim());
+      if (user?.email) saveCustomStaffPassword(user.email, password.trim());
+      if (user?.name) saveCustomStaffPassword(user.name, password.trim());
+
+      const isDirectSupabaseUser = user?.email === 'berkant@dars.local' || user?.email === 'admin@ops360.local';
+      if (isDirectSupabaseUser) {
+        const { error } = await supabase.auth.updateUser({ password: password.trim() });
+        if (error) throw error;
+      }
 
       setSuccess(true);
       setPassword('');
