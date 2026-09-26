@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { 
   Building2, TrendingUp, TrendingDown, Wallet, 
   History, RotateCcw, FileSpreadsheet, ArrowUpRight,
@@ -8,7 +9,7 @@ import * as xlsx from 'xlsx';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Modal } from '../../components/ui/Modal';
 import { useToast } from '../../lib/toast';
-import { useAuth } from '../../lib/auth';
+import { useAuth, isSuleymanOrMustafaDemir } from '../../lib/auth';
 import { defaultMonthEnd2026_08 } from './defaultData2026_08';
 import type { MonthEndData, MonthEndSnapshot, AssetItem, LiabilityItem, CheckOrOpenGood } from './types';
 
@@ -46,6 +47,10 @@ type SectionKey = 'realEstates' | 'vehicles' | 'stocks' | 'receivables' | 'bankA
 export function MonthEndPage() {
   const { user } = useAuth();
   const { notify } = useToast();
+
+  if (user && isSuleymanOrMustafaDemir(user)) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<'balance' | 'pl' | 'liquidity' | 'checks' | 'snapshots'>('balance');

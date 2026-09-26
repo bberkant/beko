@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+import { useAuth, isSuleymanOrMustafaDemir } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import {
   Wallet,
@@ -130,6 +130,7 @@ const saveDashboardCache = (data: Partial<DashboardCachedData>) => {
 export function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isExcludedUser = isSuleymanOrMustafaDemir(user);
 
   // Sidebar theme preservation
   const [sidebarTheme, setSidebarTheme] = useState<'banking' | 'classic' | 'banking_trial' | 'dia_v3' | 'one_dars_v4' | 'bulut_erp'>(() => {
@@ -661,28 +662,34 @@ export function DashboardPage() {
   };
 
   // Bulut ERP Theme View
-  const bulutModules = useMemo(() => [
-    { label: 'Başlangıç Rehberi', bg: 'bg-[#ff6b3d]', icon: Rocket, to: '/finans/cek-vade-hesaplama' },
-    { label: 'Nasıl Yaparım?', bg: 'bg-[#ff6b3d]', icon: Lightbulb, to: '/ai-asistan' },
-    { label: 'Panolar', bg: 'bg-[#5b61ed]', icon: BarChart2, to: '/dashboard' },
-    { label: 'Malzeme Yönetimi', bg: 'bg-[#4f67ff]', icon: ShoppingCart, to: '/muhasebe/stoklar' },
-    { label: 'Varlık Yönetimi', bg: 'bg-[#3b82f6]', icon: Briefcase, to: '/gayrimenkul-listesi' },
-    { label: 'Talep Yönetimi', bg: 'bg-[#6366f1]', icon: FileText, to: '/ihaleler' },
-    { label: 'Satınalma Yönetimi', bg: 'bg-[#7c3aed]', icon: ShoppingCart, to: '/muhasebe/vega-son-islemler' },
-    { label: 'Fırsat Takip Yönetimi', bg: 'bg-[#7c3aed]', icon: Users, to: '/arac-yonetimi/soforler' },
-    { label: 'Satış Yönetimi', bg: 'bg-[#6366f1]', icon: ShoppingCart, to: '/arac-yonetimi' },
-    { label: 'Satış Noktası', bg: 'bg-[#8b5cf6]', icon: Coins, to: '/pos' },
-    { label: 'İthalat Yönetimi', bg: 'bg-[#585cfa]', icon: Sliders, to: '/arac-yonetimi/trafik-cezalari' },
-    { label: 'İhracat Yönetimi', bg: 'bg-[#585cfa]', icon: Sliders, to: '/arac-yonetimi/hgs-gecis' },
-    { label: 'Bütçe Yönetimi', bg: 'bg-[#059669]', icon: BarChart2, to: '/ana-kasa/rapor' },
-    { label: 'Finans Yönetimi', bg: 'bg-[#10b981]', icon: Coins, to: '/cekler' },
-    { label: 'Genel Muhasebe', bg: 'bg-[#0d9488]', icon: BookOpen, to: '/muhasebe/cariler' },
-    { label: 'e-Dönüşüm', bg: 'bg-[#3b82f6]', icon: Cloud, to: '/belgeler' },
-    { label: 'Bildirim ve Onay', bg: 'bg-[#4345d9]', icon: Bell, to: '/bildirimler' },
-    { label: 'Kişisel Verilerin Yönetimi', bg: 'bg-[#3739a8]', icon: Users, to: '/kullanicilar' },
-    { label: 'Sistem Ayarları', bg: 'bg-[#64748b]', icon: Sliders, to: '/ayarlar' },
-    { label: 'Yönetim Paneli', bg: 'bg-[#5b61ed]', icon: Users, to: '/aktivite-gunlugu' },
-  ], []);
+  const bulutModules = useMemo(() => {
+    const list = [
+      { label: 'Başlangıç Rehberi', bg: 'bg-[#ff6b3d]', icon: Rocket, to: '/finans/cek-vade-hesaplama' },
+      { label: 'Nasıl Yaparım?', bg: 'bg-[#ff6b3d]', icon: Lightbulb, to: '/ai-asistan' },
+      { label: 'Panolar', bg: 'bg-[#5b61ed]', icon: BarChart2, to: '/dashboard' },
+      { label: 'Malzeme Yönetimi', bg: 'bg-[#4f67ff]', icon: ShoppingCart, to: '/muhasebe/stoklar' },
+      { label: 'Varlık Yönetimi', bg: 'bg-[#3b82f6]', icon: Briefcase, to: '/gayrimenkul-listesi' },
+      { label: 'Talep Yönetimi', bg: 'bg-[#6366f1]', icon: FileText, to: '/ihaleler' },
+      { label: 'Satınalma Yönetimi', bg: 'bg-[#7c3aed]', icon: ShoppingCart, to: '/muhasebe/vega-son-islemler' },
+      { label: 'Fırsat Takip Yönetimi', bg: 'bg-[#7c3aed]', icon: Users, to: '/arac-yonetimi/soforler' },
+      { label: 'Satış Yönetimi', bg: 'bg-[#6366f1]', icon: ShoppingCart, to: '/arac-yonetimi' },
+      { label: 'Satış Noktası', bg: 'bg-[#8b5cf6]', icon: Coins, to: '/pos' },
+      { label: 'İthalat Yönetimi', bg: 'bg-[#585cfa]', icon: Sliders, to: '/arac-yonetimi/trafik-cezalari' },
+      { label: 'İhracat Yönetimi', bg: 'bg-[#585cfa]', icon: Sliders, to: '/arac-yonetimi/hgs-gecis' },
+      { label: 'Bütçe Yönetimi', bg: 'bg-[#059669]', icon: BarChart2, to: '/ana-kasa/rapor' },
+      { label: 'Finans Yönetimi', bg: 'bg-[#10b981]', icon: Coins, to: '/cekler' },
+      { label: 'Genel Muhasebe', bg: 'bg-[#0d9488]', icon: BookOpen, to: '/muhasebe/cariler' },
+      { label: 'e-Dönüşüm', bg: 'bg-[#3b82f6]', icon: Cloud, to: '/belgeler' },
+      { label: 'Bildirim ve Onay', bg: 'bg-[#4345d9]', icon: Bell, to: '/bildirimler' },
+      { label: 'Kişisel Verilerin Yönetimi', bg: 'bg-[#3739a8]', icon: Users, to: '/kullanicilar' },
+      { label: 'Sistem Ayarları', bg: 'bg-[#64748b]', icon: Sliders, to: '/ayarlar' },
+      { label: 'Yönetim Paneli', bg: 'bg-[#5b61ed]', icon: Users, to: '/aktivite-gunlugu' },
+    ];
+    if (isExcludedUser) {
+      return list.filter(m => !m.to.startsWith('/ana-kasa') && m.to !== '/ay-sonu' && m.to !== '/raporlama');
+    }
+    return list;
+  }, [isExcludedUser]);
 
   if (sidebarTheme === 'bulut_erp') {
     return (
@@ -762,36 +769,38 @@ export function DashboardPage() {
       </div>
 
       {/* 4 Live Financial & Operational KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${isExcludedUser ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
         {/* 1. Canlı Ana Kasa Bakiyesi */}
-        <Link
-          to="/ana-kasa/giris-cikis"
-          className="group relative rounded-2xl border border-blue-100 bg-gradient-to-br from-white to-blue-50/30 p-5 shadow-sm hover:shadow-md transition-all hover:border-blue-300 flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-900/70">
-                Canlı Ana Kasa Bakiyesi
-              </span>
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100/70 text-blue-700 group-hover:scale-105 transition-transform">
-                <Wallet size={18} />
-              </span>
+        {!isExcludedUser && (
+          <Link
+            to="/ana-kasa/giris-cikis"
+            className="group relative rounded-2xl border border-blue-100 bg-gradient-to-br from-white to-blue-50/30 p-5 shadow-sm hover:shadow-md transition-all hover:border-blue-300 flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-900/70">
+                  Canlı Ana Kasa Bakiyesi
+                </span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100/70 text-blue-700 group-hover:scale-105 transition-transform">
+                  <Wallet size={18} />
+                </span>
+              </div>
+              <div className="mt-3">
+                <h3 className="text-2xl font-bold tracking-tight text-gray-900">
+                  {formatCurrency(cashboxBalance)}
+                </h3>
+                <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 font-medium">
+                  <CheckCircle2 size={12} className="text-emerald-500" />
+                  İleride güncellenecektir
+                </p>
+              </div>
             </div>
-            <div className="mt-3">
-              <h3 className="text-2xl font-bold tracking-tight text-gray-900">
-                {formatCurrency(cashboxBalance)}
-              </h3>
-              <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 font-medium">
-                <CheckCircle2 size={12} className="text-emerald-500" />
-                İleride güncellenecektir
-              </p>
+            <div className="mt-4 pt-3 border-t border-blue-100/60 flex items-center justify-between text-xs font-semibold text-blue-700 group-hover:translate-x-0.5 transition-transform">
+              <span>Giriş / Çıkış Hareketleri</span>
+              <ChevronRight size={14} />
             </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-blue-100/60 flex items-center justify-between text-xs font-semibold text-blue-700 group-hover:translate-x-0.5 transition-transform">
-            <span>Giriş / Çıkış Hareketleri</span>
-            <ChevronRight size={14} />
-          </div>
-        </Link>
+          </Link>
+        )}
 
         {/* 2. Bu Hafta Vadesi Gelen Çekler */}
         <Link
@@ -1057,15 +1066,17 @@ export function DashboardPage() {
               Hızlı İşlem Kısayolları
             </h3>
             <div className="grid grid-cols-2 gap-2.5">
-              <Link
-                to="/ana-kasa/giris-cikis"
-                className="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-white hover:border-brand-400 hover:shadow-sm text-xs font-semibold text-gray-800 transition-all"
-              >
-                <span className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                  <Wallet size={14} />
-                </span>
-                <span className="truncate">Kasa Giriş/Çıkış</span>
-              </Link>
+              {!isExcludedUser && (
+                <Link
+                  to="/ana-kasa/giris-cikis"
+                  className="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-white hover:border-brand-400 hover:shadow-sm text-xs font-semibold text-gray-800 transition-all"
+                >
+                  <span className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                    <Wallet size={14} />
+                  </span>
+                  <span className="truncate">Kasa Giriş/Çıkış</span>
+                </Link>
+              )}
 
               <Link
                 to="/cekler"

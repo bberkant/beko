@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Navigate } from 'react-router-dom';
 import { 
   Wallet, 
   ArrowUpRight, 
@@ -24,7 +24,7 @@ import {
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Modal } from '../../components/ui/Modal';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../lib/auth';
+import { useAuth, isSuleymanOrMustafaDemir } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 import * as XLSX from 'xlsx';
 import { RaporArkaSayfaCard } from './components/RaporArkaSayfaCard';
@@ -111,6 +111,10 @@ const defaultCategories = {
 export function MainCashboxPage() {
   const { user } = useAuth();
   const { notify } = useToast();
+
+  if (user && isSuleymanOrMustafaDemir(user)) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
 
   const location = useLocation();

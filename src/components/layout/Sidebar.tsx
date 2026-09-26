@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { navItems } from '../../types/navigation';
 import { Logo } from '../ui/Logo';
-import { useAuth } from '../../lib/auth';
+import { useAuth, isSuleymanOrMustafaDemir } from '../../lib/auth';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -169,6 +169,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                     (user?.name || '').toLowerCase().includes('berkant');
   const isAdminOrBerkant = isYonetici || isBerkant;
   const isWhatsAppOperasyonAllowed = (user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Süper Yönetici' || user?.role === 'Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local' || user?.email === 'admin') && !isDeveloper;
+  const isExcludedUser = isSuleymanOrMustafaDemir(user);
 
   const isChildVisible = (child: { to: string }) => {
     if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
@@ -458,6 +459,15 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
     const roleFiltered = customItems.map(item => {
       if (item.to === '/whatsapp-operasyon' && !isWhatsAppOperasyonAllowed) return null;
 
+      // Ana Kasa, Ay Sonu ve Raporlama modülleri şuanlık sadece Süleyman ve Mustafa Demir kullanıcıları tarafından görüntülenmeyecek
+      if (isExcludedUser && (
+        item.label === 'Ana Kasa' || item.to === '/ana-kasa' || item.to.startsWith('/ana-kasa') ||
+        item.label === 'Ay Sonu' || item.to === '/ay-sonu' ||
+        item.label === 'Raporlama' || item.to === '/raporlama'
+      )) {
+        return null;
+      }
+
       // WhatsApp Sohbetleri herkese açıktır; Operasyon alt menüleri sadece Admin'e özeldir
       if (item.label === 'WhatsApp' && !isWhatsAppOperasyonAllowed) {
         return {
@@ -509,7 +519,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
       }
       return null;
     }).filter(Boolean) as typeof navItems;
-  }, [customItems, searchQuery, isSearching, user?.role, user?.rawRole, user?.email, isYonetici, isSuper]);
+  }, [customItems, searchQuery, isSearching, user?.role, user?.rawRole, user?.email, isYonetici, isSuper, isExcludedUser]);
 
   const asideCls = [
     'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-gray-200 transition-all duration-300',
@@ -1040,6 +1050,11 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
               {bulutFolderOpen && (
                 <div className="pl-2">
                   {filteredItems.filter((item) => {
+                    if (isExcludedUser && (
+                      item.label === 'Ana Kasa' || item.to === '/ana-kasa' || item.to.startsWith('/ana-kasa') ||
+                      item.label === 'Ay Sonu' || item.to === '/ay-sonu' ||
+                      item.label === 'Raporlama' || item.to === '/raporlama'
+                    )) return false;
                     if (item.to === '/kullanicilar' && !isYonetici) return false;
                     if (item.to === '/aktivite-gunlugu' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local' && user?.email !== 'admin') return false;
                     if (item.to === '/whatsapp-operasyon' && !isWhatsAppOperasyonAllowed) return false;
@@ -1050,6 +1065,11 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
             </div>
           ) : (
             filteredItems.filter((item) => {
+              if (isExcludedUser && (
+                item.label === 'Ana Kasa' || item.to === '/ana-kasa' || item.to.startsWith('/ana-kasa') ||
+                item.label === 'Ay Sonu' || item.to === '/ay-sonu' ||
+                item.label === 'Raporlama' || item.to === '/raporlama'
+              )) return false;
               if (item.to === '/kullanicilar' && !isYonetici) return false;
               if (item.to === '/aktivite-gunlugu' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local' && user?.email !== 'admin') return false;
               if (item.to === '/whatsapp-operasyon' && !isWhatsAppOperasyonAllowed) return false;

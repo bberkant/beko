@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Navigate } from 'react-router-dom';
 import { 
   Users, 
   TrendingUp, 
@@ -9,6 +10,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { useToast } from '../../lib/toast';
+import { useAuth, isSuleymanOrMustafaDemir } from '../../lib/auth';
 import { CariAgingRow } from './types';
 import { fetchCariAgingData } from './services/reportingService';
 import { CariAgingReportTab } from './tabs/CariAgingReportTab';
@@ -20,7 +22,12 @@ import { ExpenseBreakdownTab } from './tabs/ExpenseBreakdownTab';
 const CARI_AGING_CACHE_KEY = 'dars_cari_aging_cache_v3';
 
 export function ReportingPage() {
+  const { user } = useAuth();
   const { notify } = useToast();
+
+  if (user && isSuleymanOrMustafaDemir(user)) {
+    return <Navigate to="/dashboard" replace />;
+  }
   const [activeTab, setActiveTab] = useState<'aging' | 'acik-alacak' | 'cashflow' | 'slaughter' | 'expenses'>('aging');
   
   // Instant Cache Initialization - 0ms page load on refresh

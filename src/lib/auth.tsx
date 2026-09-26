@@ -52,6 +52,39 @@ export function cleanDisplayUsername(raw?: string | null): string {
   return raw.trim().replace(/@dars\.local$/i, '').replace(/@ops360\.local$/i, '').replace(/@ets360\.local$/i, '');
 }
 
+export function isSuleymanOrMustafaDemir(user?: { email?: string; name?: string; id?: string } | null): boolean {
+  if (!user) return false;
+  const rawKey = (user.email || '').toLowerCase().trim().replace(/@.*$/, '');
+  const rawName = (user.name || '').toLowerCase().trim();
+  const rawId = user.id || '';
+  
+  if (rawId === '105d6beb-f701-4a68-81c1-8ce84fda2946' || rawId === 'b6d40310-38ff-48b0-a873-8332ace373ff') {
+    return true;
+  }
+  
+  if (
+    rawKey === 'suleyman' ||
+    rawKey === 'süleyman' ||
+    rawName === 'süleyman' ||
+    rawName === 'suleyman' ||
+    rawName.includes('süleyman') ||
+    rawName.includes('suleyman')
+  ) {
+    return true;
+  }
+  
+  if (
+    rawKey === 'mustafademir' ||
+    rawKey === 'mustafa demir' ||
+    rawName === 'mustafa demir' ||
+    rawName.includes('mustafa demir')
+  ) {
+    return true;
+  }
+  
+  return false;
+}
+
 export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
   {
     id: '9c242e61-e15f-41b5-b1e6-60a02baed90a',

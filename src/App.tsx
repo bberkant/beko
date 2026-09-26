@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { AuthProvider, useAuth } from './lib/auth';
+import { AuthProvider, useAuth, isSuleymanOrMustafaDemir } from './lib/auth';
 import { ToastProvider } from './lib/toast';
 import { StoreProvider } from './features/credit-cards/data/store';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
@@ -96,6 +96,17 @@ function AdminOnlyRoute() {
   return <Outlet />;
 }
 
+function NonExcludedRoute() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center text-sm text-gray-550">Oturum kontrol ediliyor...</div>;
+  }
+  if (isSuleymanOrMustafaDemir(user)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Outlet />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -176,12 +187,18 @@ export default function App() {
                 <Route path="/cekler" element={<ChecksPage />} />
                 <Route path="/cekler/takas" element={<ChecksPage />} />
                 <Route path="/pos" element={<PosPage />} />
-                <Route path="/ana-kasa" element={<Navigate to="/ana-kasa/rapor" replace />} />
-                <Route path="/ana-kasa/rapor" element={<MainCashboxPage />} />
-                <Route path="/ana-kasa/giris-cikis" element={<GirisCikisPage />} />
-                <Route path="/ana-kasa/gunluk-hesap" element={<MainCashboxPage />} />
-                <Route path="/ana-kasa/pos-cihazlari" element={<PosDevicesProvider><PosDevicesPage /></PosDevicesProvider>} />
-                <Route path="/ay-sonu" element={<MonthEndPage />} />
+
+                {/* Ana Kasa, Ay Sonu ve Raporlama (Süleyman ve Mustafa Demir hariç tüm kullanıcılar erişebilir) */}
+                <Route element={<NonExcludedRoute />}>
+                  <Route path="/ana-kasa" element={<Navigate to="/ana-kasa/rapor" replace />} />
+                  <Route path="/ana-kasa/rapor" element={<MainCashboxPage />} />
+                  <Route path="/ana-kasa/giris-cikis" element={<GirisCikisPage />} />
+                  <Route path="/ana-kasa/gunluk-hesap" element={<MainCashboxPage />} />
+                  <Route path="/ana-kasa/pos-cihazlari" element={<PosDevicesProvider><PosDevicesPage /></PosDevicesProvider>} />
+                  <Route path="/ay-sonu" element={<MonthEndPage />} />
+                  <Route path="/raporlama" element={<ReportingPage />} />
+                </Route>
+
                 <Route path="/arac-yonetimi/arac-listesi" element={<VehiclePricesPage />} />
                 <Route path="/arac-yonetimi" element={<VehicleListPage />} />
                 <Route path="/arac-yonetimi/yeni" element={<VehicleFormPage />} />
@@ -206,7 +223,6 @@ export default function App() {
                 <Route path="/bildirimler" element={<NotificationsPage />} />
                 <Route path="/kullanicilar" element={<UsersPage />} />
                 <Route path="/aktivite-gunlugu" element={<ActivityLogsPage />} />
-                <Route path="/raporlama" element={<ReportingPage />} />
                 <Route path="/sifre-degistir" element={<ChangePasswordPage />} />
                 <Route path="/ayarlar" element={<SettingsPage />} />
                 <Route path="/ayarlar/yedekler" element={<BackupsPage />} />
