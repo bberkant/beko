@@ -1,7 +1,7 @@
 @echo off
+chcp 65001 > nul
 pushd "%~dp0"
 cls
-setlocal enabledelayedexpansion
 
 echo ============================================================================
 echo   MEZBAHA SERVER - 7/24 WHATSAPP GATEWAY HIZMETI KURULUMU
@@ -12,7 +12,7 @@ echo.
 net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo [HATA] Bu kurulum icin Yonetici Yetkisi gereklidir.
-    echo Sag tiklayip "Yonetici Olarak Calistir" (Run as administrator) secin.
+    echo Lutfen sag tiklayip Yonetici Olarak Calistir seciniz.
     echo.
     pause
     exit /b 1
@@ -22,7 +22,8 @@ if %errorLevel% neq 0 (
 where node >nul 2>&1
 if %errorLevel% neq 0 (
     echo [HATA] Node.js sistem yolunda bulunamadi!
-    echo Lutfen sunucuya Node.js kurun veya PATH degiskenini kontrol edin.
+    echo Lutfen sunucuya Node.js yukleyin veya sistem ortam degiskenlerini kontrol edin.
+    echo.
     pause
     exit /b 1
 )
@@ -33,41 +34,32 @@ set "GATEWAY_MJS=%CUR_DIR%\whatsapp-gateway.mjs"
 set "RUN_VBS=%CUR_DIR%\run_silent.vbs"
 
 if not exist "%GATEWAY_MJS%" (
-    echo [HATA] whatsapp-gateway.mjs bulunamadi: %GATEWAY_MJS%
+    echo [HATA] whatsapp-gateway.mjs dosyasi bulunamadi: %GATEWAY_MJS%
     pause
     exit /b 1
 )
 
-:: 3. Bagimliliklar (node_modules) Kontrolu
+:: 3. Bagimliliklar Kontrolu
 if not exist "%CUR_DIR%\node_modules" (
-    echo [INFO] Paket bagimliliklari (Baileys, Supabase vb.) yukleniyor...
+    echo [INFO] Paket bagimliliklari indiriliyor... Lutfen bekleyin...
     call npm install --production
-    if %errorLevel% neq 0 (
-        echo [HATA] npm install basarisiz oldu!
-        pause
-        exit /b 1
-    )
 )
 
-:: 4. VBScript Gizli Calistiriciyi Olustur
-echo [INFO] Sessiz arka plan calistiricisi hazirlaniyor...
-(
-echo Set WshShell = CreateObject("WScript.Shell"^)
-echo WshShell.CurrentDirectory = "%CUR_DIR%"
-echo Do While True
-echo     WshShell.Run "node.exe whatsapp-gateway.mjs", 0, True
-echo     WScript.Sleep 3000
-echo Loop
-) > "%RUN_VBS%"
+:: 4. run_silent.vbs dosyasini olustur
+echo Set WshShell = CreateObject("WScript.Shell") > "%RUN_VBS%"
+echo WshShell.CurrentDirectory = "%CUR_DIR%" >> "%RUN_VBS%"
+echo Do While True >> "%RUN_VBS%"
+echo     WshShell.Run "node.exe whatsapp-gateway.mjs", 0, True >> "%RUN_VBS%"
+echo     WScript.Sleep 3000 >> "%RUN_VBS%"
+echo Loop >> "%RUN_VBS%"
 
-:: 5. Eski Gorevi Temizle
-echo [INFO] Varsa eski servis kayitlari temizleniyor...
+:: 5. Varsa eski gorevi temizle
+echo [INFO] Eski gorevler temizleniyor...
 schtasks /delete /tn "OneDARS_WhatsApp_Gateway" /f >nul 2>&1
-powershell -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*whatsapp-gateway.mjs*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+wmic process where "commandline like '%%whatsapp-gateway.mjs%%'" call terminate >nul 2>&1
 
-:: 6. Windows Task Scheduler ile Kalici Hizmet Olustur
-echo [INFO] Kalici Windows Sistem Hizmeti (OneDARS_WhatsApp_Gateway) olusturuluyor...
-
+:: 6. Windows Gorev Zamanlayici ile kaydet
+echo [INFO] Windows Gorev Zamanlayici hizmeti olusturuluyor...
 schtasks /create /tn "OneDARS_WhatsApp_Gateway" /tr "wscript.exe \"%RUN_VBS%\"" /sc onstart /ru SYSTEM /rl highest /f >nul 2>&1
 if %errorLevel% neq 0 (
     echo [BILGI] SYSTEM yetkisi alinamadi, kullanici oturumuna kaydediliyor...
@@ -75,7 +67,7 @@ if %errorLevel% neq 0 (
 )
 
 :: 7. Hemen Baslat
-echo [INFO] Servis calistiriliyor...
+echo [INFO] Servis baslatiliyor...
 schtasks /run /tn "OneDARS_WhatsApp_Gateway" >nul 2>&1
 if %errorLevel% neq 0 (
     start "" wscript.exe "%RUN_VBS%"
@@ -88,7 +80,7 @@ echo ===========================================================================
 echo.
 echo  - Servis Mezbaha sunucusu her acildiginda 7/24 sessizce baslar.
 echo  - Masaustunde hicbir siyah konsol penceresi acilmaz.
-echo  - Servis duserse 3 saniye icinde otomatik kendini ayaga kaldirir.
+echo  - Servis kapanirsa 3 saniye icinde otomatik kendini ayaga kaldirir.
 echo.
 echo  Simdi tarayicinizdan web panelini acarak (cem.amasyactas.com/whatsapp/sohbetler)
 echo  ekrana gelen yeni QR kodu telefonunuzdan 1 kez okutmaniz yeterlidir.
