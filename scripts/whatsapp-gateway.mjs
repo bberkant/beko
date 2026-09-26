@@ -150,8 +150,8 @@ async function startGateway() {
     auth: state,
     printQRInTerminal: false,
     logger: pino({ level: 'silent' }),
-    // macOS Desktop browser preset is required for full WhatsApp chat history sync
-    browser: Browsers.macOS('Desktop'),
+    // Browsers.ubuntu('Chrome') uses WEB_BROWSER sub-platform which WhatsApp allows without dropping connection
+    browser: Browsers.ubuntu('Chrome'),
     syncFullHistory: true,
     markOnlineOnConnect: true,
     connectTimeoutMs: 60000,
@@ -160,6 +160,7 @@ async function startGateway() {
   });
 
   activeSocket = sock;
+  let currentStatus = 'disconnected';
 
   sock.ev.on('creds.update', saveCreds);
 
@@ -168,6 +169,7 @@ async function startGateway() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
+      currentStatus = 'qr_ready';
       log('📲 [YENİ CANLI QR KODU ÜRETİLDİ] Web paneline aktarılıyor...');
       const dataUrl = await qrcode.toDataURL(qr, { margin: 2, scale: 8 });
       await updateGatewayStatus({
@@ -180,6 +182,7 @@ async function startGateway() {
     }
 
     if (connection === 'open') {
+      currentStatus = 'connected';
       const phoneNumber = sock.user?.id ? sock.user.id.split(':')[0] : 'Bağlı Hat';
       const userName = sock.user?.name || 'Şirket WhatsApp Hattı';
       log(`✅ [BAĞLANTI BAŞARILI] WhatsApp Gateway Aktif! Cihaz: ${userName} (${phoneNumber})`);
@@ -658,12 +661,14 @@ async function startGateway() {
 
       // 2. Heartbeat ping
       if (sock.user?.id) {
+        currentStatus = 'connected';
         await updateGatewayStatus({
           status: 'connected',
           last_heartbeat: new Date().toISOString()
         });
       } else {
         await updateGatewayStatus({
+          status: currentStatus,
           last_heartbeat: new Date().toISOString()
         });
       }
