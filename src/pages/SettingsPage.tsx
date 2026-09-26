@@ -1,21 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Save, ShieldCheck, Send, RotateCcw, ArrowUp, ArrowDown, Settings, GripVertical, Palette, Database } from 'lucide-react';
+import { ShieldCheck, Send, RotateCcw, ArrowUp, ArrowDown, Settings, GripVertical, Palette, Database, User } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
+import { useAuth, cleanDisplayUsername } from '../lib/auth';
 import { useToast } from '../lib/toast';
 import { navItems } from '../types/navigation';
 
 export function SettingsPage() {
   const { user } = useAuth();
   const { notify } = useToast();
-  const [email, setEmail] = useState(user?.email ?? '');
   const [password, setPassword] = useState('');
-  const [emailSaving, setEmailSaving] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
-
-  useEffect(() => setEmail(user?.email ?? ''), [user?.email]);
 
   const [sidebarTheme, setSidebarTheme] = useState<'banking' | 'classic' | 'banking_trial' | 'dia_v3' | 'one_dars_v4' | 'bulut_erp'>(() => {
     try {
@@ -121,17 +117,6 @@ export function SettingsPage() {
     setDraggedIndex(null);
   };
 
-  const updateEmail = async () => {
-    const nextEmail = email.trim().toLowerCase();
-    if (!nextEmail || nextEmail === user?.email.toLowerCase()) {
-      notify('Farklı ve geçerli bir e-posta adresi girin.', 'error'); return;
-    }
-    setEmailSaving(true);
-    const { error } = await supabase.auth.updateUser({ email: nextEmail });
-    setEmailSaving(false);
-    if (error) { notify(error.message, 'error'); return; }
-    notify('Doğrulama bağlantısı gönderildi. Yeni e-posta adresinizi kontrol edin.', 'success');
-  };
 
   const updatePassword = async () => {
     if (password.length < 8) { notify('Şifre en az 8 karakter olmalıdır.', 'error'); return; }
@@ -195,7 +180,8 @@ export function SettingsPage() {
     ['Admin', 'Süper Admin', 'Developer', 'Yönetici', 'Süper Yönetici'].includes(user?.role || '') ||
     ['admin', 'super_admin', 'developer'].includes((user?.rawRole || '').toLowerCase()) ||
     user?.email === 'admin@dars.local' || 
-    user?.email === 'admin@ets360.local';
+    user?.email === 'admin@ets360.local' ||
+    user?.email === 'admin';
 
   return <div className="mx-auto max-w-4xl">
     <PageHeader 
@@ -424,8 +410,29 @@ export function SettingsPage() {
       </section>
 
       <section className="card p-6">
-        <div className="mb-5 flex items-start gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700"><Mail size={19}/></div><div><h2 className="font-semibold text-gray-900">E-posta Adresi</h2><p className="mt-1 text-sm text-gray-500">Giriş yaptığınız e-posta adresini değiştirin.</p></div></div>
-        <div className="space-y-4"><div><label className="label">Mevcut e-posta</label><div className="rounded-lg bg-gray-50 px-3.5 py-2.5 text-sm text-gray-600">{user?.email}</div></div><div><label className="label">Yeni e-posta</label><input type="email" className="input" value={email} onChange={e=>setEmail(e.target.value)} placeholder="yeni@sirket.com"/></div><button className="btn-primary w-full" disabled={emailSaving} onClick={()=>void updateEmail()}><Save size={16}/>{emailSaving?'Gönderiliyor...':'E-postayı Değiştir'}</button><p className="text-xs leading-5 text-gray-500">Güvenli e-posta değişikliği açıksa Supabase eski ve yeni adresin ikisine de doğrulama gönderebilir. Değişiklik bağlantılar onaylandıktan sonra tamamlanır.</p></div>
+        <div className="mb-5 flex items-start gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700"><User size={19}/></div><div><h2 className="font-semibold text-gray-900">Hesap Bilgileri</h2><p className="mt-1 text-sm text-gray-500">Giriş yaptığınız kurumsal kullanıcı hesabı detayları.</p></div></div>
+        <div className="space-y-4">
+          <div>
+            <label className="label">Kullanıcı Adı</label>
+            <div className="rounded-lg bg-gray-50 px-3.5 py-2.5 text-sm font-semibold text-gray-800">
+              {cleanDisplayUsername(user?.email) || user?.name}
+            </div>
+          </div>
+          <div>
+            <label className="label">Ad Soyad</label>
+            <div className="rounded-lg bg-gray-50 px-3.5 py-2.5 text-sm text-gray-700">
+              {user?.name || '-'}
+            </div>
+          </div>
+          <div>
+            <label className="label">Yetki / Rol</label>
+            <div className="rounded-lg bg-gray-50 px-3.5 py-2.5 text-sm text-gray-700">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-50 text-brand-700 border border-brand-200">
+                {user?.role || 'Kullanıcı'}
+              </span>
+            </div>
+          </div>
+        </div>
       </section>
       
       <section className="card p-6">
@@ -433,7 +440,7 @@ export function SettingsPage() {
         <div className="space-y-4"><div><label className="label">Yeni şifre</label><input type="password" minLength={8} className="input" value={password} onChange={e=>setPassword(e.target.value)} placeholder="En az 8 karakter"/></div><button className="btn-secondary w-full" disabled={passwordSaving} onClick={()=>void updatePassword()}><ShieldCheck size={16}/>{passwordSaving?'Güncelleniyor...':'Şifreyi Güncelle'}</button></div>
       </section>
 
-      {(['Admin', 'Süper Admin', 'Developer', 'Yönetici', 'Süper Yönetici'].includes(user?.role || '') || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local') && (
+      {(['Admin', 'Süper Admin', 'Developer', 'Yönetici', 'Süper Yönetici'].includes(user?.role || '') || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local' || user?.email === 'admin') && (
         <section className="card p-6 lg:col-span-2">
           <div className="mb-5 flex items-start gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Send size={19}/></div><div><h2 className="font-semibold text-gray-900">Telegram Kredi Kartı Hatırlatıcı</h2><p className="mt-1 text-sm text-gray-500">Son ödeme tarihine 2, 1 gün kalan ve son günü gelen kart ödemeleri Telegram botu üzerinden otomatik gönderilir.</p></div></div>
           <div className="flex flex-wrap items-center gap-3">

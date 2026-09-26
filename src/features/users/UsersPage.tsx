@@ -3,7 +3,7 @@ import { Check, Copy, Search, ShieldCheck, UserCheck, UserPlus, Users } from 'lu
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Modal } from '../../components/ui/Modal';
 import { supabase } from '../../lib/supabase';
-import { useAuth, type OrganizationRole, saveCustomStaffPassword } from '../../lib/auth';
+import { useAuth, type OrganizationRole, saveCustomStaffPassword, cleanDisplayUsername } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 
 interface Member { user_id: string; full_name: string; email: string; role: OrganizationRole; active: boolean; joined_at: string }
@@ -56,8 +56,12 @@ export function UsersPage() {
       return;
     }
     setSaving(true);
+    let targetEmail = email.trim();
+    if (!targetEmail.includes('@')) {
+      targetEmail = `${targetEmail}@dars.local`;
+    }
     const { error } = await supabase.rpc('admin_create_user', {
-      invite_email: email.trim(),
+      invite_email: targetEmail,
       invite_password: password.trim(),
       invite_full_name: fullName.trim(),
       invite_role: inviteRole
@@ -67,6 +71,7 @@ export function UsersPage() {
       notify(error.message, 'error');
     } else {
       saveCustomStaffPassword(email.trim(), password.trim());
+      saveCustomStaffPassword(targetEmail, password.trim());
       saveCustomStaffPassword(fullName.trim(), password.trim());
       notify('Kullanıcı başarıyla oluşturuldu.', 'success');
       setInviteOpen(false);
@@ -153,7 +158,7 @@ export function UsersPage() {
     <div className="relative mb-4 max-w-md"><Search className="absolute left-3 top-3 text-gray-400" size={16}/><input className="input pl-9" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ad, e-posta veya rol ara..."/></div>
     <div className="card overflow-x-auto"><table className="min-w-full"><thead><tr><th className="table-th">Kullanıcı</th><th className="table-th">Rol</th><th className="table-th">Durum</th><th className="table-th">Katılım</th><th className="table-th">İşlem</th></tr></thead>
       <tbody>{loading ? <tr><td className="table-td py-10 text-center text-gray-400" colSpan={5}>Kullanıcılar yükleniyor...</td></tr> : filtered.length===0 ? <tr><td className="table-td py-10 text-center text-gray-400" colSpan={5}>Kullanıcı bulunamadı.</td></tr> : filtered.map(m=><tr key={m.user_id} className="border-t border-gray-100">
-        <td className="table-td"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 font-semibold text-brand-700">{(m.full_name||m.email).slice(0,1).toUpperCase()}</div><div><div className="font-medium text-gray-900">{m.full_name||'İsimsiz Kullanıcı'}{m.user_id===user?.id&&<span className="ml-2 text-xs text-gray-400">Siz</span>}</div><div className="text-xs text-gray-500">{m.email}</div></div></div></td>
+        <td className="table-td"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 font-semibold text-brand-700">{(m.full_name||m.email).slice(0,1).toUpperCase()}</div><div><div className="font-medium text-gray-900">{m.full_name||'İsimsiz Kullanıcı'}{m.user_id===user?.id&&<span className="ml-2 text-xs text-gray-400">Siz</span>}</div><div className="text-xs text-gray-500">{cleanDisplayUsername(m.email)}</div></div></div></td>
         <td className="table-td">{isAdmin ? <select className="input max-w-[160px] py-2" value={m.role} onChange={e=>void manage(m,e.target.value as OrganizationRole,m.active)}>{Object.entries(roleLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select> : <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${roleStyles[m.role]}`}>{roleLabels[m.role]}</span>}</td>
         <td className="table-td"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${m.active?'bg-emerald-50 text-emerald-700':'bg-gray-100 text-gray-500'}`}>{m.active?'Aktif':'Pasif'}</span></td>
         <td className="table-td text-gray-500">{new Date(m.joined_at).toLocaleDateString('tr-TR')}</td>
@@ -198,8 +203,8 @@ export function UsersPage() {
             <input type="text" className="input" value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Ahmet Yılmaz" required />
           </div>
           <div>
-            <label className="label">E-posta Adresi</label>
-            <input type="email" className="input" value={email} onChange={e=>setEmail(e.target.value)} placeholder="kullanici@sirket.com" required />
+            <label className="label">Kullanıcı Adı veya E-posta</label>
+            <input type="text" className="input" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Örn: cem, hasan veya e-posta" required />
           </div>
           <div>
             <label className="label">Şifre</label>

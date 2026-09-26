@@ -24,7 +24,7 @@ export const FindeksPage: React.FC = () => {
   const { user } = useAuth();
   const { notify } = useToast();
 
-  const isAdmin = user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Yönetici' || user?.role === 'Süper Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.rawRole === 'developer' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local';
+  const isAdmin = user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Yönetici' || user?.role === 'Süper Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.rawRole === 'developer' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local' || user?.email === 'admin';
 
   const [inquiries, setInquiries] = useState<FindeksCheckInquiry[]>([]);
   const [activeReport, setActiveReport] = useState<FindeksCheckInquiry | null>(null);

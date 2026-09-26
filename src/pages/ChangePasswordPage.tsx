@@ -37,7 +37,7 @@ export function ChangePasswordPage() {
       if (user?.email) saveCustomStaffPassword(user.email, password.trim());
       if (user?.name) saveCustomStaffPassword(user.name, password.trim());
 
-      const isDirectSupabaseUser = user?.email === 'berkant@dars.local' || user?.email === 'admin@ops360.local';
+      const isDirectSupabaseUser = user?.email === 'berkant@dars.local' || user?.email === 'admin@ops360.local' || user?.email === 'berkant' || user?.email === 'admin';
       if (isDirectSupabaseUser) {
         const { error } = await supabase.auth.updateUser({ password: password.trim() });
         if (error) throw error;

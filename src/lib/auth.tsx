@@ -47,13 +47,18 @@ export interface StaffRegistryUser {
   defaultPassword?: string;
 }
 
+export function cleanDisplayUsername(raw?: string | null): string {
+  if (!raw) return '';
+  return raw.trim().replace(/@dars\.local$/i, '').replace(/@ops360\.local$/i, '').replace(/@ets360\.local$/i, '');
+}
+
 export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
   {
     id: '9c242e61-e15f-41b5-b1e6-60a02baed90a',
     name: 'Berkant',
     username: 'berkant',
     aliases: ['berkant', 'berkant@dars.local', 'berkant@ops360.local'],
-    email: 'berkant@dars.local',
+    email: 'berkant',
     role: 'Developer',
     rawRole: 'developer',
     defaultPassword: '123berkant_',
@@ -63,7 +68,7 @@ export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
     name: 'Admin',
     username: 'admin',
     aliases: ['admin', 'admin@ops360.local', 'admin@dars.local'],
-    email: 'admin@ops360.local',
+    email: 'admin',
     role: 'Admin',
     rawRole: 'admin',
     defaultPassword: '123berkant_',
@@ -73,7 +78,7 @@ export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
     name: 'Hasan',
     username: 'hasan',
     aliases: ['hasan', 'hasan@dars.local'],
-    email: 'hasan@dars.local',
+    email: 'hasan',
     role: 'Muhasebe',
     rawRole: 'muhasebe',
     defaultPassword: '365200',
@@ -83,7 +88,7 @@ export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
     name: 'Serdar',
     username: 'serdar',
     aliases: ['serdar', 'serdar@dars.local'],
-    email: 'serdar@dars.local',
+    email: 'serdar',
     role: 'Finans',
     rawRole: 'finans',
     defaultPassword: '365200',
@@ -93,7 +98,7 @@ export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
     name: 'Drama',
     username: 'drama',
     aliases: ['drama', 'drama@dars.local'],
-    email: 'drama@dars.local',
+    email: 'drama',
     role: 'Finans',
     rawRole: 'finans',
     defaultPassword: '365200',
@@ -103,7 +108,7 @@ export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
     name: 'Burak',
     username: 'burak',
     aliases: ['burak', 'burak@dars.local'],
-    email: 'burak@dars.local',
+    email: 'burak',
     role: 'Görüntüleyici',
     rawRole: 'goruntuleyici',
     defaultPassword: '365200',
@@ -113,7 +118,7 @@ export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
     name: 'Cem',
     username: 'cem',
     aliases: ['cem', 'cem@dars.local'],
-    email: 'cem@dars.local',
+    email: 'cem',
     role: 'Görüntüleyici',
     rawRole: 'goruntuleyici',
     defaultPassword: '365200',
@@ -123,7 +128,7 @@ export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
     name: 'Mert',
     username: 'mert',
     aliases: ['mert', 'mert@dars.local'],
-    email: 'mert@dars.local',
+    email: 'mert',
     role: 'Görüntüleyici',
     rawRole: 'goruntuleyici',
     defaultPassword: '365200',
@@ -133,7 +138,7 @@ export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
     name: 'Mustafa Demir',
     username: 'mustafademir',
     aliases: ['mustafademir', 'mustafa demir', 'mustafademir@dars.local'],
-    email: 'mustafademir@dars.local',
+    email: 'mustafademir',
     role: 'Muhasebe',
     rawRole: 'muhasebe',
     defaultPassword: '365200',
@@ -143,7 +148,7 @@ export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
     name: 'Önder',
     username: 'onder',
     aliases: ['onder', 'önder', 'onder@dars.local', 'önder@dars.local'],
-    email: 'önder@dars.local',
+    email: 'önder',
     role: 'Görüntüleyici',
     rawRole: 'goruntuleyici',
     defaultPassword: '365200',
@@ -153,7 +158,7 @@ export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
     name: 'Süleyman',
     username: 'suleyman',
     aliases: ['suleyman', 'süleyman', 'suleyman@dars.local', 'süleyman@dars.local'],
-    email: 'süleyman@dars.local',
+    email: 'süleyman',
     role: 'Muhasebe',
     rawRole: 'muhasebe',
     defaultPassword: '365200',
@@ -247,10 +252,12 @@ async function resolveUser(session: Session): Promise<AuthUser> {
     role = 'developer';
   }
   
+  const cleanEmail = cleanDisplayUsername(authUser.email) || profileName;
+  
   return {
     id: authUser.id,
     name: profileName,
-    email: authUser.email || '',
+    email: cleanEmail,
     role: role ? (roleLabels[role] || role) : (isBerkant ? 'Developer' : 'Admin'),
     rawRole: role ?? (isBerkant ? 'developer' : 'admin'),
     organizationId: organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391',
@@ -266,6 +273,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (parsed) {
           if (!parsed.organizationId) {
             parsed.organizationId = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+          }
+          if (parsed.email) {
+            parsed.email = cleanDisplayUsername(parsed.email);
           }
           return parsed;
         }
@@ -303,6 +313,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // If we have a cached user, prioritize that user so staff identity is preserved!
         if (cachedUser) {
+          if (cachedUser.email) {
+            cachedUser.email = cleanDisplayUsername(cachedUser.email);
+          }
           if (active) {
             setUser(cachedUser);
           }
@@ -402,7 +415,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               name: foundDbUser.full_name || foundDbUser.email,
               username: foundDbUser.email.split('@')[0],
               aliases: [foundDbUser.email, foundDbUser.full_name],
-              email: foundDbUser.email.includes('@') ? foundDbUser.email : `${foundDbUser.email}@dars.local`,
+              email: cleanDisplayUsername(foundDbUser.email),
               role: roleLabels[foundDbUser.role as OrganizationRole] || foundDbUser.role,
               rawRole: foundDbUser.role as OrganizationRole,
               defaultPassword: '365200',

@@ -28,7 +28,7 @@ export const WhatsAppOperasyonPage: React.FC<WhatsAppOperasyonPageProps> = ({
 }) => {
   const { user } = useAuth();
   const isDeveloper = user?.role === 'Developer' || user?.rawRole === 'developer';
-  const isWhatsAppOperasyonAllowed = (user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Süper Yönetici' || user?.role === 'Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local') && !isDeveloper;
+  const isWhatsAppOperasyonAllowed = (user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Süper Yönetici' || user?.role === 'Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local' || user?.email === 'admin') && !isDeveloper;
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {

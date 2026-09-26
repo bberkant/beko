@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, Navigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { 
   Wallet, 
   ArrowUpRight, 
@@ -112,12 +112,6 @@ export function MainCashboxPage() {
   const { user } = useAuth();
   const { notify } = useToast();
 
-  const isSuper = user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Süper Yönetici' || user?.rawRole === 'super_admin' || user?.rawRole === 'developer';
-  const isAuthorized = isSuper || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local';
-
-  if (user && !isAuthorized) {
-    return <Navigate to="/dashboard" replace />;
-  }
 
   const location = useLocation();
   let activeSection = 'rapor';

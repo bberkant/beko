@@ -75,7 +75,7 @@ export function ActivityLogsPage() {
 
   // Security check: Only allow admin/developer role or admin@dars.local/admin@ets360.local email
   const hasAccess = useMemo(() => {
-    return user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local' || ['Admin', 'Süper Admin', 'Developer', 'Yönetici', 'Süper Yönetici'].includes(user?.role || '');
+    return user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local' || user?.email === 'admin' || ['Admin', 'Süper Admin', 'Developer', 'Yönetici', 'Süper Yönetici'].includes(user?.role || '');
   }, [user]);
 
   const fetchLogs = useCallback(async () => {

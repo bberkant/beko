@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, PanelLeft, Bell, Search, ChevronDown, LogOut, Settings, Plus, KeyRound } from 'lucide-react';
-import { useAuth } from '../../lib/auth';
+import { useAuth, cleanDisplayUsername } from '../../lib/auth';
 import { useStore } from '../../features/credit-cards/data/store';
 import { useVehicles } from '../../features/vehicles/store';
 import { supabase } from '../../lib/supabase';
@@ -333,7 +333,7 @@ export function Topbar({ onToggleSidebar, onOpenMobileSidebar }: TopbarProps) {
                         {user?.role ?? 'Admin'}
                       </span>
                     </div>
-                    <p className="mt-0.5 truncate text-xs text-gray-500 font-medium">{user?.email}</p>
+                    <p className="mt-0.5 truncate text-xs text-gray-500 font-medium">{cleanDisplayUsername(user?.email)}</p>
                   </div>
                 </div>
               </div>

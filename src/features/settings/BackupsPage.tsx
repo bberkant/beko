@@ -45,7 +45,8 @@ export function BackupsPage() {
     ['Admin', 'Süper Admin', 'Developer', 'Yönetici', 'Süper Yönetici'].includes(user?.role || '') ||
     ['admin', 'super_admin', 'developer'].includes((user?.rawRole || '').toLowerCase()) ||
     user?.email === 'admin@dars.local' || 
-    user?.email === 'admin@ets360.local';
+    user?.email === 'admin@ets360.local' ||
+    user?.email === 'admin';
 
   useEffect(() => {
     if (user && !isAdminOrBerkant) {
