@@ -381,5 +381,23 @@ Sistem genelinde tutar, ödeme, borç, alacak ve bakiye girişi yapılan tüm bi
    - Biçimlendirme yardımcı fonksiyonu (`formatNumberString`), veritabanından gelen saf `number` tiplerini de doğrudan kabul etmeli ve `toLocaleString('tr-TR')` ile biçimlendirmelidir.
    - Veritabanına yazım öncesi `parseFormattedNumber` fonksiyonu tüm noktaları temizlemeli, virgülü noktaya çevirerek güvenli `number` (`parseFloat`) üretmelidir.
 
+4. **Modal ve Form Düzenleme Açılışlarında Format Zorunluluğu (Zero Raw String Assignment):**
+   - Veritabanından gelen mevcut kayıtlar düzenlenmek üzere bir forma veya modala yüklendiğinde (`openForm`, `handleOpenEditModal`, `setFormData` vb.), sayısal tutar alanları KESİNLİKLE `String(data.amount)` veya `data.amount.toString()` şeklinde ham string olarak state'e aktarılamaz.
+   - Tüm tutar alanları forma yüklenirken mutlaka `formatMoneyInput(data.amount)` veya `formatNumberString(data.amount)` ile biçimlendirilmeli ve kullanıcı modalı açtığı anda `110000` yerine `110.000` formatını görmelidir.
+
+5. **HTML type="number" Yasağı ve Standart Input Nitelikleri (Strict Ban on type="number" for Amounts):**
+   - Parasal tutar, bakiye, teklif veya teminat mektubu girişi yapılan hiçbir alanda HTML `<input type="number">` kullanılamaz (yerel number inputları Türkçe binlik nokta ayracını desteklemez ve ham sayı zorlar).
+   - Tutar alanları her zaman aşağıdaki standart niteliklerle tanımlanmalıdır:
+     ```tsx
+     <input
+       type="text"
+       inputMode="decimal"
+       placeholder="Örn: 100.000"
+       value={form.amount}
+       onChange={(e) => setForm({ ...form, amount: formatMoneyInput(e.target.value) })}
+     />
+     ```
+   - Form kaydedilirken (`save`, `handleSubmit`), biçimlendirilmiş metin `parseMoneyInput(form.amount)` veya `parseFormattedNumber(form.amount)` fonksiyonu ile veritabanına sayısal (`number`) olarak gönderilmelidir.
+
 
 
