@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
   Store, 
@@ -17,11 +17,92 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  ListFilter
+  ListFilter,
+  FileText,
+  FileUp,
+  Eye,
+  Trash2,
+  Sparkles,
+  Paperclip,
+  CheckCircle2,
+  Upload
 } from 'lucide-react';
 import { useToast } from '../../lib/toast';
-import { supabase } from '../../lib/supabase';
+import { supabase, normalizeFileName } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+GlobalWorkerOptions.workerSrc = pdfWorker;
+
+export interface BranchInvoice {
+  id: string;
+  branch_key: string;
+  organization_id: string;
+  invoice_no: string;
+  invoice_date: string;
+  amount: number;
+  supplier: string;
+  notes: string;
+  file_name: string;
+  file_path: string;
+  file_size?: number;
+  created_at: string;
+}
+
+const formatNumberString = (val: string | number) => {
+  if (val === null || val === undefined || val === '') return '';
+
+  if (typeof val === 'number') {
+    if (isNaN(val)) return '';
+    return val.toLocaleString('tr-TR', {
+      minimumFractionDigits: val % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  let s = String(val).trim();
+  if (!s) return '';
+
+  const withoutDots = s.replace(/\./g, '');
+  let cleanVal = '';
+  let hasComma = false;
+  for (let i = 0; i < withoutDots.length; i++) {
+    const char = withoutDots[i];
+    if (char >= '0' && char <= '9') {
+      cleanVal += char;
+    } else if (char === ',' && !hasComma) {
+      cleanVal += char;
+      hasComma = true;
+    }
+  }
+
+  const parts = cleanVal.split(',');
+  let integerPart = parts[0] || '';
+  const decimalPart = parts[1];
+
+  if (integerPart.length > 1 && integerPart.startsWith('0')) {
+    integerPart = integerPart.replace(/^0+/, '') || '0';
+  }
+
+  if (integerPart) {
+    integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  if (hasComma) {
+    const dec = decimalPart !== undefined ? decimalPart.slice(0, 2) : '';
+    return (integerPart || '0') + ',' + dec;
+  }
+
+  return integerPart;
+};
+
+const parseFormattedNumber = (str: string | number): number => {
+  if (str === null || str === undefined || str === '') return 0;
+  if (typeof str === 'number') return isNaN(str) ? 0 : str;
+  const clean = String(str).replace(/\./g, '').replace(/,/g, '.');
+  return parseFloat(clean) || 0;
+};
 
 const TUNNEL_URL = 'https://vega-api.amasyaetas.com';
 
@@ -162,6 +243,218 @@ export function SubelerPage() {
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [editStaffCount, setEditStaffCount] = useState(0);
+
+  // PDF Invoice States
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [activePdfTab, setActivePdfTab] = useState<'upload' | 'list'>('upload');
+  const [branchInvoices, setBranchInvoices] = useState<BranchInvoice[]>([]);
+  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
+  const [isParsingPdf, setIsParsingPdf] = useState(false);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const [pdfInvoiceForm, setPdfInvoiceForm] = useState({
+    invoice_no: '',
+    invoice_date: new Date().toISOString().split('T')[0],
+    amount: '',
+    supplier: '',
+    notes: '',
+  });
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  // Load branch invoices from localStorage
+  useEffect(() => {
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+    const local = localStorage.getItem(`dars_branch_pdf_invoices_${orgId}_${config.key}`);
+    if (local) {
+      try {
+        setBranchInvoices(JSON.parse(local));
+      } catch {
+        setBranchInvoices([]);
+      }
+    } else {
+      setBranchInvoices([]);
+    }
+  }, [config.key, user?.organizationId]);
+
+  // Handle PDF file selection and smart parsing
+  const handlePdfFileSelect = async (file: File) => {
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      notify('Lütfen geçerli bir PDF dosyası seçin.', 'error');
+      return;
+    }
+    setSelectedPdfFile(file);
+    setIsParsingPdf(true);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+
+      for (let i = 1; i <= Math.min(pdf.numPages, 5); i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageStr = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        fullText += ' ' + pageStr;
+      }
+
+      // 1. Detect Fatura No (e.g. GIB2026..., EAR2026..., 16 chars)
+      let detectedInvoiceNo = '';
+      const invoiceNoMatch = fullText.match(/\b([A-Z]{3}202[3-9]\d{9})\b/i) || 
+                             fullText.match(/Fatura\s*No\s*[:.]?\s*([A-Z0-9]{10,16})/i) ||
+                             fullText.match(/\b([A-Z0-9]{16})\b/);
+      if (invoiceNoMatch) {
+        detectedInvoiceNo = invoiceNoMatch[1];
+      }
+
+      // 2. Detect Date (DD.MM.YYYY or YYYY-MM-DD)
+      let detectedDate = new Date().toISOString().split('T')[0];
+      const dateMatch = fullText.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
+      if (dateMatch) {
+        const [, d, m, y] = dateMatch;
+        detectedDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      }
+
+      // 3. Detect Amount (Ödenecek Tutar / Toplam Tutar)
+      let detectedAmount = 0;
+      const amountMatches = fullText.match(/(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))/g);
+      if (amountMatches) {
+        const parsedAmounts = amountMatches
+          .map(m => parseFloat(m.replace(/\./g, '').replace(',', '.')))
+          .filter(n => !isNaN(n) && n > 0);
+        if (parsedAmounts.length > 0) {
+          detectedAmount = Math.max(...parsedAmounts);
+        }
+      }
+
+      // 4. Detect Supplier
+      let detectedSupplier = '';
+      const supplierKeywords = ['A.Ş', 'LTD', 'ŞTİ', 'TİC', 'GIDA', 'ET', 'HAYVANCILIK', 'MARKET', 'SANAYİ'];
+      const lines = fullText.split(/[\n\r]+/);
+      for (const line of lines) {
+        const upper = line.toUpperCase();
+        if (supplierKeywords.some(k => upper.includes(k)) && !upper.includes('AMASYA ET') && !upper.includes('DARS GIDA') && upper.length < 60) {
+          detectedSupplier = line.trim();
+          break;
+        }
+      }
+
+      setPdfInvoiceForm({
+        invoice_no: detectedInvoiceNo || file.name.replace(/\.pdf$/i, ''),
+        invoice_date: detectedDate,
+        amount: detectedAmount > 0 ? formatNumberString(detectedAmount) : '',
+        supplier: detectedSupplier || config.name,
+        notes: `PDF Faturadan otomatik ayrıştırıldı: ${file.name}`
+      });
+
+      notify('Fatura PDF analiz edildi ve alanlar otomatik dolduruldu!', 'success');
+    } catch {
+      setPdfInvoiceForm({
+        invoice_no: file.name.replace(/\.pdf$/i, ''),
+        invoice_date: new Date().toISOString().split('T')[0],
+        amount: '',
+        supplier: config.name,
+        notes: file.name
+      });
+      notify('PDF içeriği otomatik okunamadı, bilgileri manuel doldurabilirsiniz.', 'info');
+    } finally {
+      setIsParsingPdf(false);
+    }
+  };
+
+  // Upload and Save PDF invoice
+  const handleSavePdfInvoice = async () => {
+    if (!selectedPdfFile) {
+      notify('Lütfen bir PDF dosyası seçin.', 'error');
+      return;
+    }
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+    setIsUploadingPdf(true);
+
+    try {
+      const normalizedName = normalizeFileName(selectedPdfFile.name);
+      const filePath = `${orgId}/subeler/${config.key}/${Date.now()}-${normalizedName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('operations-documents')
+        .upload(filePath, selectedPdfFile, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+
+      if (uploadError) {
+        throw new Error('Dosya yüklenirken hata oluştu: ' + uploadError.message);
+      }
+
+      const numericAmount = parseFormattedNumber(pdfInvoiceForm.amount);
+      const newInvoice: BranchInvoice = {
+        id: crypto.randomUUID(),
+        branch_key: config.key,
+        organization_id: orgId,
+        invoice_no: pdfInvoiceForm.invoice_no.trim() || selectedPdfFile.name,
+        invoice_date: pdfInvoiceForm.invoice_date || new Date().toISOString().split('T')[0],
+        amount: numericAmount,
+        supplier: pdfInvoiceForm.supplier.trim() || config.name,
+        notes: pdfInvoiceForm.notes.trim(),
+        file_name: selectedPdfFile.name,
+        file_path: filePath,
+        file_size: selectedPdfFile.size,
+        created_at: new Date().toISOString()
+      };
+
+      const updatedList = [newInvoice, ...branchInvoices];
+      setBranchInvoices(updatedList);
+      localStorage.setItem(`dars_branch_pdf_invoices_${orgId}_${config.key}`, JSON.stringify(updatedList));
+
+      setSelectedPdfFile(null);
+      setPdfInvoiceForm({
+        invoice_no: '',
+        invoice_date: new Date().toISOString().split('T')[0],
+        amount: '',
+        supplier: '',
+        notes: ''
+      });
+      setActivePdfTab('list');
+      notify('Fatura PDF başarıyla yüklendi ve şube arşivine kaydedildi.', 'success');
+    } catch (err: any) {
+      notify(err.message || 'Fatura kaydedilemedi.', 'error');
+    } finally {
+      setIsUploadingPdf(false);
+    }
+  };
+
+  // View PDF
+  const handleViewPdf = async (item: BranchInvoice) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('operations-documents')
+        .createSignedUrl(item.file_path, 3600);
+
+      if (error || !data?.signedUrl) {
+        throw new Error(error?.message || 'Görüntüleme bağlantısı oluşturulamadı.');
+      }
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      notify('PDF açılamadı: ' + err.message, 'error');
+    }
+  };
+
+  // Delete PDF
+  const handleDeletePdf = async (item: BranchInvoice) => {
+    if (!window.confirm(`"${item.file_name}" faturasını silmek istediğinize emin misiniz?`)) {
+      return;
+    }
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+    try {
+      await supabase.storage.from('operations-documents').remove([item.file_path]);
+      const updatedList = branchInvoices.filter(i => i.id !== item.id);
+      setBranchInvoices(updatedList);
+      localStorage.setItem(`dars_branch_pdf_invoices_${orgId}_${config.key}`, JSON.stringify(updatedList));
+      notify('Fatura silindi.', 'success');
+    } catch (err: any) {
+      notify('Fatura silinemedi: ' + err.message, 'error');
+    }
+  };
 
   // Reset/Sync local state when config changes
   useEffect(() => {
@@ -440,7 +733,38 @@ export function SubelerPage() {
             Vega cari entegrasyonu ile canlı şube satışları, bakiye durumları ve cari hareket dökümleri.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <input
+            type="file"
+            ref={pdfInputRef}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setActivePdfTab('upload');
+                setIsPdfModalOpen(true);
+                void handlePdfFileSelect(file);
+              }
+              e.target.value = '';
+            }}
+            accept="application/pdf"
+            className="hidden"
+          />
+          <button
+            onClick={() => {
+              setActivePdfTab('upload');
+              setIsPdfModalOpen(true);
+            }}
+            className="btn-secondary flex items-center gap-1.5 px-3.5 py-2 text-sm bg-white hover:bg-slate-50 border border-gray-200 shadow-sm transition-all"
+            title={`${config.name} için PDF fatura yükleyin veya arşivlenen faturaları inceleyin`}
+          >
+            <FileText size={16} className="text-red-500" />
+            <span>PDF Fatura Yükle</span>
+            {branchInvoices.length > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.2 bg-red-50 border border-red-200 text-red-600 rounded-full text-[10px] font-bold">
+                {branchInvoices.length}
+              </span>
+            )}
+          </button>
           <button
             onClick={openEditModal}
             className="btn-secondary flex items-center gap-1.5 px-4 py-2 text-sm"
@@ -949,6 +1273,279 @@ export function SubelerPage() {
               >
                 Kaydet
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PDF Fatura Yükleme ve Arşiv Modalı */}
+      {isPdfModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center text-red-600">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 leading-tight">
+                    {config.name} - PDF Fatura Yükle & Arşiv
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Vega Cari Kodu: <span className="font-mono font-semibold text-gray-700">{config.code}</span>
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsPdfModalOpen(false);
+                  setSelectedPdfFile(null);
+                }} 
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex border-b border-gray-200 mt-3">
+              <button
+                onClick={() => setActivePdfTab('upload')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
+                  activePdfTab === 'upload'
+                    ? 'border-[#f37021] text-[#f37021]'
+                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                <FileUp size={15} />
+                Yeni Fatura Yükle
+              </button>
+              <button
+                onClick={() => setActivePdfTab('list')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
+                  activePdfTab === 'list'
+                    ? 'border-[#f37021] text-[#f37021]'
+                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                <Paperclip size={15} />
+                Arşivlenen Faturalar ({branchInvoices.length})
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto py-4 flex-1 space-y-4 text-xs pr-1">
+              {activePdfTab === 'upload' ? (
+                <>
+                  {/* File Dropzone */}
+                  <div
+                    onClick={() => pdfInputRef.current?.click()}
+                    className={`relative rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all ${
+                      selectedPdfFile
+                        ? 'border-emerald-300 bg-emerald-50/20'
+                        : 'border-gray-300 bg-gray-50/50 hover:border-[#f37021] hover:bg-orange-50/10'
+                    }`}
+                  >
+                    {isParsingPdf ? (
+                      <div className="flex flex-col items-center justify-center py-2">
+                        <RefreshCw className="animate-spin text-[#f37021] mb-2" size={30} />
+                        <span className="font-bold text-gray-800 text-sm">Fatura PDF Akıllı Taranıyor...</span>
+                        <span className="text-[11px] text-gray-500 mt-1">Fatura no, tarih ve toplam tutar ayrıştırılıyor</span>
+                      </div>
+                    ) : selectedPdfFile ? (
+                      <div className="flex flex-col items-center justify-center py-1">
+                        <CheckCircle2 className="text-emerald-500 mb-1.5" size={32} />
+                        <span className="font-bold text-gray-900 text-sm">{selectedPdfFile.name}</span>
+                        <span className="text-[11px] text-gray-500 mt-0.5">
+                          {(selectedPdfFile.size / 1024).toFixed(1)} KB • Değiştirmek için tıklayın
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-2">
+                        <FileUp className="text-gray-400 mb-2" size={32} />
+                        <span className="font-bold text-gray-800 text-sm">PDF Fatura Dosyası Seçin veya Sürükleyin</span>
+                        <span className="text-[11px] text-gray-400 mt-1">e-Fatura / e-Arşiv formatındaki PDF belgeleri</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Form Fields */}
+                  <div className="space-y-3.5 bg-gray-50/70 p-4 rounded-xl border border-gray-200">
+                    <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+                      <span className="font-bold text-gray-800 flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-[#f37021]" />
+                        Fatura Bilgileri
+                      </span>
+                      {selectedPdfFile && (
+                        <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
+                          Akıllı Ayrıştırma Aktif
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-gray-600 font-semibold block mb-1">Fatura Numarası</label>
+                        <input
+                          type="text"
+                          placeholder="Örn: GIB202600000001"
+                          value={pdfInvoiceForm.invoice_no}
+                          onChange={(e) => setPdfInvoiceForm({ ...pdfInvoiceForm, invoice_no: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-xs font-mono font-bold focus:outline-none focus:border-brand-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-gray-600 font-semibold block mb-1">Fatura Tarihi</label>
+                        <input
+                          type="date"
+                          value={pdfInvoiceForm.invoice_date}
+                          onChange={(e) => setPdfInvoiceForm({ ...pdfInvoiceForm, invoice_date: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-xs font-bold focus:outline-none focus:border-brand-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-gray-600 font-semibold block mb-1">Fatura Tutarı (₺)</label>
+                        <input
+                          type="text"
+                          placeholder="0,00"
+                          value={pdfInvoiceForm.amount}
+                          onChange={(e) => setPdfInvoiceForm({ ...pdfInvoiceForm, amount: formatNumberString(e.target.value) })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-xs font-mono font-bold text-gray-900 focus:outline-none focus:border-brand-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-gray-600 font-semibold block mb-1">Şube / Düzenleyen Cari</label>
+                        <input
+                          type="text"
+                          value={pdfInvoiceForm.supplier}
+                          onChange={(e) => setPdfInvoiceForm({ ...pdfInvoiceForm, supplier: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-xs font-semibold focus:outline-none focus:border-brand-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-gray-600 font-semibold block mb-1">Açıklama / Not</label>
+                      <input
+                        type="text"
+                        placeholder="Fatura içeriği veya işlem notu..."
+                        value={pdfInvoiceForm.notes}
+                        onChange={(e) => setPdfInvoiceForm({ ...pdfInvoiceForm, notes: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-xs focus:outline-none focus:border-brand-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPdfFile(null);
+                        setPdfInvoiceForm({
+                          invoice_no: '',
+                          invoice_date: new Date().toISOString().split('T')[0],
+                          amount: '',
+                          supplier: '',
+                          notes: ''
+                        });
+                      }}
+                      className="px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors"
+                    >
+                      Temizle
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!selectedPdfFile || isUploadingPdf || isParsingPdf}
+                      onClick={handleSavePdfInvoice}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#f37021] text-white rounded-xl font-bold hover:bg-[#e05f10] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                    >
+                      {isUploadingPdf ? (
+                        <>
+                          <RefreshCw className="animate-spin" size={16} />
+                          <span>Yükleniyor & Arşivleniyor...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={16} />
+                          <span>Faturayı Güvenli Kaydet</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* Archived Invoices List Tab */
+                <div className="space-y-3">
+                  {branchInvoices.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400">
+                      <FileText className="mx-auto mb-2 text-gray-300" size={36} />
+                      <p className="font-semibold text-gray-600">Bu şubeye ait henüz yüklenmiş PDF fatura bulunmuyor.</p>
+                      <button
+                        onClick={() => setActivePdfTab('upload')}
+                        className="mt-3 text-xs text-[#f37021] hover:underline font-bold"
+                      >
+                        + İlk Faturayı Yükleyin
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-gray-200">
+                      <table className="w-full border-collapse text-left text-xs">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-200 font-bold text-gray-500">
+                            <th className="px-3 py-2.5">Fatura No / Belge</th>
+                            <th className="px-3 py-2.5">Tarih</th>
+                            <th className="px-3 py-2.5 text-right">Tutar (₺)</th>
+                            <th className="px-3 py-2.5">Açıklama</th>
+                            <th className="px-3 py-2.5 text-center">İşlem</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-150">
+                          {branchInvoices.map((inv) => (
+                            <tr key={inv.id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="px-3 py-2">
+                                <div className="font-mono font-bold text-gray-900">{inv.invoice_no}</div>
+                                <div className="text-[10px] text-gray-400 truncate max-w-[180px]">{inv.file_name}</div>
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-gray-600">
+                                {new Date(inv.invoice_date).toLocaleDateString('tr-TR')}
+                              </td>
+                              <td className="px-3 py-2 text-right font-mono font-bold text-gray-900 whitespace-nowrap">
+                                {inv.amount > 0 ? `${formatCurrency(inv.amount)}` : '—'}
+                              </td>
+                              <td className="px-3 py-2 text-gray-600 max-w-[150px] truncate">
+                                {inv.notes || inv.supplier || '—'}
+                              </td>
+                              <td className="px-3 py-2 text-center whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => handleViewPdf(inv)}
+                                    className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                    title="Faturayı Görüntüle"
+                                  >
+                                    <Eye size={15} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeletePdf(inv)}
+                                    className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                    title="Faturayı Sil"
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
