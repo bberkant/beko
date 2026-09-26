@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { navItems } from '../../types/navigation';
 import { Logo } from '../ui/Logo';
-import { useAuth, isSuleymanOrMustafaDemir } from '../../lib/auth';
+import { useAuth, isSuleymanOrMustafaDemir, isStrictAdminOrBerkant } from '../../lib/auth';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -168,6 +168,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
   const isBerkant = (user?.email || '').toLowerCase().includes('berkant') || 
                     (user?.name || '').toLowerCase().includes('berkant');
   const isAdminOrBerkant = isYonetici || isBerkant;
+  const isStrictAdminBerkant = isStrictAdminOrBerkant(user);
   const isWhatsAppOperasyonAllowed = (user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Süper Yönetici' || user?.role === 'Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local' || user?.email === 'admin') && !isDeveloper;
   const isExcludedUser = isSuleymanOrMustafaDemir(user);
 
@@ -458,6 +459,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
 
     const roleFiltered = customItems.map(item => {
       if (item.to === '/whatsapp-operasyon' && !isWhatsAppOperasyonAllowed) return null;
+      if (item.to === '/aktivite-gunlugu' && !isStrictAdminBerkant) return null;
 
       // Ana Kasa, Ay Sonu ve Raporlama modülleri şuanlık sadece Süleyman ve Mustafa Demir kullanıcıları tarafından görüntülenmeyecek
       if (isExcludedUser && (
@@ -1056,7 +1058,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                       item.label === 'Raporlama' || item.to === '/raporlama'
                     )) return false;
                     if (item.to === '/kullanicilar' && !isYonetici) return false;
-                    if (item.to === '/aktivite-gunlugu' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local' && user?.email !== 'admin') return false;
+                    if (item.to === '/aktivite-gunlugu' && !isStrictAdminBerkant) return false;
                     if (item.to === '/whatsapp-operasyon' && !isWhatsAppOperasyonAllowed) return false;
                     return true;
                   }).map((item) => renderItemLink(item))}
@@ -1071,7 +1073,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                 item.label === 'Raporlama' || item.to === '/raporlama'
               )) return false;
               if (item.to === '/kullanicilar' && !isYonetici) return false;
-              if (item.to === '/aktivite-gunlugu' && !isYonetici && !isSuper && user?.email !== 'admin@dars.local' && user?.email !== 'admin@ets360.local' && user?.email !== 'admin') return false;
+              if (item.to === '/aktivite-gunlugu' && !isStrictAdminBerkant) return false;
               if (item.to === '/whatsapp-operasyon' && !isWhatsAppOperasyonAllowed) return false;
               return true;
             }).map((item) => renderItemLink(item))

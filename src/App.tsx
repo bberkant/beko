@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { AuthProvider, useAuth, isSuleymanOrMustafaDemir } from './lib/auth';
+import { AuthProvider, useAuth, isSuleymanOrMustafaDemir, isStrictAdminOrBerkant } from './lib/auth';
 import { ToastProvider } from './lib/toast';
 import { StoreProvider } from './features/credit-cards/data/store';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
@@ -102,6 +102,17 @@ function NonExcludedRoute() {
     return <div className="flex min-h-screen items-center justify-center text-sm text-gray-550">Oturum kontrol ediliyor...</div>;
   }
   if (isSuleymanOrMustafaDemir(user)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Outlet />;
+}
+
+function AdminOrBerkantRoute() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center text-sm text-gray-550">Oturum kontrol ediliyor...</div>;
+  }
+  if (!isStrictAdminOrBerkant(user)) {
     return <Navigate to="/dashboard" replace />;
   }
   return <Outlet />;
@@ -222,7 +233,9 @@ export default function App() {
                 <Route path="/ai-asistan" element={<AiAssistantPage />} />
                 <Route path="/bildirimler" element={<NotificationsPage />} />
                 <Route path="/kullanicilar" element={<UsersPage />} />
-                <Route path="/aktivite-gunlugu" element={<ActivityLogsPage />} />
+                <Route element={<AdminOrBerkantRoute />}>
+                  <Route path="/aktivite-gunlugu" element={<ActivityLogsPage />} />
+                </Route>
                 <Route path="/sifre-degistir" element={<ChangePasswordPage />} />
                 <Route path="/ayarlar" element={<SettingsPage />} />
                 <Route path="/ayarlar/yedekler" element={<BackupsPage />} />

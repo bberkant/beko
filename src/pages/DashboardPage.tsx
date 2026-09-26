@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth, isSuleymanOrMustafaDemir } from '../lib/auth';
+import { useAuth, isSuleymanOrMustafaDemir, isStrictAdminOrBerkant } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import {
   Wallet,
@@ -131,6 +131,7 @@ export function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isExcludedUser = isSuleymanOrMustafaDemir(user);
+  const isStrictAdminBerkant = isStrictAdminOrBerkant(user);
 
   // Sidebar theme preservation
   const [sidebarTheme, setSidebarTheme] = useState<'banking' | 'classic' | 'banking_trial' | 'dia_v3' | 'one_dars_v4' | 'bulut_erp'>(() => {
@@ -484,8 +485,9 @@ export function DashboardPage() {
     }
   }, []);
 
-  // Sub-routine: Fetch Activity Logs
+  // Sub-routine: Fetch Activity Logs (Sadece Admin ve Berkant)
   const fetchLogs = useCallback(async (orgId: string) => {
+    if (!isStrictAdminBerkant) return;
     try {
       const { data: logsData } = await supabase
         .from('activity_logs')
@@ -501,7 +503,7 @@ export function DashboardPage() {
     } catch (e) {
       console.warn('Activity logs fetch error:', e);
     }
-  }, []);
+  }, [isStrictAdminBerkant]);
 
   // Parallel, Non-blocking Dashboard Synchronizer
   const fetchDashboardData = useCallback(async (silent = false) => {
@@ -516,7 +518,7 @@ export function DashboardPage() {
         fetchCashbox(),
         fetchChecks(orgId),
         fetchTenders(orgId),
-        fetchLogs(orgId)
+        isStrictAdminBerkant ? fetchLogs(orgId) : Promise.resolve()
       ]);
 
       const cashboxResult = results[0];
@@ -535,7 +537,7 @@ export function DashboardPage() {
       setLoading(false);
       setIsSyncing(false);
     }
-  }, [user?.organizationId, fetchCashbox, fetchChecks, fetchTenders, fetchLogs, fetchVegaBranches]);
+  }, [user?.organizationId, fetchCashbox, fetchChecks, fetchTenders, fetchLogs, fetchVegaBranches, isStrictAdminBerkant]);
 
   useEffect(() => {
     const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
@@ -551,10 +553,15 @@ export function DashboardPage() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ebs_checks' }, () => {
         void fetchChecks(orgId);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_logs' }, () => {
+      });
+
+    if (isStrictAdminBerkant) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table: 'activity_logs' }, () => {
         void fetchLogs(orgId);
-      })
+      });
+    }
+
+    channel
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenders' }, () => {
         void fetchTenders(orgId);
       })
@@ -683,13 +690,13 @@ export function DashboardPage() {
       { label: 'Bildirim ve Onay', bg: 'bg-[#4345d9]', icon: Bell, to: '/bildirimler' },
       { label: 'Kişisel Verilerin Yönetimi', bg: 'bg-[#3739a8]', icon: Users, to: '/kullanicilar' },
       { label: 'Sistem Ayarları', bg: 'bg-[#64748b]', icon: Sliders, to: '/ayarlar' },
-      { label: 'Yönetim Paneli', bg: 'bg-[#5b61ed]', icon: Users, to: '/aktivite-gunlugu' },
+      ...(isStrictAdminBerkant ? [{ label: 'Yönetim Paneli', bg: 'bg-[#5b61ed]', icon: Users, to: '/aktivite-gunlugu' }] : []),
     ];
     if (isExcludedUser) {
       return list.filter(m => !m.to.startsWith('/ana-kasa') && m.to !== '/ay-sonu' && m.to !== '/raporlama');
     }
     return list;
-  }, [isExcludedUser]);
+  }, [isExcludedUser, isStrictAdminBerkant]);
 
   if (sidebarTheme === 'bulut_erp') {
     return (
@@ -1110,65 +1117,67 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Live Activity Feed */}
-          <div className="rounded-2xl border border-gray-200/90 bg-white p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
-              <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-                <History className="text-[#f37021]" size={16} />
-                Canlı Sistem Aktivite Akışı
-              </h3>
-              <Link
-                to="/aktivite-gunlugu"
-                className="text-[11px] font-semibold text-brand-600 hover:underline"
-              >
-                Tümünü Gör
-              </Link>
-            </div>
+          {/* Live Activity Feed (Sadece Admin ve Berkant) */}
+          {isStrictAdminBerkant && (
+            <div className="rounded-2xl border border-gray-200/90 bg-white p-5 shadow-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                  <History className="text-[#f37021]" size={16} />
+                  Canlı Sistem Aktivite Akışı
+                </h3>
+                <Link
+                  to="/aktivite-gunlugu"
+                  className="text-[11px] font-semibold text-brand-600 hover:underline"
+                >
+                  Tümünü Gör
+                </Link>
+              </div>
 
-            <div className="space-y-2.5">
-              {loading && activities.length === 0 ? (
-                <div className="py-6 text-center text-xs text-gray-400">
-                  Aktiviteler yükleniyor...
-                </div>
-              ) : activities.length === 0 ? (
-                <div className="py-6 text-center text-xs text-gray-400">
-                  Henüz kaydedilmiş bir sistem aktivitesi bulunmuyor.
-                </div>
-              ) : (
-                activities.map((log) => {
-                  const info = formatActivityText(log);
-                  return (
-                    <div
-                      key={log.id}
-                      className="flex items-start justify-between gap-2 text-xs p-2 rounded-lg bg-gray-50/50 hover:bg-gray-100/70 transition-colors"
-                    >
-                      <div className="space-y-0.5 flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-gray-900">
-                            {info.tableLabel}
-                          </span>
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${info.actionInfo.color}`}>
-                            {info.actionInfo.label}
-                          </span>
-                        </div>
-                        {info.detail && (
-                          <p className="text-[11px] text-gray-600 truncate">
-                            {info.detail}
+              <div className="space-y-2.5">
+                {loading && activities.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-gray-400">
+                    Aktiviteler yükleniyor...
+                  </div>
+                ) : activities.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-gray-400">
+                    Henüz kaydedilmiş bir sistem aktivitesi bulunmuyor.
+                  </div>
+                ) : (
+                  activities.map((log) => {
+                    const info = formatActivityText(log);
+                    return (
+                      <div
+                        key={log.id}
+                        className="flex items-start justify-between gap-2 text-xs p-2 rounded-lg bg-gray-50/50 hover:bg-gray-100/70 transition-colors"
+                      >
+                        <div className="space-y-0.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-gray-900">
+                              {info.tableLabel}
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${info.actionInfo.color}`}>
+                              {info.actionInfo.label}
+                            </span>
+                          </div>
+                          {info.detail && (
+                            <p className="text-[11px] text-gray-600 truncate">
+                              {info.detail}
+                            </p>
+                          )}
+                          <p className="text-[10px] text-gray-400">
+                            {info.user}
                           </p>
-                        )}
-                        <p className="text-[10px] text-gray-400">
-                          {info.user}
-                        </p>
+                        </div>
+                        <span className="text-[10px] text-gray-400 whitespace-nowrap shrink-0">
+                          {getRelativeTime(log.created_at)}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-gray-400 whitespace-nowrap shrink-0">
-                        {getRelativeTime(log.created_at)}
-                      </span>
-                    </div>
-                  );
-                })
-              )}
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

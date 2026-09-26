@@ -85,6 +85,58 @@ export function isSuleymanOrMustafaDemir(user?: { email?: string; name?: string;
   return false;
 }
 
+export function isStrictAdminOrBerkant(user?: { email?: string; name?: string; role?: string; rawRole?: string | null; id?: string } | null): boolean {
+  if (!user) return false;
+  const rawKey = (user.email || '').toLowerCase().trim().replace(/@.*$/, '');
+  const rawName = (user.name || '').toLowerCase().trim();
+  const rawRole = (user.rawRole || '').toLowerCase().trim();
+  const role = (user.role || '').toLowerCase().trim();
+
+  // Known IDs for Berkant and Admin
+  if (user.id === '9c242e61-e15f-41b5-b1e6-60a02baed90a' || user.id === '291129b0-b5be-447e-97e1-51c613446aa3') {
+    return true;
+  }
+
+  // Explicit check for Berkant
+  if (
+    rawKey === 'berkant' ||
+    rawName === 'berkant' ||
+    rawName.includes('berkant') ||
+    rawRole === 'developer' ||
+    role === 'developer'
+  ) {
+    return true;
+  }
+
+  // Explicit check for Admin
+  if (
+    rawKey === 'admin' ||
+    rawName === 'admin' ||
+    (user.email || '').toLowerCase().trim() === 'admin@dars.local' ||
+    (user.email || '').toLowerCase().trim() === 'admin@ops360.local' ||
+    (user.email || '').toLowerCase().trim() === 'admin@ets360.local'
+  ) {
+    return true;
+  }
+
+  // Role check: If role is Admin / Süper Admin, ensure it's not one of the other staff users
+  if (
+    rawRole === 'admin' ||
+    rawRole === 'super_admin' ||
+    role === 'admin' ||
+    role === 'süper admin' ||
+    role === 'süper yönetici'
+  ) {
+    if (isSuleymanOrMustafaDemir(user)) return false;
+    if (['hasan', 'serdar', 'drama', 'burak', 'cem', 'mert', 'onder', 'önder'].includes(rawKey)) {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
 export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
   {
     id: '9c242e61-e15f-41b5-b1e6-60a02baed90a',

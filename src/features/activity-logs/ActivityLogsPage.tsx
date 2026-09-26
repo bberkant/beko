@@ -14,7 +14,7 @@ import {
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Modal } from '../../components/ui/Modal';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../lib/auth';
+import { useAuth, isStrictAdminOrBerkant } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 
 interface ActivityLog {
@@ -73,9 +73,9 @@ export function ActivityLogsPage() {
   const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Security check: Only allow admin/developer role or admin@dars.local/admin@ets360.local email
+  // Security check: Only allow Admin and Berkant users
   const hasAccess = useMemo(() => {
-    return user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local' || user?.email === 'admin' || ['Admin', 'Süper Admin', 'Developer', 'Yönetici', 'Süper Yönetici'].includes(user?.role || '');
+    return isStrictAdminOrBerkant(user);
   }, [user]);
 
   const fetchLogs = useCallback(async () => {
