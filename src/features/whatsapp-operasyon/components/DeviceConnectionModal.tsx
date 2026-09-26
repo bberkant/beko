@@ -5,7 +5,8 @@ import {
   Wifi, 
   ShieldCheck, 
   Users, 
-  MessageSquare
+  MessageSquare,
+  LogOut
 } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { supabase } from '../../../lib/supabase';
@@ -20,7 +21,7 @@ interface DeviceConnectionModalProps {
 interface GatewaySession {
   id?: string;
   organization_id?: string;
-  status: 'disconnected' | 'qr_ready' | 'connected' | 'error';
+  status: 'disconnected' | 'qr_ready' | 'connected' | 'error' | 'logout_requested';
   qr_code?: string | null;
   qr_raw?: string | null;
   phone_number?: string | null;
@@ -40,6 +41,7 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
     status: 'disconnected',
     device_name: 'Beko ERP Gateway'
   });
+  const [recentChats, setRecentChats] = useState<any[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
@@ -54,6 +56,18 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
 
       if (!error && data) {
         setSession(data as GatewaySession);
+      }
+
+      // Fetch recent real chats
+      const { data: chatsData } = await supabase
+        .from('whatsapp_chats')
+        .select('id, name, phone_number, is_group, last_message_text, last_message_time')
+        .eq('organization_id', orgId)
+        .order('last_message_time', { ascending: false })
+        .limit(8);
+
+      if (chatsData) {
+        setRecentChats(chatsData);
       }
     } catch (err) {
       console.error('WhatsApp gateway oturumu çekme hatası:', err);
@@ -91,21 +105,36 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
   const handleResetSession = async () => {
     setIsRefreshing(true);
     try {
+      await fetchSession();
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
+
+  const handleLogoutAndReset = async () => {
+    if (!window.confirm('WhatsApp oturumu kapatılacak ve sunucu anında yeni bir QR kod üretecektir. Devam etmek istiyor musunuz?')) {
+      return;
+    }
+    setIsRefreshing(true);
+    try {
       await supabase
         .from('whatsapp_gateway_sessions')
         .upsert({
           organization_id: orgId,
-          status: 'disconnected',
+          status: 'logout_requested',
           qr_code: null,
           phone_number: null,
+          device_name: null,
           updated_at: new Date().toISOString()
         }, { onConflict: 'organization_id' });
 
-      await fetchSession();
+      setTimeout(async () => {
+        await fetchSession();
+        setIsRefreshing(false);
+      }, 2500);
     } catch (err) {
       console.error('Session reset error:', err);
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 500);
+      setIsRefreshing(false);
     }
   };
 
@@ -151,21 +180,23 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
               </div>
               <div className="text-xs opacity-80 mt-0.5">
                 {isConnected 
-                  ? 'Şirket WhatsApp grupları ve medya akışı panele canlı aktarılıyor.' 
+                  ? 'WhatsApp hattınız Mezbaha sunucusu üzerinden 7/24 panele canlı bağlıdır.' 
                   : isQrReady
                   ? 'Telefonunuzdan WhatsApp > Bağlı Cihazlar > Cihaz Bağla adımı ile aşağıdaki canlı kodu okutun.'
-                  : 'Canlı QR kodu üretmek için bilgisayarınızda whatsapp-baslat.bat servisini çalıştırın.'}
+                  : 'Mezbaha sunucusunda servis arka planda başlatılıyor...'}
               </div>
             </div>
           </div>
-          <button
-            onClick={handleResetSession}
-            disabled={isRefreshing}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-1 cursor-pointer"
-          >
-            <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
-            Yenile
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleResetSession}
+              disabled={isRefreshing}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+              Yenile
+            </button>
+          </div>
         </div>
 
         {isConnected ? (
@@ -189,7 +220,7 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
                 </div>
                 <div>
                   <div className="text-[11px] font-semibold text-gray-500 uppercase">Bağlantı Durumu</div>
-                  <div className="text-sm font-bold text-gray-900">Canlı & Stabil</div>
+                  <div className="text-sm font-bold text-gray-900">Mezbaha 7/24 Canlı</div>
                   <div className="text-xs text-emerald-600 font-medium">Uçtan Uca Şifreli</div>
                 </div>
               </div>
@@ -199,41 +230,58 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
                   <Users size={20} />
                 </div>
                 <div>
-                  <div className="text-[11px] font-semibold text-gray-500 uppercase">İzlenen Gruplar</div>
-                  <div className="text-sm font-bold text-gray-900">{groupsCount || 5} Aktif Grup</div>
-                  <div className="text-xs text-blue-600 font-medium">Tam Otomasyon Açık</div>
+                  <div className="text-[11px] font-semibold text-gray-500 uppercase">Aktif Sohbetler</div>
+                  <div className="text-sm font-bold text-gray-900">{recentChats.length || groupsCount || 0} Sohbet</div>
+                  <div className="text-xs text-blue-600 font-medium">İki Yönlü Mesajlaşma</div>
                 </div>
               </div>
             </div>
 
-            {/* Monitored Groups Quick List */}
+            {/* Monitored Real Chats / Groups */}
             <div className="border border-gray-200 rounded-xl p-4 bg-white">
-              <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <MessageSquare size={14} className="text-emerald-600" />
-                Bağlı Operasyon Grupları
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100">
-                  <span className="font-semibold text-gray-800">🔧 Sanayi & Araç Bakım Grubu</span>
-                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Araç Modülü</span>
-                </div>
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100">
-                  <span className="font-semibold text-gray-800">⛽ Şoförler & Lojistik Grubu</span>
-                  <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px]">Yakıt Modülü</span>
-                </div>
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100">
-                  <span className="font-semibold text-gray-800">🥩 Mezbaha & Kesimhane Grubu</span>
-                  <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[10px]">Kesim Modülü</span>
-                </div>
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100">
-                  <span className="font-semibold text-gray-800">🏪 Şubeler & Günlük Satış</span>
-                  <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Kasa & POS</span>
-                </div>
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100">
-                  <span className="font-semibold text-gray-800">💰 Finans & Tahsilat Grubu</span>
-                  <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-bold text-[10px]">Çek Modülü</span>
-                </div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
+                  <MessageSquare size={14} className="text-emerald-600" />
+                  Senkronize WhatsApp Sohbetleri ({recentChats.length})
+                </h4>
+                <button
+                  onClick={handleLogoutAndReset}
+                  className="px-2.5 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg flex items-center gap-1 transition-colors border border-rose-200 cursor-pointer"
+                  title="Oturumu sıfırlayıp baştan QR kod okutmak için tıklayın"
+                >
+                  <LogOut size={12} />
+                  Oturumu Sıfırla &amp; Yeni QR Üret
+                </button>
               </div>
+
+              {recentChats.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {recentChats.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100">
+                      <div className="truncate mr-2">
+                        <span className="font-semibold text-gray-800 block truncate">
+                          {c.is_group ? '👥 ' : '👤 '} {c.name}
+                        </span>
+                        <span className="text-[11px] text-gray-400 truncate block">
+                          {c.last_message_text || 'Sohbet aktif'}
+                        </span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded font-bold text-[10px] shrink-0 ${
+                        c.is_group ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {c.is_group ? 'Grup' : 'Kişi'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-900 text-xs flex flex-col gap-1.5">
+                  <span className="font-semibold">Henüz senkronize edilmiş sohbet bulunmuyor.</span>
+                  <span className="text-[11.5px] text-amber-800">
+                    WhatsApp hattınıza yeni bir mesaj geldiğinde veya giden mesaj gönderildiğinde sohbetler otomatik listelenecektir. Tüm geçmiş sohbetlerinizi ve gruplarınızı tek seferde baştan çekmek için yukarıdaki <strong>&quot;Oturumu Sıfırla &amp; Yeni QR Üret&quot;</strong> butonuna basarak yeni bir QR kod okutabilirsiniz.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -254,11 +302,11 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
                 <div className="w-56 h-56 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-4 flex flex-col items-center justify-center text-white text-center relative overflow-hidden">
                   <RefreshCw size={32} className={`mb-2.5 ${isGatewayOffline ? 'text-amber-400' : 'text-emerald-400 animate-spin'}`} />
                   <span className="text-xs font-bold text-gray-100">
-                    {isGatewayOffline ? 'Gateway Servisi Kapalı' : 'WhatsApp Gateway'}
+                    {isGatewayOffline ? 'Gateway Servisi Bekleniyor' : 'WhatsApp Gateway'}
                   </span>
                   <span className="text-[11px] text-gray-300 mt-1.5 leading-snug px-1">
                     {isGatewayOffline
-                      ? 'Canlı QR kodu üretmek için whatsapp-baslat.bat dosyasını çalıştırın.'
+                      ? 'Sunucuda WhatsApp Gateway servisi başlatılıyor. Lütfen 3-5 saniye bekleyin...'
                       : 'Canlı QR Kodu Hazırlanıyor...'}
                   </span>
                 </div>
@@ -278,12 +326,12 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
               <h4 className="font-bold text-gray-900 text-sm">WhatsApp ile Canlı Eşleştirin</h4>
               <ol className="text-xs text-gray-600 space-y-2 list-decimal list-inside">
                 <li>Telefonunuzda <strong>WhatsApp</strong> uygulamasını açın.</li>
-                <li><strong>Ayarlar</strong> (veya sağ üst menüden) <strong>Bağlı Cihazlar</strong>&apos;a dokunun.</li>
-                <li><strong>Cihaz Bağla</strong> butonuna basıp kameranızı soldaki koda tutun.</li>
+                <li><strong>Ayarlar</strong> (veya sağ üst üç nokta menüsünden) <strong>Bağlı Cihazlar</strong>&apos;a dokunun.</li>
+                <li><strong>Cihaz Bağla</strong> butonuna basıp kameranızı soldaki QR koda tutun.</li>
               </ol>
               <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] flex items-start gap-2">
                 <ShieldCheck size={16} className="text-emerald-600 shrink-0 mt-0.5" />
-                <span>Eşleşme sağlandığında şirket gruplarından gelen fiş ve talimatlar doğrudan ERP havuzuna akar.</span>
+                <span>Eşleşme sağlandığında tüm WhatsApp sohbet geçmişiniz, müşteri konuşmalarınız ve gruplarınız anında panele aktarılacaktır.</span>
               </div>
             </div>
           </div>
@@ -292,7 +340,7 @@ export const DeviceConnectionModal: React.FC<DeviceConnectionModalProps> = ({
         <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-200">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer"
           >
             Kapat
           </button>

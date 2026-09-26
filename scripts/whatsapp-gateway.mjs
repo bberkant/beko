@@ -22,6 +22,18 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 const AUTH_DIR = path.join(process.cwd(), 'whatsapp_auth_session');
+const LOG_FILE = path.join(process.cwd(), 'gateway.log');
+
+function log(msg) {
+  const line = `[${new Date().toLocaleTimeString('tr-TR')}] ${msg}`;
+  console.log(line);
+  try {
+    fs.appendFileSync(LOG_FILE, line + '\r\n');
+  } catch {}
+}
+
+// In-memory contacts cache for name lookups
+const contactCache = new Map();
 
 // Smart Extraction Helpers
 function extractPlate(text) {
@@ -77,21 +89,21 @@ async function updateGatewayStatus(payload) {
         updated_at: new Date().toISOString()
       }, { onConflict: 'organization_id' });
 
-    if (error) console.error('Supabase session update error:', error.message);
+    if (error) log(`Supabase session update error: ${error.message}`);
   } catch (err) {
-    console.error('Session update exception:', err);
+    log(`Session update exception: ${err.message}`);
   }
 }
 
 // Sync all participating real WhatsApp groups into whatsapp_chats table
 async function syncAllGroups(sock) {
   try {
-    console.log('🔄 [GRUP SENKRONİZASYONU] WhatsApp grupları taranıyor...');
+    log('🔄 [GRUP TARAMASI] WhatsApp grupları taranıyor...');
     const groups = await sock.groupFetchAllParticipating();
-    const groupCount = Object.keys(groups).length;
-    console.log(`📋 [GRUP BULUNDU] Toplam ${groupCount} adet WhatsApp grubu bulundu.`);
+    const groupEntries = Object.entries(groups || {});
+    log(`📋 [GRUP RAPORU] Toplam ${groupEntries.length} adet WhatsApp grubu bulundu.`);
 
-    for (const [jid, meta] of Object.entries(groups)) {
+    for (const [jid, meta] of groupEntries) {
       const groupName = meta.subject || 'WhatsApp Grubu';
       
       const { error } = await supabase
@@ -107,26 +119,29 @@ async function syncAllGroups(sock) {
         }, { onConflict: 'organization_id,chat_jid' });
 
       if (error) {
-        console.warn(`  ⚠️ Grup kaydedilemedi (${groupName}):`, error.message);
+        log(`  ⚠️ Grup kaydedilemedi (${groupName}): ${error.message}`);
       } else {
-        console.log(`  ✅ Grup Aktarıldı: ${groupName}`);
+        log(`  ✅ Grup Aktarıldı: ${groupName}`);
       }
     }
   } catch (err) {
-    console.error('❌ Grup senkronizasyon hatası:', err.message);
+    log(`❌ Grup senkronizasyon hatası: ${err.message}`);
   }
 }
 
+let activeSocket = null;
+
 async function startGateway() {
-  console.log('====================================================');
-  console.log('  🚀 BEKO ERP - CANLI WHATSAPP GATEWAY SERVİSİ');
-  console.log('====================================================');
+  log('====================================================');
+  log('  🚀 MEZBAHA SERVER - CANLI WHATSAPP GATEWAY SERVİSİ');
+  log('  📱 Otomatik Geçmiş Senkronizasyonu & İki Yönlü Mesajlaşma');
+  log('====================================================');
 
   const { version, isLatest } = await fetchLatestBaileysVersion().catch(() => ({ 
     version: [2, 3000, 1043857760], 
     isLatest: true 
   }));
-  console.log(`📡 WhatsApp Web Protokol Sürümü: ${version.join('.')} (En güncel: ${isLatest})`);
+  log(`📡 WhatsApp Web Protokol Sürümü: ${version.join('.')} (En güncel: ${isLatest})`);
 
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
@@ -135,11 +150,16 @@ async function startGateway() {
     auth: state,
     printQRInTerminal: false,
     logger: pino({ level: 'silent' }),
-    browser: Browsers.windows('Desktop'),
-    syncFullHistory: false,
+    // macOS Desktop browser preset is required for full WhatsApp chat history sync
+    browser: Browsers.macOS('Desktop'),
+    syncFullHistory: true,
+    markOnlineOnConnect: true,
     connectTimeoutMs: 60000,
-    keepAliveIntervalMs: 25000
+    keepAliveIntervalMs: 25000,
+    defaultQueryTimeoutMs: 60000
   });
+
+  activeSocket = sock;
 
   sock.ev.on('creds.update', saveCreds);
 
@@ -148,10 +168,7 @@ async function startGateway() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log('\n📲 [YENİ CANLI QR KODU ÜRETİLDİ] Lütfen web panelinden okutun:\n');
-      const terminalQr = await qrcode.toString(qr, { type: 'terminal', small: true });
-      console.log(terminalQr);
-
+      log('📲 [YENİ CANLI QR KODU ÜRETİLDİ] Web paneline aktarılıyor...');
       const dataUrl = await qrcode.toDataURL(qr, { margin: 2, scale: 8 });
       await updateGatewayStatus({
         status: 'qr_ready',
@@ -165,8 +182,7 @@ async function startGateway() {
     if (connection === 'open') {
       const phoneNumber = sock.user?.id ? sock.user.id.split(':')[0] : 'Bağlı Hat';
       const userName = sock.user?.name || 'Şirket WhatsApp Hattı';
-      console.log(`\n✅ [BAĞLANTI BAŞARILI] WhatsApp Gateway Aktif!`);
-      console.log(`📱 Cihaz: ${userName} (${phoneNumber})\n`);
+      log(`✅ [BAĞLANTI BAŞARILI] WhatsApp Gateway Aktif! Cihaz: ${userName} (${phoneNumber})`);
 
       await updateGatewayStatus({
         status: 'connected',
@@ -178,17 +194,19 @@ async function startGateway() {
         error_message: null
       });
 
-      // Eşleşme sağlandığı an kullanıcının gerçek gruplarını çek
-      await syncAllGroups(sock);
+      // Bağlantı açıldıktan hemen sonra grupları tara
+      setTimeout(async () => {
+        await syncAllGroups(sock);
+      }, 3000);
     }
 
     if (connection === 'close') {
       const statusCode = (lastDisconnect?.error instanceof Boom)?.output?.statusCode || lastDisconnect?.error?.output?.statusCode;
       const isLoggedOut = statusCode === DisconnectReason.loggedOut;
-      console.log(`❌ [BAĞLANTI KESİLDİ] Kod: ${statusCode}, Oturum Silindi mi: ${isLoggedOut}`);
+      log(`❌ [BAĞLANTI KESİLDİ] Kod: ${statusCode}, Oturum Silindi mi: ${isLoggedOut}`);
 
       if (isLoggedOut) {
-        console.log('⚠️ Oturum kapatıldı, auth dizini temizleniyor...');
+        log('⚠️ Oturum kapatıldı, auth dizini temizleniyor...');
         if (fs.existsSync(AUTH_DIR)) {
           fs.rmSync(AUTH_DIR, { recursive: true, force: true });
         }
@@ -196,18 +214,205 @@ async function startGateway() {
           status: 'disconnected',
           qr_code: null,
           qr_raw: null,
+          phone_number: null,
           last_heartbeat: new Date().toISOString(),
           error_message: 'Oturum kapatıldı. Yeniden QR okutulmalı.'
         });
         setTimeout(startGateway, 3000);
       } else {
-        console.log('🔄 Gateway yeniden bağlanıyor...');
-        setTimeout(startGateway, 2000);
+        log('🔄 Gateway yeniden bağlanıyor...');
+        setTimeout(startGateway, 3000);
       }
     }
   });
 
-  // Incoming Messages Ingestion
+  // Handle WhatsApp initial history sync (chats, contacts, messages)
+  sock.ev.on('messaging-history.set', async ({ chats, contacts, messages, syncType }) => {
+    log(`📜 [GEÇMİŞ SENKRONİZASYONU BAŞLADI] (${syncType || 'full'}) ${chats?.length || 0} sohbet, ${contacts?.length || 0} kişi, ${messages?.length || 0} mesaj alındı.`);
+
+    // 1. Populate contacts cache
+    if (contacts && contacts.length > 0) {
+      for (const contact of contacts) {
+        if (contact.id) {
+          const cName = contact.notify || contact.verifiedName || contact.name;
+          if (cName) contactCache.set(contact.id, cName);
+        }
+      }
+    }
+
+    // 2. Upsert all chats
+    const chatDbMap = new Map();
+    if (chats && chats.length > 0) {
+      for (const chat of chats) {
+        const jid = chat.id;
+        if (!jid || jid === 'status@broadcast') continue;
+        const isGroup = jid.endsWith('@g.us');
+        const phone = isGroup ? null : jid.split('@')[0];
+        const contactName = contactCache.get(jid);
+        const name = chat.name || contactName || (isGroup ? 'WhatsApp Grubu' : (phone ? `+${phone}` : 'Sohbet'));
+        const lastTime = chat.conversationTimestamp 
+          ? new Date(Number(chat.conversationTimestamp) * 1000).toISOString()
+          : new Date().toISOString();
+
+        const { data: upserted } = await supabase
+          .from('whatsapp_chats')
+          .upsert({
+            organization_id: ORG_ID,
+            chat_jid: jid,
+            name: name,
+            phone_number: phone,
+            is_group: isGroup,
+            unread_count: chat.unreadCount || 0,
+            last_message_text: 'Sohbet senkronize edildi',
+            last_message_time: lastTime
+          }, { onConflict: 'organization_id,chat_jid' })
+          .select('id')
+          .maybeSingle();
+
+        if (upserted?.id) {
+          chatDbMap.set(jid, upserted.id);
+        }
+      }
+      log(`  ✅ ${chats.length} adet sohbet veritabanına aktarıldı.`);
+    }
+
+    // 3. Ingest recent history messages
+    if (messages && messages.length > 0) {
+      log(`  📨 ${messages.length} adet geçmiş mesaj aktarılıyor...`);
+      let insertedCount = 0;
+
+      for (const msg of messages) {
+        const remoteJid = msg.key?.remoteJid;
+        if (!remoteJid || remoteJid === 'status@broadcast') continue;
+
+        const isGroup = remoteJid.endsWith('@g.us');
+        const isFromMe = Boolean(msg.key?.fromMe);
+        const participant = msg.key?.participant || msg.participant;
+        const senderPhone = (isGroup && participant) ? participant.split('@')[0] : remoteJid.split('@')[0];
+        const contactName = contactCache.get(remoteJid);
+        const pushName = msg.pushName || contactName || (isFromMe ? 'Biz (Etaş)' : (senderPhone ? `+${senderPhone}` : 'WhatsApp Kullanıcısı'));
+
+        const msgType = Object.keys(msg.message || {})[0] || 'text';
+        const isMedia = msgType === 'imageMessage' || msgType === 'documentMessage';
+        const text = msg.message?.conversation || 
+                     msg.message?.extendedTextMessage?.text || 
+                     msg.message?.imageMessage?.caption || 
+                     msg.message?.documentMessage?.caption || 
+                     (isMedia ? (msgType === 'imageMessage' ? '📷 Görsel' : '📄 Belge') : '');
+
+        if (!text && !isMedia) continue;
+
+        const msgTime = msg.messageTimestamp 
+          ? new Date(Number(msg.messageTimestamp) * 1000).toISOString() 
+          : new Date().toISOString();
+
+        // Ensure chat exists
+        let chatId = chatDbMap.get(remoteJid);
+        if (!chatId) {
+          const { data: newChat } = await supabase
+            .from('whatsapp_chats')
+            .upsert({
+              organization_id: ORG_ID,
+              chat_jid: remoteJid,
+              name: isGroup ? 'WhatsApp Grubu' : pushName,
+              phone_number: isGroup ? null : senderPhone,
+              is_group: isGroup,
+              last_message_text: text || (isMedia ? 'Dosya' : 'Mesaj'),
+              last_message_time: msgTime
+            }, { onConflict: 'organization_id,chat_jid' })
+            .select('id')
+            .maybeSingle();
+
+          if (newChat?.id) {
+            chatId = newChat.id;
+            chatDbMap.set(remoteJid, chatId);
+          }
+        } else {
+          await supabase
+            .from('whatsapp_chats')
+            .update({
+              last_message_text: text || (isMedia ? 'Dosya' : 'Mesaj'),
+              last_message_time: msgTime
+            })
+            .eq('id', chatId);
+        }
+
+        // Insert message
+        if (chatId && msg.key?.id) {
+          const { data: existing } = await supabase
+            .from('whatsapp_messages')
+            .select('id')
+            .eq('organization_id', ORG_ID)
+            .eq('message_id', msg.key.id)
+            .maybeSingle();
+
+          if (!existing) {
+            await supabase
+              .from('whatsapp_messages')
+              .insert({
+                chat_id: chatId,
+                organization_id: ORG_ID,
+                message_id: msg.key.id,
+                sender_name: isFromMe ? 'Biz (Etaş)' : pushName,
+                sender_phone: senderPhone,
+                is_from_me: isFromMe,
+                message_type: isMedia ? (msgType === 'imageMessage' ? 'image' : 'document') : 'text',
+                body: text || (isMedia ? 'Dosya' : ''),
+                status: isFromMe ? 'sent' : 'read',
+                timestamp: msgTime
+              });
+            insertedCount++;
+          }
+        }
+      }
+      log(`  ✅ ${insertedCount} yeni mesaj veritabanına kaydedildi.`);
+    }
+
+    log('✨ [GEÇMİŞ SENKRONİZASYONU TAMAMLANDI]');
+  });
+
+  // Handle live chat updates
+  sock.ev.on('chats.upsert', async (chats) => {
+    for (const chat of chats) {
+      const jid = chat.id;
+      if (!jid || jid === 'status@broadcast') continue;
+      const isGroup = jid.endsWith('@g.us');
+      const phone = isGroup ? null : jid.split('@')[0];
+      const contactName = contactCache.get(jid);
+      const name = chat.name || contactName || (isGroup ? 'WhatsApp Grubu' : (phone ? `+${phone}` : 'Sohbet'));
+
+      await supabase
+        .from('whatsapp_chats')
+        .upsert({
+          organization_id: ORG_ID,
+          chat_jid: jid,
+          name: name,
+          phone_number: phone,
+          is_group: isGroup,
+          unread_count: chat.unreadCount || 0,
+          last_message_time: new Date().toISOString()
+        }, { onConflict: 'organization_id,chat_jid' });
+    }
+  });
+
+  // Handle contact name updates
+  sock.ev.on('contacts.upsert', async (contacts) => {
+    for (const contact of contacts) {
+      const jid = contact.id;
+      if (!jid || jid.endsWith('@g.us')) continue;
+      const name = contact.notify || contact.verifiedName || contact.name;
+      if (name) {
+        contactCache.set(jid, name);
+        await supabase
+          .from('whatsapp_chats')
+          .update({ name: name })
+          .eq('organization_id', ORG_ID)
+          .eq('chat_jid', jid);
+      }
+    }
+  });
+
+  // Incoming Messages Ingestion (Groups & Direct Chats)
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;
 
@@ -222,7 +427,8 @@ async function startGateway() {
       const senderPhone = isGroup 
         ? (msg.key.participant ? msg.key.participant.split('@')[0] : '') 
         : remoteJid.split('@')[0];
-      const pushName = msg.pushName || senderPhone || (isFromMe ? 'Siz' : 'WhatsApp Kullanıcısı');
+      const cachedName = contactCache.get(remoteJid);
+      const pushName = msg.pushName || cachedName || senderPhone || (isFromMe ? 'Biz (Etaş)' : 'WhatsApp Kullanıcısı');
 
       let groupName = null;
       if (isGroup) {
@@ -242,7 +448,7 @@ async function startGateway() {
                    msg.message?.documentMessage?.caption || 
                    (isMedia ? (msgType === 'imageMessage' ? '📷 Görsel' : '📄 Belge') : '');
 
-      console.log(`📥 [YENİ MESAJ] [${groupName || pushName}] ${pushName}: ${text}`);
+      log(`📥 [CANLI MESAJ] [${groupName || pushName}] ${pushName}: ${text.substring(0, 60)}`);
 
       let mediaUrl = null;
       let ext = 'jpg';
@@ -303,7 +509,7 @@ async function startGateway() {
               status: 'pending'
             });
         } catch (mediaErr) {
-          console.error('Media download/process error:', mediaErr);
+          log(`Media download error: ${mediaErr.message}`);
         }
       }
 
@@ -311,7 +517,7 @@ async function startGateway() {
       const chatPayload = {
         organization_id: ORG_ID,
         chat_jid: remoteJid,
-        name: isGroup ? (groupName || 'WhatsApp Grubu') : pushName,
+        name: isGroup ? (groupName || 'WhatsApp Grubu') : (pushName ? pushName : `+${senderPhone}`),
         phone_number: isGroup ? null : senderPhone,
         is_group: isGroup,
         last_message_text: text || (isMedia ? 'Dosya' : 'Mesaj'),
@@ -322,7 +528,7 @@ async function startGateway() {
         .from('whatsapp_chats')
         .upsert(chatPayload, { onConflict: 'organization_id,chat_jid' })
         .select('id')
-        .single();
+        .maybeSingle();
 
       // 2. Insert into whatsapp_messages
       if (upsertedChat?.id) {
@@ -332,13 +538,13 @@ async function startGateway() {
             chat_id: upsertedChat.id,
             organization_id: ORG_ID,
             message_id: msg.key.id || `msg_${Date.now()}`,
-            sender_name: isFromMe ? (sock.user?.name || 'Siz') : pushName,
+            sender_name: isFromMe ? (sock.user?.name || 'Biz (Etaş)') : pushName,
             sender_phone: senderPhone,
             is_from_me: isFromMe,
             message_type: isMedia ? (ext === 'jpg' ? 'image' : 'document') : 'text',
             body: text,
             media_url: mediaUrl,
-            status: 'delivered',
+            status: isFromMe ? 'sent' : 'delivered',
             timestamp: new Date((msg.messageTimestamp ? Number(msg.messageTimestamp) * 1000 : Date.now())).toISOString()
           });
       }
@@ -390,10 +596,10 @@ async function startGateway() {
             .from('whatsapp_chats')
             .select('chat_jid')
             .eq('id', pMsg.chat_id)
-            .single();
+            .maybeSingle();
 
           if (chat?.chat_jid) {
-            console.log(`📤 [MESAJ GÖNDERİLİYOR] ${chat.chat_jid}: ${pMsg.body}`);
+            log(`📤 [MESAJ GÖNDERİLİYOR] ${chat.chat_jid}: ${pMsg.body}`);
             const sent = await sock.sendMessage(chat.chat_jid, { text: pMsg.body || '' });
             await supabase
               .from('whatsapp_messages')
@@ -403,7 +609,7 @@ async function startGateway() {
         }
       }
     } catch (sendErr) {
-      console.warn('Outgoing message error:', sendErr.message);
+      log(`Outgoing message error: ${sendErr.message}`);
     }
   }, 2000);
 
@@ -414,9 +620,43 @@ async function startGateway() {
     }
   }, 5 * 60 * 1000);
 
-  // Heartbeat loop every 15s to keep last_heartbeat fresh
+  // Remote Control & Heartbeat Loop (every 5 seconds)
   setInterval(async () => {
     try {
+      // 1. Check for remote logout/reset command from Web UI
+      const { data: sess } = await supabase
+        .from('whatsapp_gateway_sessions')
+        .select('status')
+        .eq('organization_id', ORG_ID)
+        .maybeSingle();
+
+      if (sess?.status === 'logout_requested') {
+        log('🛑 [KULLANICI TALEBİ] Web panelinden oturum kapatma ve sıfırlama talimatı alındı.');
+        await updateGatewayStatus({
+          status: 'disconnected',
+          qr_code: null,
+          qr_raw: null,
+          phone_number: null,
+          device_name: null,
+          error_message: 'Oturum sıfırlandı. Yeni QR kod oluşturuluyor...'
+        });
+
+        try {
+          await sock.logout();
+        } catch {}
+
+        if (fs.existsSync(AUTH_DIR)) {
+          fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+        }
+
+        log('🔄 Oturum dosyaları silindi. Gateway yeniden başlatılıyor...');
+        setTimeout(() => {
+          process.exit(0);
+        }, 1000);
+        return;
+      }
+
+      // 2. Heartbeat ping
       if (sock.user?.id) {
         await updateGatewayStatus({
           status: 'connected',
@@ -428,7 +668,7 @@ async function startGateway() {
         });
       }
     } catch {}
-  }, 15000);
+  }, 5000);
 }
 
-startGateway().catch(console.error);
+startGateway().catch(err => log(`Gateway fatal error: ${err.message}`));

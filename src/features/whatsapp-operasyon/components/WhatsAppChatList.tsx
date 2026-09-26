@@ -275,10 +275,28 @@ export const WhatsAppChatList: React.FC<WhatsAppChatListProps> = ({
         isDark ? 'bg-[#111b21] divide-[#222e35]' : 'bg-white divide-gray-100'
       }`}>
         {filteredChats.length === 0 ? (
-          <div className={`p-8 text-center text-sm space-y-1 ${
-            isDark ? 'text-[#8696a0]' : 'text-gray-400'
+          <div className={`p-8 text-center text-sm space-y-2.5 ${
+            isDark ? 'text-[#8696a0]' : 'text-gray-500'
           }`}>
-            <p>Aradığınız kriterde sohbet bulunamadı.</p>
+            {chats.length === 0 ? (
+              isConnected ? (
+                <div className="space-y-1.5 max-w-xs mx-auto">
+                  <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Henüz senkronize sohbet yok</p>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    WhatsApp hattınıza yeni bir mesaj geldiğinde sohbetler anında listelenecektir. Tüm geçmişinizi baştan aktarmak için yukarıdaki <strong className="text-emerald-500">Bağlı</strong> butonuna tıklayıp oturumu yenileyebilirsiniz.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-w-xs mx-auto">
+                  <p className="font-semibold text-amber-500">WhatsApp Bağlantısı Bekleniyor</p>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Telefonunuzdan QR kodu okutmak için üstteki <strong className="text-amber-500">QR Bağla</strong> butonuna tıklayın.
+                  </p>
+                </div>
+              )
+            ) : (
+              <p>Aradığınız kriterde sohbet bulunamadı.</p>
+            )}
           </div>
         ) : (
           filteredChats.map(chat => {
