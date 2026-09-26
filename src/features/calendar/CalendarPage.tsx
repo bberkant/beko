@@ -56,9 +56,7 @@ export const DEFAULT_ACTIVE_EVENT_TYPES: EventType[] = [
   'credit-card',
   'tender',
   'insurance',
-  'inspection',
-  'check',
-  'bill'
+  'inspection'
 ];
 
 interface CalendarEvent { 
@@ -454,12 +452,12 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
 
   const userKey = user?.id || user?.email || 'default';
   const notesStorageKey = `dars_calendar_notes_${userKey}`;
-  const filterStorageKey = `dars_calendar_filters_${userKey}`;
+  const filterStorageKey = `dars_calendar_filters_v2_${userKey}`;
 
   // 1. Dynamic Event Types Filter (Persisted per user, default: widely used operational types)
   const [activeTypes, setActiveTypes] = useState<EventType[]>(() => {
     try {
-      const saved = localStorage.getItem(`dars_calendar_filters_${user?.id || user?.email || 'default'}`);
+      const saved = localStorage.getItem(`dars_calendar_filters_v2_${user?.id || user?.email || 'default'}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
