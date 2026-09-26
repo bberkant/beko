@@ -214,20 +214,26 @@ export function CreditCardListPage() {
       const hasDebtA = debtA > 0;
       const hasDebtB = debtB > 0;
 
-      // 1. ÖNCELİK: Ödenmemiş borcu olan kartlar (>0) üstte, borcu ödenen / 0 ₺ olan kartlar alt sıralarda yer alır!
-      if (hasDebtA && !hasDebtB) return -1;
-      if (!hasDebtA && hasDebtB) return 1;
-
       const dateA = dueDates.get(a.id) ?? '';
       const dateB = dueDates.get(b.id) ?? '';
 
       const diffA = dateA ? Math.round((new Date(`${dateA}T00:00:00`).getTime() - today.getTime()) / 86400000) : 999;
       const diffB = dateB ? Math.round((new Date(`${dateB}T00:00:00`).getTime() - today.getTime()) / 86400000) : 999;
 
-      // 2. ÖNCELİK: Tarihe göre artan sıra (en yakın son ödeme tarihi önce)
+      // 1. ÖNCELİK: Vadesi acil / kritik olanlar (bugün, yarın, son 2 gün veya gecikmişler: diff <= 2) her zaman en tepede yer alır!
+      const isCriticalA = diffA <= 2;
+      const isCriticalB = diffB <= 2;
+      if (isCriticalA && !isCriticalB) return -1;
+      if (!isCriticalA && isCriticalB) return 1;
+
+      // 2. ÖNCELİK: Ödenmemiş borcu olan kartlar (>0) üstte, borcu ödenen / 0 ₺ olan kartlar alt sıralarda yer alır!
+      if (hasDebtA && !hasDebtB) return -1;
+      if (!hasDebtA && hasDebtB) return 1;
+
+      // 3. ÖNCELİK: Tarihe göre artan sıra (en yakın son ödeme tarihi önce)
       if (diffA !== diffB) return diffA - diffB;
 
-      // 3. ÖNCELİK: Vade aynıysa borca göre, sonra bankaya göre
+      // 4. ÖNCELİK: Vade aynıysa borca göre, sonra bankaya göre
       if (debtA !== debtB) return debtB - debtA;
 
       return a.bank.localeCompare(b.bank, 'tr');
