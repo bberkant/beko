@@ -8,6 +8,7 @@ import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 import { TenderFileManager } from './TenderFileManager';
 import { EkapDtCandidates } from './EkapDtCandidates';
+import { formatMoneyInput, parseMoneyInput } from './utils/guaranteeLetterUtils';
 
 type TenderStatus = 'hazirlaniyor'|'teklif-verildi'|'degerlendirme'|'kazanildi'|'kaybedildi'|'iptal';
 interface Tender { id:string; tender_number:string; title:string; institution:string; tender_type:string; method:string; status:TenderStatus; estimated_amount:number; bid_amount:number|null; currency:string; publication_date:string|null; deadline_at:string; result_date:string|null; assigned_to:string; description:string|null; teminat_mektubu:string|null }
@@ -156,8 +157,8 @@ export function DogrudanTeminPage(){
       tenderType:item.tender_type,
       method:item.method,
       status:item.status,
-      estimatedAmount:String(item.estimated_amount),
-      bidAmount:item.bid_amount==null?'':String(item.bid_amount),
+      estimatedAmount:formatMoneyInput(item.estimated_amount),
+      bidAmount:item.bid_amount==null?'':formatMoneyInput(item.bid_amount),
       currency:item.currency,
       publicationDate:item.publication_date??'',
       deadlineAt:item.deadline_at.slice(0,16),
@@ -183,8 +184,8 @@ export function DogrudanTeminPage(){
       tender_type:'mal', // Always locked to 'mal' for doğrudan temin
       method:'dogrudan', // Always locked to 'dogrudan' for doğrudan temin
       status:form.status,
-      estimated_amount:Number(form.estimatedAmount)||0,
-      bid_amount:form.bidAmount?Number(form.bidAmount):null,
+      estimated_amount:parseMoneyInput(form.estimatedAmount),
+      bid_amount:form.bidAmount?parseMoneyInput(form.bidAmount):null,
       currency:form.currency,
       publication_date:form.publicationDate||null,
       deadline_at:new Date(form.deadlineAt).toISOString(),
@@ -508,8 +509,8 @@ export function DogrudanTeminPage(){
               {Object.entries(statusLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}
             </select>
           </Field>
-          <Field label="Yaklaşık Tutar"><input type="number" min="0" className="input" value={form.estimatedAmount} onChange={e=>setForm({...form,estimatedAmount:e.target.value})}/></Field>
-          <Field label="Teklif Tutarı"><input type="number" min="0" className="input" value={form.bidAmount} onChange={e=>setForm({...form,bidAmount:e.target.value})}/></Field>
+          <Field label="Yaklaşık Tutar"><input type="text" inputMode="decimal" placeholder="Örn: 100.000" className="input" value={form.estimatedAmount} onChange={e=>setForm({...form,estimatedAmount:formatMoneyInput(e.target.value)})}/></Field>
+          <Field label="Teklif Tutarı"><input type="text" inputMode="decimal" placeholder="Örn: 85.000" className="input" value={form.bidAmount} onChange={e=>setForm({...form,bidAmount:formatMoneyInput(e.target.value)})}/></Field>
           <Field label="Yayın Tarihi"><input type="date" className="input" value={form.publicationDate} onChange={e=>setForm({...form,publicationDate:e.target.value})}/></Field>
           <Field label="Son Teslim Tarihi"><input type="datetime-local" className="input" value={form.deadlineAt} onChange={e=>setForm({...form,deadlineAt:e.target.value})}/></Field>
           <Field label="Sonuç Tarihi"><input type="date" className="input" value={form.resultDate} onChange={e=>setForm({...form,resultDate:e.target.value})}/></Field>

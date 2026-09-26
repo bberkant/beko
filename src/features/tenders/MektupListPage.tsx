@@ -27,6 +27,7 @@ import {
   LetterStatus,
   SortField,
   formatMoney,
+  formatMoneyInput,
   formatDate,
   getDaysDiff,
   formatPhoneNumber,
@@ -274,7 +275,7 @@ export function MektupListPage() {
     setFormData({
       institution_name: letter.institution_name,
       letter_type: letter.letter_type,
-      amount: String(letter.amount),
+      amount: formatMoneyInput(letter.amount),
       bank_name: letter.bank_name,
       phone_number: letter.phone_number || '',
       issue_date: letter.issue_date ? letter.issue_date.slice(0, 10) : '',
@@ -1236,9 +1237,9 @@ export function MektupListPage() {
                 type="text"
                 inputMode="decimal"
                 required
-                placeholder="Örn: 500.000 veya 500000"
+                placeholder="Örn: 110.000"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, amount: formatMoneyInput(e.target.value) })}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-xl focus:outline-none focus:border-brand-500 font-mono"
               />
               {formData.amount && parseMoneyInput(formData.amount) > 0 && (

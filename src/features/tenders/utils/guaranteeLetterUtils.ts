@@ -106,6 +106,53 @@ export function parseMoneyInput(val: string | number): number {
   return isNegative ? -result : result;
 }
 
+export function formatMoneyInput(val: string | number): string {
+  if (val === null || val === undefined || val === '') return '';
+
+  if (typeof val === 'number') {
+    if (isNaN(val)) return '';
+    return val.toLocaleString('tr-TR', {
+      minimumFractionDigits: val % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  let s = String(val).trim();
+  if (!s) return '';
+
+  const withoutDots = s.replace(/\./g, '');
+  let cleanVal = '';
+  let hasComma = false;
+  for (let i = 0; i < withoutDots.length; i++) {
+    const char = withoutDots[i];
+    if (char >= '0' && char <= '9') {
+      cleanVal += char;
+    } else if (char === ',' && !hasComma) {
+      cleanVal += char;
+      hasComma = true;
+    }
+  }
+
+  const parts = cleanVal.split(',');
+  let integerPart = parts[0] || '';
+  const decimalPart = parts[1];
+
+  if (integerPart.length > 1 && integerPart.startsWith('0')) {
+    integerPart = integerPart.replace(/^0+/, '') || '0';
+  }
+
+  if (integerPart) {
+    integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  if (hasComma) {
+    const dec = decimalPart !== undefined ? decimalPart.slice(0, 2) : '';
+    return (integerPart || '0') + ',' + dec;
+  }
+
+  return integerPart;
+}
+
 export function formatMoney(amount: number): string {
   const hasFraction = amount % 1 !== 0;
   return new Intl.NumberFormat('tr-TR', {
