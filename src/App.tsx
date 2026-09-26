@@ -141,9 +141,8 @@ export default function App() {
                 </Route>
                 <Route path="/finans" element={<Navigate to="/finans/kredi-kartlari" replace />} />
                 
-                {/* Banka Hesapları, Hareketleri ve Ay Sonu Kokpiti Sadece Süper Admin & Developer'a Özeldir */}
+                {/* Banka Hesapları ve Hareketleri Sadece Süper Admin & Developer'a Özeldir */}
                 <Route element={<SuperAdminRoute />}>
-                  <Route path="/ay-sonu" element={<MonthEndPage />} />
                   <Route path="/finans/banka-hesap-hareketleri" element={<BankAccountTransactionsPage />} />
                   <Route path="/finans/banka-hesaplari" element={<BankAccountListPage />} />
                   <Route path="/finans/banka-hesaplari/yeni" element={<BankAccountFormPage />} />
@@ -182,6 +181,7 @@ export default function App() {
                 <Route path="/ana-kasa/giris-cikis" element={<GirisCikisPage />} />
                 <Route path="/ana-kasa/gunluk-hesap" element={<MainCashboxPage />} />
                 <Route path="/ana-kasa/pos-cihazlari" element={<PosDevicesProvider><PosDevicesPage /></PosDevicesProvider>} />
+                <Route path="/ay-sonu" element={<MonthEndPage />} />
                 <Route path="/arac-yonetimi/arac-listesi" element={<VehiclePricesPage />} />
                 <Route path="/arac-yonetimi" element={<VehicleListPage />} />
                 <Route path="/arac-yonetimi/yeni" element={<VehicleFormPage />} />
