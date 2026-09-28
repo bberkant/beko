@@ -1019,10 +1019,10 @@ export function VehicleDetailPage() {
                         {fe.fuel_type || 'Motorin'}
                       </span>
                     </td>
-                    <td className="table-td text-right text-gray-600">
+                    <td className="table-td text-right font-bold text-gray-900">
                       {money(Number(fe.unit_price) || 0)}
                     </td>
-                    <td className="table-td text-right font-bold text-gray-900">
+                    <td className="table-td text-right text-gray-600">
                       {(Number(fe.quantity) || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} Lt
                     </td>
                     <td className="table-td text-right font-bold text-emerald-700">

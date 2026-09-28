@@ -1449,10 +1449,10 @@ export function FuelTrackingPage() {
                       <td className="table-td text-right font-mono text-gray-700">
                         {x.km ? `${formatNumber(x.km, 0)}` : '—'}
                       </td>
-                      <td className="table-td text-right text-gray-600 font-mono">
+                      <td className="table-td text-right font-bold text-gray-900 font-mono">
                         {money(x.unit_price)}
                       </td>
-                      <td className="table-td text-right font-bold text-gray-900">
+                      <td className="table-td text-right text-gray-600">
                         {formatNumber(x.quantity, 2)} Lt
                       </td>
                       <td className="table-td text-right font-bold text-emerald-700 font-mono">
@@ -1753,10 +1753,10 @@ export function FuelTrackingPage() {
                             {x.fuel_type || 'Motorin'}
                           </span>
                         </td>
-                        <td className="table-td text-right text-gray-600">
+                        <td className="table-td text-right font-bold text-gray-900">
                           {money(x.unit_price)}
                         </td>
-                        <td className="table-td text-right font-bold text-gray-900">
+                        <td className="table-td text-right text-gray-600">
                           {formatNumber(x.quantity, 2)} Lt
                         </td>
                         <td className="table-td text-right font-bold text-emerald-700">
@@ -2039,8 +2039,8 @@ export function FuelTrackingPage() {
                         )}
                       </td>
                       <td className="table-td py-1.5">{row.fuel_type}</td>
-                      <td className="table-td py-1.5 text-right">{money(row.unit_price)}</td>
-                      <td className="table-td py-1.5 text-right font-semibold">{formatNumber(row.quantity, 2)} Lt</td>
+                      <td className="table-td py-1.5 text-right font-semibold text-gray-900">{money(row.unit_price)}</td>
+                      <td className="table-td py-1.5 text-right text-gray-600">{formatNumber(row.quantity, 2)} Lt</td>
                       <td className="table-td py-1.5 text-right font-bold text-emerald-700">{money(row.total_amount)}</td>
                       <td className="table-td py-1.5 text-gray-700">
                         {row.station} {row.city ? `(${row.city})` : ''}
