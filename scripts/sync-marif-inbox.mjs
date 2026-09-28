@@ -231,6 +231,14 @@ export async function syncMarifIncomingInvoices(isFull = false) {
       }
     }
 
+    // Yeni ve güncel Marif faturalarının resmi PDF ve HTML dosyalarını arka planda otomatik indir
+    try {
+      const { downloadMarifMedia } = await import('./download_marif_pdfs.mjs');
+      await downloadMarifMedia(100);
+    } catch (dErr) {
+      console.warn('Marif PDF otomatik indirme uyarısı:', dErr.message);
+    }
+
     return merged;
   } catch (err) {
     console.error('❌ Marif Senkronizasyon Hatası:', err.message);

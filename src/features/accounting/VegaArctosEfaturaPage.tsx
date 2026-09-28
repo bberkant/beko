@@ -15,8 +15,7 @@ import {
   Calendar,
   X,
   Printer,
-  ExternalLink,
-  AlertCircle
+  ExternalLink
 } from 'lucide-react';
 import { useToast } from '../../lib/toast';
 import { Modal } from '../../components/ui/Modal';
@@ -28,12 +27,14 @@ import {
   getSupabaseCache, 
   saveSupabaseCache 
 } from './efaturaCache';
+import { StandardElectronicInvoice } from './components/StandardElectronicInvoice';
+import { downloadInvoiceXml, downloadInvoiceHtml } from './utils/invoiceDocumentHelpers';
 
-interface VegaEfatura {
+export interface VegaEfatura {
   id: number;
   invoiceNo: string;
   date: string;
-  cariCode: number;
+  cariCode: number | string;
   cariName: string;
   vkn?: string;
   matrah: number;
@@ -45,14 +46,18 @@ interface VegaEfatura {
   profile?: string;
   ettn?: string;
   notes?: string;
+  city?: string;
+  taxOffice?: string;
   items?: VegaEfaturaDetay[];
 }
 
-interface VegaEfaturaDetay {
+export interface VegaEfaturaDetay {
   id: number;
   productCode?: string;
   productName: string;
-  quantity?: string;
+  quantity?: string | number;
+  unitName?: string;
+  unitPrice?: number;
   lineTutar: number;
   kdvTutar: number;
   discount?: number;
@@ -60,6 +65,8 @@ interface VegaEfaturaDetay {
   otv?: number;
   oiv?: number;
 }
+
+export type VegaEfaturaDetail = VegaEfaturaDetay;
 
 const TUNNEL_URL = 'https://vega-api.amasyaetas.com';
 
@@ -70,12 +77,16 @@ const LOCAL_PDF_INVOICES = [
   'EVF2026000001721'
 ];
 
+const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function getInvoicePdfUrl(company: string, invoice: VegaEfatura): string {
   const invoiceNo = (invoice.invoiceNo || '').trim();
   if (LOCAL_PDF_INVOICES.includes(invoiceNo)) {
     return `/invoices/${invoiceNo}.pdf`;
   }
-  const uuid = invoice.ettn || invoice.id || '';
+  // Yalnızca geçerli 36 karakterlik GUID olan ETTN kodlarını SOAP'a gönder, numerik ID'leri SOAP'a yollama
+  const rawUuid = invoice.ettn || '';
+  const uuid = GUID_REGEX.test(rawUuid) ? rawUuid : '';
   const direction = invoice.direction || 'gelen';
   const date = invoice.date || '';
   return `${TUNNEL_URL}/api/${company}/efaturalar/${invoiceNo}/pdf?uuid=${encodeURIComponent(uuid)}&direction=${encodeURIComponent(direction)}&date=${encodeURIComponent(date)}`;
@@ -140,8 +151,8 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
   const [details, setDetails] = useState<VegaEfaturaDetay[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [modalTab, setModalTab] = useState<'pdf' | 'table'>('pdf');
+  const [viewerMode, setViewerMode] = useState<'pdf' | 'html' | 'standard'>('standard');
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
-  const [pdfError, setPdfError] = useState<string | null>(null);
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
 
   // Load VKN mapping from vega_cariler
@@ -416,61 +427,81 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
     setSelectedInvoice(null);
     setDetails([]);
     setPdfBlobUrl(null);
+    setViewerMode('standard');
     setIsPdfGenerating(false);
   };
 
-  // Directly load official PDF with resilient error handling
+  // Directly load official PDF/HTML with resilient fallback to StandardElectronicInvoice
   useEffect(() => {
     if (!selectedInvoice) {
       setPdfBlobUrl(null);
-      setPdfError(null);
+      setViewerMode('standard');
       setIsPdfGenerating(false);
       return;
     }
 
     const invNo = selectedInvoice.invoiceNo.trim();
-
     let isMounted = true;
+
     const loadPdf = async () => {
       setIsPdfGenerating(true);
-      setPdfError(null);
       setPdfBlobUrl(null);
+      setViewerMode('standard');
 
+      // 1. Önce yerel statik public/invoices klasörünü kontrol et (PDF veya HTML)
+      try {
+        const headPdf = await fetch(`/invoices/${encodeURIComponent(invNo)}.pdf`, { method: 'HEAD' });
+        if (headPdf.ok && isMounted) {
+          setPdfBlobUrl(`/invoices/${encodeURIComponent(invNo)}.pdf`);
+          setViewerMode('pdf');
+          setIsPdfGenerating(false);
+          return;
+        }
+      } catch {}
+
+      try {
+        const headHtml = await fetch(`/invoices/${encodeURIComponent(invNo)}.html`, { method: 'HEAD' });
+        if (headHtml.ok && isMounted) {
+          setPdfBlobUrl(`/invoices/${encodeURIComponent(invNo)}.html`);
+          setViewerMode('html');
+          setIsPdfGenerating(false);
+          return;
+        }
+      } catch {}
+
+      // 2. Canlı Vega / Mikrokom API'sinden resmi belgeyi sorgula
       const officialUrl = getInvoicePdfUrl(company, selectedInvoice);
       try {
         const res = await fetch(officialUrl);
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          const errMsg = errData.details || errData.error || `Resmi PDF dosyası entegratörde bulunamadı (${invNo}).`;
-          if (isMounted) {
-            setPdfError(errMsg);
-          }
-          return;
-        }
-
-        const blob = await res.blob();
-        if (blob.type.includes('json')) {
-          const text = await blob.text();
-          if (text.includes('error')) {
-            if (isMounted) {
-              setPdfError(`Fatura görseli alınamadı: ${invNo}`);
-            }
+        if (res.ok && isMounted) {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('pdf')) {
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            setPdfBlobUrl(blobUrl);
+            setViewerMode('pdf');
+            return;
+          } else if (contentType.includes('html')) {
+            const text = await res.text();
+            const blob = new Blob([text], { type: 'text/html;charset=utf-8' });
+            const blobUrl = URL.createObjectURL(blob);
+            setPdfBlobUrl(blobUrl);
+            setViewerMode('html');
             return;
           }
         }
-
-        if (isMounted) {
-          const blobUrl = URL.createObjectURL(blob);
-          setPdfBlobUrl(blobUrl);
-        }
       } catch (err: any) {
-        if (isMounted) {
-          setPdfError(`PDF yüklenirken bağlantı hatası oluştu: ${err.message || 'Bilinmeyen hata'}`);
-        }
+        console.warn('Canlı PDF çekilemedi, standart elektronik fatura görünümü devrede:', err);
       } finally {
         if (isMounted) {
           setIsPdfGenerating(false);
         }
+      }
+
+      // 3. Bulunamadıysa otomatik olarak standart resmi elektronik fatura görünümü devrede
+      if (isMounted) {
+        setViewerMode('standard');
+        setIsPdfGenerating(false);
       }
     };
 
@@ -1206,14 +1237,24 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                 {/* Print & Download Action Buttons */}
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => {
+                      if (viewerMode === 'pdf' && pdfBlobUrl) {
+                        const w = window.open(pdfBlobUrl, '_blank');
+                        if (w) w.focus();
+                        else window.print();
+                      } else {
+                        window.print();
+                      }
+                    }}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
                     title="Faturayı Yazdır"
                   >
                     <Printer size={14} />
                     Yazdır
                   </button>
-                  {pdfBlobUrl ? (
+
+                  {/* PDF İndir Button */}
+                  {pdfBlobUrl && viewerMode === 'pdf' ? (
                     <a
                       href={pdfBlobUrl}
                       download={`${selectedInvoice.invoiceNo}.pdf`}
@@ -1224,38 +1265,51 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                     </a>
                   ) : (
                     <button
-                      disabled
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-gray-200 px-3.5 py-1.5 text-xs font-semibold text-gray-400 cursor-not-allowed"
+                      onClick={() => window.print()}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#1f4e79] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-[#163a5c] transition-colors"
+                      title="Yazdır / PDF Olarak Kaydet"
                     >
-                      <RefreshCw size={14} className="animate-spin" />
-                      PDF Hazırlanıyor
+                      <Printer size={14} />
+                      PDF Olarak Kaydet
                     </button>
                   )}
-                  <a
-                    href={
-                      company === 'marif'
-                        ? `${TUNNEL_URL}/api/marif/efaturalar/${selectedInvoice.invoiceNo}/html?uuid=${encodeURIComponent(selectedInvoice.ettn || selectedInvoice.id || '')}&direction=${encodeURIComponent(selectedInvoice.direction || 'gelen')}&date=${encodeURIComponent(selectedInvoice.date || '')}`
-                        : `${TUNNEL_URL}/api/${company}/efaturalar/${selectedInvoice.invoiceNo}/xml`
-                    }
-                    download={company === 'marif' ? `${selectedInvoice.invoiceNo}.html` : `${selectedInvoice.invoiceNo}.xml`}
+
+                  {/* XML İndir Button */}
+                  <button
+                    onClick={() => downloadInvoiceXml(selectedInvoice, details, company)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                    title="Resmi UBL-TR 2.1 Formatında XML İndir"
                   >
                     <Download size={14} />
-                    {company === 'marif' ? 'HTML İndir' : 'XML İndir'}
-                  </a>
+                    XML İndir
+                  </button>
+
+                  {/* HTML İndir Button */}
+                  <button
+                    onClick={() => downloadInvoiceHtml(selectedInvoice, details, company)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+                    title="Resmi Elektronik Belge HTML İndir"
+                  >
+                    <Download size={14} />
+                    HTML İndir
+                  </button>
                 </div>
               </div>
 
 
 
-              {/* TAB 1: Official Vega PDF Document Viewer */}
+              {/* TAB 1: Official e-Fatura / e-Arşiv Document Viewer */}
               {modalTab === 'pdf' && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-gray-500 px-1">
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
                         <CheckCircle2 size={12} />
-                        Resmi Vega e-Fatura / InvoiceViewer Görünümü (Orijinal Belge)
+                        {viewerMode === 'pdf'
+                          ? 'Resmi Elektronik PDF Belgesi'
+                          : viewerMode === 'html'
+                          ? 'Resmi Elektronik Belge Görünümü'
+                          : 'Resmi Standart e-Fatura Görünümü (UBL-TR 2.1)'}
                       </span>
                     </div>
                     {pdfBlobUrl && (
@@ -1275,46 +1329,27 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                     <div className="rounded-xl border border-gray-200 bg-gray-50 p-12 text-center flex flex-col items-center justify-center gap-3 h-[75vh]">
                       <RefreshCw className="animate-spin text-[#1f4e79]" size={36} />
                       <div className="text-sm font-bold text-gray-800">
-                        Resmi Vega e-Fatura Belgesi Hazırlanıyor...
+                        Resmi e-Fatura Belgesi Hazırlanıyor...
                       </div>
                       <p className="text-xs text-gray-500 font-mono">
                         {selectedInvoice.invoiceNo}
                       </p>
                     </div>
-                  ) : pdfError ? (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-8 text-center flex flex-col items-center justify-center gap-4 min-h-[50vh]">
-                      <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-700">
-                        <AlertCircle size={28} />
-                      </div>
-                      <div className="max-w-md space-y-1.5">
-                        <h4 className="text-base font-bold text-amber-900">
-                          Resmi Elektronik PDF Bulunamadı
-                        </h4>
-                        <p className="text-xs text-amber-800/90 leading-relaxed">
-                          {pdfError}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setModalTab('table')}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[#f37021] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#d95d13] transition-colors"
-                      >
-                        <FileText size={15} />
-                        Kalem Tablosu ve Detaylarını Aç
-                      </button>
-                    </div>
-                  ) : pdfBlobUrl ? (
-                    <div className="rounded-xl border border-gray-300 overflow-hidden bg-gray-100 h-[75vh]">
-                      <iframe
-                        src={pdfBlobUrl}
-                        title={`${selectedInvoice.invoiceNo} PDF`}
-                        className="w-full h-full border-0"
+                  ) : viewerMode === 'standard' || !pdfBlobUrl ? (
+                    <div className="overflow-y-auto max-h-[75vh] p-2 bg-slate-100/70 rounded-xl border border-gray-200">
+                      <StandardElectronicInvoice
+                        invoice={selectedInvoice}
+                        details={details}
+                        company={company}
                       />
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-12 text-center flex flex-col items-center justify-center gap-3 h-[75vh]">
-                      <RefreshCw className="animate-spin text-[#1f4e79]" size={36} />
-                      <span className="text-sm font-medium text-gray-600">PDF yükleniyor...</span>
+                    <div className="rounded-xl border border-gray-300 overflow-hidden bg-gray-100 h-[75vh]">
+                      <iframe
+                        src={pdfBlobUrl}
+                        title={`${selectedInvoice.invoiceNo} Belgesi`}
+                        className="w-full h-full border-0"
+                      />
                     </div>
                   )}
                 </div>

@@ -841,6 +841,10 @@ const handleXmlRequest = async (req, res) => {
     try {
       const pool = await getVegaPool();
       const tablesToQuery = [
+        'F0101D0008TBLEARSIVXML',
+        'F0101D0008TBLEFATURAXML',
+        'F0102D0007TBLEARSIVXML',
+        'F0102D0008TBLEARSIVXML',
         'F0101TBLEARSIVXML',
         'F0101TBLEFATURAXML',
         'TBLEARSIVXML',
@@ -1043,15 +1047,27 @@ const handlePdfRequest = async (req, res) => {
       }
     } catch (soapErr) {}
 
-    // 4. Fallback: Veritabanı XML / HTML Viewer
-    const pool = await getVegaPool();
-    const xmlRes = await pool.request()
-      .input('invNo', sql.NVarChar, invoiceNo)
-      .query(`SELECT TOP 1 XMLDATA FROM F0101TBLEARSIVXML WHERE EVRAKNO = @invNo OR FATURANO = @invNo`);
-    
-    if (xmlRes.recordset && xmlRes.recordset.length > 0 && xmlRes.recordset[0].XMLDATA) {
-      const safeXmlStr = JSON.stringify(xmlRes.recordset[0].XMLDATA);
-      const clientHtml = `<!DOCTYPE html>
+    // 4. Fallback: Veritabanı XML / HTML Viewer (Dinamik Tablolar & Try-Catch)
+    try {
+      const pool = await getVegaPool();
+      const tablesToQuery = [
+        'F0101D0008TBLEARSIVXML',
+        'F0101D0008TBLEFATURAXML',
+        'F0102D0007TBLEARSIVXML',
+        'F0102D0008TBLEARSIVXML',
+        'TBLEARSIVXML',
+        'TBLEFATURAXML'
+      ];
+      
+      for (const tbl of tablesToQuery) {
+        try {
+          const xmlRes = await pool.request()
+            .input('invNo', sql.NVarChar, invoiceNo)
+            .query(`SELECT TOP 1 XMLDATA FROM ${tbl} WHERE EVRAKNO = @invNo OR FATURANO = @invNo OR ETTN = @invNo`);
+          
+          if (xmlRes.recordset && xmlRes.recordset.length > 0 && xmlRes.recordset[0].XMLDATA) {
+            const safeXmlStr = JSON.stringify(xmlRes.recordset[0].XMLDATA);
+            const clientHtml = `<!DOCTYPE html>
 <html lang="tr">
 <head><meta charset="UTF-8"><title>Fatura - ${invoiceNo}</title></head>
 <body style="margin:0; padding:20px; background:#f0f0f0; display:flex; justify-content:center;">
@@ -1080,9 +1096,109 @@ const handlePdfRequest = async (req, res) => {
   </script>
 </body>
 </html>`;
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.send(clientHtml);
-    }
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            return res.send(clientHtml);
+          }
+        } catch (tblErr) {}
+      }
+    } catch (dbErr) {}
+
+    // 5. Belge Veritabanı Başlık/Satırlarından Dinamik HTML Üret
+    try {
+      const pool = await getVegaPool();
+      const bRes = await pool.request()
+        .input('invNo', sql.NVarChar, invoiceNo)
+        .query(`
+          SELECT TOP 1 b.IND, b.BELGENO, b.TARIH, b.FIRMANO,
+                 COALESCE(NULLIF(c.UNVAN, ''), NULLIF(c.FIRMAKODU, ''), c.ADI) AS cariName,
+                 c.VERGINO AS vkn, c.VERGIDAIRESI AS taxOffice, c.SEHIR AS city
+          FROM ${config.db}${config.baslik} b
+          LEFT JOIN ${config.cari} c ON b.FIRMANO = c.IND
+          WHERE b.BELGENO = @invNo
+        `);
+      if (bRes.recordset && bRes.recordset.length > 0) {
+        const b = bRes.recordset[0];
+        const hRes = await pool.request()
+          .input('evrakNo', sql.Int, b.IND)
+          .query(`SELECT IND, MALINCINSI, GERCEKTOPLAM, KDVTUTAR FROM ${config.db}${config.hareket} WHERE EVRAKNO = @evrakNo`);
+        const items = hRes.recordset || [];
+        const matrah = items.reduce((acc, i) => acc + (i.GERCEKTOPLAM || 0), 0);
+        const kdv = items.reduce((acc, i) => acc + (i.KDVTUTAR || 0), 0);
+        const total = matrah + kdv;
+
+        const dynamicHtml = `<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>${b.BELGENO} - e-Fatura</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:#f4f6f8; margin:0; padding:20px; display:flex; justify-content:center; }
+    .box { width: 210mm; min-height: 297mm; background:#fff; padding: 15mm; box-shadow: 0 0 10px rgba(0,0,0,0.15); box-sizing: border-box; }
+    .head { border-bottom: 2px solid #1f4e79; padding-bottom: 12px; margin-bottom: 15px; display:flex; justify-content:space-between; }
+    .title { font-size: 20px; font-weight: bold; color: #1f4e79; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px; }
+    th { background: #1f4e79; color:#fff; padding: 8px; text-align: left; }
+    td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
+    .right { text-align: right; }
+    .total-box { margin-top: 20px; width: 300px; margin-left: auto; background: #f8fafc; padding: 12px; border: 1px solid #e2e8f0; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="head">
+      <div>
+        <div class="title">e-FATURA / e-ARŞİV BELGESİ</div>
+        <div style="font-size:12px; color:#555; margin-top:4px;">GİB Standart Elektronik Belge</div>
+      </div>
+      <div style="text-align:right; font-size:12px;">
+        <div><strong>Fatura No:</strong> ${b.BELGENO}</div>
+        <div><strong>Tarih:</strong> ${new Date(b.TARIH).toLocaleDateString('tr-TR')}</div>
+      </div>
+    </div>
+    <div style="font-size:12px; margin-bottom:15px; background:#f8fafc; padding:10px; border:1px solid #e2e8f0;">
+      <div><strong>ALICI:</strong> ${b.cariName || 'MÜŞTERİ'}</div>
+      <div><strong>VKN / TCKN:</strong> ${b.vkn || b.FIRMANO || '—'} | <strong>Şehir:</strong> ${b.city || 'TÜRKİYE'}</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>S.No</th>
+          <th>Mal / Hizmet</th>
+          <th class="right">Net Tutar</th>
+          <th class="right">KDV</th>
+          <th class="right">Toplam</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map((line, idx) => `
+          <tr>
+            <td>${idx + 1}</td>
+            <td><strong>${line.MALINCINSI || 'Et ve Et Ürünleri'}</strong></td>
+            <td class="right">${(line.GERCEKTOPLAM || 0).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</td>
+            <td class="right">${(line.KDVTUTAR || 0).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</td>
+            <td class="right"><strong>${((line.GERCEKTOPLAM || 0) + (line.KDVTUTAR || 0)).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</strong></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    <div class="total-box">
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+        <span>Matrah:</span><span>${matrah.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+        <span>Toplam KDV:</span><span>${kdv.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:14px; border-top:1px solid #ccc; padding-top:4px; color:#c53030;">
+        <span>Genel Toplam:</span><span>${total.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(dynamicHtml);
+      }
+    } catch (dynErr) {}
 
     res.status(404).json({ error: `Fatura bulunamadı: ${invoiceNo}` });
   } catch (err) {
