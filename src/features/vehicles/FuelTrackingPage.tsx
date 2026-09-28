@@ -1369,8 +1369,8 @@ export function FuelTrackingPage() {
                 )}
                 <th className="table-th">Yakıt Tipi</th>
                 <th className="table-th text-right">KM</th>
-                <th className="table-th text-right">Litre (Miktar)</th>
                 <th className="table-th text-right">Birim Fiyat</th>
+                <th className="table-th text-right">Litre (Miktar)</th>
                 <th className="table-th text-right">Toplam Tutar</th>
                 <th className="table-th">Sürücü / Kart No / Not</th>
                 {canWrite && <th className="table-th text-right no-print">İşlem</th>}
@@ -1449,11 +1449,11 @@ export function FuelTrackingPage() {
                       <td className="table-td text-right font-mono text-gray-700">
                         {x.km ? `${formatNumber(x.km, 0)}` : '—'}
                       </td>
-                      <td className="table-td text-right font-bold text-gray-900">
-                        {formatNumber(x.quantity, 2)} Lt
-                      </td>
                       <td className="table-td text-right text-gray-600 font-mono">
                         {money(x.unit_price)}
+                      </td>
+                      <td className="table-td text-right font-bold text-gray-900">
+                        {formatNumber(x.quantity, 2)} Lt
                       </td>
                       <td className="table-td text-right font-bold text-emerald-700 font-mono">
                         {money(x.total_amount)}
@@ -1691,8 +1691,8 @@ export function FuelTrackingPage() {
                   <th className="table-th">Plaka</th>
                   <th className="table-th">Araç</th>
                   <th className="table-th">Yakıt Tipi</th>
-                  <th className="table-th text-right">Litre (Miktar)</th>
                   <th className="table-th text-right">Birim Fiyat</th>
+                  <th className="table-th text-right">Litre (Miktar)</th>
                   <th className="table-th text-right">Toplam Tutar</th>
                   <th className="table-th">İstasyon & İl</th>
                   <th className="table-th">Sürücü / Kart</th>
@@ -1753,11 +1753,11 @@ export function FuelTrackingPage() {
                             {x.fuel_type || 'Motorin'}
                           </span>
                         </td>
-                        <td className="table-td text-right font-bold text-gray-900">
-                          {formatNumber(x.quantity, 2)} Lt
-                        </td>
                         <td className="table-td text-right text-gray-600">
                           {money(x.unit_price)}
+                        </td>
+                        <td className="table-td text-right font-bold text-gray-900">
+                          {formatNumber(x.quantity, 2)} Lt
                         </td>
                         <td className="table-td text-right font-bold text-emerald-700">
                           {money(x.total_amount)}
@@ -2009,8 +2009,8 @@ export function FuelTrackingPage() {
                   <th className="table-th py-2">Plaka</th>
                   <th className="table-th py-2">Filo Eşleşmesi</th>
                   <th className="table-th py-2">Yakıt Tipi</th>
-                  <th className="table-th py-2 text-right">Miktar (Lt)</th>
                   <th className="table-th py-2 text-right">Birim Fiyat</th>
+                  <th className="table-th py-2 text-right">Miktar (Lt)</th>
                   <th className="table-th py-2 text-right">Toplam Tutar</th>
                   <th className="table-th py-2">İstasyon & İl</th>
                   <th className="table-th py-2 text-center">İşlem</th>
@@ -2039,8 +2039,8 @@ export function FuelTrackingPage() {
                         )}
                       </td>
                       <td className="table-td py-1.5">{row.fuel_type}</td>
-                      <td className="table-td py-1.5 text-right font-semibold">{formatNumber(row.quantity, 2)} Lt</td>
                       <td className="table-td py-1.5 text-right">{money(row.unit_price)}</td>
+                      <td className="table-td py-1.5 text-right font-semibold">{formatNumber(row.quantity, 2)} Lt</td>
                       <td className="table-td py-1.5 text-right font-bold text-emerald-700">{money(row.total_amount)}</td>
                       <td className="table-td py-1.5 text-gray-700">
                         {row.station} {row.city ? `(${row.city})` : ''}

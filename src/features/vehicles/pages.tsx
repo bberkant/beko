@@ -988,8 +988,8 @@ export function VehicleDetailPage() {
               <tr>
                 <th className="table-th">Tarih</th>
                 <th className="table-th">Yakıt Tipi</th>
-                <th className="table-th text-right">Miktar (Litre)</th>
                 <th className="table-th text-right">Litre Fiyatı</th>
+                <th className="table-th text-right">Miktar (Litre)</th>
                 <th className="table-th text-right">Toplam Tutar</th>
                 <th className="table-th">İstasyon</th>
                 <th className="table-th">Sürücü / Kart</th>
@@ -1019,11 +1019,11 @@ export function VehicleDetailPage() {
                         {fe.fuel_type || 'Motorin'}
                       </span>
                     </td>
-                    <td className="table-td text-right font-bold text-gray-900">
-                      {(Number(fe.quantity) || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} Lt
-                    </td>
                     <td className="table-td text-right text-gray-600">
                       {money(Number(fe.unit_price) || 0)}
+                    </td>
+                    <td className="table-td text-right font-bold text-gray-900">
+                      {(Number(fe.quantity) || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} Lt
                     </td>
                     <td className="table-td text-right font-bold text-emerald-700">
                       {money(Number(fe.total_amount) || 0)}
