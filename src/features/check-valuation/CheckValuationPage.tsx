@@ -1,9 +1,26 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { SectionCard } from '../../components/ui/SectionCard';
-import { Plus, Trash2, CalendarDays, Percent, Coins, ArrowRightLeft, RefreshCw, Search } from 'lucide-react';
+import { 
+  Plus, 
+  Trash2, 
+  CalendarDays, 
+  Percent, 
+  Coins, 
+  ArrowRightLeft, 
+  RefreshCw, 
+  Search, 
+  BookMarked, 
+  BookmarkPlus, 
+  StickyNote, 
+  Clock, 
+  RotateCcw,
+  User,
+  FolderOpen
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
+import { useToast } from '../../lib/toast';
 import { Modal } from '../../components/ui/Modal';
 
 const cleanStatus = (status: string | null | undefined): string => {
@@ -56,82 +73,268 @@ interface TargetDateRow {
   amount: number;
 }
 
+export interface CalculationNote {
+  id: string;
+  title: string;
+  description?: string;
+  createdAt: string;
+  activeTab: 'commission' | 'target';
+  baseDate: string;
+  monthlyRate: number;
+  checks: CheckRow[];
+  totalAmount: number;
+  remainingAmount: number;
+  totalCommission: number;
+  averageMaturityDays: number;
+  averageDate: string;
+  isManualNetMode?: boolean;
+  targetNetVal?: number;
+  targetNet?: number;
+  targetDates?: TargetDateRow[];
+}
+
+const defaultChecks = (): CheckRow[] => [
+  { id: '1', dueDate: '', amount: 0 },
+  { id: '2', dueDate: '', amount: 0 },
+  { id: '3', dueDate: '', amount: 0 },
+  { id: '4', dueDate: '', amount: 0 },
+  { id: '5', dueDate: '', amount: 0 },
+];
+
+const defaultTargetDates = (): TargetDateRow[] => [
+  { id: '1', dueDate: '', amount: 0 },
+  { id: '2', dueDate: '', amount: 0 },
+  { id: '3', dueDate: '', amount: 0 },
+  { id: '4', dueDate: '', amount: 0 },
+  { id: '5', dueDate: '', amount: 0 },
+];
+
+
+const loadUserData = (identifier: string) => {
+  // checks
+  let loadedChecks: CheckRow[] = defaultChecks();
+  const checksKey = `dars_check_calc_checks_${identifier}`;
+  const savedChecks = localStorage.getItem(checksKey);
+  if (savedChecks) {
+    try {
+      const parsed = JSON.parse(savedChecks);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        loadedChecks = parsed;
+      }
+    } catch (e) {
+      console.error('Error parsing user checks', e);
+    }
+  } else {
+    // Migration for legacy global checks if any
+    const legacy = localStorage.getItem('check-valuation-checks');
+    if (legacy && (identifier.includes('berkant') || identifier.includes('admin') || identifier === 'guest')) {
+      try {
+        const parsed = JSON.parse(legacy);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          loadedChecks = parsed;
+          localStorage.setItem(checksKey, legacy);
+        }
+      } catch (e) {
+        console.error('Error migrating legacy checks', e);
+      }
+    }
+  }
+
+  // monthlyRate
+  let loadedRate = 4.10;
+  const rateKey = `dars_check_calc_monthly_rate_${identifier}`;
+  const savedRate = localStorage.getItem(rateKey);
+  if (savedRate) {
+    const val = parseFloat(savedRate);
+    if (!isNaN(val)) loadedRate = val;
+  } else {
+    const legacyRate = localStorage.getItem('check-valuation-monthly-rate');
+    if (legacyRate) {
+      const val = parseFloat(legacyRate);
+      if (!isNaN(val)) {
+        loadedRate = val;
+        localStorage.setItem(rateKey, legacyRate);
+      }
+    }
+  }
+
+  // baseDate
+  let loadedBaseDate = new Date().toISOString().split('T')[0];
+  const dateKey = `dars_check_calc_base_date_${identifier}`;
+  const savedDate = localStorage.getItem(dateKey);
+  if (savedDate) {
+    loadedBaseDate = savedDate;
+  }
+
+  // manualNetMode & targetNetVal
+  let loadedManualMode = false;
+  let loadedTargetNetVal = 0;
+  const manualModeKey = `dars_check_calc_manual_mode_${identifier}`;
+  const targetNetValKey = `dars_check_calc_target_net_val_${identifier}`;
+  const savedManualMode = localStorage.getItem(manualModeKey);
+  const savedTargetNetVal = localStorage.getItem(targetNetValKey);
+  if (savedManualMode !== null) {
+    loadedManualMode = savedManualMode === 'true';
+    loadedTargetNetVal = savedTargetNetVal ? parseInt(savedTargetNetVal, 10) : 0;
+  }
+
+  // targetNet & targetDates
+  let loadedTargetNet = 3000000;
+  let loadedTargetDates: TargetDateRow[] = defaultTargetDates();
+  const targetNetKey = `dars_check_calc_target_net_${identifier}`;
+  const targetDatesKey = `dars_check_calc_target_dates_${identifier}`;
+  const savedTargetNet = localStorage.getItem(targetNetKey);
+  const savedTargetDates = localStorage.getItem(targetDatesKey);
+  if (savedTargetNet) {
+    const val = parseInt(savedTargetNet, 10);
+    if (!isNaN(val)) loadedTargetNet = val;
+  }
+  if (savedTargetDates) {
+    try {
+      const parsed = JSON.parse(savedTargetDates);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        loadedTargetDates = parsed;
+      }
+    } catch (e) {
+      console.error('Error parsing user target dates', e);
+    }
+  }
+
+  // savedNotes
+  let loadedNotes: CalculationNote[] = [];
+  const notesKey = `dars_check_calc_notes_${identifier}`;
+  const savedNotesStr = localStorage.getItem(notesKey);
+  if (savedNotesStr) {
+    try {
+      const parsed = JSON.parse(savedNotesStr);
+      if (Array.isArray(parsed)) {
+        loadedNotes = parsed;
+      }
+    } catch (e) {
+      console.error('Error parsing user calculation notes', e);
+    }
+  }
+
+  return {
+    loadedChecks,
+    loadedRate,
+    loadedBaseDate,
+    loadedManualMode,
+    loadedTargetNetVal,
+    loadedTargetNet,
+    loadedTargetDates,
+    loadedNotes,
+  };
+};
+
 export function CheckValuationPage() {
+  const { user } = useAuth();
+  const { notify } = useToast();
+
+  const userIdentifier = useMemo(() => {
+    return user?.id || (user?.email ? user.email.toLowerCase().replace(/@.*$/, '').trim() : '') || (user?.name ? user.name.toLowerCase().trim() : '') || 'guest';
+  }, [user]);
+
+  // Initial load
+  const initialData = useMemo(() => loadUserData(userIdentifier), [userIdentifier]);
+
   const [activeTab, setActiveTab] = useState<'commission' | 'target'>('commission');
 
   // Common Inputs
-  const [baseDate, setBaseDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
-  const [monthlyRate, setMonthlyRate] = useState<number>(() => {
-    const saved = localStorage.getItem('check-valuation-monthly-rate');
-    return saved ? parseFloat(saved) : 4.10;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('check-valuation-monthly-rate', monthlyRate.toString());
-  }, [monthlyRate]);
-
+  const [baseDate, setBaseDate] = useState<string>(initialData.loadedBaseDate);
+  const [monthlyRate, setMonthlyRate] = useState<number>(initialData.loadedRate);
   const [rateInputStr, setRateInputStr] = useState<string>('');
   const [isRateInputFocused, setIsRateInputFocused] = useState<boolean>(false);
+
+  // Tab 1: Commission Calculator state
+  const [checks, setChecks] = useState<CheckRow[]>(initialData.loadedChecks);
+  const [manualNetInput, setManualNetInput] = useState<string>('');
+  const [isNetInputFocused, setIsNetInputFocused] = useState<boolean>(false);
+  const [isManualNetMode, setIsManualNetMode] = useState<boolean>(initialData.loadedManualMode);
+  const [targetNetVal, setTargetNetVal] = useState<number>(initialData.loadedTargetNetVal);
+
+  // Tab 2: Target Amount Calculator state
+  const [targetNet, setTargetNet] = useState<number>(initialData.loadedTargetNet);
+  const [targetDates, setTargetDates] = useState<TargetDateRow[]>(initialData.loadedTargetDates);
+
+  // User Calculation Notes
+  const [savedNotes, setSavedNotes] = useState<CalculationNote[]>(initialData.loadedNotes);
+  const [isSaveNoteModalOpen, setIsSaveNoteModalOpen] = useState(false);
+  const [isNotesListModalOpen, setIsNotesListModalOpen] = useState(false);
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteDescription, setNoteDescription] = useState('');
+  const [notesSearch, setNotesSearch] = useState('');
+
+  // EBS Import Modal States
+  const [ebsLoading, setEbsLoading] = useState(false);
+  const [isEbsModalOpen, setIsEbsModalOpen] = useState(false);
+  const [ebsChecks, setEbsChecks] = useState<any[]>([]);
+  const [selectedEbsIds, setSelectedEbsIds] = useState<Set<string>>(new Set());
+  const [ebsSearch, setEbsSearch] = useState('');
+
+  // Loaded user tracking ref to prevent overwriting during user switch
+  const loadedUserRef = useRef(userIdentifier);
+
+  // Switch or reload user state when userIdentifier changes
+  useEffect(() => {
+    if (loadedUserRef.current !== userIdentifier) {
+      const data = loadUserData(userIdentifier);
+      setBaseDate(data.loadedBaseDate);
+      setMonthlyRate(data.loadedRate);
+      setChecks(data.loadedChecks);
+      setIsManualNetMode(data.loadedManualMode);
+      setTargetNetVal(data.loadedTargetNetVal);
+      setTargetNet(data.loadedTargetNet);
+      setTargetDates(data.loadedTargetDates);
+      setSavedNotes(data.loadedNotes);
+      loadedUserRef.current = userIdentifier;
+    }
+  }, [userIdentifier]);
+
+  // Persist states to user-isolated keys
+  useEffect(() => {
+    if (loadedUserRef.current === userIdentifier) {
+      localStorage.setItem(`dars_check_calc_checks_${userIdentifier}`, JSON.stringify(checks));
+    }
+  }, [checks, userIdentifier]);
+
+  useEffect(() => {
+    if (loadedUserRef.current === userIdentifier) {
+      localStorage.setItem(`dars_check_calc_monthly_rate_${userIdentifier}`, monthlyRate.toString());
+    }
+  }, [monthlyRate, userIdentifier]);
+
+  useEffect(() => {
+    if (loadedUserRef.current === userIdentifier) {
+      localStorage.setItem(`dars_check_calc_base_date_${userIdentifier}`, baseDate);
+    }
+  }, [baseDate, userIdentifier]);
+
+  useEffect(() => {
+    if (loadedUserRef.current === userIdentifier) {
+      localStorage.setItem(`dars_check_calc_manual_mode_${userIdentifier}`, isManualNetMode.toString());
+      localStorage.setItem(`dars_check_calc_target_net_val_${userIdentifier}`, targetNetVal.toString());
+    }
+  }, [isManualNetMode, targetNetVal, userIdentifier]);
+
+  useEffect(() => {
+    if (loadedUserRef.current === userIdentifier) {
+      localStorage.setItem(`dars_check_calc_target_net_${userIdentifier}`, targetNet.toString());
+      localStorage.setItem(`dars_check_calc_target_dates_${userIdentifier}`, JSON.stringify(targetDates));
+    }
+  }, [targetNet, targetDates, userIdentifier]);
+
+  useEffect(() => {
+    if (loadedUserRef.current === userIdentifier) {
+      localStorage.setItem(`dars_check_calc_notes_${userIdentifier}`, JSON.stringify(savedNotes));
+    }
+  }, [savedNotes, userIdentifier]);
 
   useEffect(() => {
     if (!isRateInputFocused) {
       setRateInputStr(monthlyRate.toFixed(2).replace('.', ','));
     }
   }, [monthlyRate, isRateInputFocused]);
-
-  // Tab 1: Commission Calculator state
-  const [checks, setChecks] = useState<CheckRow[]>(() => {
-    const saved = localStorage.getItem('check-valuation-checks');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      } catch (e) {
-        console.error('Error parsing saved checks', e);
-      }
-    }
-    return [
-      { id: '1', dueDate: '', amount: 0 },
-      { id: '2', dueDate: '', amount: 0 },
-      { id: '3', dueDate: '', amount: 0 },
-      { id: '4', dueDate: '', amount: 0 },
-      { id: '5', dueDate: '', amount: 0 },
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('check-valuation-checks', JSON.stringify(checks));
-  }, [checks]);
-
-  const { user } = useAuth();
-  const [ebsLoading, setEbsLoading] = useState(false);
-
-  // EBS Import Modal States
-  const [isEbsModalOpen, setIsEbsModalOpen] = useState(false);
-  const [ebsChecks, setEbsChecks] = useState<any[]>([]);
-  const [selectedEbsIds, setSelectedEbsIds] = useState<Set<string>>(new Set());
-  const [ebsSearch, setEbsSearch] = useState('');
-
-  const [manualNetInput, setManualNetInput] = useState<string>('');
-  const [isNetInputFocused, setIsNetInputFocused] = useState<boolean>(false);
-  const [isManualNetMode, setIsManualNetMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('check-valuation-manual-mode');
-    return saved === 'true';
-  });
-  const [targetNetVal, setTargetNetVal] = useState<number>(() => {
-    const saved = localStorage.getItem('check-valuation-target-net-val');
-    return saved ? parseInt(saved, 10) : 0;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('check-valuation-manual-mode', isManualNetMode.toString());
-    localStorage.setItem('check-valuation-target-net-val', targetNetVal.toString());
-  }, [isManualNetMode, targetNetVal]);
 
   const handleImportFromEbs = async () => {
     if (!user?.organizationId) return;
@@ -258,33 +461,6 @@ export function CheckValuationPage() {
 
     setIsEbsModalOpen(false);
   };
-
-  // Tab 2: Target Amount Calculator state
-  const [targetNet, setTargetNet] = useState<number>(3000000);
-  const [targetDates, setTargetDates] = useState<TargetDateRow[]>(() => {
-    const saved = localStorage.getItem('check-valuation-target-dates');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      } catch (e) {
-        console.error('Error parsing saved target dates', e);
-      }
-    }
-    return [
-      { id: '1', dueDate: '', amount: 0 },
-      { id: '2', dueDate: '', amount: 0 },
-      { id: '3', dueDate: '', amount: 0 },
-      { id: '4', dueDate: '', amount: 0 },
-      { id: '5', dueDate: '', amount: 0 },
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('check-valuation-target-dates', JSON.stringify(targetDates));
-  }, [targetDates]);
 
   // Yearly Rate auto calculation
   const yearlyRate = useMemo(() => (monthlyRate * 12).toFixed(2), [monthlyRate]);
@@ -453,28 +629,115 @@ export function CheckValuationPage() {
 
   const clearAllChecks = () => {
     if (confirm('Tüm çeklerin bilgileri silinsin mi?')) {
-      setChecks([
-        { id: '1', dueDate: '', amount: 0 },
-        { id: '2', dueDate: '', amount: 0 },
-        { id: '3', dueDate: '', amount: 0 },
-        { id: '4', dueDate: '', amount: 0 },
-        { id: '5', dueDate: '', amount: 0 },
-      ]);
+      setChecks(defaultChecks());
       setIsManualNetMode(false);
     }
   };
 
   const clearAllTargetDates = () => {
     if (confirm('Tüm tarihler silinsin mi?')) {
-      setTargetDates([
-        { id: '1', dueDate: '', amount: 0 },
-        { id: '2', dueDate: '', amount: 0 },
-        { id: '3', dueDate: '', amount: 0 },
-        { id: '4', dueDate: '', amount: 0 },
-        { id: '5', dueDate: '', amount: 0 },
-      ]);
+      setTargetDates(defaultTargetDates());
     }
   };
+
+  const openSaveNoteModal = () => {
+    const isComm = activeTab === 'commission';
+    const total = isComm ? tab1Calculations.totalAmount : tab2Calculations.requiredGrossAmount;
+    const defaultTitle = isComm
+      ? `Çek Komisyonu - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(total)} TL)`
+      : `Hedef Net - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(targetNet)} TL)`;
+    setNoteTitle(defaultTitle);
+    setNoteDescription('');
+    setIsSaveNoteModalOpen(true);
+  };
+
+  const handleSaveCurrentCalculationAsNote = () => {
+    if (!noteTitle.trim()) {
+      notify('Lütfen bir not başlığı girin.', 'error');
+      return;
+    }
+
+    const isComm = activeTab === 'commission';
+    const newNote: CalculationNote = {
+      id: Date.now().toString(),
+      title: noteTitle.trim(),
+      description: noteDescription.trim(),
+      createdAt: new Date().toISOString(),
+      activeTab,
+      baseDate,
+      monthlyRate,
+      checks: JSON.parse(JSON.stringify(checks)),
+      totalAmount: isComm ? tab1Calculations.totalAmount : tab2Calculations.requiredGrossAmount,
+      remainingAmount: isComm ? tab1Calculations.remainingAmount : targetNet,
+      totalCommission: isComm ? tab1Calculations.totalCommission : tab2Calculations.totalCommission,
+      averageMaturityDays: isComm ? tab1Calculations.averageMaturityDays : tab2Calculations.averageMaturityDays,
+      averageDate: isComm ? tab1Calculations.averageDate : tab2Calculations.averageDate,
+      isManualNetMode,
+      targetNetVal,
+      targetNet,
+      targetDates: JSON.parse(JSON.stringify(targetDates)),
+    };
+
+    const updated = [newNote, ...savedNotes];
+    setSavedNotes(updated);
+    setIsSaveNoteModalOpen(false);
+    notify('Hesaplama başarıyla notlarınıza kaydedildi.', 'success');
+  };
+
+  const handleLoadNote = (note: CalculationNote) => {
+    if (note.activeTab) setActiveTab(note.activeTab);
+    if (note.baseDate) setBaseDate(note.baseDate);
+    if (typeof note.monthlyRate === 'number') {
+      setMonthlyRate(note.monthlyRate);
+      setRateInputStr(note.monthlyRate.toFixed(2).replace('.', ','));
+    }
+    if (Array.isArray(note.checks) && note.checks.length > 0) {
+      setChecks(note.checks);
+    }
+    if (typeof note.isManualNetMode === 'boolean') {
+      setIsManualNetMode(note.isManualNetMode);
+    }
+    if (typeof note.targetNetVal === 'number') {
+      setTargetNetVal(note.targetNetVal);
+    }
+    if (typeof note.targetNet === 'number') {
+      setTargetNet(note.targetNet);
+    }
+    if (Array.isArray(note.targetDates) && note.targetDates.length > 0) {
+      setTargetDates(note.targetDates);
+    }
+    setIsNotesListModalOpen(false);
+    notify(`"${note.title}" hesaplaması çalışma alanına yüklendi.`, 'success');
+  };
+
+  const handleDeleteNote = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Bu kayıtlı hesaplama notunu silmek istediğinize emin misiniz?')) {
+      const updated = savedNotes.filter(n => n.id !== id);
+      setSavedNotes(updated);
+      notify('Hesaplama notu silindi.', 'info');
+    }
+  };
+
+  const startNewCalculation = () => {
+    if (confirm('Mevcut çalışma alanındaki çekler temizlenip yeni bir hesaplama başlatılsın mı? (Daha önce not olarak kaydettiğiniz hesaplamalarınız etkilenmez)')) {
+      setChecks(defaultChecks());
+      setIsManualNetMode(false);
+      setTargetNetVal(0);
+      setTargetDates(defaultTargetDates());
+      setBaseDate(new Date().toISOString().split('T')[0]);
+      notify('Yeni boş hesaplama alanı hazırlandı.', 'info');
+    }
+  };
+
+  const filteredNotes = useMemo(() => {
+    if (!notesSearch.trim()) return savedNotes;
+    const query = notesSearch.toLowerCase();
+    return savedNotes.filter(n =>
+      n.title.toLowerCase().includes(query) ||
+      (n.description && n.description.toLowerCase().includes(query))
+    );
+  }, [savedNotes, notesSearch]);
 
   const handleManualNetChange = (valueStr: string) => {
     const newNet = handleNumberChange(valueStr);
@@ -501,6 +764,40 @@ export function CheckValuationPage() {
       <PageHeader 
         title="Çek Ortalama Vade & Komisyon Hesaplama" 
         description="Çek portföyünüzün ortalama vadesini, komisyon giderlerini ve iskonto sonrası elinize geçecek net tutarları hesaplayın."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <User size={13} className="text-emerald-700" />
+              <span>{user?.name || (user?.email ? user.email.split('@')[0] : 'Kullanıcı')} · Kişisel Çalışma Alanı</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsNotesListModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 hover:text-gray-900 transition-all cursor-pointer"
+            >
+              <BookMarked size={14} className="text-brand-600" />
+              Hesaplama Notlarım ({savedNotes.length})
+            </button>
+            <button
+              type="button"
+              onClick={openSaveNoteModal}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm hover:bg-brand-100 transition-all cursor-pointer"
+            >
+              <BookmarkPlus size={14} className="text-brand-600" />
+              Not Olarak Kaydet
+            </button>
+            <button
+              type="button"
+              onClick={startNewCalculation}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm hover:bg-gray-50 hover:text-gray-900 transition-all cursor-pointer"
+              title="Mevcut çalışma alanını sıfırlayıp yeni boş hesaplama başlatır"
+            >
+              <RotateCcw size={14} className="text-gray-500" />
+              Yeni Hesaplama
+            </button>
+          </div>
+        }
       />
 
       {/* Tabs Menu */}
@@ -1005,6 +1302,224 @@ export function CheckValuationPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </Modal>
+
+      {/* Not Olarak Kaydet Modal */}
+      <Modal
+        open={isSaveNoteModalOpen}
+        onClose={() => setIsSaveNoteModalOpen(false)}
+        title="Hesaplamayı Not Olarak Kaydet"
+        description="Mevcut çek listenizi, oranları ve hesaplama sonuçlarını daha sonra tekrar yüklemek üzere kişisel notlarınıza kaydedin."
+        size="md"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setIsSaveNoteModalOpen(false)}
+              className="btn-secondary !py-1.5 !px-3.5 text-xs font-semibold"
+            >
+              İptal
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveCurrentCalculationAsNote}
+              className="btn-primary !py-1.5 !px-3.5 text-xs font-semibold inline-flex items-center gap-1.5"
+            >
+              <BookmarkPlus size={14} />
+              Kaydet
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Hesaplama / Müşteri Notu Başlığı <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              className="input text-sm"
+              placeholder="Örn: Ahmet Bey 3 Çek - %4.10 Oran"
+              value={noteTitle}
+              onChange={e => setNoteTitle(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Açıklama / Ekstra Bilgi (İsteğe bağlı)
+            </label>
+            <textarea
+              className="input text-sm min-h-[70px] resize-y"
+              placeholder="Hesaplama hakkında ek detaylar, firma adı veya görüşme notları..."
+              value={noteDescription}
+              onChange={e => setNoteDescription(e.target.value)}
+            />
+          </div>
+
+          {/* Quick Summary Pill Box */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3 text-xs space-y-1.5">
+            <div className="text-gray-500 font-semibold uppercase tracking-wider text-[10px]">Kaydedilecek Hesaplama Özeti</div>
+            <div className="grid grid-cols-2 gap-2 text-gray-700">
+              <div>
+                <span className="text-gray-500">Mod: </span>
+                <span className="font-semibold">{activeTab === 'commission' ? 'Komisyon Hesaplama' : 'Hedef Net Tutar'}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Çek Sayısı: </span>
+                <span className="font-semibold">
+                  {activeTab === 'commission' ? checks.filter(c => c.amount > 0).length : targetDates.filter(d => d.amount > 0 || d.dueDate).length} Adet
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Toplam Tutar: </span>
+                <span className="font-bold text-gray-900">
+                  {formatNumberWithDots(activeTab === 'commission' ? tab1Calculations.totalAmount : tab2Calculations.requiredGrossAmount)} TL
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Ortalama Vade: </span>
+                <span className="font-semibold">
+                  {(activeTab === 'commission' ? tab1Calculations.averageMaturityDays : tab2Calculations.averageMaturityDays).toFixed(1)} Gün
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Aylık Oran: </span>
+                <span className="font-semibold">%{monthlyRate.toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Ele Geçecek Net: </span>
+                <span className="font-bold text-emerald-700">
+                  {formatNumberWithDots(Math.round(activeTab === 'commission' ? tab1Calculations.remainingAmount : targetNet))} TL
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Hesaplama Notlarım Modal */}
+      <Modal
+        open={isNotesListModalOpen}
+        onClose={() => setIsNotesListModalOpen(false)}
+        title="Kayıtlı Çek Hesaplama Notlarım"
+        description={`Sadece size (${user?.name || (user?.email ? user.email.split('@')[0] : 'kullanıcı')}) özel kayıtlı senaryo ve hesaplama notları.`}
+        size="2xl"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <span className="text-xs text-gray-500 font-medium">
+              Toplam {savedNotes.length} kayıtlı hesaplama notu
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsNotesListModalOpen(false)}
+              className="btn-secondary !py-1.5 !px-3.5 text-xs font-semibold"
+            >
+              Kapat
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="relative rounded-md shadow-sm">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <Search size={15} className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="input pl-9 text-sm !py-2"
+              placeholder="Not başlığı veya açıklama ile filtreleyin..."
+              value={notesSearch}
+              onChange={e => setNotesSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
+            {filteredNotes.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
+                <StickyNote className="mx-auto h-9 w-9 text-gray-400 mb-2" />
+                <p className="text-sm font-semibold text-gray-700">Henüz kayıtlı bir hesaplama notunuz yok</p>
+                <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                  Çek listenizi oluşturduktan sonra sağ üstteki "Not Olarak Kaydet" butonuna tıklayarak hesaplamalarınızı buraya saklayabilir, dilediğiniz zaman tek tıkla geri yükleyebilirsiniz.
+                </p>
+              </div>
+            ) : (
+              filteredNotes.map(note => (
+                <div
+                  key={note.id}
+                  className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-brand-300 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                >
+                  <div className="space-y-2 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold ${
+                        note.activeTab === 'target' 
+                          ? 'bg-purple-50 text-purple-700 border border-purple-200' 
+                          : 'bg-brand-50 text-brand-700 border border-brand-200'
+                      }`}>
+                        {note.activeTab === 'target' ? <ArrowRightLeft size={11} /> : <Coins size={11} />}
+                        {note.activeTab === 'target' ? 'Hedef Net Tutar' : 'Komisyon Hesaplama'}
+                      </span>
+                      <h4 className="font-bold text-gray-900 text-sm">{note.title}</h4>
+                    </div>
+
+                    {note.description && (
+                      <p className="text-xs text-gray-600 line-clamp-2">{note.description}</p>
+                    )}
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1 border-t border-gray-100">
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">TOPLAM TUTAR</span>
+                        <span className="font-bold text-gray-800">{formatNumberWithDots(note.totalAmount)} TL</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">ORT. VADE & TARİH</span>
+                        <span className="font-semibold text-gray-700">
+                          {note.averageMaturityDays?.toFixed(1) || 0} Gün <span className="text-gray-400 font-normal">({note.averageDate || '-'})</span>
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">AYLIK ORAN</span>
+                        <span className="font-semibold text-gray-700">%{note.monthlyRate?.toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">ELE GEÇECEK NET</span>
+                        <span className="font-bold text-emerald-700">{formatNumberWithDots(Math.round(note.remainingAmount))} TL</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                      <Clock size={12} />
+                      <span>{new Date(note.createdAt).toLocaleString('tr-TR')}</span>
+                      <span>•</span>
+                      <span>{note.checks?.filter(c => c.amount > 0).length || 0} Adet Çek</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleLoadNote(note)}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-700 transition-colors cursor-pointer"
+                      title="Bu hesaplamayı çalışma alanına yükle"
+                    >
+                      <FolderOpen size={13} />
+                      Yükle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteNote(note.id, e)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                      title="Notu sil"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </Modal>
     </div>
