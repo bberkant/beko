@@ -16,8 +16,11 @@ import {
   X, 
   Download, 
   ChevronRight,
+  ChevronLeft,
   ExternalLink,
-  Filter
+  Filter,
+  FileSpreadsheet,
+  Printer
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Modal } from '../../components/ui/Modal';
@@ -207,9 +210,60 @@ export function FuelTrackingPage() {
   const [selectedPlateFilter, setSelectedPlateFilter] = useState<string>('all');
   const [selectedStationFilter, setSelectedStationFilter] = useState<string>('all');
 
-  // Quick Detail Modal (Plate or Station)
+  // Detail View State (Plate or Station) synchronized with URL search parameter
   const navigate = useNavigate();
-  const [detailModal, setDetailModal] = useState<{ type: 'plate' | 'station'; value: string } | null>(null);
+  const [selectedDetail, setSelectedDetailState] = useState<{ type: 'plate' | 'station'; value: string } | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const plaka = params.get('plaka') || params.get('plate');
+    if (plaka) return { type: 'plate', value: plaka };
+    const istasyon = params.get('istasyon') || params.get('station');
+    if (istasyon) return { type: 'station', value: istasyon };
+    return null;
+  });
+
+  const setSelectedDetail = (val: { type: 'plate' | 'station'; value: string } | null) => {
+    setSelectedDetailState(val);
+    const params = new URLSearchParams(window.location.search);
+    if (val?.type === 'plate') {
+      params.set('plaka', val.value);
+      params.delete('istasyon');
+      params.delete('station');
+      params.delete('plate');
+    } else if (val?.type === 'station') {
+      params.set('istasyon', val.value);
+      params.delete('plaka');
+      params.delete('plate');
+      params.delete('station');
+    } else {
+      params.delete('plaka');
+      params.delete('plate');
+      params.delete('istasyon');
+      params.delete('station');
+    }
+    const newSearch = params.toString();
+    const newUrl = `${window.location.pathname}${newSearch ? '?' + newSearch : ''}`;
+    window.history.pushState(null, '', newUrl);
+  };
+
+  useEffect(() => {
+    const onPopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const plaka = params.get('plaka') || params.get('plate');
+      if (plaka) {
+        setSelectedDetailState({ type: 'plate', value: plaka });
+        return;
+      }
+      const istasyon = params.get('istasyon') || params.get('station');
+      if (istasyon) {
+        setSelectedDetailState({ type: 'station', value: istasyon });
+        return;
+      }
+      setSelectedDetailState(null);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   const [detailQuery, setDetailQuery] = useState('');
 
   // Manual Add/Edit Modal
@@ -379,27 +433,27 @@ export function FuelTrackingPage() {
     return Array.from(map.values()).sort((a, b) => b.totalAmount - a.totalAmount);
   }, [items]);
 
-  // Detail Modal data
+  // Detail View data (Plate or Station)
   const {
-    modalRecords,
-    modalFilteredRecords,
-    modalTotalAmount,
-    modalTotalQty,
-    modalAvgPrice,
-    modalVehicle,
-    modalStationCity,
-    modalStationVehicleCount
+    detailRecords,
+    detailFilteredRecords,
+    detailTotalAmount,
+    detailTotalQty,
+    detailAvgPrice,
+    detailVehicle,
+    detailStationCity,
+    detailStationVehicleCount
   } = useMemo(() => {
-    if (!detailModal) {
+    if (!selectedDetail) {
       return {
-        modalRecords: [] as VehicleFuelEntry[],
-        modalFilteredRecords: [] as VehicleFuelEntry[],
-        modalTotalAmount: 0,
-        modalTotalQty: 0,
-        modalAvgPrice: 0,
-        modalVehicle: undefined as any,
-        modalStationCity: '',
-        modalStationVehicleCount: 0
+        detailRecords: [] as VehicleFuelEntry[],
+        detailFilteredRecords: [] as VehicleFuelEntry[],
+        detailTotalAmount: 0,
+        detailTotalQty: 0,
+        detailAvgPrice: 0,
+        detailVehicle: undefined as any,
+        detailStationCity: '',
+        detailStationVehicleCount: 0
       };
     }
 
@@ -408,12 +462,12 @@ export function FuelTrackingPage() {
     let stationCity = '';
     let stationVehicleCount = 0;
 
-    if (detailModal.type === 'plate') {
-      const targetPlate = cleanPlate(detailModal.value);
+    if (selectedDetail.type === 'plate') {
+      const targetPlate = cleanPlate(selectedDetail.value);
       records = items.filter((x) => cleanPlate(x.plate) === targetPlate);
       vehicle = vehicles.find((v) => cleanPlate(v.plate) === targetPlate || v.id === records[0]?.vehicle_id);
     } else {
-      const targetStation = detailModal.value.trim().toLocaleLowerCase('tr-TR');
+      const targetStation = selectedDetail.value.trim().toLocaleLowerCase('tr-TR');
       records = items.filter((x) => (x.station || '').trim().toLocaleLowerCase('tr-TR') === targetStation);
       const cities = Array.from(new Set(records.map((r) => r.city).filter(Boolean)));
       stationCity = cities.join(', ');
@@ -433,16 +487,16 @@ export function FuelTrackingPage() {
     });
 
     return {
-      modalRecords: records,
-      modalFilteredRecords: filtered,
-      modalTotalAmount: totalAmount,
-      modalTotalQty: totalQty,
-      modalAvgPrice: avgPrice,
-      modalVehicle: vehicle,
-      modalStationCity: stationCity,
-      modalStationVehicleCount: stationVehicleCount
+      detailRecords: records,
+      detailFilteredRecords: filtered,
+      detailTotalAmount: totalAmount,
+      detailTotalQty: totalQty,
+      detailAvgPrice: avgPrice,
+      detailVehicle: vehicle,
+      detailStationCity: stationCity,
+      detailStationVehicleCount: stationVehicleCount
     };
-  }, [detailModal, items, vehicles, detailQuery]);
+  }, [selectedDetail, items, vehicles, detailQuery]);
 
   // Form helpers
   const handleOpenAdd = () => {
@@ -572,12 +626,13 @@ export function FuelTrackingPage() {
   };
 
   // Export to Excel
-  const handleExportExcel = () => {
-    if (filteredItems.length === 0) {
+  const handleExportExcel = (customRecords?: VehicleFuelEntry[] | React.MouseEvent, customFilename?: string) => {
+    const recordsToExport = Array.isArray(customRecords) ? customRecords : filteredItems;
+    if (recordsToExport.length === 0) {
       notify('Dışa aktarılacak kayıt bulunamadı.', 'error');
       return;
     }
-    const exportRows = filteredItems.map((item) => {
+    const exportRows = recordsToExport.map((item) => {
       const v = vehicles.find((x) => x.id === item.vehicle_id || cleanPlate(x.plate) === cleanPlate(item.plate));
       return {
         'Tarih': new Date(item.date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }),
@@ -598,9 +653,9 @@ export function FuelTrackingPage() {
 
     const ws = XLSX.utils.json_to_sheet(exportRows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Yakıt Tüketim Raporu');
-    XLSX.writeFile(wb, `Yakit_Tuketim_Raporu_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    notify('Excel dosyası indirildi.', 'success');
+    XLSX.utils.book_append_sheet(wb, ws, 'Yakıt Hareketleri');
+    XLSX.writeFile(wb, customFilename || `Yakit_Tuketim_Raporu_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    notify('Excel dosyası başarıyla indirildi.', 'success');
   };
 
   // Parse Excel / PDF Files
@@ -858,6 +913,596 @@ export function FuelTrackingPage() {
     }
   };
 
+  const renderManualEntryModal = () => (
+    <Modal
+      open={modalOpen}
+      onClose={() => setModalOpen(false)}
+      title={form.id ? 'Yakıt Girişini Düzenle' : 'Yeni Yakıt Girişi'}
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label>
+          <span className="label">Kayıtlı Araç Seçin (Opsiyonel)</span>
+          <select
+            className="input"
+            value={form.vehicle_id}
+            onChange={(e) => handleVehicleSelectInForm(e.target.value)}
+          >
+            <option value="">Plakayı manuel gir veya araç seç</option>
+            {vehicles.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.plate} · {v.brand} {v.model}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span className="label">Plaka *</span>
+          <input
+            className="input uppercase font-mono font-bold"
+            value={form.plate}
+            onChange={(e) => handlePlateChangeInForm(e.target.value)}
+            placeholder="Örn: 34 ABC 123"
+          />
+        </label>
+
+        <label>
+          <span className="label">Tarih & Saat *</span>
+          <input
+            type="datetime-local"
+            className="input"
+            value={form.date}
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
+          />
+        </label>
+
+        <label>
+          <span className="label">Yakıt Tipi</span>
+          <select
+            className="input"
+            value={form.fuel_type}
+            onChange={(e) => setForm({ ...form, fuel_type: e.target.value })}
+          >
+            <option value="Motorin">Motorin (Dizel)</option>
+            <option value="Benzin">Kurşunsuz Benzin 95</option>
+            <option value="LPG">Otogaz (LPG)</option>
+            <option value="Elektrik">Elektrik (Şarj)</option>
+            <option value="AdBlue">AdBlue</option>
+          </select>
+        </label>
+
+        <label>
+          <span className="label">Miktar (Litre)</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            className="input"
+            value={form.quantity}
+            onChange={(e) => handleQuantityOrPriceChange(e.target.value, form.unit_price)}
+            placeholder="Örn: 45.50"
+          />
+        </label>
+
+        <label>
+          <span className="label">Litre Birim Fiyatı (₺)</span>
+          <input
+            type="number"
+            step="0.001"
+            min="0"
+            className="input"
+            value={form.unit_price}
+            onChange={(e) => handleQuantityOrPriceChange(form.quantity, e.target.value)}
+            placeholder="Örn: 44.50"
+          />
+        </label>
+
+        <label>
+          <span className="label">Toplam Tutar (₺) *</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            className="input font-bold"
+            value={form.total_amount}
+            onChange={(e) => setForm({ ...form, total_amount: e.target.value })}
+            placeholder="Örn: 2024.75"
+          />
+        </label>
+
+        <label>
+          <span className="label">İstasyon / Tedarikçi</span>
+          <input
+            className="input"
+            value={form.station}
+            onChange={(e) => setForm({ ...form, station: e.target.value })}
+            placeholder="Örn: Shell Maslak"
+          />
+        </label>
+
+        <label>
+          <span className="label">İl / Şehir</span>
+          <input
+            className="input"
+            value={form.city}
+            onChange={(e) => setForm({ ...form, city: e.target.value })}
+            placeholder="Örn: İstanbul"
+          />
+        </label>
+
+        <label>
+          <span className="label">Kilometre (KM)</span>
+          <input
+            type="number"
+            className="input"
+            value={form.km}
+            onChange={(e) => setForm({ ...form, km: e.target.value })}
+            placeholder="Örn: 125400"
+          />
+        </label>
+
+        <label>
+          <span className="label">Sürücü Adı</span>
+          <input
+            className="input"
+            value={form.driver_name}
+            onChange={(e) => setForm({ ...form, driver_name: e.target.value })}
+            placeholder="Örn: Ahmet Yılmaz"
+          />
+        </label>
+
+        <label>
+          <span className="label">Yakıt / Filo Kart No</span>
+          <input
+            className="input"
+            value={form.fuel_card_no}
+            onChange={(e) => setForm({ ...form, fuel_card_no: e.target.value })}
+            placeholder="Örn: 7004-xxxx"
+          />
+        </label>
+
+        <label className="sm:col-span-2">
+          <span className="label">Notlar</span>
+          <textarea
+            className="input min-h-20"
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            placeholder="Ek açıklama..."
+          />
+        </label>
+
+        <button
+          className="btn-primary sm:col-span-2"
+          disabled={saving}
+          onClick={() => void handleSave()}
+        >
+          {saving ? 'Kaydediliyor...' : 'Kaydet'}
+        </button>
+      </div>
+    </Modal>
+  );
+
+  const renderDetailPage = () => {
+    if (!selectedDetail) return null;
+
+    return (
+      <div className="space-y-6 font-sans print-container">
+        {/* Breadcrumb & Header Navigation */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <button
+              onClick={() => setSelectedDetail(null)}
+              className="group flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-brand-600 transition-colors uppercase tracking-wider mb-2 no-print cursor-pointer"
+            >
+              <ChevronLeft size={16} /> Yakıt Tüketimine Dön
+            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 font-mono">
+                {selectedDetail.value}
+              </h1>
+              {selectedDetail.type === 'plate' && (
+                <span className="rounded bg-brand-50 px-2.5 py-0.5 text-xs font-bold text-brand-700 border border-brand-200">
+                  {detailVehicle ? `${detailVehicle.brand} ${detailVehicle.model}` : 'Kayıtsız / Harici Araç'}
+                </span>
+              )}
+              {selectedDetail.type === 'station' && (
+                <span className="rounded bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200">
+                  {detailStationCity || 'İstasyon'}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {selectedDetail.type === 'plate'
+                ? (detailVehicle ? `${detailVehicle.brand} ${detailVehicle.model} · Toplam ${detailRecords.length} dolum kaydı dökümü` : `Kayıtsız Araç · Toplam ${detailRecords.length} dolum kaydı`)
+                : `${detailStationCity ? `${detailStationCity} · ` : ''}${detailStationVehicleCount} farklı araç · Toplam ${detailRecords.length} dolum işlemi`}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 no-print">
+            <button
+              type="button"
+              onClick={() => setSelectedDetail(null)}
+              className="rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <ChevronLeft size={16} />
+              Geri Dön
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedDetail.type === 'plate') {
+                  setSelectedPlateFilter(selectedDetail.value);
+                } else {
+                  setSelectedStationFilter(selectedDetail.value);
+                }
+                setActiveTab('all');
+                setSelectedDetail(null);
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none cursor-pointer shadow-2xs"
+              title="Bu kaydı ana tabloda filtreleyerek göster"
+            >
+              <Filter size={15} className="text-blue-600" />
+              Ana Tabloda Filtrele
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleExportExcel(
+                  detailRecords,
+                  selectedDetail.type === 'plate'
+                    ? `Yakit_Dokumu_${cleanPlate(selectedDetail.value)}.xlsx`
+                    : `Istasyon_Dokumu_${selectedDetail.value.replace(/[^A-Za-z0-9]/g, '_')}.xlsx`
+                );
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none cursor-pointer shadow-2xs"
+            >
+              <FileSpreadsheet size={16} className="text-emerald-600" />
+              Excel'e Aktar
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none cursor-pointer shadow-2xs"
+            >
+              <Printer size={16} className="text-gray-600" />
+              Yazdır
+            </button>
+            {selectedDetail.type === 'plate' && detailVehicle?.id && (
+              <button
+                type="button"
+                onClick={() => navigate(`/arac-yonetimi/${detailVehicle.id}`)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none cursor-pointer shadow-2xs"
+              >
+                <ExternalLink size={16} className="text-brand-600" />
+                Araç Profiline Git
+              </button>
+            )}
+            {canWrite && selectedDetail.type === 'plate' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setForm({
+                    ...emptyForm(),
+                    plate: selectedDetail.value,
+                    vehicle_id: detailVehicle?.id || undefined,
+                    driver_name: detailVehicle?.driver_name || detailRecords[0]?.driver_name || ''
+                  });
+                  setModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus:outline-none cursor-pointer shadow-2xs"
+              >
+                <Plus size={16} />
+                Yakıt Girişi
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Info Card and Summary KPIs */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {/* Detail Info Card */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col justify-between">
+            <h3 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-3 flex items-center gap-2">
+              {selectedDetail.type === 'plate' ? <Car size={16} className="text-brand-600" /> : <Building2 size={16} className="text-brand-600" />}
+              {selectedDetail.type === 'plate' ? 'Araç & Kart Detay Bilgileri' : 'İstasyon & Tedarikçi Bilgileri'}
+            </h3>
+            <div className="mt-3 grid grid-cols-2 gap-y-3 gap-x-4 text-xs">
+              {selectedDetail.type === 'plate' ? (
+                <>
+                  <div>
+                    <span className="block font-bold text-gray-400 uppercase tracking-wider">Plaka</span>
+                    <span className="font-mono font-bold text-gray-900 text-sm">{selectedDetail.value}</span>
+                  </div>
+                  <div>
+                    <span className="block font-bold text-gray-400 uppercase tracking-wider">Araç Modeli</span>
+                    <span className="font-semibold text-gray-800">{detailVehicle ? `${detailVehicle.brand} ${detailVehicle.model}` : 'Kayıtsız Araç'}</span>
+                  </div>
+                  <div>
+                    <span className="block font-bold text-gray-400 uppercase tracking-wider">Araç Tipi / Ruhsat</span>
+                    <span className="font-semibold text-gray-700">{detailVehicle?.vehicle_type || 'Standart'}</span>
+                  </div>
+                  <div>
+                    <span className="block font-bold text-gray-400 uppercase tracking-wider">Tanımlı Sürücü</span>
+                    <span className="font-semibold text-gray-700">{detailVehicle?.driver_name || detailRecords[0]?.driver_name || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="block font-bold text-gray-400 uppercase tracking-wider">Son Kilometre (KM)</span>
+                    <span className="font-mono font-semibold text-gray-800">
+                      {detailVehicle?.current_km
+                        ? `${formatNumber(detailVehicle.current_km, 0)} KM`
+                        : (detailRecords.find(r => r.km)?.km ? `${formatNumber(detailRecords.find(r => r.km)!.km!, 0)} KM` : '—')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block font-bold text-gray-400 uppercase tracking-wider">Son Dolum Tarihi</span>
+                    <span className="font-semibold text-gray-700">
+                      {detailRecords[0] ? new Date(detailRecords[0].date).toLocaleDateString('tr-TR') : '—'}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="col-span-2">
+                    <span className="block font-bold text-gray-400 uppercase tracking-wider">İstasyon / Şirket Adı</span>
+                    <span className="font-bold text-gray-900 text-sm">{selectedDetail.value}</span>
+                  </div>
+                  <div>
+                    <span className="block font-bold text-gray-400 uppercase tracking-wider">Şehir / Bölge</span>
+                    <span className="font-semibold text-gray-800">{detailStationCity || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="block font-bold text-gray-400 uppercase tracking-wider">Farklı Araç Sayısı</span>
+                    <span className="font-semibold text-gray-800">{detailStationVehicleCount} Araç</span>
+                  </div>
+                  <div>
+                    <span className="block font-bold text-gray-400 uppercase tracking-wider">İlk Dolum Tarihi</span>
+                    <span className="font-semibold text-gray-700">
+                      {detailRecords[detailRecords.length - 1] ? new Date(detailRecords[detailRecords.length - 1].date).toLocaleDateString('tr-TR') : '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block font-bold text-gray-400 uppercase tracking-wider">Son Dolum Tarihi</span>
+                    <span className="font-semibold text-gray-700">
+                      {detailRecords[0] ? new Date(detailRecords[0].date).toLocaleDateString('tr-TR') : '—'}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* 4 Summary Metric Cards */}
+          <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-gray-200 bg-emerald-50/50 p-4 flex flex-col justify-between shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-emerald-800">Toplam Harcama</span>
+                <CircleDollarSign size={18} className="text-emerald-600" />
+              </div>
+              <div className="mt-2 text-xl font-bold text-emerald-700">
+                {money(detailTotalAmount)}
+              </div>
+              <div className="text-[11px] text-emerald-600/80">KDV Dahil Net Tutar</div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-blue-50/50 p-4 flex flex-col justify-between shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-blue-800">Toplam Litre</span>
+                <Droplet size={18} className="text-blue-600" />
+              </div>
+              <div className="mt-2 text-xl font-bold text-blue-700">
+                {formatNumber(detailTotalQty, 2)} Lt
+              </div>
+              <div className="text-[11px] text-blue-600/80">Akaryakıt Hacmi</div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-amber-50/50 p-4 flex flex-col justify-between shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-amber-800">Ort. Litre Fiyatı</span>
+                <Fuel size={18} className="text-amber-600" />
+              </div>
+              <div className="mt-2 text-xl font-bold text-amber-700">
+                {money(detailAvgPrice)} / Lt
+              </div>
+              <div className="text-[11px] text-amber-600/80">Ağırlıklı Ortalama</div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-purple-50/50 p-4 flex flex-col justify-between shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-purple-800">
+                  {selectedDetail.type === 'plate' ? 'Dolum Sayısı' : 'İşlem Sayısı'}
+                </span>
+                <Building2 size={18} className="text-purple-600" />
+              </div>
+              <div className="mt-2 text-xl font-bold text-purple-700">
+                {detailRecords.length} Adet
+              </div>
+              <div className="text-[11px] text-purple-600/80">
+                {selectedDetail.type === 'plate'
+                  ? 'Farklı akaryakıt alımı'
+                  : `${detailStationVehicleCount} farklı araç`}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search & Filter Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 no-print">
+          <div className="relative flex-1 min-w-[280px]">
+            <Search size={16} className="absolute left-3 top-3 text-gray-400" />
+            <input
+              type="text"
+              placeholder={
+                selectedDetail.type === 'plate'
+                  ? 'İstasyon, il, şoför, tarih veya not ara...'
+                  : 'Plaka, araç, şoför, tarih veya not ara...'
+              }
+              value={detailQuery}
+              onChange={(e) => setDetailQuery(e.target.value)}
+              className="input pl-9"
+            />
+          </div>
+          {detailQuery && (
+            <button
+              type="button"
+              onClick={() => setDetailQuery('')}
+              className="btn-secondary !text-xs !py-2 cursor-pointer flex items-center gap-1"
+            >
+              <X size={14} />
+              Filtreyi Temizle
+            </button>
+          )}
+        </div>
+
+        {/* Full-Page Movements Table */}
+        <div className="card overflow-x-auto shadow-sm border border-gray-200">
+          <table className="min-w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="table-th">Tarih</th>
+                {selectedDetail.type === 'station' ? (
+                  <>
+                    <th className="table-th">Plaka</th>
+                    <th className="table-th">Araç Bilgisi</th>
+                  </>
+                ) : (
+                  <th className="table-th">İstasyon & İl</th>
+                )}
+                <th className="table-th">Yakıt Tipi</th>
+                <th className="table-th text-right">KM</th>
+                <th className="table-th text-right">Litre (Miktar)</th>
+                <th className="table-th text-right">Birim Fiyat</th>
+                <th className="table-th text-right">Toplam Tutar</th>
+                <th className="table-th">Sürücü / Kart No / Not</th>
+                {canWrite && <th className="table-th text-right no-print">İşlem</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {detailFilteredRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={canWrite ? 9 : 8} className="py-12 text-center text-gray-400">
+                    Bu kritere uygun yakıt kaydı bulunamadı.
+                  </td>
+                </tr>
+              ) : (
+                detailFilteredRecords.map((x) => {
+                  const v = vehicles.find((item) => item.id === x.vehicle_id || cleanPlate(item.plate) === cleanPlate(x.plate));
+                  return (
+                    <tr key={x.id} className="hover:bg-gray-50/60 transition-colors">
+                      <td className="table-td whitespace-nowrap">
+                        <div className="font-semibold text-gray-900">
+                          {new Date(x.date).toLocaleDateString('tr-TR')}
+                        </div>
+                        {!x.date?.includes('T12:00:00') && !x.date?.includes('T00:00:00') ? (
+                          <div className="text-[11px] text-gray-400 font-mono">
+                            {new Date(x.date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        ) : null}
+                      </td>
+                      {selectedDetail.type === 'station' ? (
+                        <>
+                          <td className="table-td font-semibold">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDetailQuery('');
+                                setSelectedDetail({ type: 'plate', value: x.plate });
+                              }}
+                              className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs font-mono font-bold text-gray-900 border border-gray-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 transition-colors cursor-pointer group"
+                              title="Bu aracın tüm dökümüne geç"
+                            >
+                              <span>{x.plate}</span>
+                              <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-600" />
+                            </button>
+                          </td>
+                          <td className="table-td text-gray-700">
+                            {v ? `${v.brand} ${v.model}` : <span className="italic text-gray-400">Harici Araç</span>}
+                          </td>
+                        </>
+                      ) : (
+                        <td className="table-td">
+                          <div className="font-medium text-gray-900">
+                            {x.station ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDetailQuery('');
+                                  setSelectedDetail({ type: 'station', value: x.station || '' });
+                                }}
+                                className="text-left hover:text-brand-600 hover:underline cursor-pointer group inline-flex items-center gap-1 font-semibold"
+                                title="Bu istasyonun dökümüne geç"
+                              >
+                                <span>{x.station}</span>
+                                <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-600" />
+                              </button>
+                            ) : (
+                              '—'
+                            )}
+                          </div>
+                          {x.city && <div className="text-xs text-gray-400">{x.city}</div>}
+                        </td>
+                      )}
+                      <td className="table-td">
+                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700 font-medium">
+                          {x.fuel_type || 'Motorin'}
+                        </span>
+                      </td>
+                      <td className="table-td text-right font-mono text-gray-700">
+                        {x.km ? `${formatNumber(x.km, 0)}` : '—'}
+                      </td>
+                      <td className="table-td text-right font-bold text-gray-900">
+                        {formatNumber(x.quantity, 2)} Lt
+                      </td>
+                      <td className="table-td text-right text-gray-600 font-mono">
+                        {money(x.unit_price)}
+                      </td>
+                      <td className="table-td text-right font-bold text-emerald-700 font-mono">
+                        {money(x.total_amount)}
+                      </td>
+                      <td className="table-td">
+                        <div className="text-gray-900 font-medium">{x.driver_name || '—'}</div>
+                        {x.fuel_card_no && <div className="text-xs text-gray-400">Kart: {x.fuel_card_no}</div>}
+                        {x.notes && <div className="text-xs text-gray-500 italic mt-0.5">{x.notes}</div>}
+                      </td>
+                      {canWrite && (
+                        <td className="table-td text-right no-print">
+                          <div className="flex justify-end gap-1">
+                            <button
+                              className="text-gray-500 hover:text-brand-600 p-1.5 rounded hover:bg-gray-100 transition-colors cursor-pointer"
+                              onClick={() => handleOpenEdit(x)}
+                              title="Kaydı Düzenle"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              className="text-gray-400 hover:text-rose-600 p-1.5 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                              onClick={() => void handleDelete(x.id)}
+                              title="Kaydı Sil"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  if (selectedDetail) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-6">
+        {renderDetailPage()}
+        {renderManualEntryModal()}
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
@@ -874,7 +1519,7 @@ export function FuelTrackingPage() {
             />
             <button
               className="btn-secondary"
-              onClick={handleExportExcel}
+              onClick={() => handleExportExcel()}
               disabled={items.length === 0}
               title="Excel Olarak İndir"
             >
@@ -1085,7 +1730,7 @@ export function FuelTrackingPage() {
                             type="button"
                             onClick={() => {
                               setDetailQuery('');
-                              setDetailModal({ type: 'plate', value: x.plate });
+                              setSelectedDetail({ type: 'plate', value: x.plate });
                             }}
                             className="inline-flex items-center gap-1 rounded bg-gray-100 px-2.5 py-1 text-xs font-mono font-bold text-gray-900 border border-gray-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 transition-colors shadow-2xs group cursor-pointer text-left"
                             title="Plaka hareket dökümünü incele"
@@ -1124,7 +1769,7 @@ export function FuelTrackingPage() {
                                 type="button"
                                 onClick={() => {
                                   setDetailQuery('');
-                                  setDetailModal({ type: 'station', value: x.station || '' });
+                                  setSelectedDetail({ type: 'station', value: x.station || '' });
                                 }}
                                 className="text-left font-medium text-gray-900 hover:text-brand-600 hover:underline transition-colors group inline-flex items-center gap-1 cursor-pointer"
                                 title="İstasyon hareket dökümünü incele"
@@ -1206,7 +1851,7 @@ export function FuelTrackingPage() {
                           type="button"
                           onClick={() => {
                             setDetailQuery('');
-                            setDetailModal({ type: 'plate', value: s.plate });
+                            setSelectedDetail({ type: 'plate', value: s.plate });
                           }}
                           className="inline-flex items-center gap-1 rounded bg-gray-100 px-2.5 py-1 text-xs font-mono font-bold text-gray-900 border border-gray-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 transition-colors shadow-2xs group cursor-pointer text-left"
                           title="Plaka hareket dökümünü incele"
@@ -1235,7 +1880,7 @@ export function FuelTrackingPage() {
                           className="btn-secondary !py-1 !text-xs cursor-pointer"
                           onClick={() => {
                             setDetailQuery('');
-                            setDetailModal({ type: 'plate', value: s.plate });
+                            setSelectedDetail({ type: 'plate', value: s.plate });
                           }}
                         >
                           Hareketleri Gör
@@ -1285,7 +1930,7 @@ export function FuelTrackingPage() {
                           type="button"
                           onClick={() => {
                             setDetailQuery('');
-                            setDetailModal({ type: 'station', value: s.station });
+                            setSelectedDetail({ type: 'station', value: s.station });
                           }}
                           className="text-left font-semibold text-gray-900 hover:text-brand-600 hover:underline transition-colors group inline-flex items-center gap-1 cursor-pointer"
                           title="İstasyon hareket dökümünü incele"
@@ -1318,7 +1963,7 @@ export function FuelTrackingPage() {
                           className="btn-secondary !py-1 !text-xs cursor-pointer"
                           onClick={() => {
                             setDetailQuery('');
-                            setDetailModal({ type: 'station', value: s.station });
+                            setSelectedDetail({ type: 'station', value: s.station });
                           }}
                         >
                           Hareketleri Gör
@@ -1334,445 +1979,8 @@ export function FuelTrackingPage() {
         </div>
       )}
 
-      {/* Detail Breakdown Modal (Plate or Station) */}
-      <Modal
-        open={Boolean(detailModal)}
-        onClose={() => setDetailModal(null)}
-        title={
-          detailModal?.type === 'plate'
-            ? `Araç / Plaka Hareket Dökümü: ${detailModal.value}`
-            : `İstasyon Hareket Dökümü: ${detailModal?.value}`
-        }
-        description={
-          detailModal?.type === 'plate'
-            ? (modalVehicle ? `${modalVehicle.brand} ${modalVehicle.model} · Toplam ${modalRecords.length} dolum kaydı` : `Kayıtsız Araç · Toplam ${modalRecords.length} dolum kaydı`)
-            : `${modalStationCity ? `${modalStationCity} · ` : ''}${modalStationVehicleCount} farklı araç · Toplam ${modalRecords.length} dolum işlemi`
-        }
-        size="4xl"
-        footer={
-          <div className="flex flex-wrap items-center justify-between gap-3 w-full">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="btn-secondary !text-xs !py-1.5 cursor-pointer"
-                onClick={() => {
-                  if (!detailModal) return;
-                  if (detailModal.type === 'plate') {
-                    setSelectedPlateFilter(detailModal.value);
-                  } else {
-                    setSelectedStationFilter(detailModal.value);
-                  }
-                  setActiveTab('all');
-                  setDetailModal(null);
-                }}
-              >
-                <Filter size={14} />
-                Ana Tabloda Filtrele
-              </button>
-              {detailModal?.type === 'plate' && modalVehicle?.id && (
-                <button
-                  type="button"
-                  className="btn-secondary !text-xs !py-1.5 cursor-pointer"
-                  onClick={() => {
-                    navigate(`/arac-yonetimi/${modalVehicle.id}`);
-                  }}
-                >
-                  <ExternalLink size={14} />
-                  Araç Profiline Git
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              className="btn-secondary !text-xs !py-1.5 cursor-pointer"
-              onClick={() => setDetailModal(null)}
-            >
-              Kapat
-            </button>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          {/* Summary KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-gray-100 bg-emerald-50/50 p-3.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-emerald-800">Toplam Harcama</span>
-                <CircleDollarSign size={16} className="text-emerald-600" />
-              </div>
-              <div className="mt-1 text-lg font-bold text-emerald-700">
-                {money(modalTotalAmount)}
-              </div>
-              <div className="text-[11px] text-emerald-600/80">KDV Dahil</div>
-            </div>
-
-            <div className="rounded-xl border border-gray-100 bg-blue-50/50 p-3.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-blue-800">Toplam Litre</span>
-                <Droplet size={16} className="text-blue-600" />
-              </div>
-              <div className="mt-1 text-lg font-bold text-blue-700">
-                {formatNumber(modalTotalQty, 2)} Lt
-              </div>
-              <div className="text-[11px] text-blue-600/80">Akaryakıt Hacmi</div>
-            </div>
-
-            <div className="rounded-xl border border-gray-100 bg-amber-50/50 p-3.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-amber-800">Ort. Litre Fiyatı</span>
-                <Fuel size={16} className="text-amber-600" />
-              </div>
-              <div className="mt-1 text-lg font-bold text-amber-700">
-                {money(modalAvgPrice)} / Lt
-              </div>
-              <div className="text-[11px] text-amber-600/80">Ağırlıklı Ortalama</div>
-            </div>
-
-            <div className="rounded-xl border border-gray-100 bg-purple-50/50 p-3.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-purple-800">
-                  {detailModal?.type === 'plate' ? 'Dolum Sayısı' : 'İşlem Sayısı'}
-                </span>
-                <Building2 size={16} className="text-purple-600" />
-              </div>
-              <div className="mt-1 text-lg font-bold text-purple-700">
-                {modalRecords.length} Adet
-              </div>
-              <div className="text-[11px] text-purple-600/80">
-                {detailModal?.type === 'plate'
-                  ? 'Farklı akaryakıt alımı'
-                  : `${modalStationVehicleCount} farklı araç`}
-              </div>
-            </div>
-          </div>
-
-          {/* Search bar inside modal */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-              <input
-                type="text"
-                placeholder={
-                  detailModal?.type === 'plate'
-                    ? 'İstasyon, il, şoför veya tarih ara...'
-                    : 'Plaka, araç, şoför veya tarih ara...'
-                }
-                value={detailQuery}
-                onChange={(e) => setDetailQuery(e.target.value)}
-                className="input pl-9 !py-1.5 !text-sm"
-              />
-            </div>
-            {detailQuery && (
-              <button
-                type="button"
-                onClick={() => setDetailQuery('')}
-                className="text-xs text-gray-500 hover:text-gray-800 cursor-pointer"
-              >
-                Filtreyi Temizle
-              </button>
-            )}
-          </div>
-
-          {/* Table */}
-          <div className="rounded-xl border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto max-h-[50vh]">
-              <table className="min-w-full text-xs">
-                <thead className="bg-gray-50/80 sticky top-0 z-10 border-b border-gray-200">
-                  <tr>
-                    <th className="table-th py-2">Tarih</th>
-                    {detailModal?.type === 'station' ? (
-                      <>
-                        <th className="table-th py-2">Plaka</th>
-                        <th className="table-th py-2">Araç Bilgisi</th>
-                      </>
-                    ) : (
-                      <th className="table-th py-2">İstasyon & İl</th>
-                    )}
-                    <th className="table-th py-2">Yakıt Tipi</th>
-                    <th className="table-th py-2 text-right">Litre</th>
-                    <th className="table-th py-2 text-right">Birim Fiyat</th>
-                    <th className="table-th py-2 text-right">Tutar</th>
-                    <th className="table-th py-2">Sürücü / Not</th>
-                    {canWrite && <th className="table-th py-2 text-right">İşlem</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {modalFilteredRecords.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-8 text-center text-gray-400">
-                        Kayıt bulunamadı.
-                      </td>
-                    </tr>
-                  ) : (
-                    modalFilteredRecords.map((x) => {
-                      const v = vehicles.find((item) => item.id === x.vehicle_id || cleanPlate(item.plate) === cleanPlate(x.plate));
-                      return (
-                        <tr key={x.id} className="hover:bg-gray-50/60">
-                          <td className="table-td py-2 whitespace-nowrap">
-                            {new Date(x.date).toLocaleDateString('tr-TR')}
-                            {!x.date?.includes('T12:00:00') && !x.date?.includes('T00:00:00') ? (
-                              <span className="text-[11px] text-gray-400 ml-1 font-mono">
-                                {new Date(x.date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            ) : null}
-                          </td>
-                          {detailModal?.type === 'station' ? (
-                            <>
-                              <td className="table-td py-2 font-mono font-bold text-gray-900">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDetailQuery('');
-                                    setDetailModal({ type: 'plate', value: x.plate });
-                                  }}
-                                  className="text-brand-600 hover:underline cursor-pointer"
-                                  title="Bu aracın tüm dökümüne geç"
-                                >
-                                  {x.plate}
-                                </button>
-                              </td>
-                              <td className="table-td py-2 text-gray-700">
-                                {v ? `${v.brand} ${v.model}` : <span className="italic text-gray-400">Harici Araç</span>}
-                              </td>
-                            </>
-                          ) : (
-                            <td className="table-td py-2">
-                              <div className="font-medium text-gray-900">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (x.station) {
-                                      setDetailQuery('');
-                                      setDetailModal({ type: 'station', value: x.station || '' });
-                                    }
-                                  }}
-                                  className="text-left hover:text-brand-600 hover:underline cursor-pointer"
-                                  title="Bu istasyonun dökümüne geç"
-                                >
-                                  {x.station || '—'}
-                                </button>
-                              </div>
-                              {x.city && <div className="text-[10px] text-gray-400">{x.city}</div>}
-                            </td>
-                          )}
-                          <td className="table-td py-2">
-                            <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700 font-medium">
-                              {x.fuel_type || 'Motorin'}
-                            </span>
-                          </td>
-                          <td className="table-td py-2 text-right font-bold text-gray-900">
-                            {formatNumber(x.quantity, 2)} Lt
-                          </td>
-                          <td className="table-td py-2 text-right text-gray-600">
-                            {money(x.unit_price)}
-                          </td>
-                          <td className="table-td py-2 text-right font-bold text-emerald-700">
-                            {money(x.total_amount)}
-                          </td>
-                          <td className="table-td py-2">
-                            <div className="text-gray-800">{x.driver_name || '—'}</div>
-                            {x.notes && <div className="text-[10px] text-gray-400 truncate max-w-[140px]" title={x.notes}>{x.notes}</div>}
-                          </td>
-                          {canWrite && (
-                            <td className="table-td py-2 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  className="text-gray-500 hover:text-brand-600 p-1 cursor-pointer"
-                                  onClick={() => {
-                                    handleOpenEdit(x);
-                                  }}
-                                  title="Düzenle"
-                                >
-                                  <Pencil size={13} />
-                                </button>
-                                <button
-                                  className="text-gray-400 hover:text-red-600 p-1 cursor-pointer"
-                                  onClick={() => void handleDelete(x.id)}
-                                  title="Sil"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
       {/* Manual Entry Modal */}
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={form.id ? 'Yakıt Girişini Düzenle' : 'Yeni Yakıt Girişi'}
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label>
-            <span className="label">Kayıtlı Araç Seçin (Opsiyonel)</span>
-            <select
-              className="input"
-              value={form.vehicle_id}
-              onChange={(e) => handleVehicleSelectInForm(e.target.value)}
-            >
-              <option value="">Plakayı manuel gir veya araç seç</option>
-              {vehicles.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.plate} · {v.brand} {v.model}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <span className="label">Plaka *</span>
-            <input
-              className="input uppercase font-mono font-bold"
-              value={form.plate}
-              onChange={(e) => handlePlateChangeInForm(e.target.value)}
-              placeholder="Örn: 34 ABC 123"
-            />
-          </label>
-
-          <label>
-            <span className="label">Tarih & Saat *</span>
-            <input
-              type="datetime-local"
-              className="input"
-              value={form.date}
-              onChange={(e) => setForm({ ...form, date: e.target.value })}
-            />
-          </label>
-
-          <label>
-            <span className="label">Yakıt Tipi</span>
-            <select
-              className="input"
-              value={form.fuel_type}
-              onChange={(e) => setForm({ ...form, fuel_type: e.target.value })}
-            >
-              <option value="Motorin">Motorin (Dizel)</option>
-              <option value="Benzin">Kurşunsuz Benzin 95</option>
-              <option value="LPG">Otogaz (LPG)</option>
-              <option value="Elektrik">Elektrik (Şarj)</option>
-              <option value="AdBlue">AdBlue</option>
-            </select>
-          </label>
-
-          <label>
-            <span className="label">Miktar (Litre)</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              className="input"
-              value={form.quantity}
-              onChange={(e) => handleQuantityOrPriceChange(e.target.value, form.unit_price)}
-              placeholder="Örn: 45.50"
-            />
-          </label>
-
-          <label>
-            <span className="label">Litre Birim Fiyatı (₺)</span>
-            <input
-              type="number"
-              step="0.001"
-              min="0"
-              className="input"
-              value={form.unit_price}
-              onChange={(e) => handleQuantityOrPriceChange(form.quantity, e.target.value)}
-              placeholder="Örn: 44.50"
-            />
-          </label>
-
-          <label>
-            <span className="label">Toplam Tutar (₺) *</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              className="input font-bold"
-              value={form.total_amount}
-              onChange={(e) => setForm({ ...form, total_amount: e.target.value })}
-              placeholder="Örn: 2024.75"
-            />
-          </label>
-
-          <label>
-            <span className="label">İstasyon / Tedarikçi</span>
-            <input
-              className="input"
-              value={form.station}
-              onChange={(e) => setForm({ ...form, station: e.target.value })}
-              placeholder="Örn: Shell Maslak"
-            />
-          </label>
-
-          <label>
-            <span className="label">İl / Şehir</span>
-            <input
-              className="input"
-              value={form.city}
-              onChange={(e) => setForm({ ...form, city: e.target.value })}
-              placeholder="Örn: İstanbul"
-            />
-          </label>
-
-          <label>
-            <span className="label">Kilometre (KM)</span>
-            <input
-              type="number"
-              className="input"
-              value={form.km}
-              onChange={(e) => setForm({ ...form, km: e.target.value })}
-              placeholder="Örn: 125400"
-            />
-          </label>
-
-          <label>
-            <span className="label">Sürücü Adı</span>
-            <input
-              className="input"
-              value={form.driver_name}
-              onChange={(e) => setForm({ ...form, driver_name: e.target.value })}
-              placeholder="Örn: Ahmet Yılmaz"
-            />
-          </label>
-
-          <label>
-            <span className="label">Yakıt / Filo Kart No</span>
-            <input
-              className="input"
-              value={form.fuel_card_no}
-              onChange={(e) => setForm({ ...form, fuel_card_no: e.target.value })}
-              placeholder="Örn: 7004-xxxx"
-            />
-          </label>
-
-          <label className="sm:col-span-2">
-            <span className="label">Notlar</span>
-            <textarea
-              className="input min-h-20"
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="Ek açıklama..."
-            />
-          </label>
-
-          <button
-            className="btn-primary sm:col-span-2"
-            disabled={saving}
-            onClick={() => void handleSave()}
-          >
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
-          </button>
-        </div>
-      </Modal>
+      {renderManualEntryModal()}
 
       {/* Import Preview Modal */}
       <Modal
