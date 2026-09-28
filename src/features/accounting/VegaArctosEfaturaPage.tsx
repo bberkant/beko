@@ -28,7 +28,7 @@ import {
   saveSupabaseCache 
 } from './efaturaCache';
 import { StandardElectronicInvoice } from './components/StandardElectronicInvoice';
-import { downloadInvoiceXml, downloadInvoiceHtml } from './utils/invoiceDocumentHelpers';
+import { downloadInvoiceXml, downloadInvoiceHtml, generateInvoiceHtmlString } from './utils/invoiceDocumentHelpers';
 
 export interface VegaEfatura {
   id: number;
@@ -70,26 +70,16 @@ export type VegaEfaturaDetail = VegaEfaturaDetay;
 
 const TUNNEL_URL = 'https://vega-api.amasyaetas.com';
 
-const LOCAL_PDF_INVOICES = [
-  'ETS2026000003684',
-  'EVF2026000002274',
-  'EVF2026000001967',
-  'EVF2026000001721'
-];
-
 const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function getInvoicePdfUrl(company: string, invoice: VegaEfatura): string {
   const invoiceNo = (invoice.invoiceNo || '').trim();
-  if (LOCAL_PDF_INVOICES.includes(invoiceNo)) {
-    return `/invoices/${invoiceNo}.pdf`;
-  }
   // Yalnızca geçerli 36 karakterlik GUID olan ETTN kodlarını SOAP'a gönder, numerik ID'leri SOAP'a yollama
   const rawUuid = invoice.ettn || '';
   const uuid = GUID_REGEX.test(rawUuid) ? rawUuid : '';
   const direction = invoice.direction || 'gelen';
   const date = invoice.date || '';
-  return `${TUNNEL_URL}/api/${company}/efaturalar/${invoiceNo}/pdf?uuid=${encodeURIComponent(uuid)}&direction=${encodeURIComponent(direction)}&date=${encodeURIComponent(date)}`;
+  return `${TUNNEL_URL}/api/${company}/efaturalar/${encodeURIComponent(invoiceNo)}/pdf?uuid=${encodeURIComponent(uuid)}&direction=${encodeURIComponent(direction)}&date=${encodeURIComponent(date)}`;
 }
 
 
@@ -451,7 +441,9 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
       // 1. Önce yerel statik public/invoices klasörünü kontrol et (PDF veya HTML)
       try {
         const headPdf = await fetch(`/invoices/${encodeURIComponent(invNo)}.pdf`, { method: 'HEAD' });
-        if (headPdf.ok && isMounted) {
+        const cType = (headPdf.headers.get('content-type') || '').toLowerCase();
+        // Cloudflare Pages SPA rewrite serves index.html (text/html) for 404s. Ensure this is an actual PDF!
+        if (headPdf.ok && (cType.includes('pdf') || cType.includes('octet-stream')) && isMounted) {
           setPdfBlobUrl(`/invoices/${encodeURIComponent(invNo)}.pdf`);
           setViewerMode('pdf');
           setIsPdfGenerating(false);
@@ -460,12 +452,21 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
       } catch {}
 
       try {
-        const headHtml = await fetch(`/invoices/${encodeURIComponent(invNo)}.html`, { method: 'HEAD' });
+        const headHtml = await fetch(`/invoices/${encodeURIComponent(invNo)}.html`, { method: 'GET' });
         if (headHtml.ok && isMounted) {
-          setPdfBlobUrl(`/invoices/${encodeURIComponent(invNo)}.html`);
-          setViewerMode('html');
-          setIsPdfGenerating(false);
-          return;
+          const cType = (headHtml.headers.get('content-type') || '').toLowerCase();
+          if (cType.includes('html')) {
+            const text = await headHtml.text();
+            // Cloudflare Pages SPA rewrite serves index.html for 404s. Ensure this is real invoice HTML, not DARS app!
+            if (!text.includes('id="root"') && !text.includes('<title>DARS</title>') && isMounted) {
+              const blob = new Blob([text], { type: 'text/html;charset=utf-8' });
+              const blobUrl = URL.createObjectURL(blob);
+              setPdfBlobUrl(blobUrl);
+              setViewerMode('html');
+              setIsPdfGenerating(false);
+              return;
+            }
+          }
         }
       } catch {}
 
@@ -474,32 +475,33 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
       try {
         const res = await fetch(officialUrl);
         if (res.ok && isMounted) {
-          const contentType = res.headers.get('content-type') || '';
-          if (contentType.includes('pdf')) {
+          const contentType = (res.headers.get('content-type') || '').toLowerCase();
+          if (contentType.includes('pdf') || contentType.includes('octet-stream')) {
             const blob = await res.blob();
             const blobUrl = URL.createObjectURL(blob);
             setPdfBlobUrl(blobUrl);
             setViewerMode('pdf');
+            setIsPdfGenerating(false);
             return;
           } else if (contentType.includes('html')) {
             const text = await res.text();
-            const blob = new Blob([text], { type: 'text/html;charset=utf-8' });
-            const blobUrl = URL.createObjectURL(blob);
-            setPdfBlobUrl(blobUrl);
-            setViewerMode('html');
-            return;
+            if (!text.includes('id="root"') && !text.includes('<title>DARS</title>')) {
+              const blob = new Blob([text], { type: 'text/html;charset=utf-8' });
+              const blobUrl = URL.createObjectURL(blob);
+              setPdfBlobUrl(blobUrl);
+              setViewerMode('html');
+              setIsPdfGenerating(false);
+              return;
+            }
           }
         }
       } catch (err: any) {
         console.warn('Canlı PDF çekilemedi, standart elektronik fatura görünümü devrede:', err);
-      } finally {
-        if (isMounted) {
-          setIsPdfGenerating(false);
-        }
       }
 
       // 3. Bulunamadıysa otomatik olarak standart resmi elektronik fatura görünümü devrede
       if (isMounted) {
+        setPdfBlobUrl(null);
         setViewerMode('standard');
         setIsPdfGenerating(false);
       }
@@ -527,7 +529,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         setDetails(data);
-      } else if (company === 'marif') {
+      } else {
         setDetails([{
           id: 1,
           productCode: invoice.vkn || String(invoice.cariCode),
@@ -1312,7 +1314,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                           : 'Resmi Standart e-Fatura Görünümü (UBL-TR 2.1)'}
                       </span>
                     </div>
-                    {pdfBlobUrl && (
+                    {pdfBlobUrl ? (
                       <a
                         href={pdfBlobUrl}
                         target="_blank"
@@ -1322,6 +1324,21 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                         <ExternalLink size={12} />
                         Yeni Pencerede Tam Boyut Aç
                       </a>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          const html = generateInvoiceHtmlString(selectedInvoice, details, company);
+                          const w = window.open('', '_blank');
+                          if (w) {
+                            w.document.write(html);
+                            w.document.close();
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 font-semibold text-[#1f4e79] hover:underline"
+                      >
+                        <ExternalLink size={12} />
+                        Yeni Pencerede Tam Boyut Aç
+                      </button>
                     )}
                   </div>
 

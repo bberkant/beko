@@ -174,9 +174,9 @@ ${items.map((line, idx) => `  <cac:InvoiceLine>
 }
 
 /**
- * Standart Resmi e-Fatura HTML Çıktısı Üretir ve İndirir
+ * Standart Resmi e-Fatura HTML Dizesi Üretir
  */
-export function downloadInvoiceHtml(invoice: VegaEfatura, details: VegaEfaturaDetail[] = [], company: 'etik' | 'marif' = 'etik') {
+export function generateInvoiceHtmlString(invoice: VegaEfatura, details: VegaEfaturaDetail[] = [], company: 'etik' | 'marif' = 'etik'): string {
   const seller = COMPANY_PROFILES[company];
   const invNo = invoice.invoiceNo.trim();
   const dateStr = (invoice.date || new Date().toISOString()).slice(0, 10);
@@ -194,7 +194,7 @@ export function downloadInvoiceHtml(invoice: VegaEfatura, details: VegaEfaturaDe
     kdvTutar: kdv
   }];
 
-  const htmlContent = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
@@ -316,9 +316,15 @@ export function downloadInvoiceHtml(invoice: VegaEfatura, details: VegaEfaturaDe
       <div>GİB Onay Kodu: ${ettn}</div>
     </div>
   </div>
-</body>
 </html>`;
+}
 
+/**
+ * Standart Resmi e-Fatura HTML Çıktısı Üretir ve İndirir
+ */
+export function downloadInvoiceHtml(invoice: VegaEfatura, details: VegaEfaturaDetail[] = [], company: 'etik' | 'marif' = 'etik') {
+  const invNo = invoice.invoiceNo.trim();
+  const htmlContent = generateInvoiceHtmlString(invoice, details, company);
   const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
