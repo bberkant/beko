@@ -10,6 +10,7 @@ import * as XLSX from 'xlsx';
 import { createClient } from '@supabase/supabase-js';
 import { syncMarifIncomingInvoices } from './sync-marif-inbox.mjs';
 import { syncEtikIncomingInvoices } from './sync-etik-inbox.mjs';
+import { syncVegaData } from './sync_vega_hareketler.mjs';
 
 const SUPABASE_URL = "https://zubhjybqzcpplultpsgt.supabase.co";
 const SUPABASE_KEY = "sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG";
@@ -1145,13 +1146,32 @@ async function triggerEfaturaSync(force = false) {
   }
 }
 
-async function startDaemon() {
-  log("🚀 One DARS Kasa & e-Fatura Senkronizasyon Servisi Başlatıldı (V5).");
-  log("👀 Klasörler her 60 saniyede bir, e-Faturalar her 10 dakikada bir otomatik taranıp Supabase ile eşitleniyor...");
+let lastVegaSyncTime = 0;
+const VEGA_SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 dakikada bir
 
-  // İlk açılışta kasa ve e-fatura senkronizasyonunu başlat
+async function triggerVegaSync(force = false) {
+  const now = Date.now();
+  if (!force && (now - lastVegaSyncTime < VEGA_SYNC_INTERVAL_MS)) {
+    return;
+  }
+  lastVegaSyncTime = now;
+  try {
+    log('🔄 [VEGA] Vega cari ve stok hareketleri otomatik senkronize ediliyor...');
+    await syncVegaData(false);
+    log('✔️ [VEGA] Vega cari ve stok hareketleri başarıyla eşitlendi.');
+  } catch (err) {
+    log(`⚠️ [VEGA] Senkronizasyon genel hatası: ${err.message}`);
+  }
+}
+
+async function startDaemon() {
+  log("🚀 One DARS Kasa & e-Fatura & Vega Senkronizasyon Servisi Başlatıldı (V5.1).");
+  log("👀 Klasörler her 60 saniyede bir, e-Faturalar 10 dk, Vega Hareketler 30 dk bir otomatik eşitleniyor...");
+
+  // İlk açılışta senkronizasyonları başlat
   await runSyncCycle();
   triggerEfaturaSync(true).catch(() => {});
+  triggerVegaSync(true).catch(() => {});
 
   setInterval(async () => {
     await runSyncCycle();
@@ -1160,6 +1180,10 @@ async function startDaemon() {
   setInterval(async () => {
     await triggerEfaturaSync(false);
   }, 60 * 1000); // Her dakika kontrol et (10 dakika dolunca çalışır)
+
+  setInterval(async () => {
+    await triggerVegaSync(false);
+  }, 60 * 1000); // Her dakika kontrol et (30 dakika dolunca çalışır)
 }
 
 startDaemon();

@@ -48,6 +48,7 @@ interface StockSummary {
 }
 
 const DEFAULT_ORG_ID = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+const TUNNEL_URL = 'https://vega-api.amasyaetas.com';
 
 const turkishNormalize = (str: string): string => {
   if (!str) return '';
@@ -220,6 +221,104 @@ export function VegaArctosStokPage() {
       setIsLoading(false);
     }
   };
+
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<string>('');
+
+  const syncWithVega = async () => {
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
+    try {
+      setIsSyncing(true);
+      setSyncProgress('Vega bağlantısı kuruluyor...');
+      notify('Vega ile canlı bağlantı kuruluyor...', 'info');
+
+      const carilerRes = await fetch(`${TUNNEL_URL}/api/cariler`);
+      if (!carilerRes.ok) throw new Error('Vega API yanıt vermedi.');
+      const cariler = await carilerRes.json();
+      if (!Array.isArray(cariler)) throw new Error('Cari verisi alınamadı.');
+
+      // Save cariler to Supabase
+      const cariPayload = cariler.map(c => ({
+        organization_id: orgId,
+        code: String(c.code),
+        name: c.name || '',
+        company_code: c.companyCode || null,
+        company_tracking_code: c.companyTrackingCode || null,
+        tax_office: c.taxOffice || null,
+        tax_no: c.taxNo || null,
+        type: c.type || 'Müşteri',
+        city: c.city || '',
+        last_transaction_date: c.lastTransactionDate || null,
+        balance: Number(c.balance || 0)
+      }));
+
+      for (let i = 0; i < cariPayload.length; i += 1000) {
+        const chunk = cariPayload.slice(i, i + 1000);
+        await supabase.from('vega_cariler').upsert(chunk, { onConflict: 'organization_id,code' });
+      }
+
+      // Filter active cariler with recent transactions
+      const targetCariler = cariler.filter(c => c.lastTransactionDate && c.lastTransactionDate >= '2026-09-01');
+      setSyncProgress(`0 / ${targetCariler.length} cari eşitleniyor...`);
+
+      const concurrency = 15;
+      for (let i = 0; i < targetCariler.length; i += concurrency) {
+        const chunk = targetCariler.slice(i, i + concurrency);
+        await Promise.all(chunk.map(async (cari) => {
+          try {
+            const movRes = await fetch(`${TUNNEL_URL}/api/cariler/${encodeURIComponent(cari.code)}/hareketler`);
+            if (!movRes.ok) return;
+            const movData = await movRes.json();
+            if (!Array.isArray(movData) || movData.length === 0) return;
+
+            const mapped = movData.map((m: any) => ({
+              organization_id: orgId,
+              cari_code: String(cari.code),
+              date: m.date || new Date().toISOString(),
+              invoice_no: m.invoiceNo || '',
+              izahat: m.izahat || '',
+              description: m.description || '',
+              quantity: Number(m.quantity || 0),
+              unit_price: Number(m.unitPrice || 0),
+              line_tutar: Number(m.lineTutar || 0),
+              product_name: m.productName || null,
+              unit_name: m.unitName || null,
+              borc: Number(m.borc || 0),
+              alacak: Number(m.alacak || 0),
+              vade: m.vade || null,
+              type: m.type || '',
+              amount: Number(m.amount || 0)
+            }));
+
+            await supabase
+              .from('vega_cari_hareketler')
+              .delete()
+              .eq('organization_id', orgId)
+              .eq('cari_code', String(cari.code));
+
+            for (let k = 0; k < mapped.length; k += 500) {
+              await supabase.from('vega_cari_hareketler').insert(mapped.slice(k, k + 500));
+            }
+          } catch {}
+        }));
+        setSyncProgress(`${Math.min(i + concurrency, targetCariler.length)} / ${targetCariler.length} cari eşitlendi...`);
+      }
+
+      await fetchMovements();
+      notify('Vega canlı stok ve fatura hareketleri başarıyla eşitlendi!', 'success');
+    } catch (err: any) {
+      console.error('Vega sync error:', err);
+      notify('Vega senkronizasyon hatası: ' + err.message, 'error');
+    } finally {
+      setIsSyncing(false);
+      setSyncProgress('');
+    }
+  };
+
+  const latestMovementDate = useMemo(() => {
+    if (movements.length === 0) return null;
+    return movements[0]?.date || null;
+  }, [movements]);
 
   useEffect(() => {
     fetchMovements();
@@ -470,10 +569,19 @@ export function VegaArctosStokPage() {
               Ürün Fatura ve Hesap Hareketleri Geçmiş Detayı
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={syncWithVega}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+              title="Vega Mezbaha sunucusundan en son hareketleri çeker"
+            >
+              <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
+              <span>{isSyncing ? (syncProgress || 'Eşitleniyor...') : "Vega'dan Canlı Eşitle"}</span>
+            </button>
             <button
               onClick={() => { setSelectedProduct(null); setSearchParams({}); }}
-              className="px-4 py-2 text-xs font-semibold text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-xs font-semibold text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors cursor-pointer"
             >
               Geri Dön
             </button>
@@ -640,14 +748,31 @@ export function VegaArctosStokPage() {
             Cari hesap hareketlerinden derlenmiş, canlı fatura verilerine dayanan stok giriş/çıkış modülü.
           </p>
         </div>
-        <button
-          onClick={fetchMovements}
-          disabled={isLoading}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 transition-colors"
-        >
-          <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-          <span>Verileri Yenile</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {latestMovementDate && (
+            <div className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Son Hareket: {formatDate(latestMovementDate)}</span>
+            </div>
+          )}
+          <button
+            onClick={fetchMovements}
+            disabled={isLoading || isSyncing}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+            <span>Listeyi Yenile</span>
+          </button>
+          <button
+            onClick={syncWithVega}
+            disabled={isLoading || isSyncing}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-brand-500 transition-colors disabled:opacity-50 cursor-pointer"
+            title="Vega Mezbaha SQL sunucusundan en güncel fatura ve stok hareketlerini çeker"
+          >
+            <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+            <span>{isSyncing ? (syncProgress || 'Eşitleniyor...') : "Vega'dan Canlı Eşitle"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Bulut ERP Tab Navigation */}
