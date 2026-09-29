@@ -717,7 +717,7 @@ export function ChecksPage() {
               .eq('organization_id', orgId)
               .eq('due_date', todayStr)
           ]),
-          5000
+          15000
         );
 
         if (accountsResult.error) throw accountsResult.error;
@@ -759,7 +759,7 @@ export function ChecksPage() {
             .eq('status', 'aktif')
             .order('bank', { ascending: true })
         ]),
-        5000
+        15000
       );
 
       if (countResult.error) throw countResult.error;
@@ -785,7 +785,7 @@ export function ChecksPage() {
             .range(from, from + pageSize - 1);
         });
 
-        const pagesResults = await withQueryTimeout(Promise.all(fetchPages), 8000);
+        const pagesResults = await withQueryTimeout(Promise.all(fetchPages), 20000);
         for (const res of pagesResults) {
           if (res.error) throw res.error;
           if (res.data) {
