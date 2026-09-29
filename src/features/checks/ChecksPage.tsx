@@ -21,7 +21,9 @@ import {
   Calendar,
   Filter,
   X,
-  ArrowUpDown
+  ArrowUpDown,
+  ExternalLink,
+  AlertTriangle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Modal } from '../../components/ui/Modal';
@@ -260,8 +262,75 @@ const formatTaksitDesc = (desc: string | null | undefined): string => {
   return clean;
 };
 
+const CHECKS_CACHE_KEY = 'dars_ebs_checks_cache';
+const TAKAS_CHECKS_CACHE_KEY = 'dars_ebs_takas_checks_cache';
+const ACCOUNTS_CACHE_KEY = 'dars_bank_accounts_cache';
+
+function getCachedChecks(orgId: string, isTakas = false): EbsCheck[] {
+  try {
+    if (isTakas) {
+      const takasRaw = localStorage.getItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`);
+      if (takasRaw) {
+        const parsed = JSON.parse(takasRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    }
+    const raw = localStorage.getItem(`${CHECKS_CACHE_KEY}_${orgId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setCachedChecks(orgId: string, data: EbsCheck[], isTakas = false) {
+  try {
+    if (!Array.isArray(data) || data.length === 0) return;
+    if (isTakas) {
+      localStorage.setItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(data));
+      const existing = getCachedChecks(orgId, false);
+      if (existing.length > 0) {
+        const map = new Map(existing.map(c => [c.id, c]));
+        data.forEach(c => map.set(c.id, c));
+        localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(Array.from(map.values())));
+      }
+    } else {
+      localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(data));
+      localStorage.setItem(`${CHECKS_CACHE_KEY}_time_${orgId}`, new Date().toISOString());
+    }
+  } catch {}
+}
+
+function getCachedBankAccounts(orgId: string): any[] {
+  try {
+    const raw = localStorage.getItem(`${ACCOUNTS_CACHE_KEY}_${orgId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setCachedBankAccounts(orgId: string, data: any[]) {
+  try {
+    if (Array.isArray(data) && data.length > 0) {
+      localStorage.setItem(`${ACCOUNTS_CACHE_KEY}_${orgId}`, JSON.stringify(data));
+    }
+  } catch {}
+}
+
+function withQueryTimeout<T>(promise: PromiseLike<T>, ms = 5000, errorMsg = 'Veritabanı yanıt süresi aşıldı (Zaman Aşımı)'): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMsg)), ms))
+  ]);
+}
+
 export function ChecksPage() {
   const { user } = useAuth();
+  const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
   const pendingInserts = useRef<Record<string, boolean>>({});
   const insertPromises = useRef<Record<string, Promise<any>>>({});
   const [selectedCells, setSelectedCells] = useState<Record<string, { amount: number; label: string }>>({});
@@ -300,9 +369,11 @@ export function ChecksPage() {
   
   // Changed default tab to 'kesilen' and renamed Kendi Çeklerimiz to Kesilen Çekler as requested
   const [activeTab, setActiveTab] = useState<'alinan' | 'kesilen'>(isTakasRoute ? 'alinan' : 'kesilen');
-  const [checks, setChecks] = useState<EbsCheck[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [checks, setChecks] = useState<EbsCheck[]>(() => getCachedChecks(orgId, isTakasRoute));
+  const [bankAccounts, setBankAccounts] = useState<any[]>(() => getCachedBankAccounts(orgId));
   const [loading, setLoading] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
+  const [isOfflineData, setIsOfflineData] = useState<boolean>(() => getCachedChecks(orgId, isTakasRoute).length > 0);
   const [searchTerm, setSearchTerm] = useState('');
   const [columnFilters, setColumnFilters] = useState({
     due_date: '',
@@ -338,11 +409,21 @@ export function ChecksPage() {
     if (isTakasRoute) {
       setActiveTab('alinan');
       setSelectedSidebarFilter('takasa_verildi');
+      const cached = getCachedChecks(orgId, true);
+      if (cached.length > 0) {
+        setChecks(cached);
+        setIsOfflineData(true);
+      }
     } else {
       setActiveTab('kesilen');
       setSelectedSidebarFilter('all');
+      const cached = getCachedChecks(orgId, false);
+      if (cached.length > 0) {
+        setChecks(cached);
+        setIsOfflineData(true);
+      }
     }
-  }, [isTakasRoute]);
+  }, [isTakasRoute, orgId]);
 
   const [openDropdown, setOpenDropdown] = useState<{ section: 'takas' | 'nontakas'; rowIndex: number; colName?: string } | null>(null);
   const [openHeaderDropdown, setOpenHeaderDropdown] = useState<string | null>(null);
@@ -591,6 +672,7 @@ export function ChecksPage() {
   const fetchChecks = async () => {
     const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
     setLoading(true);
+    setDbError(null);
     try {
       const today = new Date();
       const todayStr = today.getFullYear() + '-' + 
@@ -599,28 +681,31 @@ export function ChecksPage() {
 
       // 1. Takas Rotasındaysak SADECE güncel takas için gerekli kayıtları tek sorguda çek
       if (isTakasRoute) {
-        const [accountsResult, initialChecksResult, todayChecksResult] = await Promise.all([
-          supabase
-            .from('bank_accounts')
-            .select('*')
-            .eq('organization_id', orgId)
-            .eq('status', 'aktif')
-            .order('bank', { ascending: true }),
-          supabase
-            .from('ebs_checks')
-            .select('*')
-            .eq('organization_id', orgId)
-            .neq('status', 'Ödendi')
-            .neq('status', 'Tahsil Edildi')
-            .neq('status', 'İptal')
-            .or(`due_date.eq.${todayStr},debtor.eq.TAKSİT,debtor.ilike.%taksit%,status.ilike.%kayıp%,ozel_alan.ilike.%takas%,debtor.ilike.%hatir%,debtor.ilike.%hatır%,creditor.ilike.%hatir%,creditor.ilike.%hatır%,kesideci.ilike.%hatir%,kesideci.ilike.%hatır%,ozel_alan.ilike.%hatir%,ozel_alan.ilike.%hatır%,check_no.is.null,check_no.eq.`)
-            .order('due_date', { ascending: true }),
-          supabase
-            .from('ebs_checks')
-            .select('*')
-            .eq('organization_id', orgId)
-            .eq('due_date', todayStr)
-        ]);
+        const [accountsResult, initialChecksResult, todayChecksResult] = await withQueryTimeout(
+          Promise.all([
+            supabase
+              .from('bank_accounts')
+              .select('*')
+              .eq('organization_id', orgId)
+              .eq('status', 'aktif')
+              .order('bank', { ascending: true }),
+            supabase
+              .from('ebs_checks')
+              .select('*')
+              .eq('organization_id', orgId)
+              .neq('status', 'Ödendi')
+              .neq('status', 'Tahsil Edildi')
+              .neq('status', 'İptal')
+              .or(`due_date.eq.${todayStr},debtor.eq.TAKSİT,debtor.ilike.%taksit%,status.ilike.%kayıp%,ozel_alan.ilike.%takas%,debtor.ilike.%hatir%,debtor.ilike.%hatır%,creditor.ilike.%hatir%,creditor.ilike.%hatır%,kesideci.ilike.%hatir%,kesideci.ilike.%hatır%,ozel_alan.ilike.%hatir%,ozel_alan.ilike.%hatır%,check_no.is.null,check_no.eq.`)
+              .order('due_date', { ascending: true }),
+            supabase
+              .from('ebs_checks')
+              .select('*')
+              .eq('organization_id', orgId)
+              .eq('due_date', todayStr)
+          ]),
+          5000
+        );
 
         if (accountsResult.error) throw accountsResult.error;
         if (initialChecksResult.error) throw initialChecksResult.error;
@@ -636,25 +721,33 @@ export function ChecksPage() {
           });
         }
 
-        setBankAccounts(accountsResult.data || []);
+        const accounts = accountsResult.data || [];
+        setBankAccounts(accounts);
+        setCachedBankAccounts(orgId, accounts);
+
         setChecks(combinedChecks);
-        setLoading(false);
+        setCachedChecks(orgId, combinedChecks, true);
+        setIsOfflineData(false);
+        setDbError(null);
         return;
       }
 
       // 2. Standart Çek Yönetimi Sayfasındaysak (Tüm Çekler/Raporlar)
-      const [countResult, accountsResult] = await Promise.all([
-        supabase
-          .from('ebs_checks')
-          .select('*', { count: 'exact', head: true })
-          .eq('organization_id', orgId),
-        supabase
-          .from('bank_accounts')
-          .select('*')
-          .eq('organization_id', orgId)
-          .eq('status', 'aktif')
-          .order('bank', { ascending: true })
-      ]);
+      const [countResult, accountsResult] = await withQueryTimeout(
+        Promise.all([
+          supabase
+            .from('ebs_checks')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', orgId),
+          supabase
+            .from('bank_accounts')
+            .select('*')
+            .eq('organization_id', orgId)
+            .eq('status', 'aktif')
+            .order('bank', { ascending: true })
+        ]),
+        5000
+      );
 
       if (countResult.error) throw countResult.error;
       if (accountsResult.error) throw accountsResult.error;
@@ -662,6 +755,7 @@ export function ChecksPage() {
       const totalCount = countResult.count || 0;
       const accounts = accountsResult.data || [];
       setBankAccounts(accounts);
+      setCachedBankAccounts(orgId, accounts);
 
       let allData: EbsCheck[] = [];
       const pageSize = 1000;
@@ -678,7 +772,7 @@ export function ChecksPage() {
             .range(from, from + pageSize - 1);
         });
 
-        const pagesResults = await Promise.all(fetchPages);
+        const pagesResults = await withQueryTimeout(Promise.all(fetchPages), 8000);
         for (const res of pagesResults) {
           if (res.error) throw res.error;
           if (res.data) {
@@ -688,6 +782,9 @@ export function ChecksPage() {
       }
 
       setChecks(allData);
+      setCachedChecks(orgId, allData, false);
+      setIsOfflineData(false);
+      setDbError(null);
 
       // Seed default kayip checks if they haven't been seeded yet
       const hasSeededKayip = localStorage.getItem(`seeded_kayip_${orgId}`);
@@ -710,12 +807,31 @@ export function ChecksPage() {
             .order('due_date', { ascending: true });
           if (refetchedData) {
             setChecks(refetchedData);
+            setCachedChecks(orgId, refetchedData, false);
           }
         }
       }
 
     } catch (err: any) {
       console.error('Çek verileri yüklenirken hata oluştu:', err);
+      const rawMsg = err?.message || String(err || '');
+      const is522orTimeout = rawMsg.includes('522') || rawMsg.includes('zaman aşımı') || rawMsg.includes('Zaman Aşımı') || rawMsg.includes('timeout') || rawMsg.includes('Failed to fetch') || rawMsg.includes('NetworkError');
+      const errorMsg = is522orTimeout
+        ? 'Veritabanı sunucusu (Supabase) şu anda yanıt vermiyor (HTTP 522 / Zaman Aşımı). Proje uyku moduna (Paused) geçmiş olabilir.'
+        : `Veritabanı bağlantı hatası: ${rawMsg}`;
+      
+      setDbError(errorMsg);
+
+      // Çevrimdışı önbellekten yükle
+      const cached = getCachedChecks(orgId, isTakasRoute);
+      const cachedAcc = getCachedBankAccounts(orgId);
+      if (cached.length > 0) {
+        setChecks(cached);
+        setIsOfflineData(true);
+      }
+      if (cachedAcc.length > 0) {
+        setBankAccounts(cachedAcc);
+      }
     } finally {
       setLoading(false);
     }
@@ -2038,8 +2154,41 @@ export function ChecksPage() {
 
     return (
       <div className="space-y-6">
-        {/* Upper Bank Columns Table with thick Excel border */}
-        <div className="overflow-x-auto w-full border-2 border-black bg-white rounded-lg shadow-sm print:border-none">
+        {loading && checks.length === 0 ? (
+          <div className="bg-white border-2 border-black rounded-lg p-12 text-center text-gray-500 shadow-sm print:hidden">
+            <RefreshCw size={28} className="animate-spin mx-auto mb-3 text-brand-600" />
+            <p className="font-semibold text-gray-700 text-sm">Takas Çekleri Yükleniyor...</p>
+            <p className="text-xs text-gray-400 mt-1">Lütfen bekleyiniz, veritabanından güncel takas kayıtları alınıyor.</p>
+          </div>
+        ) : checks.length === 0 && dbError ? (
+          <div className="bg-white border-2 border-black rounded-lg p-10 text-center text-gray-500 shadow-sm space-y-3 print:hidden">
+            <AlertTriangle size={32} className="mx-auto text-amber-500" />
+            <div className="font-semibold text-gray-800 text-base">Takas Verileri Alınamadı</div>
+            <p className="text-xs text-gray-600 max-w-md mx-auto">
+              Supabase veritabanı yanıt vermiyor (HTTP 522). Veritabanı uyku modunda olabilir veya bağlantı zaman aşımına uğramış olabilir.
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={fetchChecks}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs shadow-xs"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                Tekrar Dene
+              </button>
+              <a
+                href="https://supabase.com/dashboard/project/zubhjybqzcpplultpsgt"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium text-xs border border-gray-300"
+              >
+                Supabase Paneli <ExternalLink size={12} />
+              </a>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Upper Bank Columns Table with thick Excel border */}
+            <div className="overflow-x-auto w-full border-2 border-black bg-white rounded-lg shadow-sm print:border-none">
           <div className="bg-gray-50 border-b border-black px-4 py-3 flex items-center justify-center print:hidden">
             <h3 className="text-sm text-red-600 uppercase tracking-wider text-center takas-cekleri-title">
               TAKAS ÇEKLERİ
@@ -3064,6 +3213,8 @@ export function ChecksPage() {
             </button>
           </div>
         )}
+          </>
+        )}
       </div>
     );
   };
@@ -3702,6 +3853,13 @@ export function ChecksPage() {
                 )}
               </div>
 
+              {isOfflineData && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                  Önbellek
+                </span>
+              )}
+
               <button
                 onClick={fetchChecks}
                 disabled={loading}
@@ -3719,6 +3877,45 @@ export function ChecksPage() {
           }
         />
       </div>
+
+      {/* Database Connection Alert Banner */}
+      {dbError && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm print:hidden">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />
+              <div className="text-xs sm:text-sm">
+                <div className="font-semibold text-amber-950">
+                  {dbError}
+                </div>
+                <div className="text-amber-800 mt-1">
+                  {isOfflineData
+                    ? 'En son kaydedilen çevrimdışı önbellek verileri gösterilmektedir. Canlı verileri eşitlemek için veritabanının aktif olması gerekmektedir.'
+                    : 'Canlı veritabanı yanıt vermediği için veriler listelenemedi.'}
+                  {' '}Supabase veritabanını uyandırmak için{' '}
+                  <a
+                    href="https://supabase.com/dashboard/project/zubhjybqzcpplultpsgt"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-bold underline text-amber-950 hover:text-black inline-flex items-center gap-1"
+                  >
+                    Supabase Yönetim Paneli'nden Projeyi 'Restore / Resume' edin
+                    <ExternalLink size={12} />
+                  </a>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={fetchChecks}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors shrink-0 shadow-xs"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Yeniden Dene
+            </button>
+          </div>
+        </div>
+      )}
 
       {isTakasRoute ? (
         renderTakasDashboard()
@@ -4226,7 +4423,7 @@ export function ChecksPage() {
                 )}
               </thead>
               <tbody key={`${activeTab}-${selectedSidebarFilter}-${dateFilterType}`} className="divide-y divide-gray-100 bg-white">
-                {loading ? (
+                {loading && filteredChecks.length === 0 ? (
                   <tr>
                     <td colSpan={activeTab === 'alinan' ? 15 : 9} className="px-4 py-12 text-center text-gray-400">
                       <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-brand-500" />
@@ -4236,7 +4433,22 @@ export function ChecksPage() {
                 ) : filteredChecks.length === 0 ? (
                   <tr>
                     <td colSpan={activeTab === 'alinan' ? 15 : 9} className="px-4 py-12 text-center text-gray-400">
-                      Arama kriterlerine uygun çek bulunamadı.
+                      {dbError ? (
+                        <div className="space-y-2 py-4">
+                          <p className="text-amber-800 font-semibold text-sm">Veritabanı sunucusu (Supabase) yanıt vermiyor (HTTP 522).</p>
+                          <p className="text-xs text-gray-500">Supabase projeniz uyku modunda (Paused) olabilir.</p>
+                          <a
+                            href="https://supabase.com/dashboard/project/zubhjybqzcpplultpsgt"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 underline hover:text-black mt-1"
+                          >
+                            Supabase Yönetim Paneli'nden Projeyi 'Restore / Resume' edin <ExternalLink size={12} />
+                          </a>
+                        </div>
+                      ) : (
+                        'Arama kriterlerine uygun çek bulunamadı.'
+                      )}
                     </td>
                   </tr>
                 ) : (
