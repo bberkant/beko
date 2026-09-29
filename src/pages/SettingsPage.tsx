@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Send, RotateCcw, ArrowUp, ArrowDown, Settings, GripVertical, Palette, Database, User } from 'lucide-react';
+import { ShieldCheck, RotateCcw, ArrowUp, ArrowDown, Settings, GripVertical, Palette, Database, User } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { supabase } from '../lib/supabase';
 import { useAuth, cleanDisplayUsername } from '../lib/auth';
@@ -125,51 +125,6 @@ export function SettingsPage() {
     setPasswordSaving(false);
     if (error) { notify(error.message, 'error'); return; }
     setPassword(''); notify('Şifreniz başarıyla güncellendi.', 'success');
-  };
-
-  const [telegramTesting, setTelegramTesting] = useState(false);
-  const [telegramRunning, setTelegramRunning] = useState(false);
-
-  const testTelegram = async () => {
-    setTelegramTesting(true);
-    try {
-      const res = await fetch('https://zubhjybqzcpplultpsgt.supabase.co/functions/v1/credit-card-reminder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ test: true }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.ok) {
-        notify('Telegram test mesajı başarıyla gönderildi! 📱', 'success');
-      } else {
-        notify(data.error || data.description || 'Telegram bağlantısı başarısız. Secret ayarlarını kontrol edin.', 'error');
-      }
-    } catch (err: any) {
-      notify(err?.message || 'Servise ulaşılamadı. Function yayında olmayabilir.', 'error');
-    } finally {
-      setTelegramTesting(false);
-    }
-  };
-
-  const runTelegramReminders = async () => {
-    setTelegramRunning(true);
-    try {
-      const res = await fetch('https://zubhjybqzcpplultpsgt.supabase.co/functions/v1/credit-card-reminder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        notify(`Hatırlatma kontrolü tamamlandı! Gönderilen: ${data.sent ?? 0}, Atlanan: ${data.skipped ?? 0}`, 'success');
-      } else {
-        notify(data.error || 'Hatırlatma servisi çalıştırılamadı.', 'error');
-      }
-    } catch (err: any) {
-      notify(err?.message || 'Servise ulaşılamadı.', 'error');
-    } finally {
-      setTelegramRunning(false);
-    }
   };
 
   const isBerkant = (user?.email || '').toLowerCase().includes('berkant') || 
@@ -439,20 +394,6 @@ export function SettingsPage() {
         <div className="mb-5 flex items-start gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"><ShieldCheck size={19}/></div><div><h2 className="font-semibold text-gray-900">Şifre Güvenliği</h2><p className="mt-1 text-sm text-gray-500">Hesabınız için güçlü bir şifre belirleyin.</p></div></div>
         <div className="space-y-4"><div><label className="label">Yeni şifre</label><input type="password" minLength={8} className="input" value={password} onChange={e=>setPassword(e.target.value)} placeholder="En az 8 karakter"/></div><button className="btn-secondary w-full" disabled={passwordSaving} onClick={()=>void updatePassword()}><ShieldCheck size={16}/>{passwordSaving?'Güncelleniyor...':'Şifreyi Güncelle'}</button></div>
       </section>
-
-      {(['Admin', 'Süper Admin', 'Developer', 'Yönetici', 'Süper Yönetici'].includes(user?.role || '') || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local' || user?.email === 'admin') && (
-        <section className="card p-6 lg:col-span-2">
-          <div className="mb-5 flex items-start gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Send size={19}/></div><div><h2 className="font-semibold text-gray-900">Telegram Kredi Kartı Hatırlatıcı</h2><p className="mt-1 text-sm text-gray-500">Son ödeme tarihine 2, 1 gün kalan ve son günü gelen kart ödemeleri Telegram botu üzerinden otomatik gönderilir.</p></div></div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button className="btn-secondary" disabled={telegramTesting} onClick={()=>void testTelegram()}>
-              {telegramTesting ? 'Test Ediliyor...' : 'Telegram Test Mesajı Gönder'}
-            </button>
-            <button className="btn-primary" disabled={telegramRunning} onClick={()=>void runTelegramReminders()}>
-              {telegramRunning ? 'Çalıştırılıyor...' : 'Hatırlatmaları Şimdi Çalıştır'}
-            </button>
-          </div>
-        </section>
-      )}
     </div>
   </div>;
 }
