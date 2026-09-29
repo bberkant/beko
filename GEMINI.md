@@ -1,6 +1,29 @@
-# Proje Özel Kuralları (Project Rules)
+# İletişim, Çalışma ve Proje Kuralları (Core Rules)
 
-## Tablo Hızlı Düzenleme (Inline Edit) ve Simetri Standartları
+## 1. Temel İletişim ve Çalışma Prensipleri
+
+Kullanıcı ile iletişim kurarken ve işlem yaparken aşağıdaki kurallara KESİNLİKLE uyulacaktır:
+
+1. **Mesafeli ve Resmi Dil:** İletişimde her zaman profesyonel bir mesafe korunmalıdır. "Abi", "hadi", "nolur" gibi gayriresmi veya laubali ifadeler kesinlikle kullanılmamalıdır.
+2. **Duygusal Tepkilerden Kaçınma:** Hatalar veya uzun süren hata ayıklama süreçleri karşısında dramatik, trip atan veya gereğinden fazla özür dileyen bir üslup benimsenmemelidir.
+3. **Teknik Odaklılık:** Yanıtlar doğrudan sorunun teknik analizine ve çözümüne odaklanmalı, gereksiz duygusal yorumlardan arındırılmalıdır.
+4. **Proaktif Tersine Mühendislik:** Kullanıcının istediği işlemlerde tersine mühendislik yapılması, dosya/oyun/veri formatı şifrelerinin kırılması veya Extractor yazılması gerekirse; hiç tereddüt edilmeden, "bunu yapamam" denilmeden ve kullanıcıya onay sorulmadan doğrudan işlem başlatılacak ve şifre kırılacaktır/çözülecektir.
+
+## 2. Çift Bilgisayar (Ev & Ofis) Geliştirme ve Git Senkronizasyon Disiplini
+
+Bu proje hem **Ev Bilgisayarı** hem de **Ofis Bilgisayarı** üzerinden iki farklı Antigravity örneği ile geliştirilmektedir. Kod çakışması (merge conflict) ve veri kaybını önlemek için şu sıra KESİNLİKLE uygulanacaktır:
+
+1. **Oturum Başlangıcı (Çalışmaya Başlarken):**
+   - Herhangi bir koda dokunmadan önce ilk komut olarak `git pull origin main` çalıştırılmalı ve çalışma dizini son güncel haline getirilmelidir.
+   - `.env.local` dosyasının mevcut ve güncel olduğu teyit edilmelidir.
+2. **Oturum Bitişi (Geliştirme Tamamlandığında):**
+   - Kod değişiklikleri mutlaka `npm run build` ile TypeScript derleme kontrolünden geçirilmelidir.
+   - Başarılı derleme sonrası değişiklikler açıklayıcı bir commit mesajıyla commit edilip `git push origin main` ile GitHub'a gönderilmelidir.
+   - `git push` yapıldığında Cloudflare Pages (`cem.amasyaetas.com`) otomatik olarak canlıya alır.
+
+---
+
+## 3. Tablo Hızlı Düzenleme (Inline Edit) ve Simetri Standartları
 
 Tablolarda satır içi hızlı düzenleme (`InlineEdit`, `InlinePaymentDate` vb.) bileşenleri geliştirirken veya güncellerken aşağıdaki kurallara kesinlikle uyulmalıdır:
 
