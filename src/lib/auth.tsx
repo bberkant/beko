@@ -4,6 +4,7 @@ import {
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { recordLoginLog } from './loginLogger';
 
 export type OrganizationRole = 'super_admin' | 'admin' | 'developer' | 'muhasebe' | 'finans' | 'goruntuleyici';
 
@@ -425,6 +426,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const next = await resolveUser(session);
           if (active) {
             setUser(next);
+            void recordLoginLog({
+              organization_id: next.organizationId,
+              user_id: next.id,
+              user_email: next.email,
+              user_name: next.name,
+              status: 'success'
+            });
             try {
               localStorage.setItem('dars_cached_auth_user', JSON.stringify(next));
             } catch {}
@@ -546,6 +554,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(authUser);
+      void recordLoginLog({
+        organization_id: authUser.organizationId,
+        user_id: authUser.id,
+        user_email: authUser.email,
+        user_name: authUser.name,
+        status: 'success',
+        force: true
+      });
       try {
         localStorage.setItem('dars_cached_auth_user', JSON.stringify(authUser));
       } catch {}
@@ -558,7 +574,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginIdentity = `${loginIdentity}@dars.local`;
     }
     const { data, error } = await supabase.auth.signInWithPassword({ email: loginIdentity, password: cleanPass });
-    if (error) throw error;
+    if (error) {
+      void recordLoginLog({
+        user_email: loginIdentity,
+        status: 'failed',
+        force: true
+      });
+      throw error;
+    }
     let next = await resolveUser(data.session);
     if (!next.organizationId && data.user.user_metadata?.invitation_token) {
       const { error: invitationError } = await supabase.rpc('accept_organization_invitation', { invitation_token: data.user.user_metadata.invitation_token });
@@ -570,6 +593,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       next = await resolveUser(data.session);
     }
     setUser(next);
+    void recordLoginLog({
+      organization_id: next.organizationId,
+      user_id: next.id,
+      user_email: next.email,
+      user_name: next.name,
+      status: 'success',
+      force: true
+    });
     try {
       localStorage.setItem('dars_cached_auth_user', JSON.stringify(next));
     } catch {}
