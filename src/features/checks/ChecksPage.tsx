@@ -1839,9 +1839,15 @@ export function ChecksPage() {
             const latest = prev.find(c => c.local_id === check.local_id);
             if (latest && !latest.id.startsWith('temp-')) {
               if (shouldDelete) {
-                supabase.from('ebs_checks').delete().eq('id', latest.id).then(({ error }) => {
-                  if (error) console.error(error);
-                });
+                if (latest.local_id) {
+                  supabase.from('ebs_checks').update({ status: 'Ödendi', ozel_alan: 'SİLİNDİ - TAKASTAN KALDIRILDI' }).eq('id', latest.id).then(({ error }) => {
+                    if (error) console.error(error);
+                  });
+                } else {
+                  supabase.from('ebs_checks').delete().eq('id', latest.id).then(({ error }) => {
+                    if (error) console.error(error);
+                  });
+                }
               } else {
                 supabase
                   .from('ebs_checks')
@@ -1857,12 +1863,21 @@ export function ChecksPage() {
         });
       } else {
         if (shouldDelete) {
-          supabase.from('ebs_checks').delete().eq('id', check.id).then(({ error }) => {
-            if (error) {
-              console.error(error);
-              void fetchChecks(); // Revert/sync on error
-            }
-          });
+          if (check.local_id) {
+            supabase.from('ebs_checks').update({ status: 'Ödendi', ozel_alan: 'SİLİNDİ - TAKASTAN KALDIRILDI' }).eq('id', check.id).then(({ error }) => {
+              if (error) {
+                console.error(error);
+                void fetchChecks();
+              }
+            });
+          } else {
+            supabase.from('ebs_checks').delete().eq('id', check.id).then(({ error }) => {
+              if (error) {
+                console.error(error);
+                void fetchChecks(); // Revert/sync on error
+              }
+            });
+          }
         } else {
           supabase
             .from('ebs_checks')
@@ -2001,10 +2016,17 @@ export function ChecksPage() {
     // 3. Perform database update in the background
     try {
       if (statusOption === 'sil') {
-        await supabase
-          .from('ebs_checks')
-          .delete()
-          .eq('id', check.id);
+        if (check.local_id) {
+          await supabase
+            .from('ebs_checks')
+            .update({ status: 'Ödendi', ozel_alan: 'SİLİNDİ - TAKASTAN KALDIRILDI' })
+            .eq('id', check.id);
+        } else {
+          await supabase
+            .from('ebs_checks')
+            .delete()
+            .eq('id', check.id);
+        }
       } else if (statusOption === 'odendi') {
         await supabase
           .from('ebs_checks')
