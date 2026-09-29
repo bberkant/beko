@@ -176,6 +176,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
     if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
     if (child.to === '/finans/findeks' && !isStrictAdminBerkant) return false;
     if (child.to === '/ayarlar/yedekler' && !isAdminOrBerkant) return false;
+    if (child.to === '/kullanicilar' && !isStrictAdminBerkant) return false;
     return true;
   };
   

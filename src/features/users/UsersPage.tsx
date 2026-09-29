@@ -1,286 +1,1028 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Copy, Search, ShieldCheck, UserCheck, UserPlus, Users } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
+import { 
+  Users, 
+  UserCheck, 
+  ShieldCheck, 
+  UserPlus, 
+  Search, 
+  RefreshCw, 
+  Edit, 
+  Trash2, 
+  Eye, 
+  EyeOff, 
+  Globe, 
+  Laptop, 
+  Smartphone, 
+  Clock,
+  Check,
+  Copy
+} from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Modal } from '../../components/ui/Modal';
 import { supabase } from '../../lib/supabase';
-import { useAuth, type OrganizationRole, saveCustomStaffPassword, cleanDisplayUsername } from '../../lib/auth';
+import { 
+  useAuth, 
+  type OrganizationRole, 
+  saveCustomStaffPassword, 
+  cleanDisplayUsername, 
+  isStrictAdminOrBerkant 
+} from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 
-interface Member { user_id: string; full_name: string; email: string; role: OrganizationRole; active: boolean; joined_at: string }
-const roleLabels: Record<OrganizationRole, string> = { super_admin: 'Süper Admin', admin: 'Admin', developer: 'Developer', muhasebe: 'Muhasebe', finans: 'Finans', goruntuleyici: 'Görüntüleyici' };
-const roleStyles: Record<OrganizationRole, string> = { super_admin: 'bg-purple-100 text-purple-800 font-bold border border-purple-200', admin: 'bg-blue-100 text-blue-800 font-bold border border-blue-200', developer: 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300', muhasebe: 'bg-amber-50 text-amber-700', finans: 'bg-cyan-50 text-cyan-700', goruntuleyici: 'bg-gray-100 text-gray-600' };
+interface Member {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: OrganizationRole;
+  active: boolean;
+  joined_at: string;
+  last_active_at?: string | null;
+  last_ip?: string | null;
+  last_device?: string | null;
+}
+
+const roleLabels: Record<OrganizationRole, string> = {
+  super_admin: 'Süper Admin',
+  admin: 'Admin',
+  developer: 'Developer',
+  muhasebe: 'Muhasebe',
+  finans: 'Finans',
+  goruntuleyici: 'Görüntüleyici'
+};
+
+const roleStyles: Record<OrganizationRole, string> = {
+  super_admin: 'bg-purple-50 text-purple-700 border-purple-200',
+  admin: 'bg-blue-50 text-blue-700 border-blue-200',
+  developer: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  muhasebe: 'bg-amber-50 text-amber-700 border-amber-200',
+  finans: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  goruntuleyici: 'bg-gray-50 text-gray-600 border-gray-200'
+};
+
+function formatRelativeTime(dateStr?: string | null): string {
+  if (!dateStr) return 'Giriş kaydı yok';
+  try {
+    const now = Date.now();
+    const time = new Date(dateStr).getTime();
+    const diffMs = now - time;
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMinutes < 1) return 'Az önce aktif';
+    if (diffMinutes < 60) return `${diffMinutes} dk önce`;
+    if (diffHours < 24) return `${diffHours} sa önce`;
+    if (diffDays === 1) return 'Dün';
+    if (diffDays < 7) return `${diffDays} gün önce`;
+    return new Date(dateStr).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return 'Bilinmiyor';
+  }
+}
+
+function formatDate(dateStr?: string | null): string {
+  if (!dateStr) return '—';
+  try {
+    return new Date(dateStr).toLocaleString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return dateStr;
+  }
+}
 
 export function UsersPage() {
-  const { user } = useAuth(); const { notify } = useToast();
-  const [members, setMembers] = useState<Member[]>([]); const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState(''); const [inviteOpen, setInviteOpen] = useState(false);
-  const [email, setEmail] = useState(''); const [inviteRole, setInviteRole] = useState<OrganizationRole>('goruntuleyici');
-  const [inviteUrl, setInviteUrl] = useState(''); const [saving, setSaving] = useState(false);
-  const isAdmin = user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Developer' || user?.role === 'Yönetici' || user?.role === 'Süper Yönetici';
+  const { user } = useAuth();
+  const { notify } = useToast();
 
-  // New user creation (direct addition) states
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const hasAccess = useMemo(() => isStrictAdminOrBerkant(user), [user]);
+
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'passive'>('all');
+
+  // Add User State
+  const [addModalOpen, setAddModalOpen] = useState(false);
   const [addMode, setAddMode] = useState<'direct' | 'invite'>('direct');
+  const [newFullName, setNewFullName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [newRole, setNewRole] = useState<OrganizationRole>('goruntuleyici');
+  const [addSaving, setAddSaving] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState('');
 
-  // User editing states
-  const [editOpen, setEditOpen] = useState(false);
+  // Edit User State
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [editRole, setEditRole] = useState<OrganizationRole>('goruntuleyici');
+  const [editActive, setEditActive] = useState(true);
   const [editSaving, setEditSaving] = useState(false);
 
-  const refresh = useCallback(async () => {
-    if (!isAdmin) { setLoading(false); return; }
-    setLoading(true);
-    const { data, error } = await supabase.rpc('list_organization_users');
-    if (error) notify(error.message, 'error'); else setMembers((data ?? []) as Member[]);
-    setLoading(false);
-  }, [isAdmin, notify]);
-  useEffect(() => { void refresh(); }, [refresh]);
-  const filtered = useMemo(() => members.filter(m => `${m.full_name} ${m.email} ${roleLabels[m.role]}`.toLowerCase().includes(query.toLowerCase())), [members, query]);
-
-  const createInvite = async () => {
-    if (!email.trim()) return;
-    setSaving(true);
-    const { data, error } = await supabase.rpc('create_organization_invitation', { invite_email: email.trim(), invite_role: inviteRole });
-    setSaving(false);
-    if (error) { notify(error.message, 'error'); return; }
-    const url = `${window.location.origin}/login?invite=${data}`; setInviteUrl(url); notify('Davet bağlantısı oluşturuldu.', 'success');
-  };
-
-  const createDirectUser = async () => {
-    if (!email.trim() || !password.trim() || !fullName.trim()) {
-      notify('Tüm alanları doldurmanız gerekmektedir.', 'error');
+  // Fetch Users and Login Logs
+  const fetchUsers = useCallback(async () => {
+    if (!hasAccess) {
+      setLoading(false);
       return;
     }
-    setSaving(true);
-    let targetEmail = email.trim();
-    if (!targetEmail.includes('@')) {
-      targetEmail = `${targetEmail}@dars.local`;
+    setLoading(true);
+    try {
+      // 1. Fetch organization members
+      const { data: usersData, error: usersError } = await supabase.rpc('list_organization_users');
+      if (usersError) throw usersError;
+
+      // 2. Fetch recent login logs for last active status & IP
+      let loginMap = new Map<string, { last_active_at: string; last_ip: string | null; last_device: string | null }>();
+      try {
+        const { data: logsData } = await supabase
+          .from('user_login_logs')
+          .select('user_email, user_id, ip_address, device_info, created_at, status')
+          .eq('status', 'success')
+          .order('created_at', { ascending: false })
+          .limit(400);
+
+        if (logsData) {
+          logsData.forEach((log) => {
+            const emailKey = (log.user_email || '').toLowerCase().trim();
+            if (emailKey && !loginMap.has(emailKey)) {
+              loginMap.set(emailKey, {
+                last_active_at: log.created_at,
+                last_ip: log.ip_address,
+                last_device: log.device_info
+              });
+            }
+            if (log.user_id && !loginMap.has(log.user_id)) {
+              loginMap.set(log.user_id, {
+                last_active_at: log.created_at,
+                last_ip: log.ip_address,
+                last_device: log.device_info
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Giriş logları getirilemedi:', err);
+      }
+
+      // Merge data
+      const mergedList: Member[] = ((usersData as any[]) || []).map((m) => {
+        const emailKey = (m.email || '').toLowerCase().trim();
+        const info = loginMap.get(m.user_id) || loginMap.get(emailKey);
+        return {
+          user_id: m.user_id,
+          full_name: m.full_name || '',
+          email: m.email || '',
+          role: m.role || 'goruntuleyici',
+          active: m.active ?? true,
+          joined_at: m.joined_at,
+          last_active_at: info?.last_active_at || m.last_sign_in_at || null,
+          last_ip: info?.last_ip || null,
+          last_device: info?.last_device || null
+        };
+      });
+
+      setMembers(mergedList);
+    } catch (error: any) {
+      console.error('Kullanıcı listesi yükleme hatası:', error);
+      notify('Kullanıcılar yüklenirken hata oluştu: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
-    const { error } = await supabase.rpc('admin_create_user', {
-      invite_email: targetEmail,
-      invite_password: password.trim(),
-      invite_full_name: fullName.trim(),
-      invite_role: inviteRole
+  }, [hasAccess, notify]);
+
+  useEffect(() => {
+    void fetchUsers();
+  }, [fetchUsers]);
+
+  // Security redirect if not strictly admin or Berkant
+  if (!hasAccess) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Filtered members list
+  const filteredMembers = useMemo(() => {
+    return members.filter((m) => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchName = (m.full_name || '').toLowerCase().includes(q);
+        const matchEmail = (m.email || '').toLowerCase().includes(q);
+        const matchRole = (roleLabels[m.role] || '').toLowerCase().includes(q);
+        if (!matchName && !matchEmail && !matchRole) return false;
+      }
+      if (roleFilter !== 'all' && m.role !== roleFilter) {
+        return false;
+      }
+      if (statusFilter === 'active' && !m.active) return false;
+      if (statusFilter === 'passive' && m.active) return false;
+      return true;
     });
-    setSaving(false);
-    if (error) {
-      notify(error.message, 'error');
-    } else {
-      saveCustomStaffPassword(email.trim(), password.trim());
-      saveCustomStaffPassword(targetEmail, password.trim());
-      saveCustomStaffPassword(fullName.trim(), password.trim());
-      notify('Kullanıcı başarıyla oluşturuldu.', 'success');
-      setInviteOpen(false);
-      setEmail('');
-      setPassword('');
-      setFullName('');
-      await refresh();
-    }
+  }, [members, searchQuery, roleFilter, statusFilter]);
+
+  // Open Edit Modal
+  const handleOpenEdit = (m: Member) => {
+    setEditingMember(m);
+    setEditName(m.full_name);
+    setEditEmail(m.email);
+    setEditRole(m.role);
+    setEditActive(m.active);
+    setEditPassword('');
+    setShowEditPassword(false);
+    setEditModalOpen(true);
   };
 
-  const updateUser = async () => {
+  // Submit User Update
+  const handleSaveUser = async () => {
     if (!editingMember) return;
     if (!editName.trim()) {
       notify('İsim alanı boş bırakılamaz.', 'error');
       return;
     }
+    if (!editEmail.trim()) {
+      notify('Kullanıcı adı veya e-posta boş bırakılamaz.', 'error');
+      return;
+    }
+
     setEditSaving(true);
-    if (editPassword.trim()) {
-      saveCustomStaffPassword(editingMember.user_id, editPassword.trim());
-      saveCustomStaffPassword(editingMember.email, editPassword.trim());
-      saveCustomStaffPassword(editingMember.full_name, editPassword.trim());
-      saveCustomStaffPassword(editName.trim(), editPassword.trim());
-    }
-    const { error } = await supabase.rpc('admin_update_user', {
-      target_user_id: editingMember.user_id,
-      new_full_name: editName.trim(),
-      new_password: editPassword.trim() || null,
-      new_role: editRole
-    });
-    setEditSaving(false);
-    if (error) {
-      notify(error.message, 'error');
-    } else {
-      notify('Kullanıcı başarıyla güncellendi.', 'success');
-      setEditOpen(false);
+    try {
+      // 1. Save password to custom local storage if provided
+      if (editPassword.trim()) {
+        saveCustomStaffPassword(editingMember.user_id, editPassword.trim());
+        saveCustomStaffPassword(editingMember.email, editPassword.trim());
+        saveCustomStaffPassword(editEmail.trim(), editPassword.trim());
+        saveCustomStaffPassword(editName.trim(), editPassword.trim());
+      }
+
+      // 2. Call admin_update_user RPC
+      let updateError: any = null;
+      try {
+        const { error } = await supabase.rpc('admin_update_user', {
+          target_user_id: editingMember.user_id,
+          new_full_name: editName.trim(),
+          new_password: editPassword.trim() || null,
+          new_role: editRole,
+          new_email: editEmail.trim()
+        });
+        updateError = error;
+      } catch (e) {
+        updateError = e;
+      }
+
+      // Fallback to 4 arguments if new_email argument is not yet recognized
+      if (updateError && String(updateError.message || '').includes('new_email')) {
+        const { error: fallbackErr } = await supabase.rpc('admin_update_user', {
+          target_user_id: editingMember.user_id,
+          new_full_name: editName.trim(),
+          new_password: editPassword.trim() || null,
+          new_role: editRole
+        });
+        if (fallbackErr) throw fallbackErr;
+      } else if (updateError) {
+        throw updateError;
+      }
+
+      // 3. Update active status if changed
+      if (editActive !== editingMember.active) {
+        await supabase.rpc('manage_organization_user', {
+          target_user: editingMember.user_id,
+          new_role: editRole,
+          new_active: editActive
+        });
+      }
+
+      notify('Kullanıcı bilgileri başarıyla güncellendi.', 'success');
+      setEditModalOpen(false);
+      setEditingMember(null);
       setEditPassword('');
-      await refresh();
+      await fetchUsers();
+    } catch (err: any) {
+      console.error('Kullanıcı güncelleme hatası:', err);
+      notify('Kullanıcı güncellenirken hata oluştu: ' + (err.message || err), 'error');
+    } finally {
+      setEditSaving(false);
     }
   };
 
-  const openEditModal = (member: Member) => {
-    setEditingMember(member);
-    setEditName(member.full_name);
-    setEditRole(member.role);
-    setEditPassword('');
-    setEditOpen(true);
+  // Toggle user active status directly
+  const handleToggleActive = async (m: Member) => {
+    try {
+      const nextActive = !m.active;
+      const { error } = await supabase.rpc('manage_organization_user', {
+        target_user: m.user_id,
+        new_role: m.role,
+        new_active: nextActive
+      });
+      if (error) throw error;
+      notify(`Kullanıcı ${nextActive ? 'aktifleştirildi' : 'pasifleştirildi'}.`, 'success');
+      await fetchUsers();
+    } catch (err: any) {
+      notify('Durum değiştirilemedi: ' + err.message, 'error');
+    }
   };
 
-  const manage = async (member: Member, role: OrganizationRole, active: boolean) => {
-    const { error } = await supabase.rpc('manage_organization_user', { target_user: member.user_id, new_role: role, new_active: active });
-    if (error) notify(error.message, 'error'); else { notify('Kullanıcı güncellendi.', 'success'); await refresh(); }
-  };
-
-  const deleteMember = async (member: Member) => {
-    if (member.user_id === user?.id) {
-      notify('Kendi kullanıcınızı silemezsiniz.', 'error');
+  // Delete user
+  const handleDeleteMember = async (m: Member) => {
+    if (m.user_id === user?.id) {
+      notify('Kendi oturum açtığınız kullanıcıyı silemezsiniz.', 'error');
       return;
     }
-    if (!window.confirm(`${member.full_name || member.email} kullanıcısını tamamen silmek istediğinize emin misiniz?`)) {
+    if (!window.confirm(`${m.full_name || m.email} kullanıcısını sistemden tamamen silmek istediğinize emin misiniz?`)) {
       return;
     }
-    const { error } = await supabase
-      .from('organization_members')
-      .delete()
-      .eq('user_id', member.user_id);
+    try {
+      const { error } = await supabase
+        .from('organization_members')
+        .delete()
+        .eq('user_id', m.user_id);
 
-    if (error) {
-      notify(error.message, 'error');
-    } else {
-      notify('Kullanıcı sistemden tamamen silindi.', 'success');
-      await refresh();
+      if (error) throw error;
+      notify('Kullanıcı başarıyla silindi.', 'success');
+      await fetchUsers();
+    } catch (err: any) {
+      notify('Kullanıcı silinemedi: ' + err.message, 'error');
     }
   };
 
-  if (!isAdmin) return <div className="mx-auto max-w-7xl"><PageHeader title="Yetkisiz Erişim" description="Kullanıcılar modülünü yalnızca yöneticiler görüntüleyebilir."/></div>;
-  return <div className="mx-auto max-w-7xl">
-    <PageHeader title="Kullanıcılar" description="Şirket kullanıcılarını, rollerini ve erişim durumlarını yönetin."
-      actions={isAdmin ? <button className="btn-primary" onClick={() => { setInviteOpen(true); setInviteUrl(''); setAddMode('direct'); setEmail(''); setPassword(''); setFullName(''); }}><UserPlus size={16}/> Kullanıcı Ekle / Davet Et</button> : undefined}/>
-    <div className="mb-5 grid gap-4 sm:grid-cols-3">
-      <Metric icon={<Users size={17}/>} value={members.length} label="Toplam Kullanıcı" />
-      <Metric icon={<UserCheck size={17}/>} value={members.filter(m=>m.active).length} label="Aktif Kullanıcı" />
-      <Metric icon={<ShieldCheck size={17}/>} value={members.filter(m=>m.active&&(m.role==='admin'||m.role==='super_admin'||m.role==='developer')).length} label="Yönetici & Dev" />
-    </div>
-    <div className="relative mb-4 max-w-md"><Search className="absolute left-3 top-3 text-gray-400" size={16}/><input className="input pl-9" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ad, e-posta veya rol ara..."/></div>
-    <div className="card overflow-x-auto"><table className="min-w-full"><thead><tr><th className="table-th">Kullanıcı</th><th className="table-th">Rol</th><th className="table-th">Durum</th><th className="table-th">Katılım</th><th className="table-th">İşlem</th></tr></thead>
-      <tbody>{loading ? <tr><td className="table-td py-10 text-center text-gray-400" colSpan={5}>Kullanıcılar yükleniyor...</td></tr> : filtered.length===0 ? <tr><td className="table-td py-10 text-center text-gray-400" colSpan={5}>Kullanıcı bulunamadı.</td></tr> : filtered.map(m=><tr key={m.user_id} className="border-t border-gray-100">
-        <td className="table-td"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 font-semibold text-brand-700">{(m.full_name||m.email).slice(0,1).toUpperCase()}</div><div><div className="font-medium text-gray-900">{m.full_name||'İsimsiz Kullanıcı'}{m.user_id===user?.id&&<span className="ml-2 text-xs text-gray-400">Siz</span>}</div><div className="text-xs text-gray-500">{cleanDisplayUsername(m.email)}</div></div></div></td>
-        <td className="table-td">{isAdmin ? <select className="input max-w-[160px] py-2" value={m.role} onChange={e=>void manage(m,e.target.value as OrganizationRole,m.active)}>{Object.entries(roleLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select> : <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${roleStyles[m.role]}`}>{roleLabels[m.role]}</span>}</td>
-        <td className="table-td"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${m.active?'bg-emerald-50 text-emerald-700':'bg-gray-100 text-gray-500'}`}>{m.active?'Aktif':'Pasif'}</span></td>
-        <td className="table-td text-gray-500">{new Date(m.joined_at).toLocaleDateString('tr-TR')}</td>
-        <td className="table-td">
-          <div className="flex items-center gap-2">
-            <button className="btn-secondary py-2" onClick={() => openEditModal(m)}>Düzenle</button>
-            {isAdmin && (
-              <>
-                <button className="btn-secondary py-2" onClick={()=>void manage(m,m.role,!m.active)}>{m.active?'Pasifleştir':'Aktifleştir'}</button>
-                <button className="btn-secondary py-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200" onClick={()=>void deleteMember(m)}>Sil</button>
-              </>
-            )}
+  // Create Direct User
+  const handleCreateDirectUser = async () => {
+    if (!newFullName.trim() || !newEmail.trim() || !newPassword.trim()) {
+      notify('Lütfen ad soyad, kullanıcı adı/e-posta ve şifre alanlarını doldurun.', 'error');
+      return;
+    }
+    setAddSaving(true);
+    try {
+      let targetEmail = newEmail.trim();
+      if (!targetEmail.includes('@')) {
+        targetEmail = `${targetEmail}@dars.local`;
+      }
+
+      const { error } = await supabase.rpc('admin_create_user', {
+        invite_email: targetEmail,
+        invite_password: newPassword.trim(),
+        invite_full_name: newFullName.trim(),
+        invite_role: newRole
+      });
+
+      if (error) throw error;
+
+      saveCustomStaffPassword(newEmail.trim(), newPassword.trim());
+      saveCustomStaffPassword(targetEmail, newPassword.trim());
+      saveCustomStaffPassword(newFullName.trim(), newPassword.trim());
+
+      notify('Kullanıcı başarıyla oluşturuldu.', 'success');
+      setAddModalOpen(false);
+      setNewFullName('');
+      setNewEmail('');
+      setNewPassword('');
+      await fetchUsers();
+    } catch (err: any) {
+      notify('Kullanıcı oluşturulurken hata: ' + err.message, 'error');
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
+  // Create Invite Link
+  const handleCreateInvite = async () => {
+    if (!newEmail.trim()) {
+      notify('Lütfen e-posta adresini giriniz.', 'error');
+      return;
+    }
+    setAddSaving(true);
+    try {
+      const { data, error } = await supabase.rpc('create_organization_invitation', {
+        invite_email: newEmail.trim(),
+        invite_role: newRole
+      });
+      if (error) throw error;
+      const url = `${window.location.origin}/login?invite=${data}`;
+      setInviteUrl(url);
+      notify('Davet bağlantısı oluşturuldu.', 'success');
+    } catch (err: any) {
+      notify('Davet oluşturulamadı: ' + err.message, 'error');
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
+  // Stats calculation
+  const totalCount = members.length;
+  const activeCount = members.filter((m) => m.active).length;
+  const adminCount = members.filter((m) => ['admin', 'super_admin', 'developer'].includes(m.role)).length;
+  const active24hCount = members.filter((m) => {
+    if (!m.last_active_at) return false;
+    const diff = Date.now() - new Date(m.last_active_at).getTime();
+    return diff < 86400000;
+  }).length;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Kullanıcı Yönetimi"
+        description="Sistemdeki şirket personellerini, yetki rollerini, şifrelerini ve son aktiflik zamanlarını yönetin."
+        actions={
+          <button
+            onClick={() => {
+              setAddModalOpen(true);
+              setAddMode('direct');
+              setNewFullName('');
+              setNewEmail('');
+              setNewPassword('');
+              setInviteUrl('');
+            }}
+            className="btn btn-primary flex items-center gap-2 shadow-sm"
+          >
+            <UserPlus size={16} />
+            <span>Yeni Kullanıcı Ekle</span>
+          </button>
+        }
+      />
+
+      {/* Metrics Row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-gray-150 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Toplam Kullanıcı</span>
+            <span className="rounded-lg bg-blue-50 p-2 text-brand-600">
+              <Users size={20} />
+            </span>
           </div>
-        </td>
-      </tr>)}</tbody></table></div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-gray-900">{totalCount}</span>
+            <span className="text-xs text-gray-400">kişi</span>
+          </div>
+        </div>
 
-    {/* Add / Invite User Modal */}
-    <Modal open={inviteOpen} onClose={()=>setInviteOpen(false)} title="Kullanıcı Ekle veya Davet Et" description="Sisteme doğrudan şifre ile kullanıcı ekleyebilir veya e-posta daveti gönderebilirsiniz.">
-      <div className="mb-4 flex border-b border-gray-200">
-        <button
-          className={`flex-1 pb-2 text-center text-sm font-medium border-b-2 ${
-            addMode === 'direct' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-          onClick={() => setAddMode('direct')}
-        >
-          Doğrudan Kullanıcı Ekle
-        </button>
-        <button
-          className={`flex-1 pb-2 text-center text-sm font-medium border-b-2 ${
-            addMode === 'invite' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-          onClick={() => setAddMode('invite')}
-        >
-          Davet Bağlantısı Gönder
-        </button>
+        <div className="rounded-xl border border-gray-150 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Aktif Personel</span>
+            <span className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+              <UserCheck size={20} />
+            </span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-emerald-700">{activeCount}</span>
+            <span className="text-xs text-gray-400">erişime açık</span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-gray-150 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Yönetici / Admin</span>
+            <span className="rounded-lg bg-purple-50 p-2 text-purple-600">
+              <ShieldCheck size={20} />
+            </span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-purple-900">{adminCount}</span>
+            <span className="text-xs text-gray-400">yetkili</span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-gray-150 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Son 24 Saat Aktif</span>
+            <span className="rounded-lg bg-amber-50 p-2 text-amber-600">
+              <Clock size={20} />
+            </span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-amber-700">{active24hCount}</span>
+            <span className="text-xs text-gray-400">giriş yaptı</span>
+          </div>
+        </div>
       </div>
 
-      {addMode === 'direct' ? (
-        <div className="space-y-4">
-          <div>
-            <label className="label">Ad Soyad</label>
-            <input type="text" className="input" value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Ahmet Yılmaz" required />
-          </div>
-          <div>
-            <label className="label">Kullanıcı Adı veya E-posta</label>
-            <input type="text" className="input" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Örn: cem, hasan veya e-posta" required />
-          </div>
-          <div>
-            <label className="label">Şifre</label>
-            <input type="password" className="input" value={password} onChange={e=>setPassword(e.target.value)} placeholder="En az 8 karakter" required />
-          </div>
-          <div>
-            <label className="label">Rol</label>
-            <select className="input" value={inviteRole} onChange={e=>setInviteRole(e.target.value as OrganizationRole)}>
-              {Object.entries(roleLabels).map(([v,l])=><option value={v} key={v}>{l}</option>)}
-            </select>
-          </div>
-          <button className="btn-primary w-full" disabled={saving} onClick={()=>void createDirectUser()}>
-            {saving ? 'Oluşturuluyor...' : 'Kullanıcıyı Kaydet'}
+      {/* Filter Bar */}
+      <div className="flex flex-col gap-3 rounded-xl border border-gray-150 bg-white p-4 shadow-sm md:flex-row md:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Ad soyad, kullanıcı adı veya e-posta ile ara..."
+            className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2 pl-10 pr-4 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Role Filter */}
+          <select
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-brand-500 focus:outline-none"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="all">Tüm Roller</option>
+            {Object.entries(roleLabels).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+
+          {/* Status Filter */}
+          <select
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-brand-500 focus:outline-none"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+          >
+            <option value="all">Tüm Durumlar</option>
+            <option value="active">Sadece Aktif</option>
+            <option value="passive">Sadece Pasif</option>
+          </select>
+
+          <button
+            onClick={fetchUsers}
+            className="rounded-lg p-2 text-gray-400 border border-gray-300 hover:text-gray-700 hover:bg-gray-50 focus:outline-none"
+            title="Yenile"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
-      ) : (
-        !inviteUrl ? (
+      </div>
+
+      {/* Users Table */}
+      <div className="overflow-hidden rounded-xl border border-gray-150 bg-white shadow-sm">
+        <div className="overflow-x-auto min-h-[400px]">
+          <table className="w-full border-collapse text-left text-xs">
+            <thead className="bg-gray-50 text-[11.5px] uppercase tracking-wider text-gray-500 border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 font-semibold text-left">Kullanıcı (Ad & Kullanıcı Adı)</th>
+                <th className="px-4 py-3 font-semibold text-left w-[140px]">Yetki Rolü</th>
+                <th className="px-4 py-3 font-semibold text-left w-[220px]">Son Aktiflik / Giriş</th>
+                <th className="px-4 py-3 font-semibold text-center w-[100px]">Durum</th>
+                <th className="px-4 py-3 font-semibold text-center w-[120px]">Katılım Tarihi</th>
+                <th className="px-4 py-3 font-semibold text-center w-[130px]">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-16 text-center text-gray-400">
+                    <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-brand-500" />
+                    Kullanıcılar yükleniyor...
+                  </td>
+                </tr>
+              ) : filteredMembers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-16 text-center text-gray-400">
+                    Filtrelere uygun kullanıcı bulunamadı.
+                  </td>
+                </tr>
+              ) : (
+                filteredMembers.map((m) => {
+                  const isCurrent = m.user_id === user?.id;
+                  const relativeActive = formatRelativeTime(m.last_active_at);
+                  const isMobile = (m.last_device || '').toLowerCase().includes('phone') || (m.last_device || '').toLowerCase().includes('android');
+                  const DeviceIcon = isMobile ? Smartphone : Laptop;
+
+                  return (
+                    <tr key={m.user_id} className="hover:bg-gray-50/60 transition-colors">
+                      {/* User Info */}
+                      <td className="px-4 py-3 text-left">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 font-bold text-sm text-brand-700 border border-brand-100 flex-shrink-0">
+                            {(m.full_name || m.email || 'K').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="leading-tight">
+                            <div className="font-semibold text-gray-900 flex items-center gap-1.5">
+                              <span>{m.full_name || 'İsimsiz Kullanıcı'}</span>
+                              {isCurrent && (
+                                <span className="rounded bg-brand-100 px-1.5 py-0.2 text-[10px] font-bold text-brand-700">
+                                  Siz
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-gray-500 font-mono mt-0.5">
+                              {cleanDisplayUsername(m.email)}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Role */}
+                      <td className="px-4 py-3 text-left">
+                        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${roleStyles[m.role] || 'bg-gray-100 text-gray-700'}`}>
+                          {roleLabels[m.role] || m.role}
+                        </span>
+                      </td>
+
+                      {/* Last Active Time (Requested) */}
+                      <td className="px-4 py-3 text-left">
+                        {m.last_active_at ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 font-medium text-gray-800" title={formatDate(m.last_active_at)}>
+                              <Clock size={12} className="text-gray-400 flex-shrink-0" />
+                              <span>{relativeActive}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[10.5px] text-gray-500">
+                              {m.last_ip && (
+                                <span className="inline-flex items-center gap-0.5 rounded bg-gray-100 px-1 py-0.5 font-mono text-[10px] text-gray-700">
+                                  <Globe size={9} className="text-gray-400" />
+                                  {m.last_ip}
+                                </span>
+                              )}
+                              {m.last_device && (
+                                <span className="inline-flex items-center gap-0.5 text-gray-500 truncate max-w-[120px]" title={m.last_device}>
+                                  <DeviceIcon size={10} className="text-gray-400" />
+                                  {m.last_device.split('•')[0]?.trim()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-[10.5px] font-medium text-gray-400">
+                            Giriş kaydı yok
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${
+                          m.active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-500 border border-gray-200'
+                        }`}>
+                          {m.active ? 'Aktif' : 'Pasif'}
+                        </span>
+                      </td>
+
+                      {/* Joined At */}
+                      <td className="px-4 py-3 text-center text-gray-500 whitespace-nowrap">
+                        {m.joined_at ? new Date(m.joined_at).toLocaleDateString('tr-TR') : '—'}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => handleOpenEdit(m)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:text-brand-600 shadow-sm"
+                            title="Bilgileri ve Şifreyi Düzenle"
+                          >
+                            <Edit size={12} />
+                            Düzenle
+                          </button>
+                          
+                          <button
+                            onClick={() => handleToggleActive(m)}
+                            className={`rounded-lg border px-1.5 py-1 text-xs font-medium ${
+                              m.active ? 'border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100' : 'border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100'
+                            }`}
+                            title={m.active ? 'Hesabı Askıya Al' : 'Hesabı Aktifleştir'}
+                          >
+                            {m.active ? 'Pasif Yap' : 'Aktif Et'}
+                          </button>
+
+                          {!isCurrent && (
+                            <button
+                              onClick={() => handleDeleteMember(m)}
+                              className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                              title="Kullanıcıyı Sil"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Edit User Modal */}
+      <Modal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title="Kullanıcı Hesabını Düzenle"
+        description="Personelin adını, giriş kullanıcı adını/e-postasını, şifresini ve yetki rolünü güncelleyin."
+        size="md"
+      >
+        {editingMember && (
+          <div className="space-y-4">
+            {/* Full Name */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">
+                Ad Soyad
+              </label>
+              <input
+                type="text"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Örn: Ahmet Yılmaz"
+                required
+              />
+            </div>
+
+            {/* Email / Username */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">
+                Kullanıcı Adı veya E-Posta
+              </label>
+              <input
+                type="text"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                placeholder="Örn: ahmet veya ahmet@dars.local"
+                required
+              />
+              <p className="mt-1 text-[11px] text-gray-400">
+                Personel sisteme giriş yaparken bu kullanıcı adını veya e-postayı kullanacaktır.
+              </p>
+            </div>
+
+            {/* New Password */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">
+                Yeni Şifre Belirle
+              </label>
+              <div className="relative">
+                <input
+                  type={showEditPassword ? 'text' : 'password'}
+                  className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-10 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Şifreyi değiştirmek istemiyorsanız boş bırakın"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword(!showEditPassword)}
+                  className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  {showEditPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-gray-400">
+                Yeni bir şifre girilirse kullanıcının şifresi anında güncellenir; boş bırakılırsa mevcut şifresi korunur.
+              </p>
+            </div>
+
+            {/* Role */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">
+                Yetki Rolü
+              </label>
+              <select
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-brand-500 focus:outline-none"
+                value={editRole}
+                onChange={(e) => setEditRole(e.target.value as OrganizationRole)}
+              >
+                {Object.entries(roleLabels).map(([val, label]) => (
+                  <option key={val} value={val}>{label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Active Toggle */}
+            <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50/50 p-3">
+              <div>
+                <span className="block text-xs font-semibold text-gray-900">Hesap Erişim Durumu</span>
+                <span className="text-[11px] text-gray-500">Kullanıcının sisteme giriş yapabilmesini belirler.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditActive(!editActive)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  editActive ? 'bg-emerald-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    editActive ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setEditModalOpen(false)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                disabled={editSaving}
+                onClick={handleSaveUser}
+                className="rounded-lg bg-brand-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-50"
+              >
+                {editSaving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Add / Create User Modal */}
+      <Modal
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        title="Yeni Kullanıcı Ekle veya Davet Et"
+        description="Sisteme doğrudan şifre ile yeni personel tanımlayabilir veya davet bağlantısı oluşturabilirsiniz."
+        size="md"
+      >
+        <div className="mb-4 flex border-b border-gray-200">
+          <button
+            className={`flex-1 pb-2.5 text-center text-xs font-bold border-b-2 transition-colors ${
+              addMode === 'direct'
+                ? 'border-brand-600 text-brand-600'
+                : 'border-transparent text-gray-400 hover:text-gray-700'
+            }`}
+            onClick={() => setAddMode('direct')}
+          >
+            Doğrudan Kullanıcı Tanımla
+          </button>
+          <button
+            className={`flex-1 pb-2.5 text-center text-xs font-bold border-b-2 transition-colors ${
+              addMode === 'invite'
+                ? 'border-brand-600 text-brand-600'
+                : 'border-transparent text-gray-400 hover:text-gray-700'
+            }`}
+            onClick={() => setAddMode('invite')}
+          >
+            Davet Bağlantısı Oluştur
+          </button>
+        </div>
+
+        {addMode === 'direct' ? (
           <div className="space-y-4">
             <div>
-              <label className="label">E-posta adresi</label>
-              <input type="email" className="input" value={email} onChange={e=>setEmail(e.target.value)} placeholder="kullanici@sirket.com"/>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">
+                Ad Soyad
+              </label>
+              <input
+                type="text"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                value={newFullName}
+                onChange={(e) => setNewFullName(e.target.value)}
+                placeholder="Örn: Ahmet Yılmaz"
+                required
+              />
             </div>
+
             <div>
-              <label className="label">Rol</label>
-              <select className="input" value={inviteRole} onChange={e=>setInviteRole(e.target.value as OrganizationRole)}>
-                {Object.entries(roleLabels).map(([v,l])=><option value={v} key={v}>{l}</option>)}
-              </select>
-              <p className="mt-2 text-xs text-gray-500">Görüntüleyici kayıtları yalnızca görür; Muhasebe finansal kayıtları düzenler; Yönetici kullanıcıları da yönetir.</p>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">
+                Kullanıcı Adı veya E-posta
+              </label>
+              <input
+                type="text"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="Örn: ahmet veya ahmet@dars.local"
+                required
+              />
+              <p className="mt-1 text-[11px] text-gray-400">
+                Tek kelime kullanıcı adı yazarsanız otomatik olarak @dars.local eklenecektir.
+              </p>
             </div>
-            <button className="btn-primary w-full" disabled={saving} onClick={()=>void createInvite()}>
-              {saving ? 'Oluşturuluyor...' : 'Davet Bağlantısı Oluştur'}
-            </button>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">
+                Şifre
+              </label>
+              <div className="relative">
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-10 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="En az 6 karakter"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">
+                Yetki Rolü
+              </label>
+              <select
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-brand-500 focus:outline-none"
+                value={newRole}
+                onChange={(e) => setNewRole(e.target.value as OrganizationRole)}
+              >
+                {Object.entries(roleLabels).map(([val, label]) => (
+                  <option key={val} value={val}>{label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setAddModalOpen(false)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                disabled={addSaving}
+                onClick={handleCreateDirectUser}
+                className="rounded-lg bg-brand-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-50"
+              >
+                {addSaving ? 'Oluşturuluyor...' : 'Kullanıcıyı Kaydet'}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
-              <Check size={18}/> Davet bağlantısı hazır.
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm break-all text-gray-600">
-              {inviteUrl}
-            </div>
-            <button className="btn-primary w-full" onClick={async()=>{await navigator.clipboard.writeText(inviteUrl);notify('Bağlantı kopyalandı.','success');}}>
-              <Copy size={16}/> Bağlantıyı Kopyala
-            </button>
+            {!inviteUrl ? (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">
+                    Davet Edilecek E-Posta
+                  </label>
+                  <input
+                    type="email"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder="kullanici@sirket.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">
+                    Yetki Rolü
+                  </label>
+                  <select
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-brand-500 focus:outline-none"
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value as OrganizationRole)}
+                  >
+                    {Object.entries(roleLabels).map(([val, label]) => (
+                      <option key={val} value={val}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setAddModalOpen(false)}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    type="button"
+                    disabled={addSaving}
+                    onClick={handleCreateInvite}
+                    className="rounded-lg bg-brand-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-50"
+                  >
+                    {addSaving ? 'Oluşturuluyor...' : 'Davet Bağlantısı Oluştur'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 border border-emerald-200">
+                  <Check size={18} className="text-emerald-600 flex-shrink-0" />
+                  <span>Davet bağlantısı oluşturuldu. Bu bağlantıyı kullanıcı ile paylaşabilirsiniz.</span>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs font-mono break-all text-gray-700">
+                  {inviteUrl}
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary w-full flex items-center justify-center gap-2"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(inviteUrl);
+                    notify('Bağlantı panoya kopyalandı.', 'success');
+                  }}
+                >
+                  <Copy size={16} />
+                  Bağlantıyı Kopyala
+                </button>
+              </div>
+            )}
           </div>
-        )
-      )}
-    </Modal>
-
-    {/* User Edit Modal */}
-    <Modal open={editOpen} onClose={()=>setEditOpen(false)} title="Kullanıcıyı Düzenle" description="Kullanıcının adını, şifresini ve yetki rolünü güncelleyin.">
-      <div className="space-y-4">
-        <div>
-          <label className="label">Ad Soyad</label>
-          <input type="text" className="input" value={editName} onChange={e=>setEditName(e.target.value)} required />
-        </div>
-        <div>
-          <label className="label">E-posta (Değiştirilemez)</label>
-          <input type="text" className="input bg-gray-50 text-gray-500 cursor-not-allowed" value={editingMember?.email || ''} disabled />
-        </div>
-        <div>
-          <label className="label">Yeni Şifre (Değiştirmek istemiyorsanız boş bırakın)</label>
-          <input type="password" className="input" value={editPassword} onChange={e=>setEditPassword(e.target.value)} placeholder="Boş bırakılırsa şifre değişmez" />
-        </div>
-        <div>
-          <label className="label">Rol</label>
-          <select className="input" value={editRole} onChange={e=>setEditRole(e.target.value as OrganizationRole)}>
-            {Object.entries(roleLabels).map(([v,l])=><option value={v} key={v}>{l}</option>)}
-          </select>
-        </div>
-        <button className="btn-primary w-full" disabled={editSaving} onClick={()=>void updateUser()}>
-          {editSaving ? 'Güncelleniyor...' : 'Değişiklikleri Kaydet'}
-        </button>
-      </div>
-    </Modal>
-  </div>;
+        )}
+      </Modal>
+    </div>
+  );
 }
-
-function Metric({icon,value,label}:{icon:React.ReactNode;value:number;label:string}) { return <div className="card p-4"><div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-500">{icon}</div><div className="text-xl font-semibold">{value}</div><div className="text-xs text-gray-500">{label}</div></div>; }

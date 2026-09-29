@@ -220,8 +220,9 @@ export default function App() {
                 <Route path="/takvim" element={<CalendarPage />} />
                 <Route path="/ai-asistan" element={<AiAssistantPage />} />
                 <Route path="/bildirimler" element={<NotificationsPage />} />
-                <Route path="/kullanicilar" element={<UsersPage />} />
                 <Route element={<AdminOrBerkantRoute />}>
+                  <Route path="/kullanicilar" element={<UsersPage />} />
+                  <Route path="/ayarlar/kullanicilar" element={<UsersPage />} />
                   <Route path="/aktivite-gunlugu" element={<ActivityLogsPage />} />
                 </Route>
                 <Route path="/sifre-degistir" element={<ChangePasswordPage />} />

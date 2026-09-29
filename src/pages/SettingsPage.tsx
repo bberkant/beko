@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, RotateCcw, ArrowUp, ArrowDown, Settings, GripVertical, Palette, Database, User } from 'lucide-react';
+import { ShieldCheck, RotateCcw, ArrowUp, ArrowDown, Settings, GripVertical, Palette, Database, User, Users } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { supabase } from '../lib/supabase';
 import { useAuth, cleanDisplayUsername } from '../lib/auth';
@@ -144,13 +144,22 @@ export function SettingsPage() {
       description="Hesap, güvenlik ve bildirim servislerinizi yönetin."
       actions={
         isAdminOrBerkant ? (
-          <Link 
-            to="/ayarlar/yedekler" 
-            className="btn btn-secondary flex items-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 shadow-sm"
-          >
-            <Database size={15} className="text-indigo-600" />
-            Sistem Yedekleri & Geri Yükleme
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link 
+              to="/kullanicilar" 
+              className="btn btn-secondary flex items-center gap-1.5 text-xs font-bold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100 shadow-sm"
+            >
+              <Users size={15} className="text-brand-600" />
+              Kullanıcılar
+            </Link>
+            <Link 
+              to="/ayarlar/yedekler" 
+              className="btn btn-secondary flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 shadow-sm"
+            >
+              <Database size={15} className="text-indigo-600" />
+              Sistem Yedekleri & Geri Yükleme
+            </Link>
+          </div>
         ) : null
       }
     />

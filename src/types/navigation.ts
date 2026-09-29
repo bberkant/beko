@@ -7,7 +7,6 @@ import {
   CalendarDays,
   Sparkles,
   Bell,
-  Users,
   Settings,
   Coins,
   Building2,
@@ -178,7 +177,6 @@ export const navItems: NavItem[] = [
   { label: 'Takvim', to: '/takvim', icon: CalendarDays },
   { label: 'Belgeler', to: '/belgeler', icon: FileText },
   { label: 'AI Asistan', to: '/ai-asistan', icon: Sparkles },
-  { label: 'Kullanıcılar', to: '/kullanicilar', icon: Users },
   { label: 'Aktivite Günlüğü', to: '/aktivite-gunlugu', icon: History },
   { 
     label: 'Ayarlar', 
@@ -186,6 +184,7 @@ export const navItems: NavItem[] = [
     icon: Settings,
     children: [
       { label: 'Genel Ayarlar', to: '/ayarlar' },
+      { label: 'Kullanıcılar', to: '/kullanicilar' },
       { label: 'Sistem Yedekleri', to: '/ayarlar/yedekler' },
     ]
   },
