@@ -266,41 +266,30 @@ const CHECKS_CACHE_KEY = 'dars_ebs_checks_cache';
 const TAKAS_CHECKS_CACHE_KEY = 'dars_ebs_takas_checks_cache';
 const ACCOUNTS_CACHE_KEY = 'dars_bank_accounts_cache';
 
-function getCachedChecks(orgId: string, isTakas = false): EbsCheck[] {
+function getCachedChecks(orgId: string, _isTakas = false): EbsCheck[] {
   try {
-    if (isTakas) {
-      const takasRaw = localStorage.getItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`);
-      if (takasRaw) {
-        const parsed = JSON.parse(takasRaw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    }
     const raw = localStorage.getItem(`${CHECKS_CACHE_KEY}_${orgId}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    const takasRaw = localStorage.getItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`);
+    if (takasRaw) {
+      const parsed = JSON.parse(takasRaw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    return [];
   } catch {
     return [];
   }
 }
 
-function setCachedChecks(orgId: string, data: EbsCheck[], isTakas = false) {
+function setCachedChecks(orgId: string, data: EbsCheck[], _isTakas = false) {
   try {
     if (!Array.isArray(data) || data.length === 0) return;
-    if (isTakas) {
-      localStorage.setItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(data));
-      const existing = getCachedChecks(orgId, false);
-      if (existing.length > 0) {
-        const map = new Map(existing.map(c => [c.id, c]));
-        data.forEach(c => map.set(c.id, c));
-        const merged = Array.from(map.values()).slice(-2500);
-        localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(merged));
-      }
-    } else {
-      const safeData = data.length > 2500 ? data.slice(-2500) : data;
-      localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(safeData));
-      localStorage.setItem(`${CHECKS_CACHE_KEY}_time_${orgId}`, new Date().toISOString());
-    }
+    const safeData = data.length > 2500 ? data.slice(-2500) : data;
+    localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(safeData));
+    localStorage.setItem(`${CHECKS_CACHE_KEY}_time_${orgId}`, new Date().toISOString());
   } catch (e) {
     console.warn('localStorage caching quota warning:', e);
   }
@@ -687,63 +676,7 @@ export function ChecksPage() {
     setLoading(true);
     setDbError(null);
     try {
-      const today = new Date();
-      const todayStr = today.getFullYear() + '-' + 
-        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-        String(today.getDate()).padStart(2, '0');
-
-      // 1. Takas Rotasındaysak SADECE güncel takas için gerekli kayıtları tek sorguda çek
-      if (isTakasRoute) {
-        const [accountsResult, initialChecksResult, todayChecksResult] = await withQueryTimeout(
-          Promise.all([
-            supabase
-              .from('bank_accounts')
-              .select('*')
-              .eq('organization_id', orgId)
-              .eq('status', 'aktif')
-              .order('bank', { ascending: true }),
-            supabase
-              .from('ebs_checks')
-              .select('*')
-              .eq('organization_id', orgId)
-              .neq('status', 'Ödendi')
-              .neq('status', 'Tahsil Edildi')
-              .neq('status', 'İptal')
-              .or(`due_date.eq.${todayStr},debtor.eq.TAKSİT,debtor.ilike.%taksit%,status.ilike.%kayıp%,ozel_alan.ilike.%takas%,debtor.ilike.%hatir%,debtor.ilike.%hatır%,creditor.ilike.%hatir%,creditor.ilike.%hatır%,kesideci.ilike.%hatir%,kesideci.ilike.%hatır%,ozel_alan.ilike.%hatir%,ozel_alan.ilike.%hatır%,check_no.is.null,check_no.eq.`)
-              .order('due_date', { ascending: true }),
-            supabase
-              .from('ebs_checks')
-              .select('*')
-              .eq('organization_id', orgId)
-              .eq('due_date', todayStr)
-          ]),
-          15000
-        );
-
-        if (accountsResult.error) throw accountsResult.error;
-        if (initialChecksResult.error) throw initialChecksResult.error;
-
-        const combinedChecks = [...(initialChecksResult.data || [])];
-        const existingIds = new Set(combinedChecks.map(c => c.id));
-        if (todayChecksResult.data) {
-          todayChecksResult.data.forEach(c => {
-            if (!existingIds.has(c.id)) {
-              combinedChecks.push(c);
-              existingIds.add(c.id);
-            }
-          });
-        }
-
-        const accounts = accountsResult.data || [];
-        setBankAccounts(accounts);
-        setCachedBankAccounts(orgId, accounts);
-
-        setChecks(combinedChecks);
-        setCachedChecks(orgId, combinedChecks, true);
-        setIsOfflineData(false);
-        setDbError(null);
-        return;
-      }
+      // Hem Takas hem Çek Yönetimi için tüm verileri eksiksiz çek
 
       // 2. Standart Çek Yönetimi Sayfasındaysak (Tüm Çekler/Raporlar)
       const [countResult, accountsResult] = await withQueryTimeout(
@@ -852,6 +785,9 @@ export function ChecksPage() {
   };
 
   useEffect(() => {
+    try {
+      localStorage.removeItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`);
+    } catch {}
     void fetchChecks();
   }, [user?.organizationId, isTakasRoute]);
 
