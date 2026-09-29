@@ -293,13 +293,17 @@ function setCachedChecks(orgId: string, data: EbsCheck[], isTakas = false) {
       if (existing.length > 0) {
         const map = new Map(existing.map(c => [c.id, c]));
         data.forEach(c => map.set(c.id, c));
-        localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(Array.from(map.values())));
+        const merged = Array.from(map.values()).slice(-2500);
+        localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(merged));
       }
     } else {
-      localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(data));
+      const safeData = data.length > 2500 ? data.slice(-2500) : data;
+      localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(safeData));
       localStorage.setItem(`${CHECKS_CACHE_KEY}_time_${orgId}`, new Date().toISOString());
     }
-  } catch {}
+  } catch (e) {
+    console.warn('localStorage caching quota warning:', e);
+  }
 }
 
 function getCachedBankAccounts(orgId: string): any[] {
@@ -822,9 +826,29 @@ export function ChecksPage() {
       
       setDbError(errorMsg);
 
-      // Çevrimdışı önbellekten yükle
-      const cached = getCachedChecks(orgId, isTakasRoute);
-      const cachedAcc = getCachedBankAccounts(orgId);
+      // Çevrimdışı önbellekten veya paketlenmiş yedek veriden yükle
+      let cached = getCachedChecks(orgId, isTakasRoute);
+      let cachedAcc = getCachedBankAccounts(orgId);
+
+      if (cached.length === 0) {
+        try {
+          const [fbChecks, fbAcc] = await Promise.all([
+            fetch('/data/fallback_ebs_checks.json').then(r => r.ok ? r.json() : []),
+            fetch('/data/fallback_bank_accounts.json').then(r => r.ok ? r.json() : [])
+          ]);
+          if (Array.isArray(fbChecks) && fbChecks.length > 0) {
+            cached = fbChecks;
+            setCachedChecks(orgId, fbChecks, false);
+          }
+          if (Array.isArray(fbAcc) && fbAcc.length > 0) {
+            cachedAcc = fbAcc;
+            setCachedBankAccounts(orgId, fbAcc);
+          }
+        } catch (fetchErr) {
+          console.error('Fallback JSON yükleme hatası:', fetchErr);
+        }
+      }
+
       if (cached.length > 0) {
         setChecks(cached);
         setIsOfflineData(true);
@@ -836,6 +860,28 @@ export function ChecksPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (checks.length === 0) {
+      void (async () => {
+        try {
+          const [fbChecks, fbAcc] = await Promise.all([
+            fetch('/data/fallback_ebs_checks.json').then(r => r.ok ? r.json() : []),
+            fetch('/data/fallback_bank_accounts.json').then(r => r.ok ? r.json() : [])
+          ]);
+          if (Array.isArray(fbChecks) && fbChecks.length > 0) {
+            setChecks(prev => prev.length === 0 ? fbChecks : prev);
+            setCachedChecks(orgId, fbChecks, false);
+            setIsOfflineData(true);
+          }
+          if (Array.isArray(fbAcc) && fbAcc.length > 0) {
+            setBankAccounts(prev => prev.length === 0 ? fbAcc : prev);
+            setCachedBankAccounts(orgId, fbAcc);
+          }
+        } catch {}
+      })();
+    }
+  }, [orgId, checks.length]);
 
   useEffect(() => {
     void fetchChecks();

@@ -1,0 +1,112 @@
+[
+  {
+    "id": "bank-kuveyt",
+    "organization_id": "13b8da90-27d1-440d-a8f4-eb50dadd6391",
+    "bank": "KUVEYT",
+    "account_name": "KUVEYT TÜRK",
+    "account_type": "vadesiz",
+    "iban": "TR330004600154888000119983",
+    "currency": "TRY",
+    "balance": 0,
+    "status": "aktif"
+  },
+  {
+    "id": "bank-ziraat",
+    "organization_id": "13b8da90-27d1-440d-a8f4-eb50dadd6391",
+    "bank": "ZİRAAT",
+    "account_name": "ZİRAAT BANKASI",
+    "account_type": "vadesiz",
+    "iban": "TR640001002695772776285001",
+    "currency": "TRY",
+    "balance": 0,
+    "status": "aktif"
+  },
+  {
+    "id": "bank-albaraka",
+    "organization_id": "13b8da90-27d1-440d-a8f4-eb50dadd6391",
+    "bank": "ALBARAKA",
+    "account_name": "ALBARAKA TÜRK",
+    "account_type": "vadesiz",
+    "iban": "",
+    "currency": "TRY",
+    "balance": 0,
+    "status": "aktif"
+  },
+  {
+    "id": "bank-akbank",
+    "organization_id": "13b8da90-27d1-440d-a8f4-eb50dadd6391",
+    "bank": "AKBANK",
+    "account_name": "AKBANK",
+    "account_type": "vadesiz",
+    "iban": "TR850001002695861304855001",
+    "currency": "TRY",
+    "balance": 0,
+    "status": "aktif"
+  },
+  {
+    "id": "bank-deniz",
+    "organization_id": "13b8da90-27d1-440d-a8f4-eb50dadd6391",
+    "bank": "DENİZ",
+    "account_name": "DENİZBANK",
+    "account_type": "vadesiz",
+    "iban": "TR640013400001264426400001",
+    "currency": "TRY",
+    "balance": 0,
+    "status": "aktif"
+  },
+  {
+    "id": "bank-halkbank",
+    "organization_id": "13b8da90-27d1-440d-a8f4-eb50dadd6391",
+    "bank": "HALKBANK",
+    "account_name": "HALKBANK",
+    "account_type": "vadesiz",
+    "iban": "TR470001200930000010260652",
+    "currency": "TRY",
+    "balance": 0,
+    "status": "aktif"
+  },
+  {
+    "id": "bank-marif",
+    "organization_id": "13b8da90-27d1-440d-a8f4-eb50dadd6391",
+    "bank": "MARİF",
+    "account_name": "MARİF",
+    "account_type": "vadesiz",
+    "iban": "TR620001200930000010260770",
+    "currency": "TRY",
+    "balance": 0,
+    "status": "aktif"
+  },
+  {
+    "id": "bank-isbank",
+    "organization_id": "13b8da90-27d1-440d-a8f4-eb50dadd6391",
+    "bank": "İŞBANK",
+    "account_name": "İŞBANK",
+    "account_type": "vadesiz",
+    "iban": "",
+    "currency": "TRY",
+    "balance": 0,
+    "status": "aktif"
+  },
+  {
+    "id": "bank-garanti",
+    "organization_id": "13b8da90-27d1-440d-a8f4-eb50dadd6391",
+    "bank": "GARANTİ",
+    "account_name": "GARANTİ BBVA",
+    "account_type": "vadesiz",
+    "iban": "",
+    "currency": "TRY",
+    "balance": 0,
+    "status": "aktif"
+  },
+  {
+    "id": "bank-yapi",
+    "organization_id": "13b8da90-27d1-440d-a8f4-eb50dadd6391",
+    "bank": "YAPI",
+    "account_name": "YAPI KREDİ",
+    "account_type": "vadesiz",
+    "iban": "",
+    "currency": "TRY",
+    "balance": 0,
+    "status": "aktif"
+  }
+]
