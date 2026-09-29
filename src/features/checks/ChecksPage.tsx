@@ -835,28 +835,9 @@ export function ChecksPage() {
       
       setDbError(errorMsg);
 
-      // Çevrimdışı önbellekten veya paketlenmiş yedek veriden yükle
+      // Supabase bağlantısı başarısızsa, sadece daha önce Supabase'den çekilmiş önbellek verisini yükle
       let cached = getCachedChecks(orgId, isTakasRoute);
       let cachedAcc = getCachedBankAccounts(orgId);
-
-      try {
-        const [fbChecks, fbAcc] = await Promise.all([
-          fetch(`/data/fallback_ebs_checks.json?t=${Date.now()}`).then(r => r.ok ? r.json() : []),
-          fetch(`/data/fallback_bank_accounts.json?t=${Date.now()}`).then(r => r.ok ? r.json() : [])
-        ]);
-        if (Array.isArray(fbChecks) && fbChecks.length > 0) {
-          if (!cached || cached.length < fbChecks.length) {
-            cached = fbChecks;
-            setCachedChecks(orgId, fbChecks, false);
-          }
-        }
-        if (Array.isArray(fbAcc) && fbAcc.length > 0) {
-          cachedAcc = fbAcc;
-          setCachedBankAccounts(orgId, fbAcc);
-        }
-      } catch (fetchErr) {
-        console.error('Fallback JSON yükleme hatası:', fetchErr);
-      }
 
       if (cached && cached.length > 0) {
         setChecks(cached);
@@ -869,28 +850,6 @@ export function ChecksPage() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (checks.length < 5000) {
-      void (async () => {
-        try {
-          const [fbChecks, fbAcc] = await Promise.all([
-            fetch(`/data/fallback_ebs_checks.json?t=${Date.now()}`).then(r => r.ok ? r.json() : []),
-            fetch(`/data/fallback_bank_accounts.json?t=${Date.now()}`).then(r => r.ok ? r.json() : [])
-          ]);
-          if (Array.isArray(fbChecks) && fbChecks.length > checks.length) {
-            setChecks(fbChecks);
-            setCachedChecks(orgId, fbChecks, false);
-            setIsOfflineData(true);
-          }
-          if (Array.isArray(fbAcc) && fbAcc.length > 0) {
-            setBankAccounts(fbAcc);
-            setCachedBankAccounts(orgId, fbAcc);
-          }
-        } catch {}
-      })();
-    }
-  }, [orgId, checks.length]);
 
   useEffect(() => {
     void fetchChecks();
