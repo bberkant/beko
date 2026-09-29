@@ -29,6 +29,7 @@ import {
   isStrictAdminOrBerkant 
 } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
+import { recordLoginLog } from '../../lib/loginLogger';
 
 interface Member {
   user_id: string;
@@ -138,6 +139,18 @@ export function UsersPage() {
     }
     setLoading(true);
     try {
+      // 0. Ensure current logged-in user is logged in user_login_logs
+      if (user?.email) {
+        void recordLoginLog({
+          organization_id: user.organizationId,
+          user_id: user.id,
+          user_email: user.email,
+          user_name: user.name,
+          status: 'success',
+          force: true
+        });
+      }
+
       // 1. Fetch organization members
       const { data: usersData, error: usersError } = await supabase.rpc('list_organization_users');
       if (usersError) throw usersError;
@@ -179,6 +192,7 @@ export function UsersPage() {
       const mergedList: Member[] = ((usersData as any[]) || []).map((m) => {
         const emailKey = (m.email || '').toLowerCase().trim();
         const info = loginMap.get(m.user_id) || loginMap.get(emailKey);
+        const lastActive = info?.last_active_at || m.last_sign_in_at || m.joined_at || null;
         return {
           user_id: m.user_id,
           full_name: m.full_name || '',
@@ -186,8 +200,8 @@ export function UsersPage() {
           role: m.role || 'goruntuleyici',
           active: m.active ?? true,
           joined_at: m.joined_at,
-          last_active_at: info?.last_active_at || m.last_sign_in_at || null,
-          last_ip: info?.last_ip || null,
+          last_active_at: lastActive,
+          last_ip: info?.last_ip || (lastActive === m.joined_at ? 'Kayıt Tarihi' : null),
           last_device: info?.last_device || null
         };
       });
