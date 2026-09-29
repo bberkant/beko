@@ -418,10 +418,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           session = refreshRes?.session || null;
         }
 
-        if (!session) {
-          session = await ensureSupabaseBackendSession();
-        }
-
         if (session) {
           const next = await resolveUser(session);
           if (active) {
