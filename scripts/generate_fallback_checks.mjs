@@ -80,6 +80,52 @@ if (fs.existsSync(takasPath)) {
     created_at: new Date().toISOString()
   });
 
+  // Active Takas Checks for 2026-09-29 and 2026-09-30
+  const activeTakasList = [
+    // 2026-09-29 Takas Checks
+    { date: '2026-09-29', bank: 'ETİK AKBANK', debtor: 'ETİK AKBANK', creditor: 'MUZAFFER BOLAT', amt: 540735 },
+    { date: '2026-09-29', bank: 'ETİK AKBANK', debtor: 'ETİK AKBANK', creditor: 'ARAS KÖSYETKİN', amt: 280000 },
+    { date: '2026-09-29', bank: 'DENİZBANK', debtor: 'DENİZBANK', creditor: 'KUTİX MUKAVVA', amt: 311409 },
+    { date: '2026-09-29', bank: 'DENİZBANK', debtor: 'DENİZBANK', creditor: 'CENG NAMLI GIDA', amt: 249300 },
+    { date: '2026-09-29', bank: 'ZİRAAT', debtor: 'ETİK ZİRAAT', creditor: 'ELEKÇİ KEMAL', amt: 412569 },
+    { date: '2026-09-29', bank: 'ZİRAAT', debtor: 'ETİK ZİRAAT', creditor: 'ERZİNCAN MESUT', amt: 511290 },
+    { date: '2026-09-29', bank: 'MARİF ZİRAAT', debtor: 'MARİF ZİRAAT', creditor: 'RAMAZAN YILMAZ', amt: 569500 },
+    { date: '2026-09-29', bank: 'MARİF ZİRAAT', debtor: 'MARİF ZİRAAT', creditor: 'NEBİOĞULLARI', amt: 811573 },
+    { date: '2026-09-29', bank: 'ALBARAKA', debtor: 'ALBARAKA', creditor: 'BERKAN BESİCİLİK', amt: 1810000 },
+    { date: '2026-09-29', bank: 'ALBARAKA', debtor: 'ALBARAKA', creditor: 'MESUT AYAYDIN', amt: 428888 },
+    { date: '2026-09-29', bank: 'İŞBANK', debtor: 'İŞBANK', creditor: 'SKT ET', amt: 381601 },
+    { date: '2026-09-29', bank: 'MARİF GARANTİ', debtor: 'MARİF GARANTİ', creditor: 'ALİ DEMİR', amt: 474165 },
+    { date: '2026-09-29', bank: 'TAKSİT', debtor: 'TAKSİT', creditor: 'HALK TAKSİT', amt: 73021 },
+    { date: '2026-09-29', bank: 'TAKSİT', debtor: 'TAKSİT', creditor: 'ZİRAAT TAKSİT', amt: 125000 },
+    
+    // 2026-09-30 Takas Checks
+    { date: '2026-09-30', bank: 'İŞBANK', debtor: 'İŞBANK', creditor: 'ORHAN KELCE', amt: 110000 },
+    { date: '2026-09-30', bank: 'İŞBANK', debtor: 'İŞBANK', creditor: 'SARIMSAK KASTAMONU', amt: 193920 },
+    { date: '2026-09-30', bank: 'DENİZBANK', debtor: 'DENİZBANK', creditor: 'KUTİX MUKAVVA', amt: 311409 },
+    { date: '2026-09-30', bank: 'ALBARAKA', debtor: 'ALBARAKA', creditor: 'İLHAMİ BAĞÇUVAN', amt: 1000000 },
+    { date: '2026-09-30', bank: 'TAKSİT', debtor: 'TAKSİT', creditor: 'ŞEKERBANK TAKSİT', amt: 150000 }
+  ];
+
+  activeTakasList.forEach((t, idx) => {
+    checks.push({
+      id: 'fallback-takas-' + (idx + 1),
+      local_id: localId++,
+      check_type: 'kesilen',
+      document_type: 'cek',
+      due_date: t.date,
+      amount: t.amt,
+      para_birimi: 'TRY',
+      check_no: 'TK' + (10000 + idx),
+      debtor: t.debtor,
+      creditor: t.creditor,
+      bank_name: t.bank,
+      status: 'Tahsilde',
+      ozel_alan: 'TAKASTA',
+      created_at: new Date().toISOString()
+    });
+  });
+
+
   const kayipList = [
     { creditor: 'MUHARREM DEMİR', bank: 'E.ZİRAAT', amt: 0, date: '2023-06-12' },
     { creditor: 'MUSTAFA GENÇELİOĞLU', bank: 'E.DENİZ', amt: 0, date: '2023-08-26' },

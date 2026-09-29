@@ -453,11 +453,20 @@ export function ChecksPage() {
   }, [openDropdown]);
 
   // Keşide Tarihi (Vade Tarihi) Filtreleme Durumları
-  const [dateFilterType, setDateFilterType] = useState<string>('today');
+  const [dateFilterType, setDateFilterType] = useState<string>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [tempStartDate, setTempStartDate] = useState<string>('');
   const [tempEndDate, setTempEndDate] = useState<string>('');
+
+  // Takas Tarih ve Görünüm Durumu
+  const [takasDate, setTakasDate] = useState<string>(() => {
+    const today = new Date();
+    return today.getFullYear() + '-' + 
+      String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+      String(today.getDate()).padStart(2, '0');
+  });
+  const [takasViewMode, setTakasViewMode] = useState<'date' | 'upcoming'>('date');
 
   useEffect(() => {
     setTempStartDate(startDate);
@@ -830,30 +839,30 @@ export function ChecksPage() {
       let cached = getCachedChecks(orgId, isTakasRoute);
       let cachedAcc = getCachedBankAccounts(orgId);
 
-      if (cached.length === 0) {
-        try {
-          const [fbChecks, fbAcc] = await Promise.all([
-            fetch('/data/fallback_ebs_checks.json').then(r => r.ok ? r.json() : []),
-            fetch('/data/fallback_bank_accounts.json').then(r => r.ok ? r.json() : [])
-          ]);
-          if (Array.isArray(fbChecks) && fbChecks.length > 0) {
+      try {
+        const [fbChecks, fbAcc] = await Promise.all([
+          fetch(`/data/fallback_ebs_checks.json?t=${Date.now()}`).then(r => r.ok ? r.json() : []),
+          fetch(`/data/fallback_bank_accounts.json?t=${Date.now()}`).then(r => r.ok ? r.json() : [])
+        ]);
+        if (Array.isArray(fbChecks) && fbChecks.length > 0) {
+          if (!cached || cached.length < fbChecks.length) {
             cached = fbChecks;
             setCachedChecks(orgId, fbChecks, false);
           }
-          if (Array.isArray(fbAcc) && fbAcc.length > 0) {
-            cachedAcc = fbAcc;
-            setCachedBankAccounts(orgId, fbAcc);
-          }
-        } catch (fetchErr) {
-          console.error('Fallback JSON yükleme hatası:', fetchErr);
         }
+        if (Array.isArray(fbAcc) && fbAcc.length > 0) {
+          cachedAcc = fbAcc;
+          setCachedBankAccounts(orgId, fbAcc);
+        }
+      } catch (fetchErr) {
+        console.error('Fallback JSON yükleme hatası:', fetchErr);
       }
 
-      if (cached.length > 0) {
+      if (cached && cached.length > 0) {
         setChecks(cached);
         setIsOfflineData(true);
       }
-      if (cachedAcc.length > 0) {
+      if (cachedAcc && cachedAcc.length > 0) {
         setBankAccounts(cachedAcc);
       }
     } finally {
@@ -862,20 +871,20 @@ export function ChecksPage() {
   };
 
   useEffect(() => {
-    if (checks.length === 0) {
+    if (checks.length < 5000) {
       void (async () => {
         try {
           const [fbChecks, fbAcc] = await Promise.all([
-            fetch('/data/fallback_ebs_checks.json').then(r => r.ok ? r.json() : []),
-            fetch('/data/fallback_bank_accounts.json').then(r => r.ok ? r.json() : [])
+            fetch(`/data/fallback_ebs_checks.json?t=${Date.now()}`).then(r => r.ok ? r.json() : []),
+            fetch(`/data/fallback_bank_accounts.json?t=${Date.now()}`).then(r => r.ok ? r.json() : [])
           ]);
-          if (Array.isArray(fbChecks) && fbChecks.length > 0) {
-            setChecks(prev => prev.length === 0 ? fbChecks : prev);
+          if (Array.isArray(fbChecks) && fbChecks.length > checks.length) {
+            setChecks(fbChecks);
             setCachedChecks(orgId, fbChecks, false);
             setIsOfflineData(true);
           }
           if (Array.isArray(fbAcc) && fbAcc.length > 0) {
-            setBankAccounts(prev => prev.length === 0 ? fbAcc : prev);
+            setBankAccounts(fbAcc);
             setCachedBankAccounts(orgId, fbAcc);
           }
         } catch {}
@@ -1422,6 +1431,7 @@ export function ChecksPage() {
     const todayStr = today.getFullYear() + '-' + 
       String(today.getMonth() + 1).padStart(2, '0') + '-' + 
       String(today.getDate()).padStart(2, '0');
+    const targetDateStr = takasDate || todayStr;
 
     const isCheckPaid = (status: string | null | undefined): boolean => {
       const clean = cleanStatus(status);
@@ -1435,7 +1445,7 @@ export function ChecksPage() {
     };
 
     // 1. Durumu 'Tahsilde', 'beklemede', 'ödenmedi' olan (yani Ödendi/İptal OLMAYAN), kesilen tipte:
-    // - Vadesi bugün olanlar
+    // - Vadesi seçilen gün olanlar (veya tüm yaklaşanlar modunda >= seçilen gün)
     // - VEYA özel alanı 'TAKASTA' ile başlayanlar
     // - VEYA taksit / manuel girilmiş olup henüz 'Ödendi' yapılmamış geçmiş kayıtlar (debtor === 'TAKSİT' veya !check_no)
     const activeUnpaidKesilen = checks.filter(c => {
@@ -1449,7 +1459,11 @@ export function ChecksPage() {
       const isForced = (c.ozel_alan || '').trim().toUpperCase().startsWith('TAKASTA');
       const isManualOrTaksit = c.debtor === 'TAKSİT' || !c.check_no;
       
-      return due === todayStr || isForced || (isManualOrTaksit && due <= todayStr);
+      const dateMatch = takasViewMode === 'upcoming' 
+        ? due >= targetDateStr 
+        : due === targetDateStr;
+
+      return dateMatch || isForced || (isManualOrTaksit && due <= targetDateStr);
     });
 
     // 2. Alınan çeklerde asıl alacaklı kısmında 'HATIR BİZİM BORCUMUZ' veya 'HATIR BİZİM BORÇ' yazanlar (Veya özel alanı 'TAKASTA' ile başlayanlar)
@@ -1461,7 +1475,10 @@ export function ChecksPage() {
       if (!isForced) {
         if (!c.due_date) return false;
         const due = c.due_date.substring(0, 10);
-        if (due !== todayStr) return false;
+        const dateMatch = takasViewMode === 'upcoming' 
+          ? due >= targetDateStr 
+          : due === targetDateStr;
+        if (!dateMatch) return false;
       }
 
       return isForced || isHatirAlinan(c);
@@ -1724,7 +1741,7 @@ export function ChecksPage() {
       bankBalances,
       totalBankBalance
     };
-  }, [checks, bankAccounts]);
+  }, [checks, bankAccounts, takasDate, takasViewMode]);
 
   const formatExcelNumber = (num: number) => {
     if (!num || num === 0 || num === 0.01) return '';
@@ -2233,6 +2250,116 @@ export function ChecksPage() {
           </div>
         ) : (
           <>
+            {/* Takas Date Navigation and Metric Bar */}
+            <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-xs flex flex-wrap items-center justify-between gap-3 print:hidden">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-gray-500 flex items-center gap-1.5 uppercase tracking-wider mr-1">
+                  <Calendar size={14} className="text-brand-600" />
+                  Takas Günü:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const [yr, mo, da] = takasDate.split('-').map(Number);
+                    const d = new Date(yr, mo - 1, da - 1);
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    setTakasDate(`${y}-${m}-${day}`);
+                    setTakasViewMode('date');
+                  }}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 transition-colors"
+                  title="Önceki Gün"
+                >
+                  &larr; Önceki
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const today = new Date();
+                    const y = today.getFullYear();
+                    const m = String(today.getMonth() + 1).padStart(2, '0');
+                    const d = String(today.getDate()).padStart(2, '0');
+                    setTakasDate(`${y}-${m}-${d}`);
+                    setTakasViewMode('date');
+                  }}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
+                    takasViewMode === 'date' && takasDate === (() => {
+                      const today = new Date();
+                      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                    })()
+                      ? 'bg-brand-600 text-white shadow-xs'
+                      : 'border border-gray-200 hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  Bugün
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tom = new Date();
+                    tom.setDate(tom.getDate() + 1);
+                    const y = tom.getFullYear();
+                    const m = String(tom.getMonth() + 1).padStart(2, '0');
+                    const d = String(tom.getDate()).padStart(2, '0');
+                    setTakasDate(`${y}-${m}-${d}`);
+                    setTakasViewMode('date');
+                  }}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
+                    takasViewMode === 'date' && takasDate === (() => {
+                      const t = new Date();
+                      t.setDate(t.getDate() + 1);
+                      return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+                    })()
+                      ? 'bg-brand-600 text-white shadow-xs'
+                      : 'border border-gray-200 hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  Yarın
+                </button>
+                <input
+                  type="date"
+                  value={takasDate}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setTakasDate(e.target.value);
+                      setTakasViewMode('date');
+                    }
+                  }}
+                  className="h-8 px-2 text-xs font-bold text-gray-800 border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-500 bg-gray-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setTakasViewMode(takasViewMode === 'upcoming' ? 'date' : 'upcoming')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
+                    takasViewMode === 'upcoming'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'border border-amber-300 text-amber-800 hover:bg-amber-50'
+                  }`}
+                >
+                  {takasViewMode === 'upcoming' ? '✓ Tüm Yaklaşanlar Aktif' : 'Tüm Yaklaşan Takaslar'}
+                </button>
+              </div>
+
+              {/* Summary KPIs */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-red-50 border border-red-200 rounded-lg">
+                  <span className="text-[10px] font-bold text-red-600 uppercase">Takas Toplamı:</span>
+                  <span className="text-xs font-bold text-red-900">{formatCurrency(dashboardData.takasGrandTotal, 'TRY')}</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 border border-gray-200 rounded-lg">
+                  <span className="text-[10px] font-bold text-gray-600 uppercase">Takasta Olmayan:</span>
+                  <span className="text-xs font-bold text-gray-900">{formatCurrency(dashboardData.nonTakasTotal, 'TRY')}</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase">Genel Toplam:</span>
+                  <span className="text-xs font-black text-emerald-950">
+                    {formatCurrency(dashboardData.takasGrandTotal + dashboardData.nonTakasTotal, 'TRY')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Upper Bank Columns Table with thick Excel border */}
             <div className="overflow-x-auto w-full border-2 border-black bg-white rounded-lg shadow-sm print:border-none">
           <div className="bg-gray-50 border-b border-black px-4 py-3 flex items-center justify-center print:hidden">
@@ -3925,7 +4052,7 @@ export function ChecksPage() {
       </div>
 
       {/* Database Connection Alert Banner */}
-      {dbError && (
+      {dbError && checks.length === 0 && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm print:hidden">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-start gap-3">
@@ -4479,7 +4606,7 @@ export function ChecksPage() {
                 ) : filteredChecks.length === 0 ? (
                   <tr>
                     <td colSpan={activeTab === 'alinan' ? 15 : 9} className="px-4 py-12 text-center text-gray-400">
-                      {dbError ? (
+                      {checks.length === 0 && dbError ? (
                         <div className="space-y-2 py-4">
                           <p className="text-amber-800 font-semibold text-sm">Veritabanı sunucusu (Supabase) yanıt vermiyor (HTTP 522).</p>
                           <p className="text-xs text-gray-500">Supabase projeniz uyku modunda (Paused) olabilir.</p>
@@ -4493,7 +4620,7 @@ export function ChecksPage() {
                           </a>
                         </div>
                       ) : (
-                        'Arama kriterlerine uygun çek bulunamadı.'
+                        'Arama veya filtre kriterlerine uygun çek bulunamadı.'
                       )}
                     </td>
                   </tr>
