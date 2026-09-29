@@ -350,8 +350,32 @@ async function resolveUser(session: Session): Promise<AuthUser> {
   };
 }
 
+export const AUTH_SESSION_EPOCH = '2026-09-29_v4_logout_all_berkant';
+
+export function checkAndPurgeStaleSessions(): boolean {
+  try {
+    const currentEpoch = localStorage.getItem('dars_auth_epoch');
+    if (currentEpoch !== AUTH_SESSION_EPOCH) {
+      localStorage.removeItem('dars_cached_auth_user');
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('supabase.auth.token'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      sessionStorage.clear();
+      localStorage.setItem('dars_auth_epoch', AUTH_SESSION_EPOCH);
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
+    checkAndPurgeStaleSessions();
     try {
       const cached = localStorage.getItem('dars_cached_auth_user');
       if (cached) {
@@ -380,6 +404,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true;
     const applySession = async (session: Session | null) => {
       try {
+        if (checkAndPurgeStaleSessions()) {
+          try {
+            await supabase.auth.signOut({ scope: 'local' });
+          } catch {}
+          if (active) {
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+
         const isExplicitSignout = sessionStorage.getItem('dars_explicit_signout') === '1';
         if (isExplicitSignout) {
           if (active) {
@@ -412,32 +447,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // If no cached user, try to resolve from Supabase session
-        if (!session) {
-          const { data: refreshRes } = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } }));
-          session = refreshRes?.session || null;
-        }
-
-        if (session) {
-          const next = await resolveUser(session);
-          if (active) {
-            setUser(next);
-            void recordLoginLog({
-              organization_id: next.organizationId,
-              user_id: next.id,
-              user_email: next.email,
-              user_name: next.name,
-              status: 'success'
-            });
-            try {
-              localStorage.setItem('dars_cached_auth_user', JSON.stringify(next));
-            } catch {}
-          }
-        } else {
-          if (active) {
-            setUser(null);
-            localStorage.removeItem('dars_cached_auth_user');
-          }
+        // CRITICAL: If no cached user, do NOT adopt background Supabase session (berkant@dars.local)!
+        // User must explicitly log in with their credentials at /login.
+        if (active) {
+          setUser(null);
+          localStorage.removeItem('dars_cached_auth_user');
         }
       } catch (error) {
         console.error('Oturum bilgileri yüklenemedi:', error);
@@ -460,9 +474,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.setTimeout(() => void applySession(session), 0);
       }
     });
+
+    const onFocus = () => {
+      if (checkAndPurgeStaleSessions()) {
+        setUser(null);
+        void supabase.auth.signOut({ scope: 'local' });
+      }
+    };
+    window.addEventListener('focus', onFocus);
+
     return () => {
       active = false;
       listener.subscription.unsubscribe();
+      window.removeEventListener('focus', onFocus);
     };
   }, []);
 
@@ -559,6 +583,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         force: true
       });
       try {
+        localStorage.setItem('dars_auth_epoch', AUTH_SESSION_EPOCH);
         localStorage.setItem('dars_cached_auth_user', JSON.stringify(authUser));
       } catch {}
       return;
@@ -598,6 +623,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       force: true
     });
     try {
+      localStorage.setItem('dars_auth_epoch', AUTH_SESSION_EPOCH);
       localStorage.setItem('dars_cached_auth_user', JSON.stringify(next));
     } catch {}
   }, []);
