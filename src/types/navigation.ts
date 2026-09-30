@@ -167,7 +167,6 @@ export const navItems: NavItem[] = [
     label: 'WhatsApp',
     to: '/whatsapp',
     icon: MessageSquare,
-    badge: 'Geliştiriliyor',
   },
   { label: 'Bildirimler', to: '/bildirimler', icon: Bell },
   { label: 'Takvim', to: '/takvim', icon: CalendarDays },

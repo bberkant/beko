@@ -493,7 +493,6 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
         return {
           ...item,
           to: '/whatsapp',
-          badge: 'Geliştiriliyor',
           children: undefined
         };
       }
