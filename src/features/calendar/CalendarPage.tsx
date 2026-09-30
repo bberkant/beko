@@ -1021,10 +1021,10 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
             title="Yapılacaklar & Notlar" 
             icon={<ListTodo size={16} className="text-gray-400"/>}
             className="shadow-sm flex-1 flex flex-col"
-            bodyClassName="flex-1 flex flex-col"
+            bodyClassName="flex-1 flex flex-col min-h-0"
           >
             {/* Note Input & Calendar Date Picker Form */}
-            <form onSubmit={handleAddNote} className="mb-3 border-b border-gray-100 pb-3">
+            <form onSubmit={handleAddNote} className="shrink-0 mb-3 border-b border-gray-100 pb-3">
               <div className="flex items-center gap-1.5">
                 <input 
                   type="text" 
@@ -1144,13 +1144,13 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
             </form>
 
             {/* Notes List */}
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               {notesLoading ? (
                 <p className="py-6 text-center text-xs text-gray-400">Notlar yükleniyor...</p>
               ) : displayNotes.length === 0 ? (
                 <p className="py-8 text-center text-xs text-gray-400">Henüz not veya görev eklenmemiş.</p>
               ) : (
-                <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                <div className="space-y-2 flex-1 min-h-0 max-h-[500px] lg:max-h-none overflow-y-auto pr-1">
                   {displayNotes.map(note => (
                     <div 
                       key={note.id} 
@@ -1373,7 +1373,7 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
             </div>
 
             {/* Sağ Alt: Not Sayacı ve Tümünü Temizle Butonu */}
-            <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+            <div className="shrink-0 mt-auto pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
               <span className="text-[11px] text-gray-400 font-medium">
                 {notes.length} not {notes.filter(n => n.completed).length > 0 && `(${notes.filter(n => n.completed).length} tamamlandı)`}
               </span>
