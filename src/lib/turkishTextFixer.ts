@@ -439,6 +439,11 @@ export function fixCorruptedTurkishText(str: string | null | undefined, fieldNam
 
   let s = str.trim();
 
+  // Guard against stringified function callbacks or JS code from node-firebird BLOB stream
+  if ((s.includes('transaction') && s.includes('callback')) || s.startsWith('(transaction')) {
+    return '';
+  }
+
   // 1. Bank Name Specific Checks
   if (fieldName === 'bank_name') {
     if (/^(ıı|İİ|II)$/i.test(s)) return 'İŞ BANKASI';
