@@ -4589,14 +4589,14 @@ export function ChecksPage() {
                                 <span>{check.check_no || '-'}</span>
                               </div>
                             </td>
-                            <td className="px-1.5 py-1.5 text-gray-600 font-medium uppercase">{check.tahsildar_banka || '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-600 font-medium uppercase">{check.tahsildar_banka ? fixCorruptedText(check.tahsildar_banka) : '-'}</td>
                             <td className="px-1.5 py-1.5 text-center font-bold text-gray-900 text-[12.5px] whitespace-nowrap">
                               {formatCurrency(check.amount, check.para_birimi)}
                             </td>
                             <td className="px-1.5 py-1.5 font-semibold text-gray-700 uppercase">
                               <div className="flex items-center gap-1.5">
                                 <Building size={13} className="text-gray-400 flex-shrink-0" />
-                                {check.bank_name || '-'}
+                                {check.bank_name ? fixCorruptedText(check.bank_name, 'bank_name') : '-'}
                               </div>
                             </td>
                             <td className="px-1.5 py-1.5 text-center">
@@ -4612,8 +4612,8 @@ export function ChecksPage() {
                                 {displayStatus(check.status, check.check_type)}
                               </span>
                             </td>
-                            <td className="px-1.5 py-1.5 text-gray-500 font-medium uppercase">{check.bank_branch || '-'}</td>
-                            <td className="px-1.5 py-1.5 text-gray-500 font-medium uppercase">{check.keside_yeri || '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-500 font-medium uppercase">{check.bank_branch ? fixCorruptedText(check.bank_branch) : '-'}</td>
+                            <td className="px-1.5 py-1.5 text-gray-500 font-medium uppercase">{check.keside_yeri ? fixCorruptedText(check.keside_yeri) : '-'}</td>
                             <td className="px-1.5 py-1.5 text-center text-gray-600 font-medium">{formatDate(check.issue_date || check.created_at)}</td>
                             <td className="px-1.5 py-1.5 text-gray-600 font-medium uppercase">{check.ciro_edilen ? fixCorruptedText(check.ciro_edilen) : '-'}</td>
                             <td className="px-1.5 py-1.5 text-gray-500 font-semibold">{fixCorruptedText(check.ozel_alan) || (isRecordSenet ? 'SENET' : 'ÇEK')}</td>

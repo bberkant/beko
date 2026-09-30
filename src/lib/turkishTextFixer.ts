@@ -81,6 +81,18 @@ export const CORRUPTED_TURKISH_WORDS: Record<string, string> = {
 
   // Banking, Accounting & Commercial Terms
   'KRı': 'KREDİ',
+  'KRŞ': 'KREDİ',
+  'KRİ': 'KREDİ',
+  'KARİİLİİNDA': 'KARŞILIĞINDA',
+  'KARİILIİINDA': 'KARŞILIĞINDA',
+  'KARİİLİGİNDA': 'KARŞILIĞINDA',
+  'KARıILIıINDA': 'KARŞILIĞINDA',
+  'KARİİLİKLİ': 'KARŞILIKLI',
+  'KARİILIKLI': 'KARŞILIKLI',
+  'KARıILIKLI': 'KARŞILIKLI',
+  'BAİYURT': 'BAŞYURT',
+  'BAıYURT': 'BAŞYURT',
+  'KıFTEHANEM': 'KÖFTEHANEM',
   'BORı': 'BORÇ',
   'ıı': 'İÇ',
   'DIı': 'DIŞ',
@@ -482,6 +494,12 @@ export function fixCorruptedTurkishText(str: string | null | undefined, fieldNam
   s = s.replace(/SUDEDO[Iİı]AN\s+BAHARAT/gi, 'SUDEDOĞAN BAHARAT');
   s = s.replace(/[Iİı][Iİı]\s+BANKASI/gi, 'İŞ BANKASI');
   s = s.replace(/[Iİı][Iİı]BANK/gi, 'İŞBANK');
+  s = s.replace(/\bKAR[Iİı]+L[Iİı]+[NĞGİı]+DA\b/gi, 'KARŞILIĞINDA');
+  s = s.replace(/\bKAR[Iİı]+L[Iİı]+KL[Iİı]\b/gi, 'KARŞILIKLI');
+  s = s.replace(/\bBA[Iİı]YURT\b/gi, 'BAŞYURT');
+  s = s.replace(/\bK[Iİı]FTEHANEM\b/gi, 'KÖFTEHANEM');
+  s = s.replace(/\bK[Iİı]LADA[GĞIİı]+\b/gi, 'KÜLADAĞI');
+  s = s.replace(/\bKR[Şıİ]\b/g, 'KREDİ');
 
   // 3. Generic UTF-8 double-encoding artifacts
   s = s
