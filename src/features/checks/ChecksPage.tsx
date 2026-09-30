@@ -442,7 +442,7 @@ export function ChecksPage() {
   }, [openDropdown]);
 
   // Keşide Tarihi (Vade Tarihi) Filtreleme Durumları
-  const [dateFilterType, setDateFilterType] = useState<string>('all');
+  const [dateFilterType, setDateFilterType] = useState<string>('today');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [tempStartDate, setTempStartDate] = useState<string>('');
