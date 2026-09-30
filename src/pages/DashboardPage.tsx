@@ -77,13 +77,15 @@ interface ActivityLogItem {
   old_data: any;
 }
 
-const DASHBOARD_CACHE_KEY = 'dars_dashboard_cache_v6';
+const DASHBOARD_CACHE_KEY = 'dars_dashboard_cache_v7';
 
 interface DashboardCachedData {
   cashboxBalance: number;
   cashboxReportDate: string;
   thisWeekChecksTotal: number;
   thisWeekChecksCount: number;
+  todayKesilenTotal?: number;
+  todayKesilenCount?: number;
   upcomingChecks: UpcomingCheck[];
   branches: BranchSummary[];
   totalBranchBalance: number;
@@ -170,6 +172,8 @@ export function DashboardPage() {
   // 2. Checks data
   const [thisWeekChecksTotal, setThisWeekChecksTotal] = useState<number>(() => initialCache?.thisWeekChecksTotal || 0);
   const [thisWeekChecksCount, setThisWeekChecksCount] = useState<number>(() => initialCache?.thisWeekChecksCount || 0);
+  const [todayKesilenTotal, setTodayKesilenTotal] = useState<number>(() => initialCache?.todayKesilenTotal || 0);
+  const [todayKesilenCount, setTodayKesilenCount] = useState<number>(() => initialCache?.todayKesilenCount || 0);
   const [upcomingChecks, setUpcomingChecks] = useState<UpcomingCheck[]>(() => initialCache?.upcomingChecks || []);
 
   // 3. Branches data
@@ -344,79 +348,97 @@ export function DashboardPage() {
       const endOfWeekStr = formatYMD(endOfWeek);
       const todayStr = formatYMD(today);
 
-      // Sadece ödenmemiş / aktif çekleri sorgula (ebs_checks sütunları: bank_name, check_no, debtor, kesideci, creditor)
-      const { data: checksData, error: checksError } = await supabase
+      // 1. Bugünün kesilen çeklerini öncelikli sorgula
+      const { data: todayChecksData, error: todayChecksError } = await supabase
         .from('ebs_checks')
         .select('id, amount, due_date, debtor, creditor, kesideci, bank_name, status, check_no, check_type')
         .eq('organization_id', orgId)
-        .neq('status', 'Ödendi')
-        .neq('status', 'Tahsil Edildi')
+        .eq('check_type', 'kesilen')
+        .eq('due_date', todayStr)
         .neq('status', 'İptal')
-        .order('due_date', { ascending: true })
-        .limit(2000);
+        .order('amount', { ascending: false });
 
-      if (checksError) {
-        console.error('Checks fetch error:', checksError);
-        return;
+      if (todayChecksError) {
+        console.error('Today kesilen checks fetch error:', todayChecksError);
       }
 
-      if (Array.isArray(checksData)) {
-        let weekSum = 0;
-        let weekCount = 0;
+      // 2. Bu haftanın kesilen çekleri (özet KPI için)
+      const { data: weekChecksData, error: weekChecksError } = await supabase
+        .from('ebs_checks')
+        .select('id, amount, due_date, status, check_type')
+        .eq('organization_id', orgId)
+        .eq('check_type', 'kesilen')
+        .gte('due_date', startOfWeekStr)
+        .lte('due_date', endOfWeekStr)
+        .neq('status', 'İptal');
 
-        const unpaidChecks = checksData.filter(c => {
-          const st = (c.status || '').toLowerCase().trim();
-          return st !== 'ödendi' && st !== 'odendi' && st !== 'tahsil edildi' && st !== 'tahsil_edildi' && st !== 'iptal' && st !== 'iptal edildi';
-        });
+      if (weekChecksError) {
+        console.error('Week kesilen checks fetch error:', weekChecksError);
+      }
 
-        unpaidChecks.forEach(c => {
-          const dStr = (c.due_date || '').slice(0, 10);
-          if (dStr >= startOfWeekStr && dStr <= endOfWeekStr) {
-            weekSum += Number(c.amount || 0);
-            weekCount += 1;
-          }
-        });
+      let displayChecks: UpcomingCheck[] = [];
 
-        setThisWeekChecksTotal(weekSum);
-        setThisWeekChecksCount(weekCount);
+      if (todayChecksData && todayChecksData.length > 0) {
+        displayChecks = todayChecksData.map(c => ({
+          id: c.id,
+          amount: Number(c.amount || 0),
+          due_date: c.due_date || todayStr,
+          debtor: fixCorruptedTurkishText(c.creditor || c.kesideci || c.debtor || '—'),
+          bank: fixCorruptedTurkishText(c.bank_name || c.debtor || '—', 'bank_name'),
+          status: c.status || 'Tahsilde',
+          check_number: c.check_no,
+        }));
+      } else {
+        // Eğer bugüne ait kesilen çek yoksa en yakın ileri vadeli kesilen çekleri getir
+        const { data: fallbackChecks } = await supabase
+          .from('ebs_checks')
+          .select('id, amount, due_date, debtor, creditor, kesideci, bank_name, status, check_no, check_type')
+          .eq('organization_id', orgId)
+          .eq('check_type', 'kesilen')
+          .gte('due_date', todayStr)
+          .neq('status', 'Ödendi')
+          .neq('status', 'İptal')
+          .order('due_date', { ascending: true })
+          .limit(10);
 
-        // Vadesi bugün veya ileri tarihli olan bekleyen çekler (tarihe göre artan)
-        const upcomingList = unpaidChecks
-          .filter(c => (c.due_date || '').slice(0, 10) >= todayStr)
-          .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
-          .slice(0, 7)
-          .map(c => ({
+        if (fallbackChecks && fallbackChecks.length > 0) {
+          displayChecks = fallbackChecks.map(c => ({
             id: c.id,
             amount: Number(c.amount || 0),
             due_date: c.due_date || '',
-            debtor: fixCorruptedTurkishText(c.kesideci || c.debtor || c.creditor || '—'),
-            bank: fixCorruptedTurkishText(c.bank_name || '—', 'bank_name'),
-            status: c.status,
-            check_number: c.check_no,
-          }));
-
-        // Eğer ileri vadeli çek yoksa en yakın vadeli çekleri listele
-        let finalUpcoming = upcomingList;
-        if (finalUpcoming.length === 0 && unpaidChecks.length > 0) {
-          finalUpcoming = unpaidChecks.slice(0, 6).map(c => ({
-            id: c.id,
-            amount: Number(c.amount || 0),
-            due_date: c.due_date || '',
-            debtor: fixCorruptedTurkishText(c.kesideci || c.debtor || c.creditor || '—'),
-            bank: fixCorruptedTurkishText(c.bank_name || '—', 'bank_name'),
-            status: c.status,
+            debtor: fixCorruptedTurkishText(c.creditor || c.kesideci || c.debtor || '—'),
+            bank: fixCorruptedTurkishText(c.bank_name || c.debtor || '—', 'bank_name'),
+            status: c.status || 'Tahsilde',
             check_number: c.check_no,
           }));
         }
+      }
 
-        setUpcomingChecks(finalUpcoming);
+      const todayTotal = (todayChecksData || []).reduce((sum, c) => sum + Number(c.amount || 0), 0);
+      const todayCount = (todayChecksData || []).length;
 
-        saveDashboardCache({
-          thisWeekChecksTotal: weekSum,
-          thisWeekChecksCount: weekCount,
-          upcomingChecks: finalUpcoming,
+      let weekSum = 0;
+      let weekCount = 0;
+      if (Array.isArray(weekChecksData)) {
+        weekChecksData.forEach(c => {
+          weekSum += Number(c.amount || 0);
+          weekCount += 1;
         });
       }
+
+      setTodayKesilenTotal(todayTotal);
+      setTodayKesilenCount(todayCount);
+      setThisWeekChecksTotal(weekSum);
+      setThisWeekChecksCount(weekCount);
+      setUpcomingChecks(displayChecks);
+
+      saveDashboardCache({
+        todayKesilenTotal: todayTotal,
+        todayKesilenCount: todayCount,
+        thisWeekChecksTotal: weekSum,
+        thisWeekChecksCount: weekCount,
+        upcomingChecks: displayChecks,
+      });
     } catch (e) {
       console.warn('Checks fetch error:', e);
     }
@@ -584,28 +606,6 @@ export function DashboardPage() {
   // Helpers
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(val);
-  };
-
-  const getDaysRemainingBadge = (dueDateStr: string) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(dueDateStr);
-    due.setHours(0, 0, 0, 0);
-    const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) {
-      return <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700 border border-red-200">Gecikmiş ({Math.abs(diffDays)} gün)</span>;
-    }
-    if (diffDays === 0) {
-      return <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">Bugün</span>;
-    }
-    if (diffDays === 1) {
-      return <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">Yarın</span>;
-    }
-    if (diffDays <= 7) {
-      return <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">{diffDays} gün kaldı</span>;
-    }
-    return <span className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600 border border-gray-200">{diffDays} gün</span>;
   };
 
   const formatActivityText = (log: ActivityLogItem) => {
@@ -809,7 +809,7 @@ export function DashboardPage() {
           </Link>
         )}
 
-        {/* 2. Bu Hafta Vadesi Gelen Çekler */}
+        {/* 2. Kesilen Çekler: Bugünün Çekleri & Bu Hafta */}
         <Link
           to="/cekler"
           className="group relative rounded-2xl border border-amber-100 bg-gradient-to-br from-white to-amber-50/30 p-5 shadow-sm hover:shadow-md transition-all hover:border-amber-300 flex flex-col justify-between"
@@ -817,7 +817,7 @@ export function DashboardPage() {
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-amber-900/70">
-                Bu Hafta Vadesi Gelen Çekler
+                Bugün Kesilen Çekler
               </span>
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100/70 text-amber-700 group-hover:scale-105 transition-transform">
                 <CreditCard size={18} />
@@ -825,16 +825,20 @@ export function DashboardPage() {
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold tracking-tight text-gray-900">
-                {formatCurrency(thisWeekChecksTotal)}
+                {formatCurrency(todayKesilenCount > 0 ? todayKesilenTotal : thisWeekChecksTotal)}
               </h3>
               <p className="text-[11px] text-amber-700/90 mt-1 flex items-center gap-1 font-semibold">
                 <Clock size={12} />
-                {thisWeekChecksCount > 0 ? `Bu hafta vadesi dolan ${thisWeekChecksCount} adet çek` : 'Bu hafta vadeli çek bulunmuyor'}
+                {todayKesilenCount > 0
+                  ? `Bugün vadeli ${todayKesilenCount} adet çek (Bu hafta: ${thisWeekChecksCount} adet / ${formatCurrency(thisWeekChecksTotal)})`
+                  : thisWeekChecksCount > 0
+                  ? `Bu hafta vadesi dolan ${thisWeekChecksCount} adet çek`
+                  : 'Bugün vadeli kesilen çek bulunmuyor'}
               </p>
             </div>
           </div>
           <div className="mt-4 pt-3 border-t border-amber-100/60 flex items-center justify-between text-xs font-semibold text-amber-700 group-hover:translate-x-0.5 transition-transform">
-            <span>Çek Portföyü & Vade Listesi</span>
+            <span>Kesilen Çek Listesi & Vade Takibi</span>
             <ChevronRight size={14} />
           </div>
         </Link>
@@ -986,15 +990,20 @@ export function DashboardPage() {
 
       {/* 2-Column Detailed Section: Upcoming Checks & Real Activity Log */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column (7 Cols): Upcoming Checks & Maturities */}
+        {/* Left Column (7 Cols): Bugünün Kesilen Çekleri */}
         <div className="lg:col-span-7 rounded-2xl border border-gray-200/90 bg-white p-5 shadow-sm space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2">
                 <CreditCard className="text-[#f37021]" size={18} />
                 <h3 className="font-bold text-gray-900 text-sm">
-                  Yaklaşan Çek Vadeleri & Portföy Durumu
+                  Bugünün Kesilen Çekleri ({new Date().toLocaleDateString('tr-TR')})
                 </h3>
+                {upcomingChecks.length > 0 && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                    {upcomingChecks.length} Adet
+                  </span>
+                )}
               </div>
               <Link
                 to="/cekler"
@@ -1005,49 +1014,83 @@ export function DashboardPage() {
             </div>
 
             {/* Checks Table */}
-            <div className="mt-3 overflow-x-auto">
+            <div className="mt-3 overflow-x-auto max-h-[460px] overflow-y-auto">
               {loading && upcomingChecks.length === 0 ? (
                 <div className="py-12 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2">
                   <RefreshCw className="animate-spin text-[#f37021]" size={20} />
-                  <span>Çek portföyü yükleniyor...</span>
+                  <span>Kesilen çek listesi yükleniyor...</span>
                 </div>
               ) : upcomingChecks.length === 0 ? (
                 <div className="py-12 text-center text-gray-400 text-xs">
                   <CheckCircle2 size={24} className="mx-auto text-emerald-500 mb-2 opacity-80" />
-                  Yakın vadede bekleyen ödenmemiş çek kaydı bulunamadı.
+                  Bugün vadesi dolan kesilen çek kaydı bulunamadı.
                 </div>
               ) : (
                 <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider bg-gray-50/50">
-                      <th className="py-2 px-3">Vade</th>
-                      <th className="py-2 px-3">Keşideci / Borçlu</th>
-                      <th className="py-2 px-3">Banka</th>
-                      <th className="py-2 px-3 text-right">Tutar</th>
-                      <th className="py-2 px-3 text-center">Kalan Süre</th>
+                  <thead className="sticky top-0 bg-gray-50 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                    <tr className="border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                      <th className="py-2.5 px-3">Vade</th>
+                      <th className="py-2.5 px-3">Alacaklı Firma / Şahıs</th>
+                      <th className="py-2.5 px-3">Banka / Kanal</th>
+                      <th className="py-2.5 px-3 text-right">Tutar</th>
+                      <th className="py-2.5 px-3 text-center">Durum</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-medium">
-                    {upcomingChecks.map((c) => (
-                      <tr key={c.id} className="hover:bg-gray-50/60 transition-colors">
-                        <td className="py-2.5 px-3 font-semibold text-gray-900 whitespace-nowrap">
-                          {c.due_date ? new Date(c.due_date).toLocaleDateString('tr-TR') : '—'}
-                        </td>
-                        <td className="py-2.5 px-3 text-gray-800 max-w-[140px] truncate font-medium">
-                          {fixCorruptedTurkishText(c.debtor) || '—'}
-                        </td>
-                        <td className="py-2.5 px-3 text-gray-500 max-w-[100px] truncate">
-                          {fixCorruptedTurkishText(c.bank) || '—'}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-bold text-gray-900 whitespace-nowrap">
-                          {formatCurrency(Number(c.amount || 0))}
-                        </td>
-                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                          {c.due_date ? getDaysRemainingBadge(c.due_date) : '—'}
-                        </td>
-                      </tr>
-                    ))}
+                    {upcomingChecks.map((c) => {
+                      const isPaid = (c.status || '').toLowerCase().includes('ödendi') || (c.status || '').toLowerCase().includes('tahsil edildi');
+                      const isToday = c.due_date?.slice(0, 10) === new Date().toISOString().slice(0, 10);
+                      return (
+                        <tr key={c.id} className="hover:bg-amber-50/40 transition-colors">
+                          <td className="py-2.5 px-3 font-semibold text-gray-900 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <span>{c.due_date ? new Date(c.due_date).toLocaleDateString('tr-TR') : '—'}</span>
+                              {isToday && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800">
+                                  BUGÜN
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-gray-900 max-w-[150px] truncate font-semibold" title={c.debtor || ''}>
+                            {c.debtor || '—'}
+                          </td>
+                          <td className="py-2.5 px-3 text-gray-600 max-w-[110px] truncate" title={c.bank || ''}>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">
+                              {c.bank || '—'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold text-gray-900 whitespace-nowrap">
+                            {formatCurrency(Number(c.amount || 0))}
+                          </td>
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                isPaid
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}
+                            >
+                              {c.status || 'Tahsilde'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
+                  {upcomingChecks.length > 0 && (
+                    <tfoot className="bg-gray-50/80 font-bold border-t border-gray-200 text-gray-900">
+                      <tr>
+                        <td colSpan={3} className="py-2 px-3 text-right text-[11px] text-gray-600">
+                          Toplam ({upcomingChecks.length} Çek):
+                        </td>
+                        <td className="py-2 px-3 text-right text-xs text-brand-700 font-extrabold whitespace-nowrap">
+                          {formatCurrency(upcomingChecks.reduce((s, c) => s + Number(c.amount || 0), 0))}
+                        </td>
+                        <td className="py-2 px-3"></td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               )}
             </div>
@@ -1056,7 +1099,7 @@ export function DashboardPage() {
           <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
             <span className="flex items-center gap-1 text-[11px]">
               <AlertCircle size={13} className="text-amber-500" />
-              Vadeler her sabah otomatik kontrol edilir ve hatırlatılır.
+              Bugünkü kesilen çekler EBS muhasebe veritabanından anlık çekilmektedir.
             </span>
             <Link to="/cekler" className="font-semibold text-brand-600 hover:underline">
               EBS Çek Entegrasyonu →
