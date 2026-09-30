@@ -21,6 +21,7 @@
     "lucide-react": "^0.400.0",
     "node-firebird": "^2.14.0",
     "pdfjs-dist": "^4.10.38",
+    "pg": "^8.23.0",
     "pino": "^10.3.1",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
