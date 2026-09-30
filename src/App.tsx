@@ -201,6 +201,7 @@ export default function App() {
                 <Route path="/kesim-listesi" element={<KesimListesiPage />} />
                 <Route path="/kesim-listesi/cari" element={<KesimListesiCariPage />} />
                 <Route path="/belgeler" element={<DocumentsPage />} />
+                <Route path="/evraklar" element={<DocumentsPage />} />
                 <Route path="/takvim" element={<CalendarPage />} />
                 <Route path="/ai-asistan" element={<AiAssistantPage />} />
                 <Route path="/bildirimler" element={<NotificationsPage />} />

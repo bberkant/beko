@@ -171,7 +171,7 @@ export const navItems: NavItem[] = [
   },
   { label: 'Bildirimler', to: '/bildirimler', icon: Bell },
   { label: 'Takvim', to: '/takvim', icon: CalendarDays },
-  { label: 'Belgeler', to: '/belgeler', icon: FileText },
+  { label: 'Evraklar', to: '/belgeler', icon: FileText },
   { label: 'AI Asistan', to: '/ai-asistan', icon: Sparkles },
   { label: 'Aktivite Günlüğü', to: '/aktivite-gunlugu', icon: History },
   { 

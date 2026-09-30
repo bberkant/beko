@@ -94,6 +94,7 @@ const getIconBgColor = (label: string, isActive: boolean) => {
     case 'Takvim':
       return 'bg-sky-50 text-sky-500 border border-sky-100';
     case 'Belgeler':
+    case 'Evraklar':
       return 'bg-gray-50 text-gray-500 border border-gray-100';
     case 'AI Asistan':
       return 'bg-violet-50 text-violet-500 border border-violet-100';
@@ -132,7 +133,7 @@ const getBulutErpIconStyle = (label: string) => {
   if (lower.includes('ihaleler') || lower.includes('gayrimenkul') || lower.includes('kesim')) {
     return { bg: 'bg-violet-500', text: 'text-white' };
   }
-  if (lower.includes('takvim') || lower.includes('bildirim') || lower.includes('belge')) {
+  if (lower.includes('takvim') || lower.includes('bildirim') || lower.includes('belge') || lower.includes('evrak')) {
     return { bg: 'bg-amber-500', text: 'text-white' };
   }
   if (lower.includes('ayarlar') || lower.includes('kullanıcı') || lower.includes('aktivite')) {
@@ -151,7 +152,7 @@ const getBulutErpIconComponent = (label: string, DefaultIcon: any) => {
   if (lower.includes('kesim')) return Package;
   if (lower.includes('gayrimenkul')) return Briefcase;
   if (lower.includes('takvim')) return DefaultIcon;
-  if (lower.includes('belge')) return Cloud;
+  if (lower.includes('belge') || lower.includes('evrak')) return Cloud;
   if (lower.includes('asistan')) return Lightbulb;
   if (lower.includes('kullanıcı')) return DefaultIcon;
   if (lower.includes('aktivite') || lower.includes('ayar')) return Sliders;
@@ -416,6 +417,22 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
             config.order.push('WhatsApp');
           }
           localStorage.setItem(`sidebar_custom_${user.email}`, JSON.stringify(config));
+        }
+
+        // Otomatik migrasyon: "Belgeler" ismini "Evraklar" olarak güncelle
+        if (config.order) {
+          const belgelerIdx = config.order.indexOf('Belgeler');
+          if (belgelerIdx !== -1) {
+            config.order[belgelerIdx] = 'Evraklar';
+            localStorage.setItem(`sidebar_custom_${user.email}`, JSON.stringify(config));
+          }
+        }
+        if (config.hidden) {
+          const hiddenBelgelerIdx = config.hidden.indexOf('Belgeler');
+          if (hiddenBelgelerIdx !== -1) {
+            config.hidden[hiddenBelgelerIdx] = 'Evraklar';
+            localStorage.setItem(`sidebar_custom_${user.email}`, JSON.stringify(config));
+          }
         }
 
         const itemsMap = new Map(navItems.map(item => [item.label, item]));

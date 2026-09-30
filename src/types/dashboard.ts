@@ -124,10 +124,10 @@ export const operationModules: OperationModule[] = [
   },
   {
     id: 'belgeler',
-    label: 'Belgeler',
+    label: 'Evraklar',
     status: 'green',
-    summary: 'Belgeler güncel',
-    detail: '5 belge onay bekliyor',
+    summary: 'Evraklar güncel',
+    detail: '5 evrak onay bekliyor',
     icon: FileText,
   },
 ];

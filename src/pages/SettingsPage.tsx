@@ -38,9 +38,11 @@ export function SettingsPage() {
     if (!stored) return { order: defaultOrder, hidden: [] };
     try {
       const parsed = JSON.parse(stored);
+      const order = (parsed.order || defaultOrder).map((l: string) => l === 'Belgeler' ? 'Evraklar' : l);
+      const hidden = (parsed.hidden || []).map((l: string) => l === 'Belgeler' ? 'Evraklar' : l);
       return {
-        order: parsed.order || defaultOrder,
-        hidden: parsed.hidden || []
+        order,
+        hidden
       };
     } catch {
       return { order: defaultOrder, hidden: [] };

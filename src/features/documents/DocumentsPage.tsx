@@ -457,8 +457,8 @@ export function DocumentsPage() {
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
-        title="Belgeler"
-        description="Tüm şirket dokümanlarını ve kredi kartı ekstrelerini Windows klasör yapısı görünümünde yönetin."
+        title="Evraklar"
+        description="Tüm şirket evraklarını ve kredi kartı ekstrelerini Windows klasör yapısı görünümünde yönetin."
         actions={
           canManage && (
             <button className="btn-primary" onClick={handleNewUpload}>
@@ -478,7 +478,7 @@ export function DocumentsPage() {
               activeErpTab === 'belgeler' ? 'border-[#f37021] text-[#f37021]' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            Belge Yönetim Paneli
+            Evrak Yönetim Paneli
           </button>
           <button
             onClick={() => setActiveErpTab('efatura')}
