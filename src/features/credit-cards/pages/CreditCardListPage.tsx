@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Upload, Download, SlidersHorizontal, Search,
-  AlertTriangle, CreditCard as CreditCardIcon, Wallet, Clock, Gauge, AlertOctagon, Eye, ReceiptText, Pencil, ChevronDown,
+  AlertTriangle, CreditCard as CreditCardIcon, Wallet, Clock, Gauge, AlertOctagon, Eye, ReceiptText, Pencil, ChevronDown, ChevronUp, ArrowUpDown,
   Archive, RotateCcw,
 } from 'lucide-react';
 import { PageHeader } from '../../../components/ui/PageHeader';
@@ -38,6 +38,17 @@ interface Filters {
 const emptyFilters: Filters = {
   bank: '', status: '', dueRange: '', holder: '', usageRange: '', statementStatus: '',
 };
+
+type SortField =
+  | 'bank'
+  | 'last4'
+  | 'statementDay'
+  | 'dueDate'
+  | 'limit'
+  | 'currentDebt'
+  | 'holder'
+  | 'statementStatus'
+  | 'status';
 
 function InlineTextCell({
   value,
@@ -140,6 +151,39 @@ export function CreditCardListPage() {
   const [pickerSearch, setPickerSearch] = useState('');
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [passiveCardsModalOpen, setPassiveCardsModalOpen] = useState(false);
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortAsc, setSortAsc] = useState<boolean>(true);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortAsc) {
+        setSortAsc(false);
+      } else {
+        setSortField(null);
+        setSortAsc(true);
+      }
+    } else {
+      setSortField(field);
+      if (field === 'limit' || field === 'currentDebt') {
+        setSortAsc(false);
+      } else {
+        setSortAsc(true);
+      }
+    }
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField === field) {
+      return sortAsc ? (
+        <ChevronUp size={13} className="text-brand-600 font-bold shrink-0" />
+      ) : (
+        <ChevronDown size={13} className="text-brand-600 font-bold shrink-0" />
+      );
+    }
+    return (
+      <ArrowUpDown size={12} className="text-gray-300 group-hover:text-gray-500 shrink-0 transition-colors" />
+    );
+  };
 
   const passiveCards = useMemo(() => cards.filter((c) => c.status === 'pasif'), [cards]);
   const banks = useMemo(() => Array.from(new Set(cards.map((c) => c.bank))), [cards]);
@@ -197,6 +241,61 @@ export function CreditCardListPage() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      const dateA = dueDates.get(a.id) ?? '';
+      const dateB = dueDates.get(b.id) ?? '';
+
+      // Kullanıcı bir sütuna tıklayarak sıralama seçtiyse
+      if (sortField) {
+        const modifier = sortAsc ? 1 : -1;
+        if (sortField === 'bank') {
+          const cmp = a.bank.localeCompare(b.bank, 'tr-TR');
+          return (cmp !== 0 ? cmp : (a.cardName || '').localeCompare(b.cardName || '', 'tr-TR')) * modifier;
+        }
+        if (sortField === 'last4') {
+          const numA = parseInt(a.last4, 10) || 0;
+          const numB = parseInt(b.last4, 10) || 0;
+          return (numA - numB) * modifier;
+        }
+        if (sortField === 'statementDay') {
+          const dayA = Number(a.statementDay) || 0;
+          const dayB = Number(b.statementDay) || 0;
+          return (dayA - dayB) * modifier;
+        }
+        if (sortField === 'dueDate') {
+          const dA = dateA || '9999-99-99';
+          const dB = dateB || '9999-99-99';
+          return dA.localeCompare(dB) * modifier;
+        }
+        if (sortField === 'limit') {
+          const limA = Number(a.limit) || 0;
+          const limB = Number(b.limit) || 0;
+          return (limA - limB) * modifier;
+        }
+        if (sortField === 'currentDebt') {
+          const debtA = resolveCardOutstandingDebt(a, statements);
+          const debtB = resolveCardOutstandingDebt(b, statements);
+          return (debtA - debtB) * modifier;
+        }
+        if (sortField === 'holder') {
+          const hA = (a.holder || '').trim();
+          const hB = (b.holder || '').trim();
+          if (!hA && hB) return 1;
+          if (hA && !hB) return -1;
+          return hA.localeCompare(hB, 'tr-TR') * modifier;
+        }
+        if (sortField === 'statementStatus') {
+          const sA = (a.statementStatus || '').trim();
+          const sB = (b.statementStatus || '').trim();
+          return sA.localeCompare(sB, 'tr-TR') * modifier;
+        }
+        if (sortField === 'status') {
+          const stA = (a.status || '').trim();
+          const stB = (b.status || '').trim();
+          return stA.localeCompare(stB, 'tr-TR') * modifier;
+        }
+      }
+
+      // Varsayılan Akıllı Sıralama (Hiçbir sütun seçili değilken)
       const limitA = Number(a.limit) || 0;
       const limitB = Number(b.limit) || 0;
       const hasLimitA = limitA > 0;
@@ -213,9 +312,6 @@ export function CreditCardListPage() {
       const debtB = resolveCardOutstandingDebt(b, statements);
       const hasDebtA = debtA > 0;
       const hasDebtB = debtB > 0;
-
-      const dateA = dueDates.get(a.id) ?? '';
-      const dateB = dueDates.get(b.id) ?? '';
 
       const diffA = dateA ? Math.round((new Date(`${dateA}T00:00:00`).getTime() - today.getTime()) / 86400000) : 999;
       const diffB = dateB ? Math.round((new Date(`${dateB}T00:00:00`).getTime() - today.getTime()) / 86400000) : 999;
@@ -238,7 +334,7 @@ export function CreditCardListPage() {
 
       return a.bank.localeCompare(b.bank, 'tr');
     });
-  }, [cards, statements, search, filters]);
+  }, [cards, statements, search, filters, sortField, sortAsc]);
 
   const kpis = useMemo(() => {
     const activeCards = cards.filter((c) => (Number(c.limit) || 0) > 0);
@@ -739,16 +835,103 @@ export function CreditCardListPage() {
           <table className="w-full table-fixed divide-y divide-gray-200">
             <thead className="bg-gray-50/60">
               <tr>
-                <th className="table-th w-[4%] !px-1 text-center">#</th>
-                <th className="table-th w-[14%] !px-2">Kart</th>
-                <th className="table-th w-[7%] !px-2 text-center">Son 4</th>
-                <th className="table-th w-[10%] !px-2 text-center pr-8">Hesap Kesim Tarihi</th>
-                <th className="table-th w-[15%] !px-2 text-center pr-8">Son Ödeme</th>
-                <th className="table-th w-[9%] !px-2 text-center pr-8">Limit</th>
-                <th className="table-th w-[9%] !px-2 text-center pr-8">Borç</th>
-                <th className="table-th w-[10%] !px-2">Kullanan</th>
-                <th className="table-th w-[8%] !px-2">Ekstre</th>
-                <th className="table-th w-[7%] !px-2">Durum</th>
+                <th
+                  onClick={() => { setSortField(null); setSortAsc(true); }}
+                  className="table-th w-[4%] !px-1 text-center cursor-pointer hover:bg-gray-100/70 transition-colors select-none"
+                  title="Varsayılan sıralamaya dön"
+                >
+                  #
+                </th>
+                <th
+                  onClick={() => handleSort('bank')}
+                  className="table-th w-[14%] !px-2 cursor-pointer hover:bg-gray-100/70 transition-colors select-none group"
+                  title="Banka / Kart adına göre sırala"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Kart</span>
+                    {renderSortIcon('bank')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('last4')}
+                  className="table-th w-[7%] !px-2 text-center cursor-pointer hover:bg-gray-100/70 transition-colors select-none group"
+                  title="Son 4 haneye göre sırala"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Son 4</span>
+                    {renderSortIcon('last4')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('statementDay')}
+                  className="table-th w-[10%] !px-2 text-center pr-8 cursor-pointer hover:bg-gray-100/70 transition-colors select-none group"
+                  title="Hesap kesim gününe göre sırala"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Hesap Kesim Tarihi</span>
+                    {renderSortIcon('statementDay')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('dueDate')}
+                  className="table-th w-[15%] !px-2 text-center pr-8 cursor-pointer hover:bg-gray-100/70 transition-colors select-none group"
+                  title="Son ödeme tarihine göre sırala"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Son Ödeme</span>
+                    {renderSortIcon('dueDate')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('limit')}
+                  className="table-th w-[9%] !px-2 text-center pr-8 cursor-pointer hover:bg-gray-100/70 transition-colors select-none group"
+                  title="Kart limitine göre sırala"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Limit</span>
+                    {renderSortIcon('limit')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('currentDebt')}
+                  className="table-th w-[9%] !px-2 text-center pr-8 cursor-pointer hover:bg-gray-100/70 transition-colors select-none group"
+                  title="Güncel borca göre sırala"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Borç</span>
+                    {renderSortIcon('currentDebt')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('holder')}
+                  className="table-th w-[10%] !px-2 cursor-pointer hover:bg-gray-100/70 transition-colors select-none group"
+                  title="Kartı kullanan personele göre sırala"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Kullanan</span>
+                    {renderSortIcon('holder')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('statementStatus')}
+                  className="table-th w-[8%] !px-2 cursor-pointer hover:bg-gray-100/70 transition-colors select-none group"
+                  title="Ekstre durumuna göre sırala"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Ekstre</span>
+                    {renderSortIcon('statementStatus')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('status')}
+                  className="table-th w-[7%] !px-2 cursor-pointer hover:bg-gray-100/70 transition-colors select-none group"
+                  title="Kart durumuna göre sırala"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Durum</span>
+                    {renderSortIcon('status')}
+                  </div>
+                </th>
                 <th className="table-th w-[5%] !px-1 text-center" aria-label="İşlemler"></th>
               </tr>
             </thead>
