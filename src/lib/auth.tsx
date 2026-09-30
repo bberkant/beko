@@ -129,7 +129,7 @@ export function isStrictAdminOrBerkant(user?: { email?: string; name?: string; r
     role === 'süper yönetici'
   ) {
     if (isSuleymanOrMustafaDemir(user)) return false;
-    if (['hasan', 'serdar', 'drama', 'burak', 'cem', 'mert', 'onder', 'önder'].includes(rawKey)) {
+    if (['hasan', 'serdar', 'drama', 'burak', 'cem', 'mert', 'onder', 'önder', 'deneme'].includes(rawKey)) {
       return false;
     }
     return true;
@@ -249,6 +249,16 @@ export const KNOWN_STAFF_USERS: StaffRegistryUser[] = [
     rawRole: 'muhasebe',
     defaultPassword: '365200',
   },
+  {
+    id: 'd3de0000-8888-4444-9999-000000000001',
+    name: 'Deneme',
+    username: 'deneme',
+    aliases: ['deneme', 'deneme@dars.local', 'deneme@ops360.local'],
+    email: 'deneme',
+    role: 'Görüntüleyici',
+    rawRole: 'goruntuleyici',
+    defaultPassword: '365200',
+  },
 ];
 
 export function normalizeUserKey(input?: string | null): string {
@@ -290,6 +300,70 @@ export function getCustomStaffPassword(userIdOrEmail: string): string | null {
   } catch {
     return null;
   }
+}
+
+const CUSTOM_STAFF_STORAGE_KEY = 'dars_custom_created_staff';
+
+export function getCustomStaffUsers(): StaffRegistryUser[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_STAFF_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomStaffUser(user: StaffRegistryUser) {
+  try {
+    const existing = getCustomStaffUsers();
+    const filtered = existing.filter(
+      (u) => normalizeUserKey(u.username) !== normalizeUserKey(user.username) && u.id !== user.id
+    );
+    filtered.push(user);
+    localStorage.setItem(CUSTOM_STAFF_STORAGE_KEY, JSON.stringify(filtered));
+  } catch (err) {
+    console.warn('Custom staff user kaydedilemedi:', err);
+  }
+}
+
+export function updateCustomStaffUser(user: Partial<StaffRegistryUser> & { id: string }) {
+  try {
+    const existing = getCustomStaffUsers();
+    const index = existing.findIndex((u) => u.id === user.id);
+    if (index !== -1) {
+      existing[index] = { ...existing[index], ...user };
+      localStorage.setItem(CUSTOM_STAFF_STORAGE_KEY, JSON.stringify(existing));
+    }
+  } catch (err) {
+    console.warn('Custom staff user güncellenemedi:', err);
+  }
+}
+
+export function deleteCustomStaffUser(userIdOrEmail: string) {
+  try {
+    const existing = getCustomStaffUsers();
+    const targetKey = normalizeUserKey(userIdOrEmail);
+    const filtered = existing.filter(
+      (u) => u.id !== userIdOrEmail && normalizeUserKey(u.username) !== targetKey && normalizeUserKey(u.email) !== targetKey
+    );
+    localStorage.setItem(CUSTOM_STAFF_STORAGE_KEY, JSON.stringify(filtered));
+  } catch (err) {
+    console.warn('Custom staff user silinemedi:', err);
+  }
+}
+
+export function getAllStaffUsers(): StaffRegistryUser[] {
+  const customUsers = getCustomStaffUsers();
+  const map = new Map<string, StaffRegistryUser>();
+  for (const u of KNOWN_STAFF_USERS) {
+    map.set(normalizeUserKey(u.username), u);
+  }
+  for (const u of customUsers) {
+    map.set(normalizeUserKey(u.username), u);
+  }
+  return Array.from(map.values());
 }
 
 export async function ensureSupabaseBackendSession(): Promise<Session | null> {
@@ -505,7 +579,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cleanPass = password.trim();
 
     // 1. Check if it matches a known staff user
-    let matchedUser = KNOWN_STAFF_USERS.find(u => {
+    const allStaff = getAllStaffUsers();
+    let matchedUser = allStaff.find(u => {
       if (normalizeUserKey(u.username) === inputKey) return true;
       if (normalizeUserKey(u.name) === inputKey) return true;
       if (normalizeUserKey(u.email) === inputKey) return true;
@@ -554,7 +629,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                          getCustomStaffPassword(matchedUser.username);
       
       const isCustomMatch = customPass ? cleanPass === customPass : false;
-      const isStaffDefaultMatch = !isAdminOrBerkant && cleanPass === '365200';
+      const isStaffDefaultMatch = !isAdminOrBerkant && (cleanPass === '365200' || cleanPass === (matchedUser.defaultPassword || '365200'));
       const isAdminMatch = isAdminOrBerkant && cleanPass === '123berkant_';
 
       if (!isCustomMatch && !isStaffDefaultMatch && !isAdminMatch) {

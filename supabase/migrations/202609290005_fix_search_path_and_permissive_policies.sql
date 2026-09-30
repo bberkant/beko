@@ -10,8 +10,8 @@
 ALTER FUNCTION public.calculate_kesim_fields() SET search_path = public, pg_temp;
 ALTER FUNCTION public.log_activity_changes() SET search_path = public, pg_temp;
 ALTER FUNCTION public.is_admin_or_super_admin(uuid) SET search_path = public, pg_temp;
-ALTER FUNCTION public.admin_create_user(text, text, text, text) SET search_path = public, pg_temp;
-ALTER FUNCTION public.admin_update_user(uuid, text, text, text) SET search_path = public, pg_temp;
+ALTER FUNCTION public.admin_create_user(text, text, text, text) SET search_path = public, extensions, pg_temp;
+ALTER FUNCTION public.admin_update_user(uuid, text, text, text) SET search_path = public, extensions, pg_temp;
 ALTER FUNCTION public.preserve_ebs_checks_customizations() SET search_path = public, pg_temp;
 
 

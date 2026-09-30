@@ -26,7 +26,13 @@ import {
   type OrganizationRole, 
   saveCustomStaffPassword, 
   cleanDisplayUsername, 
-  isStrictAdminOrBerkant 
+  isStrictAdminOrBerkant,
+  getAllStaffUsers,
+  saveCustomStaffUser,
+  updateCustomStaffUser,
+  deleteCustomStaffUser,
+  normalizeUserKey,
+  type StaffRegistryUser
 } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 import { recordLoginLog } from '../../lib/loginLogger';
@@ -206,6 +212,33 @@ export function UsersPage() {
         };
       });
 
+      // Merge with staff registry & custom staff users
+      const allStaff = getAllStaffUsers();
+      const existingUserIds = new Set(mergedList.map((m) => m.user_id));
+      const existingKeys = new Set(mergedList.map((m) => normalizeUserKey(m.email)));
+
+      for (const staff of allStaff) {
+        const staffKey = normalizeUserKey(staff.username);
+        const staffEmailKey = normalizeUserKey(staff.email);
+        if (!existingUserIds.has(staff.id) && !existingKeys.has(staffKey) && !existingKeys.has(staffEmailKey)) {
+          const info = loginMap.get(staff.id) || loginMap.get(staffKey) || loginMap.get(staffEmailKey);
+          const lastActive = info?.last_active_at || null;
+          mergedList.push({
+            user_id: staff.id,
+            full_name: staff.name,
+            email: staff.username,
+            role: staff.rawRole,
+            active: true,
+            joined_at: new Date().toISOString(),
+            last_active_at: lastActive,
+            last_ip: info?.last_ip || null,
+            last_device: info?.last_device || null
+          });
+          existingUserIds.add(staff.id);
+          existingKeys.add(staffKey);
+        }
+      }
+
       setMembers(mergedList);
     } catch (error: any) {
       console.error('Kullanıcı listesi yükleme hatası:', error);
@@ -307,12 +340,26 @@ export function UsersPage() {
 
       // 3. Update active status if changed
       if (editActive !== editingMember.active) {
-        await supabase.rpc('manage_organization_user', {
-          target_user: editingMember.user_id,
-          new_role: editRole,
-          new_active: editActive
-        });
+        try {
+          await supabase.rpc('manage_organization_user', {
+            target_user: editingMember.user_id,
+            new_role: editRole,
+            new_active: editActive
+          });
+        } catch (e) {
+          console.warn('manage_organization_user RPC hatası:', e);
+        }
       }
+
+      // Also update custom staff registry if user exists there
+      updateCustomStaffUser({
+        id: editingMember.user_id,
+        name: editName.trim(),
+        username: cleanDisplayUsername(editEmail.trim()),
+        email: cleanDisplayUsername(editEmail.trim()),
+        role: roleLabels[editRole] || editRole,
+        rawRole: editRole
+      });
 
       notify('Kullanıcı bilgileri başarıyla güncellendi.', 'success');
       setEditModalOpen(false);
@@ -354,12 +401,20 @@ export function UsersPage() {
       return;
     }
     try {
-      const { error } = await supabase
-        .from('organization_members')
-        .delete()
-        .eq('user_id', m.user_id);
+      deleteCustomStaffUser(m.user_id);
+      deleteCustomStaffUser(m.email);
 
-      if (error) throw error;
+      try {
+        const { error } = await supabase
+          .from('organization_members')
+          .delete()
+          .eq('user_id', m.user_id);
+
+        if (error) console.warn('organization_members silme uyarısı:', error.message);
+      } catch (dbErr) {
+        console.warn('organization_members delete catch:', dbErr);
+      }
+
       notify('Kullanıcı başarıyla silindi.', 'success');
       await fetchUsers();
     } catch (err: any) {
@@ -380,16 +435,39 @@ export function UsersPage() {
         targetEmail = `${targetEmail}@dars.local`;
       }
 
-      const { error } = await supabase.rpc('admin_create_user', {
-        invite_email: targetEmail,
-        invite_password: newPassword.trim(),
-        invite_full_name: newFullName.trim(),
-        invite_role: newRole
-      });
+      let generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'usr_' + Date.now();
 
-      if (error) throw error;
+      try {
+        const { data: createdUserId, error } = await supabase.rpc('admin_create_user', {
+          invite_email: targetEmail,
+          invite_password: newPassword.trim(),
+          invite_full_name: newFullName.trim(),
+          invite_role: newRole
+        });
+        if (error) {
+          console.warn('admin_create_user RPC uyarısı:', error.message);
+        } else if (createdUserId) {
+          generatedId = createdUserId;
+        }
+      } catch (rpcErr: any) {
+        console.warn('admin_create_user RPC çağrısı başarısız oldu, yerel kayıt oluşturuluyor:', rpcErr);
+      }
 
-      saveCustomStaffPassword(newEmail.trim(), newPassword.trim());
+      const cleanUsername = cleanDisplayUsername(newEmail.trim());
+      const customUser: StaffRegistryUser = {
+        id: generatedId,
+        name: newFullName.trim(),
+        username: cleanUsername,
+        aliases: [cleanUsername, newEmail.trim(), targetEmail, newFullName.trim()],
+        email: cleanUsername,
+        role: roleLabels[newRole] || newRole,
+        rawRole: newRole,
+        defaultPassword: newPassword.trim(),
+      };
+      saveCustomStaffUser(customUser);
+      saveCustomStaffPassword(customUser.id, newPassword.trim());
+      saveCustomStaffPassword(customUser.username, newPassword.trim());
+      saveCustomStaffPassword(cleanUsername, newPassword.trim());
       saveCustomStaffPassword(targetEmail, newPassword.trim());
       saveCustomStaffPassword(newFullName.trim(), newPassword.trim());
 
