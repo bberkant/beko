@@ -30,6 +30,7 @@ export interface NavItem {
   label: string;
   to: string;
   icon: LucideIcon;
+  badge?: string;
   children?: NavChild[];
 }
 
@@ -164,14 +165,9 @@ export const navItems: NavItem[] = [
   { label: 'Ay Sonu', to: '/ay-sonu', icon: TrendingUp },
   {
     label: 'WhatsApp',
-    to: '/whatsapp/sohbetler',
+    to: '/whatsapp',
     icon: MessageSquare,
-    children: [
-      { label: 'WhatsApp Sohbetleri', to: '/whatsapp/sohbetler' },
-      { label: 'Gelen Fiş & Belge Havuzu', to: '/whatsapp/belgeler' },
-      { label: 'Grup Görevleri', to: '/whatsapp/gorevler' },
-      { label: 'Grup Ayarları', to: '/whatsapp/ayarlar' },
-    ],
+    badge: 'Geliştiriliyor',
   },
   { label: 'Bildirimler', to: '/bildirimler', icon: Bell },
   { label: 'Takvim', to: '/takvim', icon: CalendarDays },

@@ -471,11 +471,12 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
         return null;
       }
 
-      // WhatsApp Sohbetleri herkese açıktır; Operasyon alt menüleri sadece Admin'e özeldir
-      if (item.label === 'WhatsApp' && !isWhatsAppOperasyonAllowed) {
+      // WhatsApp modülü şuanlık bakımda / geliştirilme aşamasındadır
+      if (item.label === 'WhatsApp') {
         return {
           ...item,
-          to: '/whatsapp/sohbetler',
+          to: '/whatsapp',
+          badge: 'Geliştiriliyor',
           children: undefined
         };
       }
@@ -626,7 +627,16 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
           }
         >
           <Icon size={18} className="shrink-0" />
-          {!collapsed && <span>{item.label}</span>}
+          {!collapsed && (
+            <>
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.badge && (
+                <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                  {item.badge}
+                </span>
+              )}
+            </>
+          )}
         </NavLink>
       );
     }
@@ -720,7 +730,14 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
         >
           <Icon size={17} className="shrink-0 text-white" strokeWidth={2} style={{ color: '#ffffff' }} />
           {!collapsed && (
-            <span className="flex-1 text-left text-white" style={{ color: '#ffffff' }}>{item.label}</span>
+            <>
+              <span className="flex-1 text-left text-white" style={{ color: '#ffffff' }}>{item.label}</span>
+              {item.badge && (
+                <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                  {item.badge}
+                </span>
+              )}
+            </>
           )}
         </NavLink>
       );
@@ -810,7 +827,14 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
             <BulutIcon size={11} strokeWidth={2.5} />
           </div>
           {!collapsed && (
-            <span className="flex-1 text-left">{item.label}</span>
+            <>
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.badge && (
+                <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                  {item.badge}
+                </span>
+              )}
+            </>
           )}
         </NavLink>
       );
@@ -906,7 +930,14 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
         </div>
         
         {!collapsed && (
-          <span className="flex-1 text-left">{item.label}</span>
+          <>
+            <span className="flex-1 text-left">{item.label}</span>
+            {item.badge && (
+              <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                {item.badge}
+              </span>
+            )}
+          </>
         )}
       </NavLink>
     );
