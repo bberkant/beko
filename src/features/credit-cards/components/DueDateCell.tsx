@@ -40,7 +40,7 @@ export function DueDateCell({ dueDate, statementStatus, currentDebt: _currentDeb
   }
 
   if (isSoon) {
-    const isCritical = diffDays <= 2;
+    const isCritical = diffDays <= 4;
     return (
       <div className="flex items-center gap-1.5">
         <Clock size={14} className={isCritical ? "text-amber-600 animate-pulse" : "text-amber-500"} />
@@ -51,8 +51,8 @@ export function DueDateCell({ dueDate, statementStatus, currentDebt: _currentDeb
           <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-black text-red-700">(bugün)</span>
         ) : diffDays === 1 ? (
           <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-black text-amber-800">(yarın)</span>
-        ) : diffDays === 2 ? (
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-black text-amber-800">(son 2 gün)</span>
+        ) : diffDays <= 4 ? (
+          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-black text-amber-800">(son {diffDays} gün)</span>
         ) : (
           <span className="text-xs text-amber-600 font-medium">({diffDays} gün)</span>
         )}

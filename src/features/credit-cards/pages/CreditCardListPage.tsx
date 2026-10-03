@@ -316,9 +316,9 @@ export function CreditCardListPage() {
       const diffA = dateA ? Math.round((new Date(`${dateA}T00:00:00`).getTime() - today.getTime()) / 86400000) : 999;
       const diffB = dateB ? Math.round((new Date(`${dateB}T00:00:00`).getTime() - today.getTime()) / 86400000) : 999;
 
-      // 1. ÖNCELİK: Vadesi acil / kritik olanlar (bugün, yarın, son 2 gün veya gecikmişler: diff <= 2) her zaman en tepede yer alır!
-      const isCriticalA = diffA <= 2;
-      const isCriticalB = diffB <= 2;
+      // 1. ÖNCELİK: Vadesi acil / kritik olanlar (bugün, yarın, son 4 gün veya gecikmişler: diff <= 4) her zaman en tepede yer alır!
+      const isCriticalA = diffA <= 4;
+      const isCriticalB = diffB <= 4;
       if (isCriticalA && !isCriticalB) return -1;
       if (!isCriticalA && isCriticalB) return 1;
 
@@ -358,7 +358,7 @@ export function CreditCardListPage() {
     const critical = cardsWithBilling.filter(({ dueDate }) => {
       const due = new Date(`${dueDate}T00:00:00`);
       const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
-      return diff >= 0 && diff <= 2;
+      return diff >= 0 && diff <= 4;
     }).length;
     return { total: activeCards.length, totalLimit, totalDebt, in7, avgUsage, critical };
   }, [cards, statements]);
@@ -631,7 +631,7 @@ export function CreditCardListPage() {
     { id: 'debt', label: 'Toplam Güncel Borç', value: formatTRY(kpis.totalDebt), icon: CreditCardIcon, hint: 'tüm kartlar' },
     { id: 'in7', label: '7 Gün İçinde Ödenecek', value: formatTRY(kpis.in7), icon: Clock, hint: 'yaklaşan' },
     { id: 'avg', label: 'Ortalama Limit Kullanımı', value: `%${kpis.avgUsage}`, icon: Gauge, hint: 'tüm kartlar' },
-    { id: 'crit', label: 'Son Ödemesine 2 Gün Kalan Kartlar', value: String(kpis.critical), icon: AlertOctagon, hint: 'yaklaşan' },
+    { id: 'crit', label: 'Son Ödemesine 4 Gün Kalan Kartlar', value: String(kpis.critical), icon: AlertOctagon, hint: 'yaklaşan' },
   ];
 
   return (
