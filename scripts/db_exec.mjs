@@ -47,7 +47,7 @@ if (process.argv[1] === __filename) {
   }
 
   let sql = arg;
-  if (fs.existsSync(arg)) {
+  if (!arg.includes(' ') && !arg.includes('\n') && fs.existsSync(arg) && fs.statSync(arg).isFile()) {
     sql = fs.readFileSync(arg, 'utf8');
   }
 

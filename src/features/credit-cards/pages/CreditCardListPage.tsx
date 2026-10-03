@@ -298,10 +298,10 @@ export function CreditCardListPage() {
       // Varsayılan Akıllı Sıralama (Hiçbir sütun seçili değilken)
       const limitA = Number(a.limit) || 0;
       const limitB = Number(b.limit) || 0;
-      const hasLimitA = limitA > 0;
-      const hasLimitB = limitB > 0;
+      const hasLimitA = limitA > 1;
+      const hasLimitB = limitB > 1;
 
-      // Limiti 0 olan kartlar tablonun en altında durur
+      // Limiti 0 veya 1 olan kartlar (ek kart, sembolik limit vb.) tablonun en altında durur, yukarı çıkarılmaz
       if (hasLimitA && !hasLimitB) return -1;
       if (!hasLimitA && hasLimitB) return 1;
       if (!hasLimitA && !hasLimitB) {
@@ -337,7 +337,7 @@ export function CreditCardListPage() {
   }, [cards, statements, search, filters, sortField, sortAsc]);
 
   const kpis = useMemo(() => {
-    const activeCards = cards.filter((c) => (Number(c.limit) || 0) > 0);
+    const activeCards = cards.filter((c) => (Number(c.limit) || 0) > 1);
     const totalLimit = activeCards.reduce((s, c) => s + c.limit, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);

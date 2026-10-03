@@ -15,8 +15,8 @@ export function DueDateCell({ dueDate, statementStatus, currentDebt: _currentDeb
   due.setHours(0, 0, 0, 0);
   const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000);
 
-  // Limiti 0 olan kartlar hatırlatmaya girmez, sade tarih olarak altlarda gösterilir
-  if (cardLimit !== undefined && cardLimit <= 0) {
+  // Limiti 0 veya 1 olan kartlar hatırlatmaya girmez, sade tarih olarak altlarda gösterilir
+  if (cardLimit !== undefined && cardLimit <= 1) {
     return (
       <div className="flex items-center gap-1.5 text-gray-500 font-medium">
         <span className="text-sm">{formatDate(dueDate)}</span>
