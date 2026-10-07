@@ -77,7 +77,7 @@ interface ActivityLogItem {
   old_data: any;
 }
 
-const DASHBOARD_CACHE_KEY = 'dars_dashboard_cache_v7';
+const DASHBOARD_CACHE_KEY = 'dars_dashboard_cache_v8';
 
 interface DashboardCachedData {
   cashboxBalance: number;
@@ -187,124 +187,96 @@ export function DashboardPage() {
   // 5. Activity logs
   const [activities, setActivities] = useState<ActivityLogItem[]>(() => initialCache?.activities || []);
 
-  // Helper to parse Turkish formatted money
-  const parseMoneyNum = (v: any): number => {
-    if (!v) return 0;
-    if (typeof v === 'number') return v;
-    const clean = String(v).replace(/\./g, '').replace(/,/g, '.').trim();
-    const n = parseFloat(clean);
-    return isNaN(n) ? 0 : n;
+  // Helper to get yesterday's date string (YYYY-MM-DD)
+  const getYesterdayStr = (): string => {
+    const now = new Date();
+    now.setDate(now.getDate() - 1);
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
 
-  // Helper to extract branch daily revenue totals from giris_list
-  const calculateBranchDailyRevenues = (girisList: any[]): Record<string, number> => {
-    if (!Array.isArray(girisList)) return {};
-    
-    const branchMap: Record<string, number> = {
-      merkez: 0,
-      merzifon: 0,
-      ilkadim: 0,
-      atakum: 0,
-      sucukhane: 0,
-      depo: 0
-    };
-
-    let currentBranch: string | null = null;
-
-    for (const item of girisList) {
-      if (!item) continue;
-      const desc = (item.description || '').toUpperCase().trim();
-      const amt = parseMoneyNum(item.amount);
-
-      if (desc === 'DEVİR BAKİYE' || desc === 'DEVIR BAKIYE') {
-        currentBranch = null;
-        continue;
-      }
-      if (desc === 'MERKEZ') {
-        currentBranch = 'merkez';
-        branchMap.merkez += amt;
-        continue;
-      }
-      if (desc === 'MERZİFON' || desc === 'MERZIFON') {
-        currentBranch = 'merzifon';
-        branchMap.merzifon += amt;
-        continue;
-      }
-      if (desc === 'ATAKUM') {
-        currentBranch = 'atakum';
-        branchMap.atakum += amt;
-        continue;
-      }
-      if (desc === 'İLKADIM' || desc === 'ILKADIM') {
-        currentBranch = 'ilkadim';
-        branchMap.ilkadim += amt;
-        continue;
-      }
-      if (desc === 'DEPO') {
-        currentBranch = 'depo';
-        branchMap.depo += amt;
-        continue;
-      }
-      if (desc === 'SUCUKHANE') {
-        currentBranch = 'sucukhane';
-        branchMap.sucukhane += amt;
-        continue;
-      }
-
-      if (currentBranch) {
-        if (['ADİL AĞCIHAN', 'GAMZE YEKELER', 'MERVE KURT ÇALI', 'BEKE KÖY MUHTARI', 'SERKAN TAŞKIRAN', 'ERZURUM HINIS HAST.', 'YUSUF BATU', 'CEM TEKİN KARKAS SATIŞI', 'KUVYT ÇEK', 'ZİRAT KREDİ', 'KRAL DÜRÜM', 'YEKELER', 'KASABIN OĞLU', 'ÖZADANA'].includes(desc)) {
-          currentBranch = null;
-          continue;
-        }
-        
-        const posBanks = ['ÇIKIŞ', 'CIKIS', 'Ö.ZİRAAT', 'O.ZIRAAT', 'GARANTİ', 'GARANTI', 'ZİRAAT', 'AKBANK', 'KUVEYT', 'HALK', 'ALBARAKA', 'DENİZ', 'DENIZ', 'VAKIF', 'YAPI', 'ŞEKER', 'SEKER', 'POS'];
-        if (posBanks.includes(desc)) {
-          branchMap[currentBranch] += amt;
-        }
-      }
+  // Helper to extract branch daily revenue totals directly from Ana Kasa Raporu (Arka Sayfa)
+  const extractBranchRevenuesFromArkaSayfa = (arka: any): { revMap: Record<string, number>; totalRevenue: number } => {
+    if (!arka || typeof arka !== 'object') {
+      return {
+        revMap: { merkez: 0, merzifon: 0, ilkadim: 0, atakum: 0, sucukhane: 0, depo: 0 },
+        totalRevenue: 0
+      };
     }
 
-    return branchMap;
+    const m = arka.merkez || {};
+    const merkezTotal = (Number(m.nakit) || 0) + (Number(m.cikis) || 0) + (Number(m.pos) || 0);
+
+    const mz = arka.merzifon || {};
+    const merzifonTotal = (Number(mz.nakit) || 0) + (Number(mz.garanti) || 0) + (Number(mz.ziraat) || 0) + (Number(mz.akbank) || 0);
+
+    const at = arka.atakum || {};
+    const atakumTotal = (Number(at.nakit) || 0) + (Number(at.kuveyt) || 0) + (Number(at.halk) || 0) + (Number(at.garanti) || 0) + (Number(at.albaraka) || 0) + (Number(at.ziraat) || 0);
+
+    const il = arka.ilkadim || {};
+    const ilkadimTotal = (Number(il.nakit) || 0) + (Number(il.ziraat) || 0) + (Number(il.deniz) || 0) + (Number(il.kuveyt) || 0);
+
+    const dp = arka.depo || {};
+    const depoNetKalan = (Number(dp.giris) || 0) - (Number(dp.merzifonSubeDevir) || 0) - (Number(dp.anaKasaDevir) || 0);
+    const depoTotal = dp.toplam !== undefined && dp.toplam !== null && dp.toplam !== 0 ? Number(dp.toplam) || 0 : (depoNetKalan || 0);
+
+    const sucukhaneTotal = 0;
+
+    const revMap: Record<string, number> = {
+      merkez: merkezTotal,
+      merzifon: merzifonTotal,
+      ilkadim: ilkadimTotal,
+      atakum: atakumTotal,
+      sucukhane: sucukhaneTotal,
+      depo: depoTotal
+    };
+
+    const totalRevenue = merkezTotal + merzifonTotal + ilkadimTotal + atakumTotal + sucukhaneTotal + depoTotal;
+
+    return { revMap, totalRevenue };
   };
 
-  // Sub-routine: Fetch Cashbox & Calculate Branch Revenues
+  // Sub-routine: Fetch Cashbox & Calculate Branch Revenues from Ana Kasa Raporu (Arka Sayfa)
   const fetchCashbox = useCallback(async (): Promise<Record<string, number>> => {
     try {
-      const { data: latestCashbox, error } = await supabase
-        .from('cashbox_giris_cikis_reports')
-        .select('report_date, ana_kasa_total, ana_kasa_list, giris_list, giris_total')
+      const yesterdayStr = getYesterdayStr();
+      
+      // Dünün veya en son girilmiş geçerli ana kasa raporunu çek (gelecek tarihli hatalı kayıtları önlemek için lte: yesterdayStr)
+      const { data: reports, error } = await supabase
+        .from('cashbox_ana_kasa_reports')
+        .select('report_date, data')
+        .lte('report_date', yesterdayStr)
         .order('report_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(7);
 
       if (error) {
-        console.warn('Cashbox query error:', error);
+        console.warn('Ana kasa raporu sorgu hatası:', error);
       }
 
-      if (latestCashbox) {
-        const repDate = latestCashbox.report_date || '';
+      // Arka sayfası dolu olan en güncel raporu bul
+      let targetReport = (reports || []).find(r => {
+        const arka = r.data?.arka_sayfa;
+        if (!arka) return false;
+        const { totalRevenue } = extractBranchRevenuesFromArkaSayfa(arka);
+        return totalRevenue > 0;
+      });
+
+      // Eğer arka sayfası dolu olan bulunamazsa en son raporu al
+      if (!targetReport && reports && reports.length > 0) {
+        targetReport = reports[0];
+      }
+
+      if (targetReport) {
+        const repDate = targetReport.report_date || '';
         setCashboxReportDate(repDate);
 
-        let totalVal = 0;
-        if (latestCashbox.ana_kasa_total !== undefined && latestCashbox.ana_kasa_total !== null) {
-          totalVal = Number(latestCashbox.ana_kasa_total) || 0;
-        } else if (Array.isArray(latestCashbox.ana_kasa_list)) {
-          for (const item of latestCashbox.ana_kasa_list) {
-            if (item && item.gunSonu) {
-              const num = typeof item.gunSonu === 'number' 
-                ? item.gunSonu 
-                : Number(String(item.gunSonu).replace(/\./g, '').replace(',', '.'));
-              if (!isNaN(num)) totalVal += num;
-            }
-          }
-        }
         // Canlı ana kasa bakiyesi kullanıcı talebi doğrultusunda şimdilik 0 olarak tutuluyor
         setCashboxBalance(0);
 
-        const revMap = calculateBranchDailyRevenues(latestCashbox.giris_list || []);
-        let totalRev = 0;
-        Object.values(revMap).forEach(v => { totalRev += v; });
-        setTotalDailyRevenue(totalRev);
+        const { revMap, totalRevenue } = extractBranchRevenuesFromArkaSayfa(targetReport.data?.arka_sayfa);
+        setTotalDailyRevenue(totalRevenue);
 
         setBranches(prev => prev.map(b => ({
           ...b,
@@ -314,13 +286,13 @@ export function DashboardPage() {
         saveDashboardCache({
           cashboxBalance: 0,
           cashboxReportDate: repDate,
-          totalDailyRevenue: totalRev,
+          totalDailyRevenue: totalRevenue,
         });
 
         return revMap;
       }
     } catch (e) {
-      console.warn('Cashbox fetch error:', e);
+      console.warn('Ana kasa raporu arka sayfa çekim hatası:', e);
     }
     return {};
   }, []);
@@ -570,7 +542,7 @@ export function DashboardPage() {
     // Supabase Realtime subscriptions (auto-sync when database changes)
     const channel = supabase
       .channel('dashboard-realtime-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cashbox_giris_cikis_reports' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cashbox_ana_kasa_reports' }, () => {
         void fetchCashbox();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ebs_checks' }, () => {
@@ -605,7 +577,22 @@ export function DashboardPage() {
 
   // Helpers
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(val);
+    return `${new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val || 0)} ₺`;
+  };
+
+  const formatReportDateTr = (dateStr?: string | null): string => {
+    if (!dateStr) return '';
+    try {
+      const parts = String(dateStr).split('-');
+      if (parts.length === 3) {
+        const [y, m, d] = parts.map(Number);
+        const dt = new Date(y, m - 1, d);
+        return dt.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
+      return dateStr;
+    } catch {
+      return dateStr || '';
+    }
   };
 
   const formatActivityText = (log: ActivityLogItem) => {
@@ -617,6 +604,7 @@ export function DashboardPage() {
       kesim_listesi: 'Kesim Listesi',
       real_estates: 'Gayrimenkul',
       main_cashbox_transactions: 'Ana Kasa',
+      cashbox_ana_kasa_reports: 'Ana Kasa Raporu',
       cashbox_giris_cikis_reports: 'Kasa Gün Sonu',
       credit_cards: 'Kredi Kartı'
     };
@@ -863,7 +851,7 @@ export function DashboardPage() {
               </h3>
               <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 font-medium">
                 <Building2 size={12} className="text-purple-500" />
-                {cashboxReportDate ? `${cashboxReportDate} tarihli ` : 'Son kasa raporuna göre '}6 şubenin dünkü toplam cirosu
+                {cashboxReportDate ? `${formatReportDateTr(cashboxReportDate)} tarihli ` : 'Son kasa raporuna göre '}6 şubenin dünkü toplam cirosu
               </p>
             </div>
           </div>
@@ -919,7 +907,7 @@ export function DashboardPage() {
               </h2>
               <p className="text-[11px] text-gray-500 font-medium">
                 {cashboxReportDate 
-                  ? `Son Kasa Raporu (${new Date(cashboxReportDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}) hasılatları ve Vega cari bakiyeleri`
+                  ? `Son Kasa Raporu (${formatReportDateTr(cashboxReportDate)}) hasılatları ve Vega cari bakiyeleri`
                   : 'Kasa gün sonu hasılatları ve Vega cari bakiyeleri canlı takip'
                 }
               </p>
