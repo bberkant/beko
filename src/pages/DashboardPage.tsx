@@ -979,9 +979,9 @@ export function DashboardPage() {
       {/* 2-Column Detailed Section: Upcoming Checks & Real Activity Log */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left Column (7 Cols): Bugünün Kesilen Çekleri */}
-        <div className="lg:col-span-7 rounded-2xl border border-gray-200/90 bg-white p-5 shadow-sm space-y-4 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+        <div className="lg:col-span-7 rounded-2xl border border-gray-200/90 bg-white p-5 shadow-sm flex flex-col justify-between">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="shrink-0 flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2">
                 <CreditCard className="text-[#f37021]" size={18} />
                 <h3 className="font-bold text-gray-900 text-sm">
@@ -1002,7 +1002,7 @@ export function DashboardPage() {
             </div>
 
             {/* Checks Table */}
-            <div className="mt-3 overflow-x-auto max-h-[460px] overflow-y-auto">
+            <div className="mt-3 overflow-x-auto overflow-y-auto flex-1 min-h-[500px] max-h-[720px] lg:max-h-none">
               {loading && upcomingChecks.length === 0 ? (
                 <div className="py-12 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2">
                   <RefreshCw className="animate-spin text-[#f37021]" size={20} />
@@ -1067,7 +1067,7 @@ export function DashboardPage() {
                     })}
                   </tbody>
                   {upcomingChecks.length > 0 && (
-                    <tfoot className="bg-gray-50/80 font-bold border-t border-gray-200 text-gray-900">
+                    <tfoot className="sticky bottom-0 bg-gray-50/95 font-bold border-t border-gray-200 text-gray-900 z-10 backdrop-blur-xs">
                       <tr>
                         <td colSpan={3} className="py-2 px-3 text-right text-[11px] text-gray-600">
                           Toplam ({upcomingChecks.length} Çek):
@@ -1084,7 +1084,7 @@ export function DashboardPage() {
             </div>
           </div>
 
-          <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+          <div className="shrink-0 mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
             <span className="flex items-center gap-1 text-[11px]">
               <AlertCircle size={13} className="text-amber-500" />
               Bugünkü kesilen çekler EBS muhasebe veritabanından anlık çekilmektedir.
