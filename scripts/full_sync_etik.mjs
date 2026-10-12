@@ -1,4 +1,4 @@
-﻿import https from 'https';
+import https from 'https';
 import crypto from 'crypto';
 import fs from 'fs';
 
@@ -204,26 +204,64 @@ async function main() {
   fs.writeFileSync('etik_incoming_cache.json', JSON.stringify(list, null, 2), 'utf8');
   console.log('Yerel JSON dosyaları güncellendi.');
 
-  // Supabase vega_efatura_cache tablosuna da kaydet
+  // Supabase vega_efatura_cache tablosuna da giden faturaları koruyarak kaydet
   try {
-    console.log('Supabase vega_efatura_cache güncelleniyor...');
-    const sRes = await fetch(SUPABASE_URL + '/rest/v1/vega_efatura_cache', {
-      method: 'POST',
+    console.log('Supabase vega_efatura_cache kontrol ediliyor...');
+    let existingGiden = [];
+    const getRes = await fetch(SUPABASE_URL + '/rest/v1/vega_efatura_cache?company=eq.etik&select=invoices', {
       headers: {
         'apikey': SUPABASE_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify({
-        company: 'etik',
-        invoices: list,
-        record_count: list.length,
-        updated_at: new Date().toISOString(),
-        updated_by: 'SOAP Sync Service'
-      })
+        'Authorization': 'Bearer ' + SUPABASE_KEY
+      }
     });
-    console.log('Supabase kaydı tamamlandı. Durum:', sRes.status);
+    if (getRes.ok) {
+      const rows = await getRes.json();
+      if (rows?.[0]?.invoices && Array.isArray(rows[0].invoices)) {
+        existingGiden = rows[0].invoices.filter(i => (i.direction || 'giden') === 'giden');
+      }
+    }
+
+    if (existingGiden.length === 0) {
+      try {
+        console.log('Vega API üzerinden giden faturalar çekiliyor...');
+        const vRes = await fetch('https://vega-api.amasyaetas.com/api/etik/efaturalar');
+        if (vRes.ok) {
+          const vData = await vRes.json();
+          if (Array.isArray(vData)) {
+            existingGiden = vData.filter(i => (i.direction || 'giden') === 'giden');
+          }
+        }
+      } catch (ve) {
+        console.warn('Vega API giden çekim uyarısı:', ve.message);
+      }
+    }
+
+    if (existingGiden.length === 0) {
+      console.warn('⚠️ Giden fatura bulunamadığı için Supabase ezilmedi (Kalıcı Koruma).');
+    } else {
+      const unifiedMap = new Map();
+      for (const g of existingGiden) unifiedMap.set(g.invoiceNo, g);
+      for (const inc of list) unifiedMap.set(inc.invoiceNo, inc);
+      const unified = Array.from(unifiedMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      const sRes = await fetch(SUPABASE_URL + '/rest/v1/vega_efatura_cache', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({
+          company: 'etik',
+          invoices: unified,
+          record_count: unified.length,
+          updated_at: new Date().toISOString(),
+          updated_by: 'Full SOAP + Vega Sync'
+        })
+      });
+      console.log('Supabase kaydı tamamlandı. Toplam fatura:', unified.length, 'Durum:', sRes.status);
+    }
   } catch (err) {
     console.warn('Supabase kayıt uyarısı:', err.message);
   }

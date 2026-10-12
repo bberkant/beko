@@ -169,8 +169,19 @@ export async function getSupabaseCache(company: string): Promise<EfaturaCacheEnt
 export async function saveSupabaseCache(company: string, invoices: any[], userName?: string): Promise<boolean> {
   try {
     const cleanInvoices = sanitizeInvoices(invoices);
-    // Keep active records (up to 12,000 items) to avoid statement timeout on Supabase jsonb column
-    const activeInvoices = cleanInvoices.length > 12000 ? cleanInvoices.slice(0, 12000) : cleanInvoices;
+    if (!Array.isArray(cleanInvoices) || cleanInvoices.length === 0) return false;
+
+    // Kalıcı Koruma Kilidi:
+    // Eğer giden veya gelen faturalardan biri eksikse (0 ise), Supabase'deki sağlam veriyi ASLA bozma!
+    const hasGiden = cleanInvoices.some((i: any) => (i.direction || 'gelen') === 'giden');
+    const hasGelen = cleanInvoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
+    if (!hasGiden || !hasGelen) {
+      console.warn(`[KORUMA KİLİDİ] ${company} için eksik fatura listesi (Giden: ${hasGiden}, Gelen: ${hasGelen}) tespit edildi. Supabase ezilmedi!`);
+      return false;
+    }
+
+    // JSONB sınırını 25.000 faturaya çıkar
+    const activeInvoices = cleanInvoices.length > 25000 ? cleanInvoices.slice(0, 25000) : cleanInvoices;
     const nowIso = new Date().toISOString();
     const { error } = await supabase
       .from('vega_efatura_cache')

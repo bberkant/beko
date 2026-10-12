@@ -281,6 +281,11 @@ export async function syncEtikIncomingInvoices(isFull = false) {
       }
     }
 
+    if (existingGiden.length === 0) {
+      console.warn('⚠️ [ETİK SYNC] Giden faturalar bulunamadığı için Supabase önbelleği ezilmedi (Kalıcı Koruma).');
+      return merged;
+    }
+
     const unifiedMap = new Map();
     for (const g of existingGiden) unifiedMap.set(g.invoiceNo, g);
     for (const g of merged) unifiedMap.set(g.invoiceNo, g);

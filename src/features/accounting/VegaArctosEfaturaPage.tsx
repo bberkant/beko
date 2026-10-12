@@ -444,6 +444,18 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
     };
   }, [company]);
 
+  // Kalıcı Güvence: Kullanıcı 'giden' veya 'gelen' sekmesine geçtiğinde,
+  // eğer listede o yöne ait 0 fatura varsa, kullanıcının "0" görmesine izin verme;
+  // arka planda canlı Vega API'den hemen eksik faturaları çekip tamamla!
+  useEffect(() => {
+    if (isLoading || isSyncing || invoices.length === 0) return;
+    const countForTab = invoices.filter(i => (i.direction || 'gelen') === activeTab).length;
+    if (countForTab === 0) {
+      console.warn(`[E-FATURA] ${company} ${activeTab} sekmesinde 0 fatura tespit edildi, canlı sunucudan otomatik tamamlanıyor...`);
+      void fetchLiveInvoices(false);
+    }
+  }, [activeTab, invoices.length, isLoading, isSyncing, company]);
+
   const handleCloseModal = () => {
     setSelectedInvoice(null);
     setDetails([]);

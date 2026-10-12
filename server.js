@@ -1944,16 +1944,59 @@ async function syncEtikIncomingInvoices(force = false) {
       }
     } catch (e) {}
 
-    // Supabase vega_efatura_cache tablosunu da güncelle
+    // Kalıcı Çözüm: Giden faturaları da yerel Vega MSSQL havuzundan çekip birleştir
+    let gidenInvoices = [];
     try {
-      await postToSupabaseRest('/rest/v1/vega_efatura_cache', {
-        company: 'etik',
-        invoices: allInvoices,
-        record_count: allInvoices.length,
-        updated_at: new Date().toISOString(),
-        updated_by: 'SOAP Sync Service'
-      });
-    } catch (supaErr) {}
+      const pool = await getVegaPool();
+      const config = companyPrefixes.etik;
+      const result = await pool.request().query(`
+        SELECT 
+            b.IND AS [id],
+            b.BELGENO AS [invoiceNo],
+            b.TARIH AS [date],
+            b.FIRMANO AS [cariCode],
+            COALESCE(NULLIF(c.UNVAN, ''), NULLIF(c.FIRMAKODU, ''), c.ADI) AS [cariName],
+            ISNULL(SUM(h.GERCEKTOPLAM), 0) AS [matrah],
+            ISNULL(SUM(h.KDVTUTAR), 0) AS [kdv],
+            ISNULL(SUM(h.GERCEKTOPLAM + h.KDVTUTAR), 0) AS [amount],
+            'giden' AS [direction],
+            CASE WHEN b.BELGENO LIKE 'ETS%' OR b.BELGENO LIKE 'EVF%' THEN 'e-Fatura' ELSE 'e-Arşiv' END AS [type]
+        FROM ${config.db}${config.baslik} b
+        LEFT JOIN ${config.db}${config.hareket} h ON b.IND = h.EVRAKNO
+        LEFT JOIN ${config.cari} c ON b.FIRMANO = c.IND
+        WHERE b.BELGETIPI IN (21, 27, 33, 34, 104, 105, 151)
+        GROUP BY b.IND, b.BELGENO, b.TARIH, b.FIRMANO, c.UNVAN, c.FIRMAKODU, c.ADI, b.BELGETIPI
+        ORDER BY b.TARIH DESC, b.IND DESC;
+      `);
+      gidenInvoices = result.recordset || [];
+      console.log(`[ETİK SYNC] Yerel Vega MSSQL üzerinden ${gidenInvoices.length} giden fatura alındı.`);
+    } catch (gidenErr) {
+      console.warn('[ETİK SYNC MSSQL GİDEN ÇEKİM UYARISI]:', gidenErr.message);
+    }
+
+    const unifiedMap = new Map();
+    for (const g of gidenInvoices) unifiedMap.set(g.invoiceNo, g);
+    for (const inc of allInvoices) unifiedMap.set(inc.invoiceNo, inc);
+    const finalToSave = Array.from(unifiedMap.values()).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+
+    // Supabase vega_efatura_cache tablosunu giden + gelen TAM liste ile güncelle
+    // KESİNLİKLE GİDEN FATURA OLMADAN SUPABASE EZİLMEMELİ!
+    try {
+      if (gidenInvoices.length > 0) {
+        await postToSupabaseRest('/rest/v1/vega_efatura_cache', {
+          company: 'etik',
+          invoices: finalToSave,
+          record_count: finalToSave.length,
+          updated_at: new Date().toISOString(),
+          updated_by: 'SOAP + Vega MSSQL Sync'
+        });
+        console.log(`[ETİK SYNC] Supabase önbelleği güncellendi: ${finalToSave.length} fatura (${gidenInvoices.length} Giden, ${allInvoices.length} Gelen).`);
+      } else {
+        console.warn('[ETİK SYNC] DİKKAT: Giden fatura listesi boş olduğu için Supabase önbelleği ezilmedi (Kalıcı Koruma).');
+      }
+    } catch (supaErr) {
+      console.warn('[ETİK SYNC SUPABASE KAYIT HATASI]:', supaErr.message);
+    }
 
     isSyncingEtik = false;
     return allInvoices;
