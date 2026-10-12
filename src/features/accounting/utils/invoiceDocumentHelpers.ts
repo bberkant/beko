@@ -234,8 +234,58 @@ export function generateInvoiceHtmlString(invoice: VegaEfatura, details: VegaEfa
     return `${day}-${month}-${year} ${hours}:${minutes}`;
   };
 
-  const buyerVkn = (invoice.vkn || String(invoice.cariCode || '')).trim();
-  const vknLabel = buyerVkn.length === 11 ? 'TCKN:' : 'VKN:';
+  const isIncoming = (invoice.direction || '').toLowerCase() === 'gelen';
+  const myCompany = COMPANY_PROFILES[company] || COMPANY_PROFILES.etik;
+
+  const sellerInfo = isIncoming
+    ? {
+        name: invoice.cariName || 'TEDARİKÇİ / SATICI',
+        address: invoice.city ? `${invoice.city}` : 'TÜRKİYE',
+        city: '',
+        phone: '',
+        email: '',
+        taxOffice: invoice.taxOffice || 'VERGİ DAİRESİ',
+        vkn: invoice.vkn || String(invoice.cariCode || '—'),
+        tradeRegistryNo: '',
+        mersisNo: ''
+      }
+    : {
+        name: myCompany.name,
+        address: myCompany.address,
+        city: myCompany.city,
+        phone: myCompany.phone,
+        email: myCompany.email,
+        taxOffice: myCompany.taxOffice,
+        vkn: myCompany.vkn,
+        tradeRegistryNo: myCompany.tradeRegistryNo || (company === 'marif' ? '14520' : '004750'),
+        mersisNo: myCompany.mersisNo || (company === 'marif' ? '0612117565800001' : '0381045856200013')
+      };
+
+  const rawBuyerVkn = (invoice.vkn || String(invoice.cariCode || '')).trim();
+  const buyerInfo = isIncoming
+    ? {
+        title: 'SAYIN',
+        name: myCompany.name,
+        notes: '',
+        address: `${myCompany.address} ${myCompany.city}`,
+        email: myCompany.email,
+        phone: myCompany.phone,
+        taxOffice: myCompany.taxOffice,
+        vkn: myCompany.vkn,
+        vknLabel: 'VKN:'
+      }
+    : {
+        title: 'SAYIN',
+        name: invoice.cariName || 'MÜŞTERİ',
+        notes: invoice.notes,
+        address: invoice.city || 'AMASYA MERKEZ/ AMASYA',
+        email: '',
+        phone: '',
+        taxOffice: invoice.taxOffice || 'AMASYA',
+        vkn: rawBuyerVkn || '—',
+        vknLabel: rawBuyerVkn.length === 11 ? 'TCKN:' : 'VKN:'
+      };
+
   const accounts = BANK_ACCOUNTS[company] || BANK_ACCOUNTS.etik;
 
   return `<!DOCTYPE html>
@@ -311,15 +361,15 @@ export function generateInvoiceHtmlString(invoice: VegaEfatura, details: VegaEfa
     <!-- Top Header -->
     <div class="top-header">
       <div class="seller-col">
-        <div class="seller-title">${seller.name}</div>
-        <div>${seller.address}</div>
-        <div>${seller.city}</div>
-        ${seller.phone ? `<div>Tel: ${seller.phone}</div>` : ''}
-        <div>E-Posta: ${seller.email}</div>
-        <div>Vergi Dairesi: ${seller.taxOffice}</div>
-        <div>VKN: ${seller.vkn}</div>
-        <div>TİCARETSİCİLNO: ${seller.tradeRegistryNo || (company === 'marif' ? '14520' : '004750')}</div>
-        <div>MERSİSNO: ${seller.mersisNo || (company === 'marif' ? '0612117565800001' : '0381045856200013')}</div>
+        <div class="seller-title">${sellerInfo.name}</div>
+        <div>${sellerInfo.address}</div>
+        ${sellerInfo.city ? `<div>${sellerInfo.city}</div>` : ''}
+        ${sellerInfo.phone ? `<div>Tel: ${sellerInfo.phone}</div>` : ''}
+        ${sellerInfo.email ? `<div>E-Posta: ${sellerInfo.email}</div>` : ''}
+        <div>Vergi Dairesi: ${sellerInfo.taxOffice}</div>
+        <div>VKN: ${sellerInfo.vkn}</div>
+        ${sellerInfo.tradeRegistryNo ? `<div>TİCARETSİCİLNO: ${sellerInfo.tradeRegistryNo}</div>` : ''}
+        ${sellerInfo.mersisNo ? `<div>MERSİSNO: ${sellerInfo.mersisNo}</div>` : ''}
       </div>
 
       <div class="center-col">
@@ -341,28 +391,29 @@ export function generateInvoiceHtmlString(invoice: VegaEfatura, details: VegaEfa
       </div>
 
       <div class="logo-col">
-        <img src="/etas_et_logo.png" alt="Firma Logosu" onerror="this.style.display='none'" />
+        ${!isIncoming ? '<img src="/etas_et_logo.png" alt="Firma Logosu" onerror="this.style.display=\'none\'" />' : ''}
       </div>
     </div>
 
     <!-- Middle Row -->
     <div class="middle-row">
       <div class="buyer-col">
-        <div class="buyer-title">SAYIN</div>
-        <div style="font-weight:bold; font-size:11.5px;">${invoice.cariName || 'MÜŞTERİ'}</div>
-        <div>${invoice.notes || ''}</div>
-        <div>${invoice.city || 'AMASYA MERKEZ/ AMASYA'}</div>
-        <div>E-Posta:</div>
-        <div>Tel: Fax:</div>
-        <div>Vergi Dairesi: ${invoice.taxOffice || 'AMASYA'}</div>
-        <div style="font-weight:bold;">${vknLabel} ${buyerVkn || '—'}</div>
+        <div class="buyer-title">${buyerInfo.title}</div>
+        <div style="font-weight:bold; font-size:11.5px;">${buyerInfo.name}</div>
+        <div>${buyerInfo.address}</div>
+        ${buyerInfo.email ? `<div>E-Posta: ${buyerInfo.email}</div>` : ''}
+        ${buyerInfo.phone ? `<div>Tel: ${buyerInfo.phone}</div>` : ''}
+        <div>Vergi Dairesi: ${buyerInfo.taxOffice}</div>
+        <div style="font-weight:bold;">${buyerInfo.vknLabel} ${buyerInfo.vkn}</div>
       </div>
 
       <div class="signature-col">
+        ${!isIncoming ? `
         <!-- Wet Signature SVG -->
         <svg width="140" height="55" viewBox="0 0 160 70" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(-3deg);">
           <path d="M15 45 C30 20, 45 10, 60 35 C70 50, 85 15, 95 25 C105 35, 115 55, 130 30 C138 18, 145 28, 150 40 M45 42 C70 42, 110 38, 145 45 M30 30 C50 15, 75 12, 100 20 C125 28, 140 25, 155 35" stroke="#1a4f8b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.88" />
         </svg>
+        ` : '<div style="font-size:10px; color:#888; font-style:italic;">Elektronik İmzalıdır</div>'}
       </div>
 
       <div class="meta-col">
@@ -479,7 +530,8 @@ export function generateInvoiceHtmlString(invoice: VegaEfatura, details: VegaEfa
       </div>
     </div>
 
-    <!-- Bank Accounts Table -->
+    <!-- Bank Accounts Table (only on outgoing invoices) -->
+    ${!isIncoming && accounts.length > 0 ? `
     <table class="bank-table">
       ${accounts.map(acc => `
         <tr>
@@ -488,6 +540,7 @@ export function generateInvoiceHtmlString(invoice: VegaEfatura, details: VegaEfa
         </tr>
       `).join('')}
     </table>
+    ` : ''}
   </div>
 </body>
 </html>`;

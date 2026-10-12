@@ -57,7 +57,60 @@ function WetBlueSignature() {
 }
 
 export function StandardElectronicInvoice({ invoice, details, company }: StandardElectronicInvoiceProps) {
-  const seller = COMPANY_PROFILES[company] || COMPANY_PROFILES.etik;
+  const isIncoming = (invoice.direction || '').toLowerCase() === 'gelen';
+  const myCompany = COMPANY_PROFILES[company] || COMPANY_PROFILES.etik;
+
+  const sellerInfo = isIncoming
+    ? {
+        name: invoice.cariName || 'TEDARİKÇİ / SATICI',
+        address: invoice.city ? `${invoice.city}` : 'TÜRKİYE',
+        city: '',
+        phone: '',
+        website: '',
+        email: '',
+        taxOffice: invoice.taxOffice || 'VERGİ DAİRESİ',
+        vkn: invoice.vkn || String(invoice.cariCode || '—'),
+        tradeRegistryNo: '',
+        mersisNo: ''
+      }
+    : {
+        name: myCompany.name,
+        address: myCompany.address,
+        city: myCompany.city,
+        phone: myCompany.phone,
+        website: myCompany.website,
+        email: myCompany.email,
+        taxOffice: myCompany.taxOffice,
+        vkn: myCompany.vkn,
+        tradeRegistryNo: myCompany.tradeRegistryNo || (company === 'marif' ? '14520' : '004750'),
+        mersisNo: myCompany.mersisNo || (company === 'marif' ? '0612117565800001' : '0381045856200013')
+      };
+
+  const rawBuyerVkn = (invoice.vkn || String(invoice.cariCode || '')).trim();
+  const buyerInfo = isIncoming
+    ? {
+        title: 'SAYIN',
+        name: myCompany.name,
+        notes: '',
+        address: `${myCompany.address} ${myCompany.city}`,
+        email: myCompany.email,
+        phone: myCompany.phone,
+        taxOffice: myCompany.taxOffice,
+        vkn: myCompany.vkn,
+        vknLabel: 'VKN:'
+      }
+    : {
+        title: 'SAYIN',
+        name: invoice.cariName || 'MÜŞTERİ',
+        notes: invoice.notes,
+        address: invoice.city || 'AMASYA MERKEZ/ AMASYA',
+        email: '',
+        phone: '',
+        taxOffice: invoice.taxOffice || 'AMASYA',
+        vkn: rawBuyerVkn || '—',
+        vknLabel: rawBuyerVkn.length === 11 ? 'TCKN:' : 'VKN:'
+      };
+
   const isEArsiv = (invoice.type || '').toLowerCase().includes('arşiv') || (invoice.type || '').toLowerCase().includes('arsiv');
   const invNo = (invoice.invoiceNo || '').trim();
   const rawUuid = invoice.ettn || '';
@@ -95,8 +148,6 @@ export function StandardElectronicInvoice({ invoice, details, company }: Standar
     return `${day}-${month}-${year} ${hours}:${minutes}`;
   };
 
-  const buyerVkn = (invoice.vkn || String(invoice.cariCode || '')).trim();
-  const vknLabel = buyerVkn.length === 11 ? 'TCKN:' : 'VKN:';
   const accounts = BANK_ACCOUNTS[company] || BANK_ACCOUNTS.etik;
 
   return (
@@ -128,17 +179,17 @@ export function StandardElectronicInvoice({ invoice, details, company }: Standar
         {/* Left: Seller Legal Info */}
         <div className="col-span-5 text-[11px] leading-[1.3] text-black">
           <div className="font-bold text-[11.5px] uppercase mb-1">
-            {seller.name}
+            {sellerInfo.name}
           </div>
-          <div>{seller.address}</div>
-          <div>{seller.city}</div>
-          {seller.phone && <div>Tel: {seller.phone}</div>}
-          {seller.website && <div>Web Sitesi: {seller.website}</div>}
-          <div>E-Posta: {seller.email}</div>
-          <div>Vergi Dairesi: {seller.taxOffice}</div>
-          <div>VKN: {seller.vkn}</div>
-          <div>TİCARETSİCİLNO: {seller.tradeRegistryNo || (company === 'marif' ? '14520' : '004750')}</div>
-          <div>MERSİSNO: {seller.mersisNo || (company === 'marif' ? '0612117565800001' : '0381045856200013')}</div>
+          <div>{sellerInfo.address}</div>
+          {sellerInfo.city && <div>{sellerInfo.city}</div>}
+          {sellerInfo.phone && <div>Tel: {sellerInfo.phone}</div>}
+          {sellerInfo.website && <div>Web Sitesi: {sellerInfo.website}</div>}
+          {sellerInfo.email && <div>E-Posta: {sellerInfo.email}</div>}
+          <div>Vergi Dairesi: {sellerInfo.taxOffice}</div>
+          <div>VKN: {sellerInfo.vkn}</div>
+          {sellerInfo.tradeRegistryNo && <div>TİCARETSİCİLNO: {sellerInfo.tradeRegistryNo}</div>}
+          {sellerInfo.mersisNo && <div>MERSİSNO: {sellerInfo.mersisNo}</div>}
         </div>
 
         {/* Center: Official GİB Logo & Document Type */}
@@ -149,16 +200,18 @@ export function StandardElectronicInvoice({ invoice, details, company }: Standar
           </div>
         </div>
 
-        {/* Right: Company Logo */}
+        {/* Right: Company Logo - only on outgoing invoices */}
         <div className="col-span-3 flex justify-end items-start pt-1">
-          <img
-            src="/etas_et_logo.png"
-            alt="Firma Logosu"
-            className="max-h-20 w-auto object-contain"
-            onError={(e) => {
-              (e.target as HTMLElement).style.display = 'none';
-            }}
-          />
+          {!isIncoming && (
+            <img
+              src="/etas_et_logo.png"
+              alt="Firma Logosu"
+              className="max-h-20 w-auto object-contain"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
+          )}
         </div>
       </div>
 
@@ -166,23 +219,29 @@ export function StandardElectronicInvoice({ invoice, details, company }: Standar
       <div className="grid grid-cols-12 gap-2 items-center border-b-2 border-black pb-3 mb-2">
         {/* Left: Buyer Details */}
         <div className="col-span-5 text-[11px] leading-[1.3] text-black">
-          <div className="font-bold text-xs mb-0.5">SAYIN</div>
+          <div className="font-bold text-xs mb-0.5">{buyerInfo.title}</div>
           <div className="font-bold uppercase text-[12px]">
-            {invoice.cariName || 'MÜŞTERİ'}
+            {buyerInfo.name}
           </div>
-          {invoice.notes && <div className="text-gray-900">{invoice.notes}</div>}
-          <div>{invoice.city || 'AMASYA MERKEZ/ AMASYA'}</div>
-          <div>E-Posta:</div>
-          <div>Tel: Fax:</div>
-          <div>Vergi Dairesi: {invoice.taxOffice || 'AMASYA'}</div>
+          {buyerInfo.notes && <div className="text-gray-900">{buyerInfo.notes}</div>}
+          <div>{buyerInfo.address}</div>
+          {buyerInfo.email && <div>E-Posta: {buyerInfo.email}</div>}
+          {buyerInfo.phone && <div>Tel: {buyerInfo.phone}</div>}
+          <div>Vergi Dairesi: {buyerInfo.taxOffice}</div>
           <div className="font-bold">
-            {vknLabel} {buyerVkn || '—'}
+            {buyerInfo.vknLabel} {buyerInfo.vkn}
           </div>
         </div>
 
-        {/* Center: Wet Signature */}
+        {/* Center: Wet Signature - only on outgoing invoices */}
         <div className="col-span-3 flex justify-center items-center">
-          <WetBlueSignature />
+          {!isIncoming ? (
+            <WetBlueSignature />
+          ) : (
+            <div className="text-[10px] text-gray-400 italic text-center">
+              Elektronik İmzalıdır
+            </div>
+          )}
         </div>
 
         {/* Right: Invoice Metadata Table */}
@@ -370,21 +429,23 @@ export function StandardElectronicInvoice({ invoice, details, company }: Standar
         </div>
       </div>
 
-      {/* 7. BANK IBAN ACCOUNTS TABLE (BOTTOM FOOTER) */}
-      <table className="w-full text-[9.5px] border-collapse border border-black mt-2">
-        <tbody>
-          {accounts.map((acc, i) => (
-            <tr key={i}>
-              <td className="border border-black px-2 py-0.5 font-bold w-[35%]">
-                {acc.bank}
-              </td>
-              <td className="border border-black px-2 py-0.5 font-mono w-[65%]">
-                IBAN: {acc.iban}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* 7. BANK IBAN ACCOUNTS TABLE (BOTTOM FOOTER - ONLY FOR OUTGOING INVOICES) */}
+      {!isIncoming && accounts.length > 0 && (
+        <table className="w-full text-[9.5px] border-collapse border border-black mt-2">
+          <tbody>
+            {accounts.map((acc, i) => (
+              <tr key={i}>
+                <td className="border border-black px-2 py-0.5 font-bold w-[35%]">
+                  {acc.bank}
+                </td>
+                <td className="border border-black px-2 py-0.5 font-mono w-[65%]">
+                  IBAN: {acc.iban}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
