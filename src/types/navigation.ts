@@ -47,12 +47,12 @@ export const navItems: NavItem[] = [
   },
   {
     label: 'Finans',
-    to: '/finans/kredi-kartlari',
+    to: '/finans/cekten-hesabi',
     icon: Landmark,
     children: [
+      { label: 'ÇEKTEN Hesabı', to: '/finans/cekten-hesabi' },
       { label: 'Kredi Kartları', to: '/finans/kredi-kartlari' },
       { label: 'Faturalar', to: '/finans/faturalar' },
-      { label: 'ÇEKTEN Hesabı', to: '/finans/cekten-hesabi' },
       { label: 'Çek Vade Hesaplama', to: '/finans/cek-vade-hesaplama' },
       { label: 'POS Fark Hesaplama', to: '/finans/pos-fark-hesaplama' },
       { label: 'Banka Hesapları', to: '/finans/banka-hesaplari' },

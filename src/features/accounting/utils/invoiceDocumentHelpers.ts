@@ -196,7 +196,6 @@ ${items.map((line, idx) => `  <cac:InvoiceLine>
  * Standart Resmi e-Fatura HTML Dizesi Üretir (Vega Arctos / GİB Resmi Format)
  */
 export function generateInvoiceHtmlString(invoice: VegaEfatura, details: VegaEfaturaDetail[] = [], company: 'etik' | 'marif' = 'etik'): string {
-  const seller = COMPANY_PROFILES[company] || COMPANY_PROFILES.etik;
   const isEArsiv = (invoice.type || '').toLowerCase().includes('arşiv') || (invoice.type || '').toLowerCase().includes('arsiv');
   const invNo = invoice.invoiceNo.trim();
   const rawUuid = invoice.ettn || '';

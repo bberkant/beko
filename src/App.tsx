@@ -133,7 +133,7 @@ export default function App() {
                 <Route element={<AdminOrBerkantRoute />}>
                   <Route path="/finans/findeks" element={<FindeksPage />} />
                 </Route>
-                <Route path="/finans" element={<Navigate to="/finans/kredi-kartlari" replace />} />
+                <Route path="/finans" element={<Navigate to="/finans/cekten-hesabi" replace />} />
                 
                 {/* Banka Hesapları ve Hareketleri Sadece Süper Admin & Developer'a Özeldir */}
                 <Route element={<SuperAdminRoute />}>
