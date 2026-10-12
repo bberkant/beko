@@ -132,12 +132,13 @@ export function StandardElectronicInvoice({ invoice, details, company }: Standar
           </div>
           <div>{seller.address}</div>
           <div>{seller.city}</div>
+          {seller.phone && <div>Tel: {seller.phone}</div>}
           {seller.website && <div>Web Sitesi: {seller.website}</div>}
           <div>E-Posta: {seller.email}</div>
           <div>Vergi Dairesi: {seller.taxOffice}</div>
           <div>VKN: {seller.vkn}</div>
-          <div>TİCARETSİCİLNO: {seller.tradeRegistryNo || '004750'}</div>
-          <div>MERSİSNO: {seller.mersisNo || '0381045856200013'}</div>
+          <div>TİCARETSİCİLNO: {seller.tradeRegistryNo || (company === 'marif' ? '14520' : '004750')}</div>
+          <div>MERSİSNO: {seller.mersisNo || (company === 'marif' ? '0612117565800001' : '0381045856200013')}</div>
         </div>
 
         {/* Center: Official GİB Logo & Document Type */}

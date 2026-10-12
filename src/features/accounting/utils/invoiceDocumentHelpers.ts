@@ -28,16 +28,16 @@ export const COMPANY_PROFILES: Record<'etik' | 'marif', CompanyLegalInfo> = {
     mersisNo: '0381045856200013'
   },
   marif: {
-    name: 'MARİF ET VE ET ÜRÜNLERİ SAN. TİC. LTD. ŞTİ.',
-    vkn: '6120803445',
-    taxOffice: 'AMASYA',
-    address: 'GÖLLÜ BAĞLARI MAH. MEZBAHA CAD. NO: 15',
-    city: 'AMASYA MERKEZ/ AMASYA',
+    name: 'MARİF ET VE ET ÜRÜNLERİ HAYVANCILIK GIDA SANAYİ TİCARET LİMİTED ŞİRKETİ',
+    vkn: '6121175658',
+    taxOffice: 'Amasya Vergi Dairesi',
+    address: 'Şeyhcui Mah. Kemal Nehrozoğlu Cad. No: 8',
+    city: 'AMASYA - TÜRKİYE',
     phone: '0 (358) 218 80 80',
     email: 'marif@amasyaetas.com',
     website: '',
     tradeRegistryNo: '14520',
-    mersisNo: '0612080344500001'
+    mersisNo: '0612117565800001'
   }
 };
 
@@ -314,11 +314,12 @@ export function generateInvoiceHtmlString(invoice: VegaEfatura, details: VegaEfa
         <div class="seller-title">${seller.name}</div>
         <div>${seller.address}</div>
         <div>${seller.city}</div>
+        ${seller.phone ? `<div>Tel: ${seller.phone}</div>` : ''}
         <div>E-Posta: ${seller.email}</div>
         <div>Vergi Dairesi: ${seller.taxOffice}</div>
         <div>VKN: ${seller.vkn}</div>
-        <div>TİCARETSİCİLNO: ${seller.tradeRegistryNo || '004750'}</div>
-        <div>MERSİSNO: ${seller.mersisNo || '0381045856200013'}</div>
+        <div>TİCARETSİCİLNO: ${seller.tradeRegistryNo || (company === 'marif' ? '14520' : '004750')}</div>
+        <div>MERSİSNO: ${seller.mersisNo || (company === 'marif' ? '0612117565800001' : '0381045856200013')}</div>
       </div>
 
       <div class="center-col">
