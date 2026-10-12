@@ -1690,14 +1690,26 @@ function fetchMikrokomMedia(token, uuid, direction, dateStr, mediaType = 'pdf') 
   });
 }
 
-let lastSyncAttempt = 0;
+// Sunucu yeniden başlatılsa dahi dosya zamanına bakarak 30 dakikalık süreyi koru
+let lastSyncAttempt = (() => {
+  try {
+    if (fs.existsSync(CACHE_FILE_PATH)) {
+      return fs.statSync(CACHE_FILE_PATH).mtimeMs || 0;
+    }
+  } catch (e) {}
+  return 0;
+})();
 let isSyncingMarif = false;
-const SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 dakikada bir
+const SYNC_INTERVAL_MS = 30 * 60 * 1000; // Kesin kural: En az 30 dakika (1800 saniye) IP ban koruması
 
 async function syncMarifIncomingInvoices(force = false) {
   const now = Date.now();
   if (isSyncingMarif) return [];
-  if (!force && (now - lastSyncAttempt < SYNC_INTERVAL_MS)) {
+
+  // IP Ban Koruması & Learn Kuralı: Kullanıcı "güncelle" dese dahi 30 dakika dolmadan harici portala ASLA yeni istek atılamaz.
+  if (now - lastSyncAttempt < SYNC_INTERVAL_MS) {
+    const kalanDk = Math.ceil((SYNC_INTERVAL_MS - (now - lastSyncAttempt)) / 60000);
+    console.log(`[MİKROKOM PORTAL KORUMA] 30 dakikalık IP ban koruması devrede. Kalan süre: ${kalanDk} dk. Portal sorgusu engellendi, önbellek verisi korunuyor.`);
     if (fs.existsSync(CACHE_FILE_PATH)) {
       try {
         return JSON.parse(fs.readFileSync(CACHE_FILE_PATH, 'utf8')) || [];
@@ -1919,14 +1931,28 @@ async function syncMarifIncomingInvoices(force = false) {
 }
 
 // Akıllı Vega Etik Senkronizasyon Kilidi ve İstek Sınırlayıcı
-let lastEtikSyncAttempt = 0;
+let lastEtikSyncAttempt = (() => {
+  try {
+    const f1 = path.join(__dirname, 'etik_incoming_cache.json');
+    const f2 = path.join(__dirname, '..', 'etik_incoming_cache.json');
+    const target = fs.existsSync(f1) ? f1 : (fs.existsSync(f2) ? f2 : null);
+    if (target) {
+      return fs.statSync(target).mtimeMs || 0;
+    }
+  } catch (e) {}
+  return 0;
+})();
 let isSyncingEtik = false;
-const ETIK_SYNC_INTERVAL_MS = 15 * 60 * 1000;
+const ETIK_SYNC_INTERVAL_MS = 30 * 60 * 1000; // Kesin kural: En az 30 dakika (1800 saniye) IP ban koruması
 
 async function syncEtikIncomingInvoices(force = false) {
   const now = Date.now();
   if (isSyncingEtik) return [];
-  if (!force && (now - lastEtikSyncAttempt < ETIK_SYNC_INTERVAL_MS)) {
+
+  // IP Ban Koruması & Learn Kuralı: Kullanıcı "güncelle" dese dahi 30 dakika dolmadan harici portala ASLA yeni istek atılamaz.
+  if (now - lastEtikSyncAttempt < ETIK_SYNC_INTERVAL_MS) {
+    const kalanDk = Math.ceil((ETIK_SYNC_INTERVAL_MS - (now - lastEtikSyncAttempt)) / 60000);
+    console.log(`[VEGA PORTAL KORUMA] 30 dakikalık IP ban koruması devrede. Kalan süre: ${kalanDk} dk. Portal sorgusu engellendi, mevcut veriler korunuyor.`);
     return [];
   }
 

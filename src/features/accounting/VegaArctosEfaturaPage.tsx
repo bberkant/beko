@@ -195,19 +195,15 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
   // Live fetch from Vega/Mikrokom API & sync to Supabase + Local Cache
   const fetchLiveInvoices = async (showNotification = false) => {
     const remaining = getStoredCooldownRemaining(company);
-    // Cooldown yalnızca önbellekte hem gelen hem giden faturalar TAM ise işletilmeli;
-    // Eğer giden veya gelen fatura adedi 0 ise, cooldown kullanıcıyı kitlememeli!
-    const currentHasGiden = invoices.some(i => (i.direction || 'gelen') === 'giden');
-    const currentHasGelen = invoices.some(i => (i.direction || 'gelen') === 'gelen');
-    const isCacheIncomplete = !currentHasGiden || !currentHasGelen;
-
-    if (remaining > 0 && !isCacheIncomplete) {
+    // Kesin Kural & IP Ban Koruması:
+    // Kullanıcı arayüzden "Güncelle" dese dahi 30 dakika dolmadan harici sunucuya/portala istek atılamaz!
+    if (remaining > 0) {
       setCooldownSeconds(remaining);
       if (showNotification) {
         const waitMinutes = Math.ceil(remaining / 60);
         const waitMsg = remaining > 60
-          ? `${company === 'etik' ? 'Vega' : 'Mikrokom'} entegratör kotasını korumak için yeni sorgu en erken ${waitMinutes} dakika sonra yapılabilir. Veriler günceldir.`
-          : `Veriler günceldir. Yeni sorgu için lütfen ${remaining} saniye bekleyin.`;
+          ? `${company === 'etik' ? 'Vega' : 'Mikrokom'} IP ban koruması devrede. Yeni sorgu en erken ${waitMinutes} dakika sonra yapılabilir. Verileriniz günceldir.`
+          : `Verileriniz günceldir. Yeni sorgu için lütfen ${remaining} saniye bekleyin.`;
         notify(waitMsg, 'info');
       }
       return;

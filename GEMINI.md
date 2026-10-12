@@ -363,8 +363,8 @@ Mikrokom ve Vega e-Fatura entegratör sorgu kotalarını korumak ve kullanıcıl
      `"Entegratör kotasını korumak için yeni sorgu en erken {kalan_dakika} dakika sonra yapılabilir. Veriler günceldir."` bilgi bildirimi gösterilmeli ve ağ isteği engellenmelidir.
 
 2. **Sunucu Tarafı Güvenlik Kilidi (Server-Side Rate Limiting Invariant):**
-   - API servisinde (`server.js`), hem Marif hem Etik akışlarında harici entegratör (Mikrokom REST / Vega SOAP) taramaları arasında en az **30 dakikalık** (`SYNC_INTERVAL_MS = 30 * 60 * 1000`) kilit bulunmalıdır.
-   - İstemciden istek gelse dahi son başarılı sorgudan bu yana 30 dakika geçmemişse harici servisler tekrar rahatsız edilmeyecek, veritabanı/önbellekteki güncel kayıtlar anında yanıt olarak döndürülecektir.
+   - API servisinde (`server.js`), hem Marif hem Etik akışlarında harici entegratör (Mikrokom REST / Vega SOAP) taramaları arasında en az **30 dakikalık** (`SYNC_INTERVAL_MS = 30 * 60 * 1000` ve `ETIK_SYNC_INTERVAL_MS = 30 * 60 * 1000`) kilit bulunmalıdır.
+   - **Kullanıcı Arayüzden "Güncelle" Dese Dahi (Kesin Kural):** İstemciden `force=true` parametresi gelse dahi son sorgudan bu yana 30 dakika geçmemişse harici servisler/portallar ASLA tekrar rahatsız edilmeyecek, IP ban koruması tavizsiz uygulanacak, mevcut veritabanı/önbellekteki güncel kayıtlar yanıt olarak döndürülecektir. Sunucu yeniden başlasa bile dosya zamanına (mtime) bakılarak bu 30 dakikalık kural korunur.
 
 ## Cari Yaşlandırma, Risk Analizi ve Açık Hesap Vadeli Ticaret Standartları (Active Cari Rotational Credit Invariant)
 
