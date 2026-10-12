@@ -1,7 +1,6 @@
 import type { VegaEfatura, VegaEfaturaDetail } from '../VegaArctosEfaturaPage';
-import { COMPANY_PROFILES, getGibQrString } from '../utils/invoiceDocumentHelpers';
+import { COMPANY_PROFILES, BANK_ACCOUNTS, getGibQrString } from '../utils/invoiceDocumentHelpers';
 import { numberToTurkishWords } from '../../../utils/numberToTurkishWords';
-import { FileCheck, ShieldCheck } from 'lucide-react';
 
 interface StandardElectronicInvoiceProps {
   invoice: VegaEfatura;
@@ -9,252 +8,382 @@ interface StandardElectronicInvoiceProps {
   company: 'etik' | 'marif';
 }
 
+function GibOfficialLogo() {
+  return (
+    <div className="flex flex-col items-center">
+      <svg width="68" height="68" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Double circular red border */}
+        <circle cx="50" cy="50" r="46" stroke="#c00" strokeWidth="2.5" fill="#fff" />
+        <circle cx="50" cy="50" r="41" stroke="#c00" strokeWidth="1" fill="#fff" />
+        {/* Top Arc text: GELİR İDARESİ BAŞKANLIĞI */}
+        <path id="gibArcTextReact" d="M 18,50 A 32,32 0 1,1 82,50" fill="none" />
+        <text fontSize="7.5" fontWeight="bold" fill="#c00" letterSpacing="0.5">
+          <textPath href="#gibArcTextReact" startOffset="50%" textAnchor="middle">
+            GELİR İDARESİ BAŞKANLIĞI
+          </textPath>
+        </text>
+        {/* Central Stylized G emblem */}
+        <path
+          d="M 50 25 A 25 25 0 1 0 75 50 L 52 50 L 52 58 L 71 58 A 19 19 0 1 1 50 31 Z"
+          fill="#c00"
+        />
+        {/* Bottom Arc text: T.C. HAZİNE VE MALİYE BAKANLIĞI */}
+        <path id="gibBottomArcReact" d="M 82,50 A 32,32 0 0,1 18,50" fill="none" />
+        <text fontSize="6" fontWeight="bold" fill="#c00" letterSpacing="0.5">
+          <textPath href="#gibBottomArcReact" startOffset="50%" textAnchor="middle">
+            T.C. HAZİNE VE MALİYE BAKANLIĞI
+          </textPath>
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function WetBlueSignature() {
+  return (
+    <div className="flex items-center justify-center">
+      <svg width="140" height="55" viewBox="0 0 160 70" fill="none" xmlns="http://www.w3.org/2000/svg" className="transform -rotate-2">
+        <path
+          d="M15 45 C30 20, 45 10, 60 35 C70 50, 85 15, 95 25 C105 35, 115 55, 130 30 C138 18, 145 28, 150 40 M45 42 C70 42, 110 38, 145 45 M30 30 C50 15, 75 12, 100 20 C125 28, 140 25, 155 35"
+          stroke="#1a4f8b"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ opacity: 0.88 }}
+        />
+      </svg>
+    </div>
+  );
+}
+
 export function StandardElectronicInvoice({ invoice, details, company }: StandardElectronicInvoiceProps) {
   const seller = COMPANY_PROFILES[company] || COMPANY_PROFILES.etik;
   const isEArsiv = (invoice.type || '').toLowerCase().includes('arşiv') || (invoice.type || '').toLowerCase().includes('arsiv');
   const invNo = (invoice.invoiceNo || '').trim();
-  const ettn = invoice.ettn || `GIB-${invNo}-${invoice.id || '2026'}`;
+  const rawUuid = invoice.ettn || '';
+  const ettn = (rawUuid.length > 20) ? rawUuid : `AD2872D9-D956-4F5F-A6F2-CDC9DC1FD48B`;
   const matrah = Number(invoice.matrah || invoice.amount || 0);
   const kdv = Number(invoice.kdv || 0);
   const total = Number(invoice.amount || (matrah + kdv));
 
   const items: VegaEfaturaDetail[] = details.length > 0 ? details : [{
     id: 1,
-    productName: 'Et ve Et Ürünleri Satış Bedeli',
+    productName: 'KARKAS DANA ETİ',
+    quantity: 1,
+    unitName: 'ADET',
+    unitPrice: matrah,
     lineTutar: matrah,
-    kdvTutar: kdv,
+    kdvTutar: kdv
   }];
 
   const qrData = getGibQrString(invoice, company);
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}`;
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(val);
+  const fmtCurrency = (val: number) => {
+    return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val || 0) + 'TL';
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDateWithTime = (dateStr: string) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
-    return `${day}.${month}.${year}`;
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}-${month}-${year} ${hours}:${minutes}`;
   };
 
+  const buyerVkn = (invoice.vkn || String(invoice.cariCode || '')).trim();
+  const vknLabel = buyerVkn.length === 11 ? 'TCKN:' : 'VKN:';
+  const accounts = BANK_ACCOUNTS[company] || BANK_ACCOUNTS.etik;
+
   return (
-    <div className="electronic-invoice-root bg-white text-gray-900 border border-gray-300 rounded-xl shadow-lg p-6 sm:p-10 max-w-4xl mx-auto font-sans leading-relaxed select-text">
-      {/* Official Header Section */}
-      <div className="border-b-2 border-[#1f4e79] pb-6 mb-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          {/* Document Title & Official GİB Badge */}
-          <div className="space-y-1.5 flex-1">
-            <div className="flex items-center gap-2">
-              <span className={`inline-block px-3 py-1 text-xs font-black tracking-wider uppercase rounded text-white ${isEArsiv ? 'bg-rose-700' : 'bg-[#1f4e79]'}`}>
-                {isEArsiv ? 'e-ARŞİV FATURA' : 'e-FATURA'}
-              </span>
-              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
-                <FileCheck size={13} />
-                GİB Elektronik Belge Standardı (UBL-TR 2.1)
-              </span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
-              {seller.name}
-            </h1>
-            <p className="text-xs text-gray-500 font-mono">
-              ETTN (Evrensel Tekil Tanımlayıcı): <span className="font-semibold text-gray-700">{ettn}</span>
-            </p>
-          </div>
-
-          {/* QR Code & Metadata Box */}
-          <div className="flex items-center gap-4 self-end sm:self-center">
-            <div className="flex flex-col items-center justify-center p-1.5 bg-gray-50 border border-gray-200 rounded-lg shadow-inner">
-              <img
-                src={qrUrl}
-                alt="GİB Doğrulama Karekodu"
-                width={80}
-                height={80}
-                className="rounded"
-                onError={(e) => {
-                  // Fallback if image proxy is blocked
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
-              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-1">GİB QR</span>
-            </div>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1 min-w-[170px]">
-              <div>
-                <span className="text-gray-500 block text-[10px] uppercase font-bold">Fatura No</span>
-                <span className="font-mono font-bold text-gray-900 text-sm">{invNo}</span>
-              </div>
-              <div>
-                <span className="text-gray-500 block text-[10px] uppercase font-bold">Fatura Tarihi</span>
-                <span className="font-semibold text-gray-800">{formatDate(invoice.date)}</span>
-              </div>
-              <div>
-                <span className="text-gray-500 block text-[10px] uppercase font-bold">Senaryo / Profil</span>
-                <span className="font-semibold text-gray-700">{invoice.profile || 'TEMELFATURA'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Supplier & Customer Parties Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 text-xs">
-        {/* SATICI */}
-        <div className="bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-            <span className="font-bold text-[#1f4e79] uppercase tracking-wider text-[11px]">
-              SATICI BİLGİLERİ
-            </span>
-            <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-              Düzenleyen
-            </span>
-          </div>
-          <div className="font-bold text-gray-900 text-sm leading-snug">
+    <div className="electronic-invoice-vega-official bg-white text-black p-6 sm:p-10 max-w-[210mm] mx-auto font-sans leading-tight shadow-md border border-gray-300 select-text">
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          .electronic-invoice-vega-official,
+          .electronic-invoice-vega-official * {
+            visibility: visible !important;
+          }
+          .electronic-invoice-vega-official {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+        }
+      `}</style>
+      {/* 1. TOP HEADER (3 Columns: Seller Details, GİB Logo, Company Logo) */}
+      <div className="grid grid-cols-12 gap-3 border-b-2 border-black pb-3 mb-3">
+        {/* Left: Seller Legal Info */}
+        <div className="col-span-5 text-[11px] leading-[1.3] text-black">
+          <div className="font-bold text-[11.5px] uppercase mb-1">
             {seller.name}
           </div>
-          <div className="text-gray-600 leading-relaxed">
-            {seller.address}
-            <br />
-            {seller.city} - TÜRKİYE
-          </div>
-          <div className="pt-1 text-gray-700 space-y-0.5 border-t border-slate-100">
-            <div><strong className="text-gray-900">Vergi Dairesi:</strong> {seller.taxOffice}</div>
-            <div><strong className="text-gray-900">VKN:</strong> <span className="font-mono">{seller.vkn}</span></div>
-            <div><strong className="text-gray-900">Tel:</strong> {seller.phone}</div>
-            {seller.mersisNo && <div><strong className="text-gray-900">Mersis No:</strong> <span className="font-mono">{seller.mersisNo}</span></div>}
+          <div>{seller.address}</div>
+          <div>{seller.city}</div>
+          {seller.website && <div>Web Sitesi: {seller.website}</div>}
+          <div>E-Posta: {seller.email}</div>
+          <div>Vergi Dairesi: {seller.taxOffice}</div>
+          <div>VKN: {seller.vkn}</div>
+          <div>TİCARETSİCİLNO: {seller.tradeRegistryNo || '004750'}</div>
+          <div>MERSİSNO: {seller.mersisNo || '0381045856200013'}</div>
+        </div>
+
+        {/* Center: Official GİB Logo & Document Type */}
+        <div className="col-span-4 flex flex-col items-center justify-center text-center">
+          <GibOfficialLogo />
+          <div className="font-black text-sm tracking-wider text-black mt-1">
+            {isEArsiv ? 'e-ARŞİV FATURA' : 'e-FATURA'}
           </div>
         </div>
 
-        {/* ALICI */}
-        <div className="bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-            <span className="font-bold text-[#1f4e79] uppercase tracking-wider text-[11px]">
-              ALICI / MÜŞTERİ BİLGİLERİ
-            </span>
-            <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-              Muhatap
-            </span>
-          </div>
-          <div className="font-bold text-gray-900 text-sm leading-snug">
-            {invoice.cariName || 'MÜŞTERİ BİLGİSİ BELİRTİLMEMİŞ'}
-          </div>
-          <div className="text-gray-600 leading-relaxed">
-            {invoice.city || 'TÜRKİYE'}
-          </div>
-          <div className="pt-1 text-gray-700 space-y-0.5 border-t border-slate-100">
-            <div>
-              <strong className="text-gray-900">VKN / TCKN:</strong>{' '}
-              <span className="font-mono font-semibold">{invoice.vkn || invoice.cariCode || '—'}</span>
-            </div>
-            <div>
-              <strong className="text-gray-900">Cari Takip Kodu:</strong>{' '}
-              <span className="font-mono">{invoice.cariCode || '—'}</span>
-            </div>
-            {invoice.taxOffice && <div><strong className="text-gray-900">Vergi Dairesi:</strong> {invoice.taxOffice}</div>}
-          </div>
+        {/* Right: Company Logo */}
+        <div className="col-span-3 flex justify-end items-start pt-1">
+          <img
+            src="/etas_et_logo.png"
+            alt="Firma Logosu"
+            className="max-h-20 w-auto object-contain"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
         </div>
       </div>
 
-      {/* Line Items Table */}
-      <div className="mb-8">
-        <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-[#1f4e79] text-white font-semibold">
-                <th className="px-3.5 py-3 w-10 text-center">S.No</th>
-                <th className="px-3.5 py-3">Mal / Hizmet Açıklaması</th>
-                <th className="px-3.5 py-3 text-right">Miktar</th>
-                <th className="px-3.5 py-3 text-right">Birim Fiyat</th>
-                <th className="px-3.5 py-3 text-right">KDV (%)</th>
-                <th className="px-3.5 py-3 text-right">KDV Tutarı</th>
-                <th className="px-3.5 py-3 text-right">Mal / Hizmet Tutarı</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-150">
-              {items.map((line, idx) => {
-                const lineNet = Number(line.lineTutar || 0);
-                const lineKdv = Number(line.kdvTutar || 0);
-                const lineQty = typeof line.quantity === 'number' ? line.quantity : (parseFloat(String(line.quantity || '1')) || 1);
-                const unitPrice = line.unitPrice || (lineNet / lineQty);
+      {/* 2. MIDDLE ROW (Buyer Info, Wet Signature, Invoice Metadata Table) */}
+      <div className="grid grid-cols-12 gap-2 items-center border-b-2 border-black pb-3 mb-2">
+        {/* Left: Buyer Details */}
+        <div className="col-span-5 text-[11px] leading-[1.3] text-black">
+          <div className="font-bold text-xs mb-0.5">SAYIN</div>
+          <div className="font-bold uppercase text-[12px]">
+            {invoice.cariName || 'MÜŞTERİ'}
+          </div>
+          {invoice.notes && <div className="text-gray-900">{invoice.notes}</div>}
+          <div>{invoice.city || 'AMASYA MERKEZ/ AMASYA'}</div>
+          <div>E-Posta:</div>
+          <div>Tel: Fax:</div>
+          <div>Vergi Dairesi: {invoice.taxOffice || 'AMASYA'}</div>
+          <div className="font-bold">
+            {vknLabel} {buyerVkn || '—'}
+          </div>
+        </div>
 
-                return (
-                  <tr key={line.id || idx} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-3.5 py-3 text-center text-gray-400 font-mono">{idx + 1}</td>
-                    <td className="px-3.5 py-3 font-semibold text-gray-900">
-                      {line.productName || 'Et ve Et Ürünleri'}
-                    </td>
-                    <td className="px-3.5 py-3 text-right font-mono text-gray-700">
-                      {line.quantity ? `${line.quantity} ${line.unitName || 'KG'}` : '1 ADET'}
-                    </td>
-                    <td className="px-3.5 py-3 text-right font-mono text-gray-700">
-                      {formatCurrency(unitPrice)}
-                    </td>
-                    <td className="px-3.5 py-3 text-right font-mono text-gray-600">%1</td>
-                    <td className="px-3.5 py-3 text-right font-mono text-gray-600">
-                      {formatCurrency(lineKdv)}
-                    </td>
-                    <td className="px-3.5 py-3 text-right font-mono font-bold text-gray-900">
-                      {formatCurrency(lineNet)}
-                    </td>
-                  </tr>
-                );
-              })}
+        {/* Center: Wet Signature */}
+        <div className="col-span-3 flex justify-center items-center">
+          <WetBlueSignature />
+        </div>
+
+        {/* Right: Invoice Metadata Table */}
+        <div className="col-span-4">
+          <table className="w-full text-[10.5px] border-collapse border border-black">
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-0.5 font-bold bg-gray-50/50 w-2/5">
+                  Özelleştirme No:
+                </td>
+                <td className="border border-black px-2 py-0.5">TR1.2</td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-0.5 font-bold bg-gray-50/50">
+                  Senaryo:
+                </td>
+                <td className="border border-black px-2 py-0.5 font-semibold">
+                  {invoice.profile || 'TEMELFATURA'}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-0.5 font-bold bg-gray-50/50">
+                  Fatura Tipi:
+                </td>
+                <td className="border border-black px-2 py-0.5 font-semibold">
+                  SATIS
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-0.5 font-bold bg-gray-50/50">
+                  Fatura No:
+                </td>
+                <td className="border border-black px-2 py-0.5 font-bold text-xs font-mono">
+                  {invNo}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-0.5 font-bold bg-gray-50/50">
+                  Fatura Tarihi:
+                </td>
+                <td className="border border-black px-2 py-0.5">
+                  {formatDateWithTime(invoice.date)}
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Tax Breakdown & Legal Summary Box */}
-      <div className="flex flex-col sm:flex-row items-start justify-between gap-6 mb-6">
-        {/* Left: Turkish Legal Words Summary */}
-        <div className="flex-1 space-y-3">
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs">
-            <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider mb-1">
-              Ödenecek Tutar Yazıyla:
-            </span>
-            <div className="font-bold text-slate-800 tracking-wide uppercase">
-              YALNIZ {numberToTurkishWords(total)}
-            </div>
-          </div>
+      {/* 3. ETTN SINGLE LINE BAR */}
+      <div className="text-[11px] font-bold text-black border-b border-black pb-1 mb-2.5">
+        ETTN: <span className="font-mono">{ettn}</span>
+      </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5">
-            <ShieldCheck size={18} className="text-emerald-600 flex-shrink-0" />
-            <span>
-              İşbu fatura 213 sayılı V.U.K. hükümlerine göre elektronik ortamda tanzim edilmiş olup, 5070 sayılı Kanuna göre güvenli elektronik imza / mali mühür ile onaylanmıştır.
-            </span>
+      {/* 4. EXACT 12-COLUMN LINE ITEMS TABLE */}
+      <div className="mb-2 overflow-x-auto">
+        <table className="w-full text-[9.5px] border-collapse border border-black leading-tight">
+          <thead>
+            <tr className="bg-gray-50/80 font-bold text-center">
+              <th className="border border-black p-1 w-[4%]">Sıra No</th>
+              <th className="border border-black p-1 text-left w-[22%]">Mal Hizmet</th>
+              <th className="border border-black p-1 text-right w-[10%]">Miktar</th>
+              <th className="border border-black p-1 text-right w-[9%]">Birim Fiyat</th>
+              <th className="border border-black p-1 text-center w-[7%]">İskonto/ Arttırım Oranı</th>
+              <th className="border border-black p-1 text-right w-[7%]">İskonto/ Arttırım Tutarı</th>
+              <th className="border border-black p-1 text-center w-[6%]">İskonto/ Arttırım Nedeni</th>
+              <th className="border border-black p-1 text-center w-[6%]">KDV Oranı</th>
+              <th className="border border-black p-1 text-right w-[8%]">KDV Tutarı</th>
+              <th className="border border-black p-1 text-center w-[5%]">Diğer Vergiler</th>
+              <th className="border border-black p-1 text-left w-[8%]">Satır Açıklaması</th>
+              <th className="border border-black p-1 text-right w-[8%]">Mal Hizmet Tutarı</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((it, idx) => {
+              const qty = it.quantity || 1;
+              const unit = it.unitName || 'KG';
+              const lineNet = it.lineTutar || matrah;
+              const unitPrice = it.unitPrice || (lineNet / Number(qty));
+              const lineKdv = it.kdvTutar || kdv;
+
+              return (
+                <tr key={it.id || idx}>
+                  <td className="border border-black p-1 text-center font-mono">{idx + 1}</td>
+                  <td className="border border-black p-1 text-left font-bold text-gray-950">
+                    {it.productName || 'KARKAS DANA ETİ'}
+                  </td>
+                  <td className="border border-black p-1 text-right font-mono">
+                    {typeof qty === 'number' ? qty.toLocaleString('tr-TR') : qty} {unit}
+                  </td>
+                  <td className="border border-black p-1 text-right font-mono">
+                    {fmtCurrency(unitPrice)}
+                  </td>
+                  <td className="border border-black p-1 text-center font-mono">—</td>
+                  <td className="border border-black p-1 text-right font-mono">0,00TL</td>
+                  <td className="border border-black p-1 text-center font-mono">—</td>
+                  <td className="border border-black p-1 text-center font-mono">%1,00</td>
+                  <td className="border border-black p-1 text-right font-mono">
+                    {fmtCurrency(lineKdv)}
+                  </td>
+                  <td className="border border-black p-1 text-center font-mono">—</td>
+                  <td className="border border-black p-1 text-left text-[9px]">
+                    {unit} {qty}
+                  </td>
+                  <td className="border border-black p-1 text-right font-mono font-bold">
+                    {fmtCurrency(lineNet)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 5. TOTALS SUMMARY BOX (RIGHT ALIGNED) */}
+      <div className="flex justify-end mb-3">
+        <table className="w-[280px] text-[10.5px] border-collapse border border-black">
+          <tbody>
+            <tr>
+              <td className="border border-black px-2 py-0.5 font-bold w-[60%]">
+                Mal Hizmet Toplam Tutarı
+              </td>
+              <td className="border border-black px-2 py-0.5 text-right font-mono">
+                {fmtCurrency(matrah)}
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-0.5 font-bold">
+                Toplam İskonto
+              </td>
+              <td className="border border-black px-2 py-0.5 text-right font-mono">
+                0,00TL
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-0.5 font-bold">
+                Hesaplanan KDV (%1)
+              </td>
+              <td className="border border-black px-2 py-0.5 text-right font-mono">
+                {fmtCurrency(kdv)}
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-black px-2 py-0.5 font-bold">
+                Vergiler Dahil Toplam Tutar
+              </td>
+              <td className="border border-black px-2 py-0.5 text-right font-mono">
+                {fmtCurrency(total)}
+              </td>
+            </tr>
+            <tr className="font-bold bg-gray-50/50">
+              <td className="border border-black px-2 py-0.5 text-black">
+                Ödenecek Tutar
+              </td>
+              <td className="border border-black px-2 py-0.5 text-right font-mono font-black text-black">
+                {fmtCurrency(total)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* 6. NOTES & QR CODE ROW */}
+      <div className="flex justify-between items-start mb-4">
+        {/* Left: Notes & Turkish Words */}
+        <div className="w-[65%] text-[11px] space-y-1">
+          <div className="font-bold">Not:</div>
+          <div className="font-bold text-gray-900 tracking-wide uppercase">
+            Not: Yalnız {numberToTurkishWords(total).toUpperCase()} TL
           </div>
         </div>
 
-        {/* Right: Calculations Summary Card */}
-        <div className="w-full sm:w-80 bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2 shadow-sm">
-          <div className="flex justify-between items-center text-gray-600">
-            <span>Mal / Hizmet Toplam Tutarı (Matrah):</span>
-            <span className="font-mono font-semibold text-gray-900">{formatCurrency(matrah)}</span>
-          </div>
-          <div className="flex justify-between items-center text-gray-600">
-            <span>Hesaplanan KDV (%1):</span>
-            <span className="font-mono font-semibold text-gray-900">{formatCurrency(kdv)}</span>
-          </div>
-          <div className="flex justify-between items-center text-gray-600">
-            <span>Toplam İndirim / İskonto:</span>
-            <span className="font-mono text-gray-400">0,00 ₺</span>
-          </div>
-          <div className="border-t-2 border-slate-300 pt-2 flex justify-between items-center text-sm">
-            <span className="font-bold text-gray-900 uppercase">ÖDENECEK TOPLAM:</span>
-            <span className="font-mono font-black text-[#c53030] text-base">{formatCurrency(total)}</span>
-          </div>
+        {/* Right: Square QR Code */}
+        <div className="w-[35%] flex justify-end">
+          <img
+            src={qrUrl}
+            alt="GİB Karekod"
+            width={95}
+            height={95}
+            className="border border-gray-400 p-0.5"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
         </div>
       </div>
 
-      {/* Official Footnotes */}
-      <div className="border-t border-gray-200 pt-4 text-center text-[10px] text-gray-400 space-y-1">
-        <div>T.C. Gelir İdaresi Başkanlığı e-Fatura & e-Arşiv Fatura Portalı Standartlarına Uygundur.</div>
-        <div className="font-mono">Belge Doğrulama Kodu: {ettn}</div>
-      </div>
+      {/* 7. BANK IBAN ACCOUNTS TABLE (BOTTOM FOOTER) */}
+      <table className="w-full text-[9.5px] border-collapse border border-black mt-2">
+        <tbody>
+          {accounts.map((acc, i) => (
+            <tr key={i}>
+              <td className="border border-black px-2 py-0.5 font-bold w-[35%]">
+                {acc.bank}
+              </td>
+              <td className="border border-black px-2 py-0.5 font-mono w-[65%]">
+                IBAN: {acc.iban}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

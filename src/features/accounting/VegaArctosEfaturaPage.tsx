@@ -1292,7 +1292,18 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                         if (w) w.focus();
                         else window.print();
                       } else {
-                        window.print();
+                        const html = generateInvoiceHtmlString(selectedInvoice, details, company);
+                        const printWindow = window.open('', '_blank');
+                        if (printWindow) {
+                          printWindow.document.write(html);
+                          printWindow.document.close();
+                          printWindow.focus();
+                          setTimeout(() => {
+                            printWindow.print();
+                          }, 250);
+                        } else {
+                          window.print();
+                        }
                       }
                     }}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
@@ -1314,7 +1325,20 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                     </a>
                   ) : (
                     <button
-                      onClick={() => window.print()}
+                      onClick={() => {
+                        const html = generateInvoiceHtmlString(selectedInvoice, details, company);
+                        const printWindow = window.open('', '_blank');
+                        if (printWindow) {
+                          printWindow.document.write(html);
+                          printWindow.document.close();
+                          printWindow.focus();
+                          setTimeout(() => {
+                            printWindow.print();
+                          }, 250);
+                        } else {
+                          window.print();
+                        }
+                      }}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-[#1f4e79] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-[#163a5c] transition-colors"
                       title="Yazdır / PDF Olarak Kaydet"
                     >
