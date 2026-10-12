@@ -265,14 +265,28 @@ export async function syncEtikIncomingInvoices(isFull = false) {
       }
     }
 
+    if (existingGiden.length === 0) {
+      try {
+        console.log('Supabase içinde giden fatura bulunamadı, Vega API üzerinden çekiliyor...');
+        const vRes = await fetch('https://vega-api.amasyaetas.com/api/etik/efaturalar');
+        if (vRes.ok) {
+          const vData = await vRes.json();
+          if (Array.isArray(vData)) {
+            existingGiden = vData.filter(i => (i.direction || 'giden') === 'giden');
+            console.log(`Vega API üzerinden ${existingGiden.length} giden fatura alındı.`);
+          }
+        }
+      } catch (ve) {
+        console.warn('Vega API giden fatura çekim uyarısı:', ve.message);
+      }
+    }
+
     const unifiedMap = new Map();
     for (const g of existingGiden) unifiedMap.set(g.invoiceNo, g);
     for (const g of merged) unifiedMap.set(g.invoiceNo, g);
 
     const unified = Array.from(unifiedMap.values()).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-    // Statement timeout'u engellemek için aktif yılları (2026 + 2025 sonu, max 12.000 kayıt) tut
-    const activeUnified = unified.filter(i => (i.date || '').startsWith('2026') || (i.date || '').startsWith('2025-12') || (i.date || '').startsWith('2025-11'));
-    const finalToSave = activeUnified.length > 0 ? activeUnified : unified.slice(0, 12000);
+    const finalToSave = unified.length > 25000 ? unified.slice(0, 25000) : unified;
 
     const sRes = await fetch(`${SUPABASE_URL}/rest/v1/vega_efatura_cache?company=eq.etik`, {
       method: 'PATCH',

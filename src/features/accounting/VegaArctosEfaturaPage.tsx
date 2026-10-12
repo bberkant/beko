@@ -195,7 +195,13 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
   // Live fetch from Vega/Mikrokom API & sync to Supabase + Local Cache
   const fetchLiveInvoices = async (showNotification = false) => {
     const remaining = getStoredCooldownRemaining(company);
-    if (remaining > 0) {
+    // Cooldown yalnızca önbellekte hem gelen hem giden faturalar TAM ise işletilmeli;
+    // Eğer giden veya gelen fatura adedi 0 ise, cooldown kullanıcıyı kitlememeli!
+    const currentHasGiden = invoices.some(i => (i.direction || 'gelen') === 'giden');
+    const currentHasGelen = invoices.some(i => (i.direction || 'gelen') === 'gelen');
+    const isCacheIncomplete = !currentHasGiden || !currentHasGelen;
+
+    if (remaining > 0 && !isCacheIncomplete) {
       setCooldownSeconds(remaining);
       if (showNotification) {
         const waitMinutes = Math.ceil(remaining / 60);
@@ -267,11 +273,11 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         setInvoices(finalData);
         const hasIncoming = finalData.some((i: any) => (i.direction || 'gelen') === 'gelen');
         const hasOutgoing = finalData.some((i: any) => (i.direction || 'gelen') === 'giden');
-        if (hasIncoming) {
-          setActiveTab('gelen');
-        } else if (hasOutgoing) {
-          setActiveTab('giden');
-        }
+        setActiveTab(prevTab => {
+          if (prevTab === 'giden' && hasOutgoing) return 'giden';
+          if (prevTab === 'gelen' && hasIncoming) return 'gelen';
+          return hasIncoming ? 'gelen' : (hasOutgoing ? 'giden' : prevTab);
+        });
         const now = new Date();
         const nowIso = now.toISOString();
         const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
@@ -369,19 +375,32 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
           const supaCount = supaData.invoices.length;
           const localHasGelen = localData?.invoices?.some((i: any) => (i.direction || 'gelen') === 'gelen');
           const supaHasGelen = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
+          const localHasGiden = localData?.invoices?.some((i: any) => (i.direction || 'gelen') === 'giden');
+          const supaHasGiden = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'giden');
 
-          // If local had no data, Supabase is newer, local is missing gelen, or Supabase has newer invoice dates
+          // If local had no data, Supabase is newer, Supabase has more invoices, local is missing giden/gelen, or Supabase has newer invoice dates
           const supaLatestDate = supaData.invoices[0]?.date || '';
           const localLatestDate = localData?.invoices?.[0]?.date || '';
-          if (!localData || supaTime > localTime || supaCount > localCount || (!localHasGelen && supaHasGelen) || supaLatestDate > localLatestDate) {
+          const shouldUpdateFromSupabase =
+            !localData ||
+            supaTime > localTime ||
+            supaCount > localCount ||
+            (!localHasGelen && supaHasGelen) ||
+            (!localHasGiden && supaHasGiden) ||
+            supaLatestDate > localLatestDate;
+
+          let currentInvoices = localData?.invoices || [];
+
+          if (shouldUpdateFromSupabase) {
+            currentInvoices = supaData.invoices;
             setInvoices(supaData.invoices);
-            const hasIncoming = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
-            const hasOutgoing = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'giden');
-            if (hasIncoming) {
-              setActiveTab('gelen');
-            } else if (hasOutgoing) {
-              setActiveTab('giden');
-            }
+            setActiveTab(prevTab => {
+              const hasIncoming = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
+              const hasOutgoing = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'giden');
+              if (prevTab === 'giden' && hasOutgoing) return 'giden';
+              if (prevTab === 'gelen' && hasIncoming) return 'gelen';
+              return hasIncoming ? 'gelen' : (hasOutgoing ? 'giden' : prevTab);
+            });
             setCacheSource('Supabase');
             const d = new Date(supaData.updatedAt);
             setLastSyncTime(
@@ -394,15 +413,27 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
             setCooldownSeconds(getStoredCooldownRemaining(company));
           }
           setIsLoading(false);
+
+          // Otomatik İyileştirme (Self-Healing):
+          // Eğer önbellekte giden veya gelen faturalardan biri eksikse, arka planda canlı Vega API'den çek
+          const hasGiden = currentInvoices.some((i: any) => (i.direction || 'gelen') === 'giden');
+          const hasGelen = currentInvoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
+          if (!hasGiden || !hasGelen) {
+            void fetchLiveInvoices(false);
+          }
           return;
         }
       } catch (err) {
         console.warn('Supabase cache check failed:', err);
       }
 
-      // 3. Fallback: Cold start on empty database -> fetch live from Vega
-      if (isMounted && (!localData || localData.invoices.length === 0)) {
-        await fetchLiveInvoices(false);
+      // 3. Fallback: Cold start on empty database or incomplete cache -> fetch live from Vega
+      if (isMounted) {
+        const localHasGiden = localData?.invoices?.some((i: any) => (i.direction || 'gelen') === 'giden');
+        const localHasGelen = localData?.invoices?.some((i: any) => (i.direction || 'gelen') === 'gelen');
+        if (!localData || localData.invoices.length === 0 || !localHasGiden || !localHasGelen) {
+          await fetchLiveInvoices(false);
+        }
       }
     };
 
@@ -562,7 +593,11 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
   };
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(val);
+    const formatted = new Intl.NumberFormat('tr-TR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(val || 0);
+    return `${formatted} ₺`;
   };
 
   // Helper for resilient Turkish search (e.g. handles 'evülce' typo, case-insensitivity, and accents)
