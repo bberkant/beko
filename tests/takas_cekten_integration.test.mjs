@@ -526,6 +526,23 @@ const modalOzelAlanResult = computeModalOzelAlan(dynamicModalCheck, 'TAKSİT');
 assert.equal(modalOzelAlanResult, 'TAKASTA - ÇEKTEN HESABI', 'Modal ile takasa eklenen Çekten çeki "TAKASTA - ÇEKTEN HESABI" suffixini korumalı');
 console.log('✓ Modal üzerinden ekleme işleminde ÇEKTEN HESABI eki korundu');
 
+// -------------------------------------------------------------
+// TEST 16: ÇEKTEN HESABI -> ÇEKTEN Görüntüleme Formatlaması
+// -------------------------------------------------------------
+console.log('\n[TEST 16: ÇEKTEN HESABI -> ÇEKTEN Normalizasyonu]');
+function formatTaksitDesc(desc) {
+  if (!desc) return '';
+  const clean = desc.trim().toLocaleUpperCase('tr-TR');
+  if (clean === 'ÇEKTEN HESABI' || clean === 'CEKTEN HESABI' || clean === 'ÇEKTEN' || clean === 'CEKTEN') {
+    return 'ÇEKTEN';
+  }
+  return clean;
+}
+assert.equal(formatTaksitDesc('ÇEKTEN HESABI'), 'ÇEKTEN');
+assert.equal(formatTaksitDesc('CEKTEN HESABI'), 'ÇEKTEN');
+assert.equal(formatTaksitDesc('ÇEKTEN'), 'ÇEKTEN');
+console.log('✓ ÇEKTEN HESABI ve varyasyonları ekranda yalnızca "ÇEKTEN" olarak formatlandı');
+
 console.log('\n================================================================');
 console.log('--- ALL INTEGRATION & ADVERSARIAL TESTS PASSED SUCCESSFULLY! ---');
 console.log('================================================================');

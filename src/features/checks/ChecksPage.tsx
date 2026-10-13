@@ -255,6 +255,9 @@ export const fixCorruptedText = fixCorruptedTurkishText;
 const formatTaksitDesc = (desc: string | null | undefined): string => {
   if (!desc) return '';
   const clean = fixCorruptedText(desc.trim()).toLocaleUpperCase('tr-TR');
+  if (clean === 'ÇEKTEN HESABI' || clean === 'CEKTEN HESABI' || clean === 'ÇEKTEN' || clean === 'CEKTEN') {
+    return 'ÇEKTEN';
+  }
   const idx = clean.indexOf('-');
   if (idx !== -1) {
     const left = clean.substring(0, idx).trim();
@@ -612,7 +615,7 @@ export function ChecksPage() {
         let updatedOzelAlan = '';
         let updatedDebtor = targetCheck.debtor;
         const isCekten = isCektenCheck(targetCheck);
-        const cektenSuffix = isCekten ? ' - ÇEKTEN HESABI' : '';
+        const cektenSuffix = isCekten ? ' - ÇEKTEN' : '';
         
         if (targetColumn === 'TAKASTA OLMAYAN') {
           const isCurrentlyIcTakas = (targetCheck.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
@@ -637,8 +640,8 @@ export function ChecksPage() {
             amount: Number(targetCheck.amount || 0),
             para_birimi: 'TRY',
             creditor: targetCheck.creditor,
-            debtor: updatedDebtor || targetCheck.debtor || 'ÇEKTEN HESABI',
-            bank_name: 'ÇEKTEN HESABI',
+            debtor: updatedDebtor || (targetCheck.debtor === 'ÇEKTEN HESABI' ? 'ÇEKTEN' : targetCheck.debtor) || 'ÇEKTEN',
+            bank_name: 'ÇEKTEN',
             ozel_alan: updatedOzelAlan
           };
           const { error } = await supabase.from('ebs_checks').insert([insertPayload]);
@@ -820,11 +823,11 @@ export function ChecksPage() {
                 para_birimi: 'TRY',
                 check_no: null,
                 creditor: supplier,
-                debtor: 'ÇEKTEN HESABI',
-                bank_name: 'ÇEKTEN HESABI',
+                debtor: 'ÇEKTEN',
+                bank_name: 'ÇEKTEN',
                 bank_branch: null,
                 status: 'Tahsilde',
-                ozel_alan: 'TAKASTA OLMAYAN - ÇEKTEN HESABI',
+                ozel_alan: 'TAKASTA OLMAYAN - ÇEKTEN',
                 kesideci: null,
                 keside_yeri: null,
                 tahsildar_banka: null,
@@ -2114,11 +2117,11 @@ export function ChecksPage() {
       updatedStatus = 'Ödendi';
     } else if (statusOption === 'ictakas') {
       const isCurrentlyIcTakas = (check.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
-      const cektenSuffix = isCekten ? ' - ÇEKTEN HESABI' : '';
+      const cektenSuffix = isCekten ? ' - ÇEKTEN' : '';
       updatedOzelAlan = isCurrentlyIcTakas ? `TAKASTA${cektenSuffix}` : `TAKASTA - İÇ TAKAS${cektenSuffix}`;
     } else {
       const isCurrentlyIcTakas = (check.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
-      const cektenSuffix = isCekten ? ' - ÇEKTEN HESABI' : '';
+      const cektenSuffix = isCekten ? ' - ÇEKTEN' : '';
       if (statusOption === 'nontakas') {
         updatedOzelAlan = isCurrentlyIcTakas ? `TAKASTA OLMAYAN - İÇ TAKAS${cektenSuffix}` : `TAKASTA OLMAYAN${cektenSuffix}`;
       } else {
@@ -2151,8 +2154,8 @@ export function ChecksPage() {
         amount: Number(check.amount || 0),
         para_birimi: 'TRY',
         creditor: check.creditor,
-        debtor: targetBank || check.debtor || 'ÇEKTEN HESABI',
-        bank_name: 'ÇEKTEN HESABI',
+        debtor: targetBank || (check.debtor === 'ÇEKTEN HESABI' ? 'ÇEKTEN' : check.debtor) || 'ÇEKTEN',
+        bank_name: 'ÇEKTEN',
         ozel_alan: updatedOzelAlan
       };
 
