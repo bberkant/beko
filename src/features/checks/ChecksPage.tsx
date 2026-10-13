@@ -71,6 +71,16 @@ const cleanStatus = (status: string | null | undefined): string => {
   return cleaned;
 };
 
+import { 
+  isCheckPaid, 
+  formatDateForDB, 
+  isCektenCheck, 
+  aggregateCektenBalances, 
+  createCektenPaymentPayload 
+} from './utils/cektenTakasSync';
+
+export { isCheckPaid, formatDateForDB, isCektenCheck };
+
 const normalizeCache = new Map<string, string>();
 export const normalizeString = (str: string | null | undefined): string => {
   if (!str) return '';
@@ -325,7 +335,7 @@ export function ChecksPage() {
   const { user } = useAuth();
   const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
   const pendingInserts = useRef<Record<string, boolean>>({});
-  const insertPromises = useRef<Record<string, Promise<any>>>({});
+  const insertPromises = useRef<Record<string, Promise<any> | undefined>>({});
   const [selectedCells, setSelectedCells] = useState<Record<string, { amount: number; label: string }>>({});
 
   const handleCellClick = (
@@ -601,25 +611,49 @@ export function ChecksPage() {
 
         let updatedOzelAlan = '';
         let updatedDebtor = targetCheck.debtor;
+        const isCekten = isCektenCheck(targetCheck);
+        const cektenSuffix = isCekten ? ' - ÇEKTEN HESABI' : '';
         
         if (targetColumn === 'TAKASTA OLMAYAN') {
           const isCurrentlyIcTakas = (targetCheck.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
-          updatedOzelAlan = isCurrentlyIcTakas ? 'TAKASTA OLMAYAN - İÇ TAKAS' : 'TAKASTA OLMAYAN';
+          updatedOzelAlan = isCurrentlyIcTakas ? `TAKASTA OLMAYAN - İÇ TAKAS${cektenSuffix}` : `TAKASTA OLMAYAN${cektenSuffix}`;
         } else {
           const isCurrentlyIcTakas = (targetCheck.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
-          updatedOzelAlan = isCurrentlyIcTakas ? 'TAKASTA - İÇ TAKAS' : 'TAKASTA';
+          updatedOzelAlan = isCurrentlyIcTakas ? `TAKASTA - İÇ TAKAS${cektenSuffix}` : `TAKASTA${cektenSuffix}`;
           updatedDebtor = targetColumn;
         }
 
-        const { error } = await supabase
-          .from('ebs_checks')
-          .update({
-            ozel_alan: updatedOzelAlan,
-            debtor: updatedDebtor
-          })
-          .eq('id', targetCheck.id);
+        const isDynamic = Boolean(targetCheck.id && String(targetCheck.id).startsWith('cekten_'));
+        if (isDynamic) {
+          const localId = Math.floor(Date.now() % 10000000);
+          const targetDateStr = takasDate || new Date().toISOString().split('T')[0];
+          const insertPayload: any = {
+            organization_id: orgId,
+            check_type: 'kesilen',
+            status: 'Tahsilde',
+            due_date: targetDateStr,
+            issue_date: targetDateStr,
+            local_id: localId,
+            amount: Number(targetCheck.amount || 0),
+            para_birimi: 'TRY',
+            creditor: targetCheck.creditor,
+            debtor: updatedDebtor || targetCheck.debtor || 'ÇEKTEN HESABI',
+            bank_name: 'ÇEKTEN HESABI',
+            ozel_alan: updatedOzelAlan
+          };
+          const { error } = await supabase.from('ebs_checks').insert([insertPayload]);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('ebs_checks')
+            .update({
+              ozel_alan: updatedOzelAlan,
+              debtor: updatedDebtor
+            })
+            .eq('id', targetCheck.id);
 
-        if (error) throw error;
+          if (error) throw error;
+        }
       } else {
         const localId = Math.floor(Date.now() % 10000000);
         
@@ -725,6 +759,84 @@ export function ChecksPage() {
             allData = [...allData, ...res.data];
           }
         }
+      }
+
+      // Çekten Hesabı açık bakiyelerini dinamik olarak Takasta Olmayan Çekler'e entegre et
+      try {
+        const { data: cektenRows, error: cektenErr } = await supabase
+          .from('cekten_hesabi')
+          .select('*')
+          .eq('organization_id', orgId);
+
+        if (!cektenErr && cektenRows) {
+          const supplierGroups = aggregateCektenBalances(cektenRows);
+          const todayStr = new Date().toISOString().split('T')[0];
+
+          // ebs_checks içindeki "TAKASTA OLMAYAN" Çekten kayıtlarını kontrol et:
+          // Eğer cekten_hesabi'nda bakiyesi 0 TL olmuşsa veya açık bakiye kalmamışsa, allData'dan temizle
+          allData = allData.filter(c => {
+            if (isCheckPaid(c.status)) return true;
+            if (!isCektenCheck(c)) return true;
+            if (!c.ozel_alan?.includes('TAKASTA OLMAYAN')) return true;
+
+            const cCreditor = fixCorruptedText(c.creditor || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
+            const summary = supplierGroups.get(cCreditor);
+            if (!summary || Math.abs(summary.netBalance) < 0.01) {
+              return false;
+            }
+            return true;
+          });
+
+          supplierGroups.forEach(({ supplier, netBalance }) => {
+            // Bakiyesi 0 TL olan cariler Takasta Olmayan Çekler listesine dahil edilmez
+            if (Math.abs(netBalance) < 0.01) return;
+
+            const supplierUpper = fixCorruptedText(supplier).trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
+            // Zaten bu cari için Takas'ta veya Takasta Olmayan'da aktif (ödenmemiş) bir Çekten çeki var mı?
+            const existingCheck = allData.find(c => {
+              if (isCheckPaid(c.status)) return false;
+              const cCreditor = fixCorruptedText(c.creditor || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
+              if (cCreditor !== supplierUpper) return false;
+              return isCektenCheck(c);
+            });
+
+            const roundedAmount = Math.round(Math.abs(netBalance) * 100) / 100;
+
+            if (existingCheck) {
+              // Eğer zaten TAKASTA OLMAYAN olarak kayıtlıysa, güncel net bakiyeyi yansıt
+              if (existingCheck.ozel_alan?.includes('TAKASTA OLMAYAN')) {
+                existingCheck.amount = roundedAmount;
+              }
+            } else {
+              // Henüz takasa aktarılmamış açık bakiye: Dinamik olarak Takasta Olmayan Çekler'e ekle
+              const dynamicCheck: EbsCheck = {
+                id: `cekten_${encodeURIComponent(supplierUpper)}`,
+                local_id: 0,
+                check_type: 'kesilen',
+                document_type: 'cek',
+                issue_date: todayStr,
+                due_date: todayStr,
+                amount: roundedAmount,
+                para_birimi: 'TRY',
+                check_no: null,
+                creditor: supplier,
+                debtor: 'ÇEKTEN HESABI',
+                bank_name: 'ÇEKTEN HESABI',
+                bank_branch: null,
+                status: 'Tahsilde',
+                ozel_alan: 'TAKASTA OLMAYAN - ÇEKTEN HESABI',
+                kesideci: null,
+                keside_yeri: null,
+                tahsildar_banka: null,
+                ciro_edilen: null,
+                created_at: new Date().toISOString()
+              };
+              allData.push(dynamicCheck);
+            }
+          });
+        }
+      } catch (cektenFetchErr) {
+        console.warn('Çekten hesabı bakiyeleri yüklenirken hata:', cektenFetchErr);
       }
 
       setChecks(allData);
@@ -983,6 +1095,7 @@ export function ChecksPage() {
   const filteredChecks = useMemo(() => {
     if (isTakasRoute) return [];
     return checks.filter(c => {
+      if (c.id?.startsWith('cekten_')) return false;
       if (c.check_type !== activeTab) return false;
       const isSenet = 
         c.document_type === 'senet' || 
@@ -1402,6 +1515,10 @@ export function ChecksPage() {
       if (note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN')) {
         return false;
       }
+
+      if (isCektenCheck(c)) {
+        return true;
+      }
       
       const column = getBankColumn(c.debtor, c.bank_name) || getCleanBankName(c.debtor, c.bank_name);
 
@@ -1434,7 +1551,7 @@ export function ChecksPage() {
       const bankName = getBankColumn(c.debtor, c.bank_name) || getCleanBankName(c.debtor, c.bank_name);
       const note = (c.ozel_alan || '').toUpperCase();
       const isExplicitTakasta = note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN');
-      const shouldGoToTaksit = isHatirAlinan(c) || bankName === 'TAKSİT' || (!bankName && isExplicitTakasta);
+      const shouldGoToTaksit = isHatirAlinan(c) || bankName === 'TAKSİT' || (!bankName && isExplicitTakasta) || (isCektenCheck(c) && isExplicitTakasta);
 
       if (shouldGoToTaksit) {
         taksitChecks.push(c);
@@ -1506,7 +1623,7 @@ export function ChecksPage() {
       const bankName = getBankColumn(c.debtor, c.bank_name) || getCleanBankName(c.debtor, c.bank_name);
       const note = (c.ozel_alan || '').toUpperCase();
       const isExplicitTakasta = note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN');
-      const shouldGoToTaksit = isHatirAlinan(c) || bankName === 'TAKSİT' || (!bankName && isExplicitTakasta);
+      const shouldGoToTaksit = isHatirAlinan(c) || bankName === 'TAKSİT' || (!bankName && isExplicitTakasta) || (isCektenCheck(c) && isExplicitTakasta);
 
       if (shouldGoToTaksit) {
         // already handled
@@ -1831,6 +1948,10 @@ export function ChecksPage() {
         setChecks(prev => prev.map(c => c.id === check.id ? { ...c, [field]: parsedValue } : c));
       }
 
+      if (check.id.startsWith('cekten_')) {
+        return;
+      }
+
       // Perform update asynchronously in background
       if (check.id.startsWith('temp-')) {
         const insertPromise = insertPromises.current[check.id] || Promise.resolve();
@@ -1967,7 +2088,8 @@ export function ChecksPage() {
     targetBank?: string
   ) => {
     setOpenDropdown(null);
-    if (!check || !user?.organizationId) return;
+    if (!check) return;
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
 
     if (statusOption === 'odendi') {
       const checkDesc = check.creditor || check.check_no ? ` (${check.creditor || ''} ${check.check_no ? 'No: ' + check.check_no : ''})` : '';
@@ -1975,6 +2097,10 @@ export function ChecksPage() {
         return;
       }
     }
+
+    const isCekten = isCektenCheck(check);
+    const isDynamicCekten = Boolean(check.id && String(check.id).startsWith('cekten_'));
+    const targetDateStr = takasDate || new Date().toISOString().split('T')[0];
 
     // 1. Calculate new values optimistically
     let updatedOzelAlan = check.ozel_alan || '';
@@ -1988,20 +2114,73 @@ export function ChecksPage() {
       updatedStatus = 'Ödendi';
     } else if (statusOption === 'ictakas') {
       const isCurrentlyIcTakas = (check.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
-      updatedOzelAlan = isCurrentlyIcTakas ? 'TAKASTA' : 'TAKASTA - İÇ TAKAS';
+      const cektenSuffix = isCekten ? ' - ÇEKTEN HESABI' : '';
+      updatedOzelAlan = isCurrentlyIcTakas ? `TAKASTA${cektenSuffix}` : `TAKASTA - İÇ TAKAS${cektenSuffix}`;
     } else {
       const isCurrentlyIcTakas = (check.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
+      const cektenSuffix = isCekten ? ' - ÇEKTEN HESABI' : '';
       if (statusOption === 'nontakas') {
-        updatedOzelAlan = isCurrentlyIcTakas ? 'TAKASTA OLMAYAN - İÇ TAKAS' : 'TAKASTA OLMAYAN';
+        updatedOzelAlan = isCurrentlyIcTakas ? `TAKASTA OLMAYAN - İÇ TAKAS${cektenSuffix}` : `TAKASTA OLMAYAN${cektenSuffix}`;
       } else {
-        updatedOzelAlan = isCurrentlyIcTakas ? 'TAKASTA - İÇ TAKAS' : 'TAKASTA';
+        updatedOzelAlan = isCurrentlyIcTakas ? `TAKASTA - İÇ TAKAS${cektenSuffix}` : `TAKASTA${cektenSuffix}`;
       }
       if (statusOption === 'takasta' && targetBank) {
         updatedDebtor = targetBank;
       }
     }
 
-    // 2. Apply updates to local state immediately
+    // 2. Dinamik Çekten çeki Takas'a aktarılıyorsa -> ebs_checks tablosuna ekle
+    if (isDynamicCekten && statusOption === 'takasta') {
+      const localId = Math.floor(Date.now() % 10000000);
+      const tempId = `temp-${localId}`;
+
+      setChecks(prev => prev.map(c => c.id === check.id ? {
+        ...c,
+        id: tempId,
+        local_id: localId,
+        ozel_alan: updatedOzelAlan
+      } : c));
+
+      const insertPayload: any = {
+        organization_id: orgId,
+        check_type: 'kesilen',
+        status: 'Tahsilde',
+        due_date: targetDateStr,
+        issue_date: targetDateStr,
+        local_id: localId,
+        amount: Number(check.amount || 0),
+        para_birimi: 'TRY',
+        creditor: check.creditor,
+        debtor: targetBank || check.debtor || 'ÇEKTEN HESABI',
+        bank_name: 'ÇEKTEN HESABI',
+        ozel_alan: updatedOzelAlan
+      };
+
+      const insertPromise = supabase
+        .from('ebs_checks')
+        .insert([insertPayload])
+        .select() as any;
+
+      insertPromises.current[tempId] = insertPromise;
+
+      try {
+        const { data: inserted, error: insertError } = await insertPromise;
+        delete insertPromises.current[tempId];
+        if (insertError) {
+          console.error('Failed to insert takas check in ebs_checks:', insertError);
+          void fetchChecks();
+        } else if (inserted && inserted[0]) {
+          setChecks(prev => prev.map(c => c.id === tempId ? { ...inserted[0], ...c, id: inserted[0].id } : c));
+        }
+      } catch (err) {
+        delete insertPromises.current[tempId];
+        console.error('Error inserting takas check:', err);
+        void fetchChecks();
+      }
+      return;
+    }
+
+    // 3. Apply updates to local state immediately
     if (shouldDelete) {
       setChecks(prev => prev.filter(c => c.id !== check.id));
     } else {
@@ -2013,40 +2192,92 @@ export function ChecksPage() {
       } : c));
     }
 
-    // 3. Perform database update in the background
+    // 4. Perform database update in the background
     try {
+      const isTempId = String(check.id).startsWith('temp-');
+      const hasLocalId = Boolean(check.local_id);
+
+      if (isTempId && insertPromises.current[check.id]) {
+        try {
+          await insertPromises.current[check.id];
+        } catch (insertWaitErr) {
+          console.error('Error awaiting insert promise in status update:', insertWaitErr);
+        }
+      }
+
       if (statusOption === 'sil') {
-        if (check.local_id) {
-          await supabase
-            .from('ebs_checks')
-            .update({ status: 'Ödendi', ozel_alan: 'SİLİNDİ - TAKASTAN KALDIRILDI' })
-            .eq('id', check.id);
-        } else {
-          await supabase
-            .from('ebs_checks')
-            .delete()
-            .eq('id', check.id);
+        if (!isDynamicCekten) {
+          if (hasLocalId) {
+            await supabase
+              .from('ebs_checks')
+              .update({ status: 'Ödendi', ozel_alan: 'SİLİNDİ - TAKASTAN KALDIRILDI' })
+              .eq(isTempId ? 'local_id' : 'id', isTempId ? check.local_id : check.id);
+          } else if (!isTempId) {
+            await supabase
+              .from('ebs_checks')
+              .delete()
+              .eq('id', check.id);
+          }
         }
       } else if (statusOption === 'odendi') {
-        await supabase
-          .from('ebs_checks')
-          .update({ status: 'Ödendi' })
-          .eq('id', check.id);
-      } else if (statusOption === 'ictakas') {
-        await supabase
-          .from('ebs_checks')
-          .update({ ozel_alan: updatedOzelAlan })
-          .eq('id', check.id);
-      } else {
-        const updateData: any = { ozel_alan: updatedOzelAlan };
-        if (statusOption === 'takasta' && targetBank) {
-          updateData.debtor = targetBank;
+        if (!isDynamicCekten) {
+          if (isTempId && hasLocalId) {
+            await supabase
+              .from('ebs_checks')
+              .update({ status: 'Ödendi' })
+              .eq('local_id', check.local_id);
+          } else if (!isTempId) {
+            await supabase
+              .from('ebs_checks')
+              .update({ status: 'Ödendi' })
+              .eq('id', check.id);
+          }
         }
-        
-        await supabase
-          .from('ebs_checks')
-          .update(updateData)
-          .eq('id', check.id);
+
+        // Çekten Hesabı için otomatik ödeme kaydı ekle
+        if (isCekten) {
+          const paymentPayload = createCektenPaymentPayload(orgId, check.creditor || '', check.amount || 0, targetDateStr);
+          const { error: cektenErr } = await supabase
+            .from('cekten_hesabi')
+            .insert(paymentPayload);
+          if (cektenErr) {
+            console.error('Failed to insert payment record in cekten_hesabi:', cektenErr);
+          }
+          void fetchChecks();
+        }
+      } else if (statusOption === 'ictakas') {
+        if (!isDynamicCekten) {
+          if (isTempId && hasLocalId) {
+            await supabase
+              .from('ebs_checks')
+              .update({ ozel_alan: updatedOzelAlan })
+              .eq('local_id', check.local_id);
+          } else if (!isTempId) {
+            await supabase
+              .from('ebs_checks')
+              .update({ ozel_alan: updatedOzelAlan })
+              .eq('id', check.id);
+          }
+        }
+      } else {
+        if (!isDynamicCekten) {
+          const updateData: any = { ozel_alan: updatedOzelAlan };
+          if (statusOption === 'takasta' && targetBank) {
+            updateData.debtor = targetBank;
+          }
+          
+          if (isTempId && hasLocalId) {
+            await supabase
+              .from('ebs_checks')
+              .update(updateData)
+              .eq('local_id', check.local_id);
+          } else if (!isTempId) {
+            await supabase
+              .from('ebs_checks')
+              .update(updateData)
+              .eq('id', check.id);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to update check status in background:', error);
@@ -2056,7 +2287,7 @@ export function ChecksPage() {
 
   const handleMarkColumnAsPaid = async (colName: string) => {
     setOpenHeaderDropdown(null);
-    if (!user?.organizationId) return;
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
 
     const checksInCol = dashboardData.columns[colName] || [];
     const targets = checksInCol.filter(c => c.id && !(c.status || '').toLowerCase().includes('ödendi'));
@@ -2071,13 +2302,49 @@ export function ChecksPage() {
     setChecks(prev => prev.map(c => targetIds.includes(c.id) ? { ...c, status: 'Ödendi' } : c));
 
     try {
-      const { error } = await supabase
-        .from('ebs_checks')
-        .update({ status: 'Ödendi' })
-        .in('id', targetIds);
-      if (error) {
-        console.error('Supabase batch update status error:', error);
-        alert('Çekler güncellenemedi: ' + error.message);
+      const uuidTargetIds = targets
+        .filter(t => t.id && !String(t.id).startsWith('cekten_') && !String(t.id).startsWith('temp-'))
+        .map(t => t.id);
+      const tempTargets = targets
+        .filter(t => t.id && String(t.id).startsWith('temp-') && t.local_id);
+
+      if (uuidTargetIds.length > 0) {
+        const { error } = await supabase
+          .from('ebs_checks')
+          .update({ status: 'Ödendi' })
+          .in('id', uuidTargetIds);
+        if (error) {
+          console.error('Supabase batch update status error:', error);
+          alert('Çekler güncellenemedi: ' + error.message);
+          void fetchChecks();
+        }
+      }
+
+      for (const t of tempTargets) {
+        if (insertPromises.current[t.id]) {
+          try {
+            await insertPromises.current[t.id];
+          } catch (insertWaitErr) {
+            console.error('Error awaiting insert promise in column payment:', insertWaitErr);
+          }
+        }
+        await supabase
+          .from('ebs_checks')
+          .update({ status: 'Ödendi' })
+          .eq('local_id', t.local_id);
+      }
+
+      // Çekten hesabı ödemelerini kaydet
+      const cektenTargets = targets.filter(c => isCektenCheck(c));
+      if (cektenTargets.length > 0) {
+        const paymentDate = takasDate || new Date().toISOString().split('T')[0];
+        const paymentPayloads = cektenTargets.map(c => 
+          createCektenPaymentPayload(orgId, c.creditor || '', c.amount || 0, paymentDate)
+        );
+        const { error: cektenErr } = await supabase.from('cekten_hesabi').insert(paymentPayloads);
+        if (cektenErr) {
+          console.error('Failed to insert batch payment records in cekten_hesabi:', cektenErr);
+        }
         void fetchChecks();
       }
     } catch (e: any) {
