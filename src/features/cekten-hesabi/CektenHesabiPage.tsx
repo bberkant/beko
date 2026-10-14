@@ -1218,109 +1218,136 @@ export function CektenHesabiPage() {
 
     return (
       <div className="space-y-6 font-sans print-container">
-        {/* Breadcrumb Navigation */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <button
-              onClick={() => setSelectedSupplierDetail(null)}
-              className="group flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-brand-600 transition-colors uppercase tracking-wider mb-1 no-print"
-            >
-              <ChevronLeft size={16} /> Çekten Hesabına Dön
-            </button>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">{selectedSupplierDetail}</h1>
-            <p className="text-sm text-gray-500">Cari Kart Detay ve Çekten Hesap Hareket Dökümü</p>
-          </div>
+        <style>{`
+          .cekten-sticky-top {
+            background-color: #f1f5f9;
+          }
+          .theme-dia-v3 .cekten-sticky-top {
+            background-color: #e8ecf1;
+          }
+          .theme-banking-trial .cekten-sticky-top {
+            background-color: #f4f6fa;
+          }
+          .theme-classic .cekten-sticky-top {
+            background-color: #f9fafb;
+          }
+          @media print {
+            .cekten-sticky-top {
+              position: static !important;
+              background-color: transparent !important;
+              box-shadow: none !important;
+              border: none !important;
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+          }
+        `}</style>
+        {/* Sticky Header & Summary Area */}
+        <div className="sticky top-16 z-10 -mx-3 -mt-4 px-3 pt-3 pb-3 lg:-mx-8 lg:-mt-8 lg:px-8 lg:pt-4 bg-[#f1f5f9] border-b border-gray-200/80 shadow-sm transition-all space-y-3 no-print cekten-sticky-top">
+          {/* Breadcrumb Navigation & Action Buttons */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <button
+                onClick={() => setSelectedSupplierDetail(null)}
+                className="group flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-brand-600 transition-colors uppercase tracking-wider mb-0.5 no-print"
+              >
+                <ChevronLeft size={16} /> Çekten Hesabına Dön
+              </button>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">{selectedSupplierDetail}</h1>
+              <p className="text-xs sm:text-sm text-gray-500">Cari Kart Detay ve Çekten Hesap Hareket Dökümü</p>
+            </div>
 
-          <div className="flex items-center gap-3 no-print">
-            <button
-              onClick={() => setSelectedSupplierDetail(null)}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none"
-            >
-              Geri Dön
-            </button>
-            <button
-              onClick={() => {
-                setSupplierEditName(selectedSupplierDetail || '');
-                setIsSupplierEditModalOpen(true);
-              }}
-              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none"
-            >
-              <Pencil size={16} />
-              Düzenle
-            </button>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none"
-            >
-              <Printer size={16} />
-              Yazdır
-            </button>
-            <button
-              onClick={() => {
-                setPaymentFormDate(new Date().toISOString().split('T')[0]);
-                setPaymentFormAmount('');
-                setPaymentFormNotes('');
-                setPaymentFormTxType('odeme');
-                setIsPaymentModalOpen(true);
-              }}
-              className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus:outline-none"
-            >
-              <Plus size={16} />
-              İşlem Ekle
-            </button>
-          </div>
-        </div>
-
-        {/* Cari Kart Detay Bilgileri and Net Bakiye Row */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-6 shadow-sm flex flex-col justify-between">
-            <h3 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-3">Cari Kart Detay Bilgileri</h3>
-            <div className="mt-4 grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
-              <div>
-                <span className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Cari Kodu</span>
-                <span className="font-semibold text-gray-700">CEKTEN-HESAP-{(selectedSupplierDetail || '').toUpperCase().substring(0, 10)}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Firma Tipi</span>
-                <span className="font-semibold text-gray-700">Tedarikçi (Manuel Cari)</span>
-              </div>
-              <div>
-                <span className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Vergi No / T.C.</span>
-                <span className="font-semibold text-gray-700">—</span>
-              </div>
-              <div>
-                <span className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Son İşlem Tarihi</span>
-                <span className="font-semibold text-gray-700">{latestTxFormatted}</span>
-              </div>
+            <div className="flex items-center gap-2 sm:gap-3 no-print">
+              <button
+                onClick={() => setSelectedSupplierDetail(null)}
+                className="rounded-lg border border-gray-300 bg-white px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none"
+              >
+                Geri Dön
+              </button>
+              <button
+                onClick={() => {
+                  setSupplierEditName(selectedSupplierDetail || '');
+                  setIsSupplierEditModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none"
+              >
+                <Pencil size={15} />
+                Düzenle
+              </button>
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none"
+              >
+                <Printer size={15} />
+                Yazdır
+              </button>
+              <button
+                onClick={() => {
+                  setPaymentFormDate(new Date().toISOString().split('T')[0]);
+                  setPaymentFormAmount('');
+                  setPaymentFormNotes('');
+                  setPaymentFormTxType('odeme');
+                  setIsPaymentModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white hover:bg-brand-700 focus:outline-none shadow-sm"
+              >
+                <Plus size={16} />
+                İşlem Ekle
+              </button>
             </div>
           </div>
 
-          {!loading && (
-            <div className={`rounded-xl text-white p-6 shadow-sm flex flex-col justify-between min-h-[160px] transition-all duration-300 net-bakiye-card ${
-              supplierStats.remaining > 0 ? 'bg-rose-900' : supplierStats.remaining < 0 ? 'bg-brand-900' : 'bg-emerald-900'
-            }`}>
-              <div>
-                <span className={`text-xs font-bold uppercase tracking-wider ${
-                  supplierStats.remaining > 0 ? 'text-rose-200' : supplierStats.remaining < 0 ? 'text-blue-200' : 'text-emerald-200'
-                }`}>
-                  Net Bakiye
-                </span>
-                <div className="mt-2 text-3xl font-extrabold text-white">
-                  {Math.abs(supplierStats.remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+          {/* Cari Kart Detay Bilgileri and Net Bakiye Row */}
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm flex flex-col justify-between">
+              <h3 className="text-xs sm:text-sm font-bold text-gray-900 border-b border-gray-100 pb-2">Cari Kart Detay Bilgileri</h3>
+              <div className="mt-2.5 grid grid-cols-2 gap-y-2.5 gap-x-4 text-xs sm:text-sm">
+                <div>
+                  <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Cari Kodu</span>
+                  <span className="font-semibold text-gray-700">CEKTEN-HESAP-{(selectedSupplierDetail || '').toUpperCase().substring(0, 10)}</span>
+                </div>
+                <div>
+                  <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Firma Tipi</span>
+                  <span className="font-semibold text-gray-700">Tedarikçi (Manuel Cari)</span>
+                </div>
+                <div>
+                  <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Vergi No / T.C.</span>
+                  <span className="font-semibold text-gray-700">—</span>
+                </div>
+                <div>
+                  <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Son İşlem Tarihi</span>
+                  <span className="font-semibold text-gray-700">{latestTxFormatted}</span>
                 </div>
               </div>
-              <div className={`mt-4 border-t pt-3 flex items-center justify-between text-xs font-semibold ${
-                supplierStats.remaining > 0 ? 'border-rose-800 text-rose-200' : supplierStats.remaining < 0 ? 'border-blue-800 text-blue-200' : 'border-emerald-800 text-emerald-200'
-              }`}>
-                <span>Bakiye Durumu:</span>
-                <span className={`text-[15px] font-bold ${
-                  supplierStats.remaining > 0 ? "text-rose-200 animate-pulse" : supplierStats.remaining < 0 ? "text-blue-200 animate-pulse" : "text-emerald-300"
-                }`}>
-                  {supplierStats.remaining > 0 ? "Borcumuz Var" : supplierStats.remaining < 0 ? "Alacaklıyız" : "Bakiye Sıfır / Tamamlandı"}
-                </span>
-              </div>
             </div>
-          )}
+
+            {!loading && (
+              <div className={`rounded-xl text-white p-4 sm:p-5 shadow-sm flex flex-col justify-between min-h-[140px] transition-all duration-300 net-bakiye-card ${
+                supplierStats.remaining > 0 ? 'bg-rose-900' : supplierStats.remaining < 0 ? 'bg-brand-900' : 'bg-emerald-900'
+              }`}>
+                <div>
+                  <span className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider ${
+                    supplierStats.remaining > 0 ? 'text-rose-200' : supplierStats.remaining < 0 ? 'text-blue-200' : 'text-emerald-200'
+                  }`}>
+                    Net Bakiye
+                  </span>
+                  <div className="mt-1 text-2xl sm:text-3xl font-extrabold text-white">
+                    {Math.abs(supplierStats.remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                  </div>
+                </div>
+                <div className={`mt-2.5 border-t pt-2 flex items-center justify-between text-xs font-semibold ${
+                  supplierStats.remaining > 0 ? 'border-rose-800 text-rose-200' : supplierStats.remaining < 0 ? 'border-blue-800 text-blue-200' : 'border-emerald-800 text-emerald-200'
+                }`}>
+                  <span>Bakiye Durumu:</span>
+                  <span className={`text-[13px] sm:text-[14px] font-bold ${
+                    supplierStats.remaining > 0 ? "text-rose-200 animate-pulse" : supplierStats.remaining < 0 ? "text-blue-200 animate-pulse" : "text-emerald-300"
+                  }`}>
+                    {supplierStats.remaining > 0 ? "Borcumuz Var" : supplierStats.remaining < 0 ? "Alacaklıyız" : "Bakiye Sıfır / Tamamlandı"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Warning Banner */}
