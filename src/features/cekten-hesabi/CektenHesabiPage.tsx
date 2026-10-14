@@ -431,6 +431,7 @@ export function CektenHesabiPage() {
   // Screenshot capture state and ref
   const [isCapturing, setIsCapturing] = useState(false);
   const ekstreCaptureRef = useRef<HTMLDivElement>(null);
+  const dedicatedExportRef = useRef<HTMLDivElement>(null);
 
   const fetchRecords = async () => {
     if (!user?.organizationId) return;
@@ -1230,77 +1231,65 @@ export function CektenHesabiPage() {
     };
 
     const handleCaptureScreenshot = async () => {
-      if (!ekstreCaptureRef.current) return;
+      if (!dedicatedExportRef.current) return;
       setIsCapturing(true);
       try {
-        const element = ekstreCaptureRef.current;
+        const element = dedicatedExportRef.current;
         
         const canvas = await html2canvas(element, {
           scale: 2,
           useCORS: true,
+          allowTaint: true,
           logging: false,
           backgroundColor: '#ffffff',
           scrollX: 0,
           scrollY: 0,
+          windowWidth: 1300,
           onclone: (clonedDoc) => {
-            // Reset sticky styles in clone to prevent scroll offset overlap
-            const stickyContainers = clonedDoc.querySelectorAll('.cekten-sticky-top');
-            stickyContainers.forEach((el) => {
-              const h = el as HTMLElement;
-              h.style.position = 'static';
-              h.style.boxShadow = 'none';
-              h.style.borderBottom = 'none';
-              h.style.backgroundColor = '#ffffff';
-              h.style.margin = '0';
-              h.style.padding = '0';
-            });
-
-            // Hide action buttons, breadcrumbs navigation, and print elements
-            const hideSelectors = ['.no-capture', '.no-print', '.col-actions', 'button', '.warning-banner'];
-            hideSelectors.forEach((sel) => {
-              clonedDoc.querySelectorAll(sel).forEach((el) => {
-                (el as HTMLElement).style.display = 'none';
-              });
-            });
-
-            // Hide inline edit pencil/calendar icons in cloned table
-            clonedDoc.querySelectorAll('svg.lucide-pencil, svg.lucide-calendar').forEach((el) => {
-              (el as HTMLElement).style.display = 'none';
-            });
-
-            // Ensure table wrapper in clone has no scroll truncation
-            clonedDoc.querySelectorAll('.overflow-x-auto, .overflow-hidden').forEach((el) => {
-              const h = el as HTMLElement;
-              h.style.overflow = 'visible';
-              h.style.maxHeight = 'none';
-            });
-          }
+            const target = clonedDoc.getElementById('whatsapp-a3-statement');
+            if (target) {
+              const parent = target.parentElement;
+              if (parent) {
+                parent.style.position = 'static';
+                parent.style.left = '0';
+                parent.style.top = '0';
+                parent.style.zIndex = 'auto';
+              }
+              target.style.position = 'static';
+              target.style.left = '0';
+              target.style.top = '0';
+              target.style.margin = '0 auto';
+            }
+          },
         });
 
         const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
         if (!blob) throw new Error('Görüntü oluşturulamadı.');
 
         // Try writing directly to system clipboard
+        let copied = false;
         if (navigator.clipboard && typeof navigator.clipboard.write === 'function') {
           try {
             await navigator.clipboard.write([
               new ClipboardItem({ 'image/png': blob })
             ]);
-            notify('Ekran görüntüsü panoya kopyalandı! WhatsApp Web\'de Ctrl + V ile yapıştırabilirsiniz.', 'success');
-            return;
+            copied = true;
+            notify('A3 Ekstre görüntüsü panoya kopyalandı! WhatsApp Web\'de Ctrl + V ile direkt yapıştırabilirsiniz.', 'success');
           } catch (clipErr) {
             console.warn('Clipboard write failed, downloading as fallback:', clipErr);
           }
         }
 
-        // Fallback: Download file if clipboard write was not permitted
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${selectedSupplierDetail || 'Cari'}-Ekstre-${new Date().toISOString().split('T')[0]}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-        notify('Görüntü indirildi (Panoya yazma izni kısıtlı olduğu için dosya olarak kaydedildi).', 'info');
+        if (!copied) {
+          // Fallback: Download file if clipboard write was not permitted
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${selectedSupplierDetail || 'Cari'}-A3-Ekstre-${new Date().toISOString().split('T')[0]}.png`;
+          a.click();
+          URL.revokeObjectURL(url);
+          notify('Görüntü indirildi (Panoya yazma izni kısıtlı olduğu için dosya olarak kaydedildi).', 'info');
+        }
       } catch (err: any) {
         console.error('Ekran görüntüsü alma hatası:', err);
         notify('Ekran görüntüsü alınamadı: ' + err.message, 'error');
@@ -1851,6 +1840,297 @@ export function CektenHesabiPage() {
             <span>"Et Bizim Tek İşimiz.."</span>
           </div>
         </div>
+
+        {/* Hidden Dedicated A3 WhatsApp Ekstre Template for WhatsApp Paste */}
+        <div
+          style={{
+            position: 'fixed',
+            left: '-99999px',
+            top: 0,
+            width: '1250px',
+            zIndex: -9999,
+            pointerEvents: 'none',
+          }}
+          aria-hidden="true"
+        >
+          <div
+            ref={dedicatedExportRef}
+            id="whatsapp-a3-statement"
+            style={{
+              width: '1250px',
+              backgroundColor: '#ffffff',
+              color: '#0f172a',
+              fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+            }}
+            className="p-10 bg-white space-y-7 border border-slate-200"
+          >
+            {/* Header Block */}
+            <div className="flex items-start justify-between border-b-2 border-slate-200 pb-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                  <span className="text-xs font-black tracking-widest text-slate-500 uppercase">
+                    ETAŞ ET • ÇEKTEN HESABI CARİ MUTABAKAT VE HESAP EKSTRESİ
+                  </span>
+                </div>
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                  {selectedSupplierDetail}
+                </h1>
+                <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 pt-1">
+                  <span>
+                    <strong className="text-slate-700">Cari Kodu:</strong> CEKTEN-HESAP-{(selectedSupplierDetail || '').toUpperCase().substring(0, 12)}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    <strong className="text-slate-700">Düzenleme Tarihi:</strong> {new Date().toLocaleDateString('tr-TR')} {new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    <strong className="text-slate-700">Hareket Sayısı:</strong> {ledger.length} Kayıt
+                  </span>
+                  <span>•</span>
+                  <span>
+                    <strong className="text-slate-700">Son İşlem:</strong> {latestTxFormatted}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right flex flex-col items-end">
+                <img
+                  src="/etas_et_logo.png"
+                  alt="ETAŞ ET"
+                  className="h-16 w-auto object-contain"
+                  crossOrigin="anonymous"
+                />
+                <span className="text-[11px] font-black text-slate-400 mt-1 uppercase tracking-widest">
+                  Resmi Cari Mutabakat Ekstresi
+                </span>
+              </div>
+            </div>
+
+            {/* High-Impact Balance & Summary KPI Cards */}
+            <div className="grid grid-cols-3 gap-6">
+              {/* Toplam Borç Girişi */}
+              <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-5 flex flex-col justify-between">
+                <div>
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
+                    TOPLAM BORÇ GİRİŞİ
+                  </span>
+                  <div className="text-2xl font-black text-slate-800 mt-1">
+                    {supplierStats.total.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                  </div>
+                </div>
+                <div className="text-xs font-medium text-slate-500 mt-3 pt-2.5 border-t border-slate-200">
+                  Sisteme işlenen alımlar ve faturalar
+                </div>
+              </div>
+
+              {/* Toplam Yapılan Ödeme */}
+              <div className="bg-emerald-50/70 border-2 border-emerald-300 rounded-2xl p-5 flex flex-col justify-between">
+                <div>
+                  <span className="text-xs font-black text-emerald-700 uppercase tracking-wider">
+                    TOPLAM YAPILAN ÖDEME
+                  </span>
+                  <div className="text-2xl font-black text-emerald-700 mt-1">
+                    {supplierStats.paid.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                  </div>
+                </div>
+                <div className="text-xs font-medium text-emerald-600 mt-3 pt-2.5 border-t border-emerald-200">
+                  Nakit, çek ve banka ödemeleri
+                </div>
+              </div>
+
+              {/* Grand Net Status Card */}
+              {supplierStats.remaining > 0 ? (
+                <div className="bg-gradient-to-br from-rose-700 via-rose-800 to-rose-900 text-white rounded-2xl p-5 flex flex-col justify-between shadow-md border-2 border-rose-900">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-wider text-rose-200">
+                        🔴 FİRMAYA KALAN NET BORCUMUZ
+                      </span>
+                      <span className="bg-rose-950/70 text-rose-100 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-rose-500/40">
+                        ÖDEME BEKLİYOR
+                      </span>
+                    </div>
+                    <div className="text-3xl font-black text-white mt-1.5 tracking-tight">
+                      {Math.abs(supplierStats.remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                    </div>
+                  </div>
+                  <div className="text-xs font-bold text-rose-100 mt-3 pt-2.5 border-t border-rose-600/60 flex items-center justify-between">
+                    <span>Net Bakiye Durumu:</span>
+                    <span className="font-black text-white bg-rose-950/80 px-2 py-0.5 rounded">
+                      ŞİRKETİMİZ BORÇLU
+                    </span>
+                  </div>
+                </div>
+              ) : supplierStats.remaining < 0 ? (
+                <div className="bg-gradient-to-br from-blue-700 via-blue-800 to-blue-900 text-white rounded-2xl p-5 flex flex-col justify-between shadow-md border-2 border-blue-900">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-wider text-blue-200">
+                        🔵 FİRMADAN NET ALACAĞIMIZ
+                      </span>
+                      <span className="bg-blue-950/70 text-blue-100 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-blue-500/40">
+                        TAHSİLAT BEKLENİYOR
+                      </span>
+                    </div>
+                    <div className="text-3xl font-black text-white mt-1.5 tracking-tight">
+                      {Math.abs(supplierStats.remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                    </div>
+                  </div>
+                  <div className="text-xs font-bold text-blue-100 mt-3 pt-2.5 border-t border-blue-600/60 flex items-center justify-between">
+                    <span>Net Bakiye Durumu:</span>
+                    <span className="font-black text-white bg-blue-950/80 px-2 py-0.5 rounded">
+                      CARİDEN ALACAKLIYIZ
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-900 text-white rounded-2xl p-5 flex flex-col justify-between shadow-md border-2 border-emerald-900">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-wider text-emerald-200">
+                        🟢 HESAP TAMAMEN KAPALI
+                      </span>
+                      <span className="bg-emerald-950/70 text-emerald-100 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-emerald-500/40">
+                        MUTABIK
+                      </span>
+                    </div>
+                    <div className="text-3xl font-black text-white mt-1.5 tracking-tight">
+                      0,00 ₺
+                    </div>
+                  </div>
+                  <div className="text-xs font-bold text-emerald-100 mt-3 pt-2.5 border-t border-emerald-600/60 flex items-center justify-between">
+                    <span>Net Bakiye Durumu:</span>
+                    <span className="font-black text-white bg-emerald-950/80 px-2 py-0.5 rounded">
+                      BAKİYE SIFIRLANDI
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Transaction Ledger Table */}
+            <div className="border-2 border-slate-200 rounded-2xl overflow-hidden">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-wider border-b-2 border-slate-200">
+                  <tr>
+                    <th className="py-3.5 px-4 text-left w-[120px]">Tarih</th>
+                    <th className="py-3.5 px-4 text-center w-[130px]">İşlem Türü</th>
+                    <th className="py-3.5 px-6 text-left">Açıklama / İzahat</th>
+                    <th className="py-3.5 px-4 text-right w-[170px]">Borç Tutarı</th>
+                    <th className="py-3.5 px-4 text-right w-[170px]">Ödenen Tutar</th>
+                    <th className="py-3.5 px-6 text-right w-[200px]">Kalan Bakiye</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 font-semibold text-slate-800">
+                  {ledger.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-slate-400 font-medium text-base">
+                        Bu cariye ait kayıtlı hareket bulunmamaktadır.
+                      </td>
+                    </tr>
+                  ) : (
+                    ledger.map((r, index) => {
+                      const isPayment = r.total_amount === 0;
+                      const isEven = index % 2 === 1;
+                      return (
+                        <tr key={r.id} className={isEven ? 'bg-slate-50/70' : 'bg-white'}>
+                          <td className="py-3.5 px-4 font-bold text-slate-900 text-sm whitespace-nowrap">
+                            {new Date(r.date).toLocaleDateString('tr-TR')}
+                          </td>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 rounded text-xs font-black ${
+                                isPayment
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}
+                            >
+                              {isPayment ? 'ÖDEME' : 'BORÇ'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-6 text-slate-700 font-normal text-sm">
+                            {r.notes || '—'}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-black text-slate-900 text-sm whitespace-nowrap">
+                            {!isPayment
+                              ? `${Number(r.total_amount).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺`
+                              : '—'}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-black text-emerald-700 text-sm whitespace-nowrap">
+                            {isPayment || r.paid_amount > 0
+                              ? `${Number(r.paid_amount).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺`
+                              : '—'}
+                          </td>
+                          <td
+                            className={`py-3.5 px-6 text-right font-black text-sm whitespace-nowrap ${
+                              r.runningBalance > 0
+                                ? 'text-rose-700'
+                                : r.runningBalance < 0
+                                ? 'text-blue-700'
+                                : 'text-emerald-700'
+                            }`}
+                          >
+                            {Math.abs(r.runningBalance).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                            <span className="text-xs font-bold ml-1">
+                              {r.runningBalance > 0
+                                ? '(Borç)'
+                                : r.runningBalance < 0
+                                ? '(Alacak)'
+                                : '(Sıfır)'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+                <tfoot className="bg-slate-100 text-slate-900 font-black border-t-2 border-slate-300 text-sm">
+                  <tr>
+                    <td colSpan={3} className="py-4 px-6 uppercase tracking-wider text-slate-600">
+                      GENEL TOPLAMLAR
+                    </td>
+                    <td className="py-4 px-4 text-right font-black text-slate-900 text-sm">
+                      {supplierStats.total.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                    </td>
+                    <td className="py-4 px-4 text-right font-black text-emerald-700 text-sm">
+                      {supplierStats.paid.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                    </td>
+                    <td
+                      className={`py-4 px-6 text-right font-black text-base ${
+                        supplierStats.remaining > 0
+                          ? 'text-rose-700'
+                          : supplierStats.remaining < 0
+                          ? 'text-blue-700'
+                          : 'text-emerald-700'
+                      }`}
+                    >
+                      {Math.abs(supplierStats.remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                      <span className="text-xs font-bold ml-1">
+                        {supplierStats.remaining > 0
+                          ? '(Kalan Borcumuz)'
+                          : supplierStats.remaining < 0
+                          ? '(Net Alacağımız)'
+                          : '(Sıfırlandı)'}
+                      </span>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Footer Disclaimer */}
+            <div className="flex items-center justify-between border-t-2 border-slate-200 pt-4 text-xs text-slate-500 font-semibold">
+              <div>
+                İşbu cari hesap ekstresi ETAŞ ET finans ve hesap yönetim sistemi kayıtları esas alınarak oluşturulmuştur. Bilgi ve mutabakat amaçlıdır.
+              </div>
+              <div className="text-right text-slate-500 font-black tracking-wider">
+                www.amasyaetas.com • "Et Bizim Tek İşimiz.."
+              </div>
+            </div>
+          </div>
+        </div>
+
         {renderAddEditModal()}
       </div>
     );
