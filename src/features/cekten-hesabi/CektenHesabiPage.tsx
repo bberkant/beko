@@ -1836,7 +1836,7 @@ export function CektenHesabiPage() {
               width: '1250px',
               backgroundColor: '#ffffff',
               color: '#0f172a',
-              fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+              fontFamily: 'Calibri, Carlito, "Segoe UI", Arial, sans-serif',
             }}
             className="p-10 bg-white space-y-7 border border-slate-200"
           >
@@ -1985,20 +1985,21 @@ export function CektenHesabiPage() {
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             <span
                               style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                padding: '2px 8px',
+                                display: 'inline-block',
+                                verticalAlign: 'middle',
+                                textAlign: 'center',
+                                padding: '3px 8px',
                                 borderRadius: '6px',
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                lineHeight: '18px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                lineHeight: 1,
                                 borderWidth: '1px',
                                 borderStyle: 'solid',
                                 borderColor: isPayment ? '#fecdd3' : '#bfdbfe',
                                 backgroundColor: isPayment ? '#fff1f2' : '#eff6ff',
                                 color: isPayment ? '#881337' : '#1d4ed8',
                                 boxSizing: 'border-box',
+                                whiteSpace: 'nowrap',
                               }}
                               className={
                                 isPayment
