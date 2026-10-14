@@ -1939,74 +1939,59 @@ export function CektenHesabiPage() {
                 </div>
               </div>
 
-              {/* Grand Net Status Card */}
-              {supplierStats.remaining > 0 ? (
-                <div className="bg-gradient-to-br from-rose-700 via-rose-800 to-rose-900 text-white rounded-2xl p-5 flex flex-col justify-between shadow-md border-2 border-rose-900">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black uppercase tracking-wider text-rose-200">
-                        🔴 FİRMAYA KALAN NET BORCUMUZ
-                      </span>
-                      <span className="bg-rose-950/70 text-rose-100 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-rose-500/40">
-                        ÖDEME BEKLİYOR
-                      </span>
-                    </div>
-                    <div className="text-3xl font-black text-white mt-1.5 tracking-tight">
-                      {Math.abs(supplierStats.remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
-                    </div>
-                  </div>
-                  <div className="text-xs font-bold text-rose-100 mt-3 pt-2.5 border-t border-rose-600/60 flex items-center justify-between">
-                    <span>Net Bakiye Durumu:</span>
-                    <span className="font-black text-white bg-rose-950/80 px-2 py-0.5 rounded">
-                      ŞİRKETİMİZ BORÇLU
-                    </span>
-                  </div>
-                </div>
-              ) : supplierStats.remaining < 0 ? (
-                <div className="bg-gradient-to-br from-blue-700 via-blue-800 to-blue-900 text-white rounded-2xl p-5 flex flex-col justify-between shadow-md border-2 border-blue-900">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black uppercase tracking-wider text-blue-200">
-                        🔵 FİRMADAN NET ALACAĞIMIZ
-                      </span>
-                      <span className="bg-blue-950/70 text-blue-100 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-blue-500/40">
-                        TAHSİLAT BEKLENİYOR
-                      </span>
-                    </div>
-                    <div className="text-3xl font-black text-white mt-1.5 tracking-tight">
-                      {Math.abs(supplierStats.remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
-                    </div>
-                  </div>
-                  <div className="text-xs font-bold text-blue-100 mt-3 pt-2.5 border-t border-blue-600/60 flex items-center justify-between">
-                    <span>Net Bakiye Durumu:</span>
-                    <span className="font-black text-white bg-blue-950/80 px-2 py-0.5 rounded">
-                      CARİDEN ALACAKLIYIZ
-                    </span>
+              {/* Grand Net Status Card - Sitedeki Net Bakiye Görünümüyle Birebir */}
+              <div
+                className={`rounded-2xl text-white p-5 flex flex-col justify-between shadow-md border-2 ${
+                  supplierStats.remaining > 0
+                    ? 'bg-gradient-to-br from-rose-800 via-rose-900 to-rose-950 border-rose-900'
+                    : supplierStats.remaining < 0
+                    ? 'bg-gradient-to-br from-blue-800 via-blue-900 to-blue-950 border-blue-900'
+                    : 'bg-gradient-to-br from-emerald-800 via-emerald-900 to-emerald-950 border-emerald-900'
+                }`}
+              >
+                <div>
+                  <span
+                    className={`text-xs font-bold uppercase tracking-wider ${
+                      supplierStats.remaining > 0
+                        ? 'text-rose-200'
+                        : supplierStats.remaining < 0
+                        ? 'text-blue-200'
+                        : 'text-emerald-200'
+                    }`}
+                  >
+                    Net Bakiye
+                  </span>
+                  <div className="text-3xl font-black text-white mt-1 tracking-tight">
+                    {Math.abs(supplierStats.remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
                   </div>
                 </div>
-              ) : (
-                <div className="bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-900 text-white rounded-2xl p-5 flex flex-col justify-between shadow-md border-2 border-emerald-900">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black uppercase tracking-wider text-emerald-200">
-                        🟢 HESAP TAMAMEN KAPALI
-                      </span>
-                      <span className="bg-emerald-950/70 text-emerald-100 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-emerald-500/40">
-                        MUTABIK
-                      </span>
-                    </div>
-                    <div className="text-3xl font-black text-white mt-1.5 tracking-tight">
-                      0,00 ₺
-                    </div>
-                  </div>
-                  <div className="text-xs font-bold text-emerald-100 mt-3 pt-2.5 border-t border-emerald-600/60 flex items-center justify-between">
-                    <span>Net Bakiye Durumu:</span>
-                    <span className="font-black text-white bg-emerald-950/80 px-2 py-0.5 rounded">
-                      BAKİYE SIFIRLANDI
-                    </span>
-                  </div>
+                <div
+                  className={`mt-3 pt-2.5 border-t flex items-center justify-between text-xs font-semibold ${
+                    supplierStats.remaining > 0
+                      ? 'border-rose-700/60 text-rose-200'
+                      : supplierStats.remaining < 0
+                      ? 'border-blue-700/60 text-blue-200'
+                      : 'border-emerald-700/60 text-emerald-200'
+                  }`}
+                >
+                  <span>Bakiye Durumu:</span>
+                  <span
+                    className={`text-sm font-black px-2.5 py-0.5 rounded ${
+                      supplierStats.remaining > 0
+                        ? 'bg-rose-950/80 text-rose-100'
+                        : supplierStats.remaining < 0
+                        ? 'bg-blue-950/80 text-blue-100'
+                        : 'bg-emerald-950/80 text-emerald-100'
+                    }`}
+                  >
+                    {supplierStats.remaining > 0
+                      ? 'Borçluyuz'
+                      : supplierStats.remaining < 0
+                      ? 'Alacaklıyız'
+                      : 'Bakiye Sıfır'}
+                  </span>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Transaction Ledger Table */}
@@ -2040,11 +2025,21 @@ export function CektenHesabiPage() {
                           </td>
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             <span
-                              className={`inline-block px-2.5 py-0.5 rounded text-xs font-black ${
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '4px 12px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                lineHeight: '1',
+                              }}
+                              className={
                                 isPayment
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                                  : 'bg-blue-50 text-blue-700 border border-blue-300'
+                              }
                             >
                               {isPayment ? 'ÖDEME' : 'BORÇ'}
                             </span>
@@ -2108,10 +2103,10 @@ export function CektenHesabiPage() {
                       {Math.abs(supplierStats.remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
                       <span className="text-xs font-bold ml-1">
                         {supplierStats.remaining > 0
-                          ? '(Kalan Borcumuz)'
+                          ? '(Borçluyuz)'
                           : supplierStats.remaining < 0
-                          ? '(Net Alacağımız)'
-                          : '(Sıfırlandı)'}
+                          ? '(Alacaklıyız)'
+                          : '(Sıfır)'}
                       </span>
                     </td>
                   </tr>
