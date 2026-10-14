@@ -269,7 +269,9 @@ function InlineEdit({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       const finalVal = isNumeric ? String(parseFormattedNumber(tempVal)) : tempVal;
-      onSave(finalVal);
+      if (finalVal !== value) {
+        onSave(finalVal);
+      }
       setEditing(false);
     } else if (e.key === "Escape") {
       setEditing(false);
@@ -278,7 +280,9 @@ function InlineEdit({
 
   const handleBlur = () => {
     const finalVal = isNumeric ? String(parseFormattedNumber(tempVal)) : tempVal;
-    onSave(finalVal);
+    if (finalVal !== value) {
+      onSave(finalVal);
+    }
     setEditing(false);
   };
 
@@ -301,15 +305,16 @@ function InlineEdit({
   return (
     <div 
       onClick={startEdit}
+      title={value ? String(value) : "Hızlı düzenle"}
       className={`cursor-pointer hover:bg-gray-50 rounded px-2 py-0.5 group flex items-center gap-1.5 min-h-[24px] ${justifyClass} ${textSizeClassName} ${className}`}
     >
-      <span className={!value ? 'text-gray-300 italic' : ''}>
+      <span className={`truncate ${!value ? 'text-gray-400 italic' : ''}`}>
         {value ? displayValue : placeholder}
       </span>
       {iconType === 'calendar' ? (
-        <Calendar size={16} className="text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0 no-print" />
+        <Calendar size={15} className="text-gray-400 opacity-50 group-hover:opacity-100 group-hover:text-brand-600 transition-all flex-shrink-0 no-print" />
       ) : (
-        <Pencil size={16} className="text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0 no-print" />
+        <Pencil size={15} className="text-gray-400 opacity-50 group-hover:opacity-100 group-hover:text-brand-600 transition-all flex-shrink-0 no-print" />
       )}
     </div>
   );
@@ -626,13 +631,14 @@ export function CektenHesabiPage() {
       const record = records.find(r => r.id === recordId);
       if (!record) return;
 
-      const updatedRecord = { ...record, [field]: value };
+      const cleanVal = field === 'notes' ? (value ? String(value).trim() : null) : value;
+      const updatedRecord = { ...record, [field]: cleanVal };
       const totalVal = Number(updatedRecord.total_amount) || 0;
       const paidVal = Number(updatedRecord.paid_amount) || 0;
       const remVal = totalVal - paidVal;
 
       const payload: Record<string, any> = {
-        [field]: value
+        [field]: cleanVal
       };
 
       if (['total_amount', 'paid_amount'].includes(field)) {
@@ -1334,8 +1340,16 @@ export function CektenHesabiPage() {
                             {isPayment ? 'ALACAK / ÖDEME' : 'BORÇ'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-[17px] text-gray-900 font-normal max-w-xs truncate" title={r.notes || ''}>
-                          {r.notes || '—'}
+                        <td className="px-6 py-4 text-[17px] text-gray-900 font-normal max-w-sm">
+                          <InlineEdit
+                            value={r.notes || ''}
+                            displayValue={r.notes || ''}
+                            onSave={(val) => void handleSaveField(r.id, 'notes', val)}
+                            placeholder="—"
+                            align="left"
+                            className="justify-start max-w-sm"
+                            iconType="pencil"
+                          />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-right pr-10 text-[17px] font-semibold text-gray-900">
                           {!isPayment ? `${Number(r.total_amount).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺` : '—'}
@@ -2204,8 +2218,16 @@ export function CektenHesabiPage() {
                         onSave={(val) => void handleSaveField(r.id, 'payment_date', val)}
                       />
                     </td>
-                    <td className="px-6 py-4 text-[17px] max-w-xs truncate text-gray-900 font-normal" title={r.notes || ''}>
-                      {r.notes || '—'}
+                    <td className="px-6 py-4 text-[17px] text-gray-900 font-normal max-w-sm">
+                      <InlineEdit
+                        value={r.notes || ''}
+                        displayValue={r.notes || ''}
+                        onSave={(val) => void handleSaveField(r.id, 'notes', val)}
+                        placeholder="—"
+                        align="left"
+                        className="justify-start max-w-sm"
+                        iconType="pencil"
+                      />
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-center flex items-center justify-center gap-1.5">
                       <button
@@ -2376,8 +2398,16 @@ export function CektenHesabiPage() {
                             {((isPayment ? r.paid_amount : r.total_amount)).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-[17px] text-gray-900 font-semibold max-w-xs truncate" title={r.notes || ''}>
-                          {r.notes || '—'}
+                        <td className="px-6 py-4 text-[17px] text-gray-900 font-semibold max-w-sm">
+                          <InlineEdit
+                            value={r.notes || ''}
+                            displayValue={r.notes || ''}
+                            onSave={(val) => void handleSaveField(r.id, 'notes', val)}
+                            placeholder="—"
+                            align="left"
+                            className="justify-start max-w-sm"
+                            iconType="pencil"
+                          />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-center flex items-center justify-center gap-1.5">
                           <button
