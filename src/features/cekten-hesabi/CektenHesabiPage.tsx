@@ -1841,14 +1841,8 @@ export function CektenHesabiPage() {
             className="p-10 bg-white space-y-7 border border-slate-200"
           >
             {/* Header Block */}
-            <div className="flex items-start justify-between border-b-2 border-slate-200 pb-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                  <span className="text-xs font-black tracking-widest text-slate-500 uppercase">
-                    ETAŞ ET • ÇEKTEN HESABI CARİ MUTABAKAT VE HESAP EKSTRESİ
-                  </span>
-                </div>
+            <div className="border-b-2 border-slate-200 pb-5">
+              <div className="space-y-1.5">
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">
                   {selectedSupplierDetail}
                 </h1>
@@ -1869,17 +1863,6 @@ export function CektenHesabiPage() {
                     <strong className="text-slate-700">Son İşlem:</strong> {latestTxFormatted}
                   </span>
                 </div>
-              </div>
-              <div className="text-right flex flex-col items-end">
-                <img
-                  src="/etas_et_logo.png"
-                  alt="ETAŞ ET"
-                  className="h-16 w-auto object-contain"
-                  crossOrigin="anonymous"
-                />
-                <span className="text-[11px] font-black text-slate-400 mt-1 uppercase tracking-widest">
-                  Resmi Cari Mutabakat Ekstresi
-                </span>
               </div>
             </div>
 
@@ -2005,19 +1988,25 @@ export function CektenHesabiPage() {
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                padding: '4px 12px',
+                                padding: '2px 8px',
                                 borderRadius: '6px',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                lineHeight: '1',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                lineHeight: '18px',
+                                borderWidth: '1px',
+                                borderStyle: 'solid',
+                                borderColor: isPayment ? '#fecdd3' : '#bfdbfe',
+                                backgroundColor: isPayment ? '#fff1f2' : '#eff6ff',
+                                color: isPayment ? '#881337' : '#1d4ed8',
+                                boxSizing: 'border-box',
                               }}
                               className={
                                 isPayment
-                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
-                                  : 'bg-blue-50 text-blue-700 border border-blue-300'
+                                  ? 'bg-rose-50 text-rose-800 border border-rose-200'
+                                  : 'bg-blue-50 text-blue-700 border border-blue-200'
                               }
                             >
-                              {isPayment ? 'ÖDEME' : 'BORÇ'}
+                              {isPayment ? 'ALACAK / ÖDEME' : 'BORÇ'}
                             </span>
                           </td>
                           <td className="py-3.5 px-6 text-slate-700 font-normal text-sm">
