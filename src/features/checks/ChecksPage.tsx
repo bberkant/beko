@@ -2843,14 +2843,32 @@ export function ChecksPage() {
             </div>
             {/* Flex row containing separate vertical table for each column */}
             <div className="flex flex-row gap-[16px] w-full justify-start">
-              {dashboardData.activeBankCols.map(colName => {
+              {dashboardData.activeBankCols.map((colName, colIdx) => {
                 const checksList = dashboardData.columns[colName] || [];
                 const colTotal = dashboardData.columnTotals[colName] || 0;
+                const isFirstCol = colIdx === 0;
                 return (
-                  <table key={colName} className="border-collapse print-bank-table" style={{ width: '92px', minWidth: '92px', tableLayout: 'fixed' }}>
+                  <table 
+                    key={colName} 
+                    className={`border-collapse print-bank-table ${isFirstCol ? 'print-first-bank-table' : ''}`} 
+                    style={{ 
+                      width: '92px', 
+                      minWidth: '92px', 
+                      tableLayout: 'fixed',
+                      ...(isFirstCol ? { borderLeft: '2px solid #000000' } : {})
+                    }}
+                  >
                     <thead>
                       <tr className="bg-white text-center">
-                        <th className="py-1.5 text-center takas-header-th select-none font-bold text-[16pt] text-red-650" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '16pt', fontWeight: 'bold' }}>
+                        <th 
+                          className="py-1.5 text-center takas-header-th select-none font-bold text-[16pt] text-red-650" 
+                          style={{ 
+                            fontFamily: 'Calibri, sans-serif', 
+                            fontSize: '16pt', 
+                            fontWeight: 'bold',
+                            ...(isFirstCol ? { borderLeft: '2px solid #000000' } : {})
+                          }}
+                        >
                           {colName === 'E.ALBARAKA' || colName === 'M.ALBARAKA' ? 'ALBARAKA' : colName === 'E.İŞBANK' ? 'İŞBANK' : colName}
                         </th>
                       </tr>
@@ -2861,7 +2879,12 @@ export function ChecksPage() {
                         const isIcTakas = check && (colName === 'E.ZİRAAT' || colName === 'M.ZİRAAT') && check.ozel_alan?.includes('İÇ TAKAS');
                         return (
                           <tr key={rowIndex} className="h-28_5">
-                            <td className={`p-0 border border-gray-300 relative text-center text-[16pt] ${isIcTakas ? 'bg-red-500 font-bold text-black print-ictakas-cell' : 'font-normal'} ${rowIndex === 0 ? 'print-first-row' : ''}`}>
+                            <td 
+                              className={`p-0 border border-gray-300 relative text-center text-[16pt] ${isIcTakas ? 'bg-red-500 font-bold text-black print-ictakas-cell' : 'font-normal'} ${rowIndex === 0 ? 'print-first-row' : ''}`}
+                              style={{
+                                ...(isFirstCol ? { borderLeft: '2px solid #000000' } : {})
+                              }}
+                            >
                               <span style={{ fontFamily: 'Calibri, sans-serif', fontSize: '16pt', fontWeight: isIcTakas ? 'bold' : 'normal' }}>
                                 {check ? formatExcelNumber(check.amount) : '\u00A0'}
                               </span>
@@ -2872,7 +2895,15 @@ export function ChecksPage() {
                     </tbody>
                     <tfoot>
                       <tr className="h-28_5">
-                        <td className="text-center text-[16pt] font-bold text-black border border-black bg-white" style={{ fontFamily: 'Calibri, sans-serif', fontSize: '16pt', fontWeight: 'bold' }}>
+                        <td 
+                          className="text-center text-[16pt] font-bold text-black border border-black bg-white" 
+                          style={{ 
+                            fontFamily: 'Calibri, sans-serif', 
+                            fontSize: '16pt', 
+                            fontWeight: 'bold',
+                            ...(isFirstCol ? { borderLeft: '2px solid #000000' } : {})
+                          }}
+                        >
                           {colTotal > 0 ? formatExcelNumber(colTotal) : '0'}
                         </td>
                       </tr>
@@ -3235,7 +3266,7 @@ export function ChecksPage() {
               </div>
               <div className="w-full">
                 {/* Print-only Merged Header Div matching Excel template */}
-                <div className="hidden print:block text-center py-1.5 text-[11pt] font-black text-black uppercase tracking-wider border border-black border-b-0 bg-white">
+                <div className="hidden print:block text-center py-1.5 text-[11pt] font-black text-black uppercase tracking-wider border border-black border-b-0 bg-white print-hesapta-olan-header">
                   HESAPTA OLAN PARA
                 </div>
                 <table className="w-full text-left border-collapse print-bottom-table" style={{ fontFamily: 'Calibri, Arial, sans-serif' }}>
@@ -3708,6 +3739,8 @@ export function ChecksPage() {
             width: 100% !important;
             max-width: 100% !important;
             margin-left: 0 !important;
+            padding-left: 1px !important;
+            box-sizing: border-box !important;
             gap: 10px !important;
             margin-top: 6px !important;
             align-items: stretch !important;
@@ -3799,7 +3832,7 @@ export function ChecksPage() {
             padding: 3px 0 !important;
             background-color: #ffffff !important;
           }
-          .hidden.print\:block:not(.print-takasta-olmayan-header) {
+          .print-hesapta-olan-header {
             border: 2px solid #000000 !important;
             border-bottom: none !important;
             margin-bottom: 0 !important;
@@ -3812,8 +3845,10 @@ export function ChecksPage() {
 
           .print-top-tables {
             width: 100% !important;
-            padding-left: 0 !important;
+            padding-left: 1px !important;
             margin-left: 0 !important;
+            box-sizing: border-box !important;
+            border: none !important;
           }
           .print-top-tables .flex.flex-row,
           .print-top-tables .flex-row {
@@ -3832,6 +3867,27 @@ export function ChecksPage() {
             min-width: 0 !important;
             flex: 1 1 0% !important;
             table-layout: fixed !important;
+          }
+          /* Fortify ALBARAKA / First Bank Column left border with 2px solid black line to prevent laser printer cutoff */
+          .print-top-tables .print-bank-table:first-of-type,
+          .print-top-tables .print-bank-table:first-child,
+          .print-first-bank-table {
+            border-left: 2px solid #000000 !important;
+          }
+          .print-top-tables .print-bank-table:first-of-type th,
+          .print-top-tables .print-bank-table:first-child th,
+          .print-first-bank-table th {
+            border-left: 2px solid #000000 !important;
+          }
+          .print-top-tables .print-bank-table:first-of-type tbody td,
+          .print-top-tables .print-bank-table:first-child tbody td,
+          .print-first-bank-table tbody td {
+            border-left: 2px solid #000000 !important;
+          }
+          .print-top-tables .print-bank-table:first-of-type tfoot td,
+          .print-top-tables .print-bank-table:first-child tfoot td,
+          .print-first-bank-table tfoot td {
+            border-left: 2px solid #000000 !important;
           }
           .print-top-tables .print-taksit-desc-table {
             width: auto !important;
