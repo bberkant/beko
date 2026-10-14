@@ -3,11 +3,13 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { useAuth } from '../../lib/auth';
+import { useAutoRefresh } from '../../lib/useAutoRefresh';
 
 const COLLAPSE_KEY = 'dars_sidebar_collapsed';
 
 export function AppLayout() {
   const { user } = useAuth();
+  useAutoRefresh();
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       return (localStorage.getItem(COLLAPSE_KEY) || localStorage.getItem('ets360_sidebar_collapsed')) === '1';
