@@ -281,15 +281,28 @@ const ACCOUNTS_CACHE_KEY = 'dars_bank_accounts_cache';
 
 function getCachedChecks(orgId: string, _isTakas = false): EbsCheck[] {
   try {
+    const timeStr = localStorage.getItem(`${CHECKS_CACHE_KEY}_time_${orgId}`);
+    if (timeStr) {
+      const ageMs = Date.now() - new Date(timeStr).getTime();
+      // If cache is older than 60 minutes, ignore it to prevent stale data
+      if (ageMs > 60 * 60 * 1000) return [];
+    }
+
     const raw = localStorage.getItem(`${CHECKS_CACHE_KEY}_${orgId}`);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Strip dynamic cekten_* and temp-* IDs: only genuine DB checks are loaded from cache.
+        // Dynamic checks will be synthesized fresh from cekten_hesabi to avoid ghost rows.
+        return parsed.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-'));
+      }
     }
     const takasRaw = localStorage.getItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`);
     if (takasRaw) {
       const parsed = JSON.parse(takasRaw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-'));
+      }
     }
     return [];
   } catch {
@@ -300,7 +313,9 @@ function getCachedChecks(orgId: string, _isTakas = false): EbsCheck[] {
 function setCachedChecks(orgId: string, data: EbsCheck[], _isTakas = false) {
   try {
     if (!Array.isArray(data) || data.length === 0) return;
-    const safeData = data.length > 2500 ? data.slice(-2500) : data;
+    // Strip dynamic cekten_* and temp-* IDs: only genuine DB checks should be cached
+    const realChecks = data.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-'));
+    const safeData = realChecks.length > 2500 ? realChecks.slice(-2500) : realChecks;
     localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(safeData));
     localStorage.setItem(`${CHECKS_CACHE_KEY}_time_${orgId}`, new Date().toISOString());
   } catch (e) {
@@ -430,6 +445,13 @@ export function ChecksPage() {
       }
     }
   }, [isTakasRoute, orgId]);
+
+  // Keep localStorage cache continuously up-to-date with checks state
+  useEffect(() => {
+    if (checks.length > 0 && orgId) {
+      setCachedChecks(orgId, checks, isTakasRoute);
+    }
+  }, [checks, orgId, isTakasRoute]);
 
   const [openDropdown, setOpenDropdown] = useState<{ section: 'takas' | 'nontakas'; rowIndex: number; colName?: string } | null>(null);
   const [openHeaderDropdown, setOpenHeaderDropdown] = useState<string | null>(null);
@@ -778,7 +800,16 @@ export function ChecksPage() {
         console.warn('Çekten hesabı bakiyeleri yüklenirken hata:', cektenFetchErr);
       }
 
-      setChecks(allData);
+      setChecks(prev => {
+        // If there are any pending optimistic temp- checks, preserve them so they don't flicker
+        const pendingTemp = prev.filter(c => String(c.id).startsWith('temp-'));
+        if (pendingTemp.length > 0) {
+          const fetchedLocalIds = new Set(allData.map(c => c.local_id).filter(Boolean));
+          const stillPending = pendingTemp.filter(t => !t.local_id || !fetchedLocalIds.has(t.local_id));
+          return [...allData, ...stillPending];
+        }
+        return allData;
+      });
       setCachedChecks(orgId, allData, false);
       setIsOfflineData(false);
       setDbError(null);
@@ -858,14 +889,14 @@ export function ChecksPage() {
     }
   };
 
-  // Continuous synchronization with Çekten Hesabı (Supabase Realtime, Tab Focus, Cross-Tab Storage, SPA Event, Heartbeat)
+  // Continuous live background synchronization (Realtime ebs_checks, cekten_hesabi, Tab Focus, Visibility Change, Heartbeat)
   useEffect(() => {
     const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
     if (!orgId) return;
 
-    // 1. Supabase Realtime channel for instant DB push
+    // 1. Supabase Realtime channel for both ebs_checks, cekten_hesabi and bank_accounts
     const channel = supabase
-      .channel(`realtime-cekten-${orgId}`)
+      .channel(`realtime-dashboard-${orgId}`)
       .on(
         'postgres_changes',
         {
@@ -878,12 +909,37 @@ export function ChecksPage() {
           void refreshCektenSync();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ebs_checks',
+          filter: `organization_id=eq.${orgId}`
+        },
+        () => {
+          void fetchChecks();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bank_accounts',
+          filter: `organization_id=eq.${orgId}`
+        },
+        () => {
+          void fetchChecks();
+        }
+      )
       .subscribe();
 
-    // 2. Cross-tab storage event (fires when Çekten Hesabı tab updates in another browser tab)
+    // 2. Cross-tab storage event (fires when Çekten Hesabı or Checks update in another tab)
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'cekten_last_update') {
+      if (e.key === 'cekten_last_update' || e.key?.startsWith('dars_ebs_checks_cache')) {
         void refreshCektenSync();
+        void fetchChecks();
       }
     };
 
@@ -892,26 +948,35 @@ export function ChecksPage() {
       void refreshCektenSync();
     };
 
-    // 4. Tab focus event (when switching back to Takas tab)
-    const handleFocus = () => {
+    // 4. Background refresh on tab focus & tab visibility change
+    const handleRefreshAll = () => {
+      void fetchChecks();
       void refreshCektenSync();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleRefreshAll();
+      }
     };
 
     window.addEventListener('storage', handleStorage);
     window.addEventListener('cekten-data-changed', handleCektenChange);
-    window.addEventListener('focus', handleFocus);
+    window.addEventListener('focus', handleRefreshAll);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // 5. Heartbeat sync every 20 seconds while on Takas route to guarantee continuous freshness
-    const interval = isTakasRoute ? setInterval(() => {
-      void refreshCektenSync();
-    }, 20000) : null;
+    // 5. Heartbeat sync every 60 seconds while open to guarantee data is always 100% current
+    const interval = setInterval(() => {
+      handleRefreshAll();
+    }, 60000);
 
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('cekten-data-changed', handleCektenChange);
-      window.removeEventListener('focus', handleFocus);
-      if (interval) clearInterval(interval);
+      window.removeEventListener('focus', handleRefreshAll);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
     };
   }, [user?.organizationId, isTakasRoute]);
 
