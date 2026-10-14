@@ -16,12 +16,14 @@ import {
   ChevronRight,
   Coins,
   Wallet,
-  Printer
+  Printer,
+  Camera
 } from 'lucide-react';
 import { useToast } from '../../lib/toast';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import * as XLSX from 'xlsx';
+import html2canvas from 'html2canvas';
 import { notifyCektenDataChanged } from '../checks/utils/cektenTakasSync';
 
 interface CektenRecord {
@@ -425,6 +427,10 @@ export function CektenHesabiPage() {
   // Supplier card edit states
   const [isSupplierEditModalOpen, setIsSupplierEditModalOpen] = useState(false);
   const [supplierEditName, setSupplierEditName] = useState('');
+
+  // Screenshot capture state and ref
+  const [isCapturing, setIsCapturing] = useState(false);
+  const ekstreCaptureRef = useRef<HTMLDivElement>(null);
 
   const fetchRecords = async () => {
     if (!user?.organizationId) return;
@@ -1223,8 +1229,88 @@ export function CektenHesabiPage() {
       }
     };
 
+    const handleCaptureScreenshot = async () => {
+      if (!ekstreCaptureRef.current) return;
+      setIsCapturing(true);
+      try {
+        const element = ekstreCaptureRef.current;
+        
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          scrollX: 0,
+          scrollY: 0,
+          onclone: (clonedDoc) => {
+            // Reset sticky styles in clone to prevent scroll offset overlap
+            const stickyContainers = clonedDoc.querySelectorAll('.cekten-sticky-top');
+            stickyContainers.forEach((el) => {
+              const h = el as HTMLElement;
+              h.style.position = 'static';
+              h.style.boxShadow = 'none';
+              h.style.borderBottom = 'none';
+              h.style.backgroundColor = '#ffffff';
+              h.style.margin = '0';
+              h.style.padding = '0';
+            });
+
+            // Hide action buttons, breadcrumbs navigation, and print elements
+            const hideSelectors = ['.no-capture', '.no-print', '.col-actions', 'button', '.warning-banner'];
+            hideSelectors.forEach((sel) => {
+              clonedDoc.querySelectorAll(sel).forEach((el) => {
+                (el as HTMLElement).style.display = 'none';
+              });
+            });
+
+            // Hide inline edit pencil/calendar icons in cloned table
+            clonedDoc.querySelectorAll('svg.lucide-pencil, svg.lucide-calendar').forEach((el) => {
+              (el as HTMLElement).style.display = 'none';
+            });
+
+            // Ensure table wrapper in clone has no scroll truncation
+            clonedDoc.querySelectorAll('.overflow-x-auto, .overflow-hidden').forEach((el) => {
+              const h = el as HTMLElement;
+              h.style.overflow = 'visible';
+              h.style.maxHeight = 'none';
+            });
+          }
+        });
+
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('Görüntü oluşturulamadı.');
+
+        // Try writing directly to system clipboard
+        if (navigator.clipboard && typeof navigator.clipboard.write === 'function') {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+            notify('Ekran görüntüsü panoya kopyalandı! WhatsApp Web\'de Ctrl + V ile yapıştırabilirsiniz.', 'success');
+            return;
+          } catch (clipErr) {
+            console.warn('Clipboard write failed, downloading as fallback:', clipErr);
+          }
+        }
+
+        // Fallback: Download file if clipboard write was not permitted
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${selectedSupplierDetail || 'Cari'}-Ekstre-${new Date().toISOString().split('T')[0]}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        notify('Görüntü indirildi (Panoya yazma izni kısıtlı olduğu için dosya olarak kaydedildi).', 'info');
+      } catch (err: any) {
+        console.error('Ekran görüntüsü alma hatası:', err);
+        notify('Ekran görüntüsü alınamadı: ' + err.message, 'error');
+      } finally {
+        setIsCapturing(false);
+      }
+    };
+
     return (
-      <div className="space-y-6 font-sans print-container">
+      <div ref={ekstreCaptureRef} className="space-y-6 font-sans print-container p-3 sm:p-5 bg-slate-50/50 rounded-2xl">
         <style>{`
           .cekten-sticky-top {
             background-color: #f1f5f9;
@@ -1264,7 +1350,21 @@ export function CektenHesabiPage() {
               <p className="text-xs sm:text-sm text-gray-500">Cari Kart Detay ve Çekten Hesap Hareket Dökümü</p>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3 no-print">
+            <div className="flex items-center gap-2 sm:gap-3 no-print no-capture">
+              <button
+                type="button"
+                disabled={isCapturing}
+                onClick={handleCaptureScreenshot}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-emerald-50 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold text-emerald-700 hover:bg-emerald-100 focus:outline-none shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                title="Ekstre görüntüsünü panoya kopyalar (WhatsApp Web'de direkt Ctrl+V ile yapıştırabilirsiniz)"
+              >
+                {isCapturing ? (
+                  <RefreshCw size={15} className="animate-spin text-emerald-600" />
+                ) : (
+                  <Camera size={15} className="text-emerald-600" />
+                )}
+                <span>{isCapturing ? 'Kopyalanıyor...' : 'Ekran Görüntüsü Al'}</span>
+              </button>
               <button
                 onClick={() => setSelectedSupplierDetail(null)}
                 className="rounded-lg border border-gray-300 bg-white px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none"
@@ -1375,7 +1475,7 @@ export function CektenHesabiPage() {
                   <th className="px-6 py-4 text-right pr-10">Borç Tutarı</th>
                   <th className="px-6 py-4 text-right pr-10">Ödenen</th>
                   <th className="px-6 py-4 text-right pr-10">Toplam Bakiye</th>
-                  <th className="px-6 py-4 text-center">İşlemler</th>
+                  <th className="px-6 py-4 text-center col-actions no-print">İşlemler</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white font-medium text-gray-900 font-semibold">
@@ -1437,7 +1537,7 @@ export function CektenHesabiPage() {
                             {r.runningBalance > 0 ? ' (Borç)' : r.runningBalance < 0 ? ' (Alacak)' : ' (Sıfır)'}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-6 py-4 text-center flex items-center justify-center gap-1.5">
+                        <td className="whitespace-nowrap px-6 py-4 text-center flex items-center justify-center gap-1.5 col-actions no-print">
                           <button
                             onClick={() => handleOpenEdit(r)}
                             className="text-gray-400 hover:text-brand-600 p-1 rounded hover:bg-gray-100 transition-colors"
