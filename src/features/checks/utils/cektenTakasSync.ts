@@ -122,7 +122,8 @@ export function syncCektenIntoChecksList<T extends Record<string, any>>(
   const supplierGroups = aggregateCektenBalances(cektenRows);
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // 1. Filter out checks whose balance is 0 or no longer has outstanding balance in cekten_hesabi
+  // 1. Filter out checks whose balance is 0 or where we are creditor (alacaklıyız / netBalance <= 0)
+  // Per rule: Takasta Olmayan Çekler only includes amounts we owe to pay (borçlu olduklarımız / ödeyeceklerimiz)
   let updated = currentChecks.filter(c => {
     if (isCheckPaid(c.status)) return true;
     if (!isCektenCheck(c)) return true;
@@ -130,15 +131,16 @@ export function syncCektenIntoChecksList<T extends Record<string, any>>(
 
     const cCreditor = fixCorruptedTurkishText(c.creditor || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
     const summary = supplierGroups.get(cCreditor);
-    if (!summary || Math.abs(summary.netBalance) < 0.01) {
+    if (!summary || summary.netBalance <= 0.01) {
       return false;
     }
     return true;
   });
 
   // 2. Update existing or insert new dynamic checks
+  // ONLY include caris where we owe money (netBalance > 0.01), NEVER when we are creditor (alacaklı olduklarımız)
   supplierGroups.forEach(({ supplier, netBalance }) => {
-    if (Math.abs(netBalance) < 0.01) return;
+    if (netBalance <= 0.01) return;
 
     const supplierUpper = fixCorruptedTurkishText(supplier).trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
     const existingIndex = updated.findIndex(c => {
@@ -148,7 +150,7 @@ export function syncCektenIntoChecksList<T extends Record<string, any>>(
       return isCektenCheck(c);
     });
 
-    const roundedAmount = Math.round(Math.abs(netBalance) * 100) / 100;
+    const roundedAmount = Math.round(netBalance * 100) / 100;
 
     if (existingIndex >= 0) {
       const existingCheck = updated[existingIndex];
