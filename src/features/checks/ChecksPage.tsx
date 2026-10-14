@@ -75,8 +75,8 @@ import {
   isCheckPaid, 
   formatDateForDB, 
   isCektenCheck, 
-  aggregateCektenBalances, 
-  createCektenPaymentPayload 
+  createCektenPaymentPayload,
+  syncCektenIntoChecksList 
 } from './utils/cektenTakasSync';
 
 export { isCheckPaid, formatDateForDB, isCektenCheck };
@@ -772,71 +772,7 @@ export function ChecksPage() {
           .eq('organization_id', orgId);
 
         if (!cektenErr && cektenRows) {
-          const supplierGroups = aggregateCektenBalances(cektenRows);
-          const todayStr = new Date().toISOString().split('T')[0];
-
-          // ebs_checks içindeki "TAKASTA OLMAYAN" Çekten kayıtlarını kontrol et:
-          // Eğer cekten_hesabi'nda bakiyesi 0 TL olmuşsa veya açık bakiye kalmamışsa, allData'dan temizle
-          allData = allData.filter(c => {
-            if (isCheckPaid(c.status)) return true;
-            if (!isCektenCheck(c)) return true;
-            if (!c.ozel_alan?.includes('TAKASTA OLMAYAN')) return true;
-
-            const cCreditor = fixCorruptedText(c.creditor || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
-            const summary = supplierGroups.get(cCreditor);
-            if (!summary || Math.abs(summary.netBalance) < 0.01) {
-              return false;
-            }
-            return true;
-          });
-
-          supplierGroups.forEach(({ supplier, netBalance }) => {
-            // Bakiyesi 0 TL olan cariler Takasta Olmayan Çekler listesine dahil edilmez
-            if (Math.abs(netBalance) < 0.01) return;
-
-            const supplierUpper = fixCorruptedText(supplier).trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
-            // Zaten bu cari için Takas'ta veya Takasta Olmayan'da aktif (ödenmemiş) bir Çekten çeki var mı?
-            const existingCheck = allData.find(c => {
-              if (isCheckPaid(c.status)) return false;
-              const cCreditor = fixCorruptedText(c.creditor || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
-              if (cCreditor !== supplierUpper) return false;
-              return isCektenCheck(c);
-            });
-
-            const roundedAmount = Math.round(Math.abs(netBalance) * 100) / 100;
-
-            if (existingCheck) {
-              // Eğer zaten TAKASTA OLMAYAN olarak kayıtlıysa, güncel net bakiyeyi yansıt
-              if (existingCheck.ozel_alan?.includes('TAKASTA OLMAYAN')) {
-                existingCheck.amount = roundedAmount;
-              }
-            } else {
-              // Henüz takasa aktarılmamış açık bakiye: Dinamik olarak Takasta Olmayan Çekler'e ekle
-              const dynamicCheck: EbsCheck = {
-                id: `cekten_${encodeURIComponent(supplierUpper)}`,
-                local_id: 0,
-                check_type: 'kesilen',
-                document_type: 'cek',
-                issue_date: todayStr,
-                due_date: todayStr,
-                amount: roundedAmount,
-                para_birimi: 'TRY',
-                check_no: null,
-                creditor: supplier,
-                debtor: 'ÇEKTEN',
-                bank_name: 'ÇEKTEN',
-                bank_branch: null,
-                status: 'Tahsilde',
-                ozel_alan: 'TAKASTA OLMAYAN - ÇEKTEN',
-                kesideci: null,
-                keside_yeri: null,
-                tahsildar_banka: null,
-                ciro_edilen: null,
-                created_at: new Date().toISOString()
-              };
-              allData.push(dynamicCheck);
-            }
-          });
+          allData = syncCektenIntoChecksList(allData, cektenRows);
         }
       } catch (cektenFetchErr) {
         console.warn('Çekten hesabı bakiyeleri yüklenirken hata:', cektenFetchErr);
@@ -904,6 +840,79 @@ export function ChecksPage() {
       localStorage.removeItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`);
     } catch {}
     void fetchChecks();
+  }, [user?.organizationId, isTakasRoute]);
+
+  const refreshCektenSync = async () => {
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+    try {
+      const { data: cektenRows, error: cektenErr } = await supabase
+        .from('cekten_hesabi')
+        .select('*')
+        .eq('organization_id', orgId);
+
+      if (!cektenErr && cektenRows) {
+        setChecks(prevChecks => syncCektenIntoChecksList(prevChecks, cektenRows));
+      }
+    } catch (err) {
+      console.warn('[Takas] refreshCektenSync error:', err);
+    }
+  };
+
+  // Continuous synchronization with Çekten Hesabı (Supabase Realtime, Tab Focus, Cross-Tab Storage, SPA Event, Heartbeat)
+  useEffect(() => {
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+    if (!orgId) return;
+
+    // 1. Supabase Realtime channel for instant DB push
+    const channel = supabase
+      .channel(`realtime-cekten-${orgId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cekten_hesabi',
+          filter: `organization_id=eq.${orgId}`
+        },
+        () => {
+          void refreshCektenSync();
+        }
+      )
+      .subscribe();
+
+    // 2. Cross-tab storage event (fires when Çekten Hesabı tab updates in another browser tab)
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'cekten_last_update') {
+        void refreshCektenSync();
+      }
+    };
+
+    // 3. In-tab SPA custom event
+    const handleCektenChange = () => {
+      void refreshCektenSync();
+    };
+
+    // 4. Tab focus event (when switching back to Takas tab)
+    const handleFocus = () => {
+      void refreshCektenSync();
+    };
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('cekten-data-changed', handleCektenChange);
+    window.addEventListener('focus', handleFocus);
+
+    // 5. Heartbeat sync every 20 seconds while on Takas route to guarantee continuous freshness
+    const interval = isTakasRoute ? setInterval(() => {
+      void refreshCektenSync();
+    }, 20000) : null;
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('cekten-data-changed', handleCektenChange);
+      window.removeEventListener('focus', handleFocus);
+      if (interval) clearInterval(interval);
+    };
   }, [user?.organizationId, isTakasRoute]);
 
   // Kalan gün hesaplama
@@ -3013,7 +3022,7 @@ export function ChecksPage() {
                       <tr key={rowIndex} className={`h-[34px] hover:bg-gray-50/30 print:divide-x-0 ${isExtraPrintRow ? 'hidden print:table-row' : ''}`}>
                         <td className="p-0 border border-gray-200 print:border-0">
                           <input
-                            key={check ? (check.local_id ? `local-nontakas-cred-${check.local_id}` : `nontakas-cred-${check.id}`) : `empty-nontakas-cred-${rowIndex}`}
+                            key={check ? (check.local_id ? `local-nontakas-cred-${check.local_id}-${check.creditor}` : `nontakas-cred-${check.id}-${check.creditor}`) : `empty-nontakas-cred-${rowIndex}`}
                             type="text"
                             className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 pl-2 text-[17px] font-normal text-gray-700 uppercase"
                             style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
@@ -3028,7 +3037,7 @@ export function ChecksPage() {
                         </td>
                         <td className="p-0 border border-gray-200 print:border-0">
                           <input
-                            key={check ? (check.local_id ? `local-nontakas-debt-${check.local_id}` : `nontakas-debt-${check.id}`) : `empty-nontakas-debt-${rowIndex}`}
+                            key={check ? (check.local_id ? `local-nontakas-debt-${check.local_id}-${check.debtor}` : `nontakas-debt-${check.id}-${check.debtor}`) : `empty-nontakas-debt-${rowIndex}`}
                             type="text"
                             className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 pl-2 text-[17px] font-normal text-gray-700 uppercase"
                             style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
@@ -3044,7 +3053,7 @@ export function ChecksPage() {
                         <td className="p-0 border border-gray-200 print:border-0 relative group">
                           <div className="relative flex items-center w-full h-full">
                             <input
-                              key={check ? (check.local_id ? `local-nontakas-amt-${check.local_id}` : `nontakas-amt-${check.id}`) : `empty-nontakas-amt-${rowIndex}`}
+                              key={check ? (check.local_id ? `local-nontakas-amt-${check.local_id}-${check.amount}` : `nontakas-amt-${check.id}-${check.amount}`) : `empty-nontakas-amt-${rowIndex}`}
                               type="text"
                               className={`w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-[17px] font-normal text-gray-900 pr-5 ${selectedCells[check?.id || `nontakas-${rowIndex}`] ? 'ring-2 ring-green-600 bg-green-50/50' : ''}`}
                               onClick={e => handleCellClick(e, check, check ? check.amount : 0, check?.id || `nontakas-${rowIndex}`)}

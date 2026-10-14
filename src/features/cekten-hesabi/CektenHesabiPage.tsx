@@ -22,6 +22,7 @@ import { useToast } from '../../lib/toast';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import * as XLSX from 'xlsx';
+import { notifyCektenDataChanged } from '../checks/utils/cektenTakasSync';
 
 interface CektenRecord {
   id: string;
@@ -692,6 +693,7 @@ export function CektenHesabiPage() {
 
       if (error) throw error;
       notify('Kayıt başarıyla güncellendi.', 'success');
+      notifyCektenDataChanged();
     } catch (e: any) {
       notify('Güncelleme hatası: ' + e.message, 'error');
       void fetchRecords(); // rollback
@@ -714,6 +716,7 @@ export function CektenHesabiPage() {
 
       if (error) throw error;
       notify('Kayıt başarıyla silindi.', 'success');
+      notifyCektenDataChanged();
     } catch (e: any) {
       notify('Silme hatası: ' + e.message, 'error');
       void fetchRecords(); // rollback
@@ -774,6 +777,7 @@ export function CektenHesabiPage() {
 
         if (error) throw error;
         notify('Kayıt başarıyla güncellendi.', 'success');
+        notifyCektenDataChanged();
       } else {
         // Create Mode
         const { error } = await supabase
@@ -782,6 +786,7 @@ export function CektenHesabiPage() {
 
         if (error) throw error;
         notify('Yeni kayıt başarıyla eklendi.', 'success');
+        notifyCektenDataChanged();
       }
 
       setIsModalOpen(false);
@@ -834,6 +839,7 @@ export function CektenHesabiPage() {
       if (error) throw error;
       
       notify('Cari kart adı başarıyla güncellendi.', 'success');
+      notifyCektenDataChanged();
       setSelectedSupplierDetail(newName.trim());
       setIsSupplierEditModalOpen(false);
       await fetchRecords();
@@ -874,6 +880,7 @@ export function CektenHesabiPage() {
 
       if (error) throw error;
       notify(isBorc ? 'Borç kaydı başarıyla eklendi.' : 'Ödeme kaydı başarıyla eklendi.', 'success');
+      notifyCektenDataChanged();
       setIsPaymentModalOpen(false);
       setPaymentFormAmount('');
       setPaymentFormNotes('');

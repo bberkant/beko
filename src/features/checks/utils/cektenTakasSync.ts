@@ -114,3 +114,86 @@ export function createCektenPaymentPayload(
     payment_date: formatDateForDB(date)
   };
 }
+
+export function syncCektenIntoChecksList<T extends Record<string, any>>(
+  currentChecks: T[],
+  cektenRows: any[]
+): T[] {
+  const supplierGroups = aggregateCektenBalances(cektenRows);
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // 1. Filter out checks whose balance is 0 or no longer has outstanding balance in cekten_hesabi
+  let updated = currentChecks.filter(c => {
+    if (isCheckPaid(c.status)) return true;
+    if (!isCektenCheck(c)) return true;
+    if (!c.ozel_alan?.includes('TAKASTA OLMAYAN')) return true;
+
+    const cCreditor = fixCorruptedTurkishText(c.creditor || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
+    const summary = supplierGroups.get(cCreditor);
+    if (!summary || Math.abs(summary.netBalance) < 0.01) {
+      return false;
+    }
+    return true;
+  });
+
+  // 2. Update existing or insert new dynamic checks
+  supplierGroups.forEach(({ supplier, netBalance }) => {
+    if (Math.abs(netBalance) < 0.01) return;
+
+    const supplierUpper = fixCorruptedTurkishText(supplier).trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
+    const existingIndex = updated.findIndex(c => {
+      if (isCheckPaid(c.status)) return false;
+      const cCreditor = fixCorruptedTurkishText(c.creditor || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
+      if (cCreditor !== supplierUpper) return false;
+      return isCektenCheck(c);
+    });
+
+    const roundedAmount = Math.round(Math.abs(netBalance) * 100) / 100;
+
+    if (existingIndex >= 0) {
+      const existingCheck = updated[existingIndex];
+      if (existingCheck.ozel_alan?.includes('TAKASTA OLMAYAN')) {
+        updated[existingIndex] = {
+          ...existingCheck,
+          amount: roundedAmount
+        };
+      }
+    } else {
+      const dynamicCheck: any = {
+        id: `cekten_${encodeURIComponent(supplierUpper)}`,
+        local_id: 0,
+        check_type: 'kesilen',
+        document_type: 'cek',
+        issue_date: todayStr,
+        due_date: todayStr,
+        amount: roundedAmount,
+        para_birimi: 'TRY',
+        check_no: null,
+        creditor: supplier,
+        debtor: 'ÇEKTEN',
+        bank_name: 'ÇEKTEN',
+        bank_branch: null,
+        status: 'Tahsilde',
+        ozel_alan: 'TAKASTA OLMAYAN - ÇEKTEN',
+        kesideci: null,
+        keside_yeri: null,
+        tahsildar_banka: null,
+        ciro_edilen: null,
+        created_at: new Date().toISOString()
+      };
+      updated.push(dynamicCheck as T);
+    }
+  });
+
+  return updated;
+}
+
+export function notifyCektenDataChanged() {
+  try {
+    localStorage.setItem('cekten_last_update', Date.now().toString());
+  } catch {}
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('cekten-data-changed'));
+  }
+}
+
