@@ -1299,33 +1299,9 @@ export function CektenHesabiPage() {
     };
 
     return (
-      <div ref={ekstreCaptureRef} className="space-y-6 font-sans print-container p-3 sm:p-5 bg-slate-50/50 rounded-2xl">
-        <style>{`
-          .cekten-sticky-top {
-            background-color: #f1f5f9;
-          }
-          .theme-dia-v3 .cekten-sticky-top {
-            background-color: #e8ecf1;
-          }
-          .theme-banking-trial .cekten-sticky-top {
-            background-color: #f4f6fa;
-          }
-          .theme-classic .cekten-sticky-top {
-            background-color: #f9fafb;
-          }
-          @media print {
-            .cekten-sticky-top {
-              position: static !important;
-              background-color: transparent !important;
-              box-shadow: none !important;
-              border: none !important;
-              padding: 0 !important;
-              margin: 0 !important;
-            }
-          }
-        `}</style>
-        {/* Sticky Header & Summary Area */}
-        <div className="sticky top-16 z-10 -mx-3 -mt-4 px-3 pt-3 pb-3 lg:-mx-8 lg:-mt-8 lg:px-8 lg:pt-4 bg-[#f1f5f9] border-b border-gray-200/80 shadow-sm transition-all space-y-3 no-print cekten-sticky-top">
+      <div ref={ekstreCaptureRef} className="space-y-6 font-sans print-container">
+        {/* Header & Summary Area */}
+        <div className="space-y-4">
           {/* Breadcrumb Navigation & Action Buttons */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
