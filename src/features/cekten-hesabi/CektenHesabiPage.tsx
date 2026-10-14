@@ -386,6 +386,13 @@ export function CektenHesabiPage() {
     };
   }, [navigate]);
 
+  // Defensive cleanup for html2canvas style injection on unmount
+  useEffect(() => {
+    return () => {
+      document.getElementById('html2canvas-font-fix')?.remove();
+    };
+  }, []);
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -1234,8 +1241,17 @@ export function CektenHesabiPage() {
     };
 
     const handleCaptureScreenshot = async () => {
-      if (!dedicatedExportRef.current) return;
+      if (!dedicatedExportRef.current || isCapturing) return;
       setIsCapturing(true);
+
+      // Temporarily ensure img { display: inline !important } in main document
+      // so html2canvas FontMetrics does not miscalculate baseline due to Tailwind preflight
+      document.getElementById('html2canvas-font-fix')?.remove();
+      const fixStyle = document.createElement('style');
+      fixStyle.id = 'html2canvas-font-fix';
+      fixStyle.textContent = 'img { display: inline !important; }';
+      document.head.appendChild(fixStyle);
+
       try {
         const element = dedicatedExportRef.current;
         
@@ -1249,6 +1265,10 @@ export function CektenHesabiPage() {
           scrollY: 0,
           windowWidth: 1300,
           onclone: (clonedDoc) => {
+            const cloneFixStyle = clonedDoc.createElement('style');
+            cloneFixStyle.textContent = 'img { display: inline !important; }';
+            clonedDoc.head.appendChild(cloneFixStyle);
+
             const target = clonedDoc.getElementById('whatsapp-a3-statement');
             if (target) {
               const parent = target.parentElement;
@@ -1297,6 +1317,8 @@ export function CektenHesabiPage() {
         console.error('Ekran görüntüsü alma hatası:', err);
         notify('Ekran görüntüsü alınamadı: ' + err.message, 'error');
       } finally {
+        const lingeringFix = document.getElementById('html2canvas-font-fix');
+        if (lingeringFix) lingeringFix.remove();
         setIsCapturing(false);
       }
     };
@@ -1919,7 +1941,19 @@ export function CektenHesabiPage() {
                 >
                   <span>Bakiye Durumu:</span>
                   <span
-                    className={`text-sm font-black px-2.5 py-0.5 rounded ${
+                    style={{
+                      display: 'inline-block',
+                      verticalAlign: 'middle',
+                      textAlign: 'center',
+                      padding: '1px 10px 5px 10px',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: 900,
+                      lineHeight: 1,
+                      boxSizing: 'border-box',
+                      whiteSpace: 'nowrap',
+                    }}
+                    className={`text-sm font-black rounded ${
                       supplierStats.remaining > 0
                         ? 'bg-rose-950/80 text-rose-100'
                         : supplierStats.remaining < 0
@@ -1972,7 +2006,7 @@ export function CektenHesabiPage() {
                                 display: 'inline-block',
                                 verticalAlign: 'middle',
                                 textAlign: 'center',
-                                padding: '3px 8px',
+                                padding: isPayment ? '3px 8px 4px 8px' : '1px 8px 5px 8px',
                                 borderRadius: '6px',
                                 fontSize: '11px',
                                 fontWeight: 700,
