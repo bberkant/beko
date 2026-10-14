@@ -110,6 +110,12 @@ Tablolarda satır içi hızlı düzenleme (`InlineEdit`, `InlinePaymentDate` vb.
     - EBS Firebird veritabanından veri çekildiğinde (`sync.ps1`, arka plan zamanlayıcıları, cron veya harici ofis senkronizasyonu), EBS'deki boş veya varsayılan `ozel_alan`, `status` veya `debtor` değerleri kullanıcının web arayüzünde yaptığı **İç Takas (`TAKASTA - İÇ TAKAS`)**, **Takasta Olmayan (`TAKASTA OLMAYAN`)**, **Kayıp (`Kayıp`)** veya **Ödendi (`Ödendi`)** durumlarının üzerine ASLA yazılamaz.
     - Bu koruma hem istemci tarafı betiklerinde (`sync.ps1`) hem de Supabase PostgreSQL veritabanı seviyesinde `trg_preserve_ebs_checks_customizations` BEFORE UPDATE tetikleyicisi (trigger) ile garanti altına alınmıştır.
 
+14. **Çekten Hesabı Açık Bakiyelerinin Takasta Olmayan Çekler'e Çekilme Kuralı (Sadece Borçlu/Ödenecek Bakiyeler):**
+    - Takas çekleri tablosundaki "TAKASTA OLMAYAN ÇEKLER" listesi, şirketin ödeyeceği (kasadan/hesaptan çıkış yapılacak) yükümlülükleri ve borçları temsil eder.
+    - Çekten Hesabı (`cekten_hesabi`) modülünden açık bakiyeler çekilirken, yalnızca **bizim borçlu olduğumuz / şirketin ödeyeceği** (`netBalance > 0.01` / `remaining > 0` - "Borcumuz Var") cariler Takasta Olmayan Çekler tablosuna dahil edilmelidir.
+    - Bizim alacaklı olduğumuz (`netBalance < 0` / `remaining < 0` - "Alacaklıyız") veya bakiyesi sıfır olan cariler Takasta Olmayan Çekler tablosuna KESİNLİKLE getirilmemelidir; sadece şirketin ödemesi gereken net borç tutarları listelenmelidir.
+    - Bir cari Takasa ("TAKSİT" sütununa) taşınıp ödendiğinde de Çekten Hesabı'na sadece bu borç ödemesi kapatma hareketi olarak işlenmelidir.
+
 ## POS Sayfası Kuralları
 
 1. **Otomatik Satır Ekleme (Yapıştırma Mantığı):**
@@ -424,3 +430,14 @@ Sistem genelinde tutar, ödeme, borç, alacak ve bakiye girişi yapılan tüm bi
 
 
 
+
+## DARS Mobil (iOS & Swift) Geliştirme ve OTA Canlı Güncelleme Standartları
+
+1. **Yalnızca iOS ve Swift Mimarisi (Swift & iOS-Only Invariant):**
+   - DARS Mobil uygulaması **yalnızca iOS** platformunda kullanılır (`iOS 17.0+`, `Bundle ID: com.amasyaetas.mobile`, `Team ID: WGARWL7QZ4`).
+   - Mobil geliştirmeler yalnızca **Swift (`SwiftUI`, `WebKit`, `UserNotifications`, `Foundation`)** ve `ios/dars-ios` mimarisi üzerinden yürütülür; Android, Flutter, React Native veya Kotlin önerilmez ve kullanılmaz.
+2. **App Store (Gizli Yayın) & OTA Canlı Güncelleme (`cem.amasyaetas.com`):**
+   - Uygulama App Store'da gizli yayın (Unlisted) olarak yayınlanmıştır; TestFlight odaklı süreç yerine doğrudan canlı uygulama üzerinden geliştirme yapılır.
+   - Uygulama güncellemelerinin App Store inceleme/onay sürecini beklemeden doğrudan canlı sunucudan (`https://cem.amasyaetas.com`) otomatik olarak çekileceği **OTA (Over-The-Air) Canlı Güncelleme** yapısı (çevrimdışı/hata durumunda yerel `Bundle.main` yedeğine düşecek şekilde) ve `WKUserContentController` (`darsNotification`) köprüsü korunur.
+3. **Kuveyt Türk Kurumsal Tasarım ve Proje Kuralları Uyumu:**
+   - Mobil uygulamada Kuveyt Türk kurumsal tasarım tokenları (`Color.ktPrimary` `#002D59`, `Color.ktCoral` `#EA3829`, `Color.ktOrange` `#FF9800`, `Color.ktSuccess` `#10B981`, `SF Pro` `.ktMonospacedDigits()`) ve bu belgedeki tüm finansal/iş kuralları (sağda `₺`/`TL` simgesi, binlik `.` ayracı, Takas `E.`/`M.` ve `TAKSİT` kuralları, Çekten ↔ Takas çift yönlü senkronizasyonu, Kredi Kartları sıralama/hatırlatma kuralları, 1 aylık doğal cari vade ve doğrudan Supabase bağlantısı) birebir uygulanır.
