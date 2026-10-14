@@ -944,6 +944,9 @@ export function CektenHesabiPage() {
       };
     });
 
+    // Last 15 movements for A3 screenshot export so it fits cleanly on a single page
+    const exportLedger = ledger.length > 15 ? ledger.slice(-15) : ledger;
+
     const latestTx = supplierRecords.length > 0 ? supplierRecords[supplierRecords.length - 1].date : '—';
     const latestTxFormatted = latestTx !== '—' ? new Date(latestTx).toLocaleDateString('tr-TR') : '—';
 
@@ -1841,29 +1844,10 @@ export function CektenHesabiPage() {
             className="p-10 bg-white space-y-7 border border-slate-200"
           >
             {/* Header Block */}
-            <div className="border-b-2 border-slate-200 pb-5">
-              <div className="space-y-1.5">
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                  {selectedSupplierDetail}
-                </h1>
-                <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 pt-1">
-                  <span>
-                    <strong className="text-slate-700">Cari Kodu:</strong> CEKTEN-HESAP-{(selectedSupplierDetail || '').toUpperCase().substring(0, 12)}
-                  </span>
-                  <span>•</span>
-                  <span>
-                    <strong className="text-slate-700">Düzenleme Tarihi:</strong> {new Date().toLocaleDateString('tr-TR')} {new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                  <span>•</span>
-                  <span>
-                    <strong className="text-slate-700">Hareket Sayısı:</strong> {ledger.length} Kayıt
-                  </span>
-                  <span>•</span>
-                  <span>
-                    <strong className="text-slate-700">Son İşlem:</strong> {latestTxFormatted}
-                  </span>
-                </div>
-              </div>
+            <div className="border-b-2 border-slate-200 pb-4">
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                {selectedSupplierDetail}
+              </h1>
             </div>
 
             {/* High-Impact Balance & Summary KPI Cards */}
@@ -1967,14 +1951,14 @@ export function CektenHesabiPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 font-semibold text-slate-800">
-                  {ledger.length === 0 ? (
+                  {exportLedger.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-12 text-center text-slate-400 font-medium text-base">
                         Bu cariye ait kayıtlı hareket bulunmamaktadır.
                       </td>
                     </tr>
                   ) : (
-                    ledger.map((r, index) => {
+                    exportLedger.map((r, index) => {
                       const isPayment = r.total_amount === 0;
                       const isEven = index % 2 === 1;
                       return (
@@ -2078,16 +2062,6 @@ export function CektenHesabiPage() {
                   </tr>
                 </tfoot>
               </table>
-            </div>
-
-            {/* Footer Disclaimer */}
-            <div className="flex items-center justify-between border-t-2 border-slate-200 pt-4 text-xs text-slate-500 font-semibold">
-              <div>
-                İşbu cari hesap ekstresi ETAŞ ET finans ve hesap yönetim sistemi kayıtları esas alınarak oluşturulmuştur. Bilgi ve mutabakat amaçlıdır.
-              </div>
-              <div className="text-right text-slate-500 font-black tracking-wider">
-                www.amasyaetas.com • "Et Bizim Tek İşimiz.."
-              </div>
             </div>
           </div>
         </div>
