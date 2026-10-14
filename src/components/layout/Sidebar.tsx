@@ -557,6 +557,13 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
     mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
   ].join(' ');
 
+  const handleNavClick = (to: string) => {
+    onCloseMobile();
+    if (to === '/finans/cekten-hesabi' || to.startsWith('/finans/cekten-hesabi')) {
+      window.dispatchEvent(new CustomEvent('cekten-hesabi-reset-view'));
+    }
+  };
+
   // Common item renderer
   const renderItemLink = (item: typeof navItems[0]) => {
     const Icon = item.icon;
@@ -584,7 +591,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                   return next;
                 });
                 navigate(item.to);
-                onCloseMobile();
+                handleNavClick(item.to);
               }}
               className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 ${collapsed ? 'justify-center' : ''}`}
             >
@@ -612,7 +619,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                         key={child.to}
                         to={child.to}
                         end
-                        onClick={onCloseMobile}
+                        onClick={() => handleNavClick(child.to)}
                         className={`block rounded-md px-3 py-2 text-sm transition-colors ${
                           isSubActive
                             ? 'bg-brand-50 font-medium text-brand-700'
@@ -633,7 +640,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
         <NavLink
           key={item.label}
           to={item.to}
-          onClick={onCloseMobile}
+          onClick={() => handleNavClick(item.to)}
           className={({ isActive }) =>
             `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
               isActive
@@ -674,7 +681,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                   return next;
                 });
                 navigate(item.to);
-                onCloseMobile();
+                handleNavClick(item.to);
               }}
               style={{ color: '#ffffff' }}
               className={`flex w-full items-center gap-3 px-4 py-2.5 text-[14px] font-normal cursor-pointer transition-colors ${
@@ -712,7 +719,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                         key={child.to}
                         to={child.to}
                         end
-                        onClick={onCloseMobile}
+                        onClick={() => handleNavClick(child.to)}
                         style={{ color: '#ffffff' }}
                         className={`block py-2 pl-12 pr-4 text-[13px] font-normal border-b border-white/5 transition-colors ${
                           isSubActive
@@ -734,7 +741,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
         <NavLink
           key={item.label}
           to={item.to}
-          onClick={onCloseMobile}
+          onClick={() => handleNavClick(item.to)}
           style={{ color: '#ffffff' }}
           className={({ isActive }) =>
             `flex items-center gap-3 px-4 py-2.5 text-[14px] font-normal border-b border-white/5 transition-all ${
@@ -777,7 +784,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                   return next;
                 });
                 navigate(item.to);
-                onCloseMobile();
+                handleNavClick(item.to);
               }}
               className={`flex w-full items-center gap-2.5 px-4 py-2 text-[11.5px] font-normal transition-all hover:bg-slate-50 ${
                 isItemActive ? 'text-gray-900 bg-slate-50 font-medium' : 'text-gray-600'
@@ -809,7 +816,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                         key={child.to}
                         to={child.to}
                         end
-                        onClick={onCloseMobile}
+                        onClick={() => handleNavClick(child.to)}
                         className={`flex items-center gap-2 py-1.5 pl-11 pr-4 text-[11px] font-normal transition-colors border-b border-gray-50/50 ${
                           isSubActive
                             ? 'bg-slate-100 text-[#f37021] font-semibold'
@@ -830,7 +837,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
         <NavLink
           key={item.label}
           to={item.to}
-          onClick={onCloseMobile}
+          onClick={() => handleNavClick(item.to)}
           className={({ isActive }) =>
             `flex items-center gap-2.5 px-4 py-2 text-[11.5px] font-normal border-b border-gray-100 transition-all ${
               isActive
@@ -873,7 +880,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                 return next;
               });
               navigate(item.to);
-              onCloseMobile();
+              handleNavClick(item.to);
             }}
             className={`flex w-full items-center gap-3 px-4 py-2.5 text-[12.5px] font-medium text-gray-750 hover:bg-slate-50 transition-colors ${
               isItemActive ? 'bg-[#ebf0f5]/60 text-brand-700 font-semibold' : 'bg-white'
@@ -910,7 +917,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                       key={child.to}
                       to={child.to}
                       end
-                      onClick={onCloseMobile}
+                      onClick={() => handleNavClick(child.to)}
                       className={`block py-2 pl-12 pr-4 text-[12px] font-normal border-b border-slate-100/50 transition-colors ${
                         isSubActive
                           ? 'bg-blue-50/20 text-brand-600 font-semibold border-l-2 border-brand-500 pl-[46px]'
@@ -931,7 +938,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
       <NavLink
         key={item.label}
         to={item.to}
-        onClick={onCloseMobile}
+        onClick={() => handleNavClick(item.to)}
         className={({ isActive }) =>
           `flex items-center gap-3 px-4 py-2.5 text-[12.5px] font-medium border-b border-gray-150 transition-all ${
             isActive

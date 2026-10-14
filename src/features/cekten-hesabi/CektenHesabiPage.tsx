@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Database, 
   RefreshCw, 
@@ -330,24 +331,57 @@ export function CektenHesabiPage() {
   const [viewMode, setViewMode] = useState<'summary' | 'detail'>('summary');
   const [activeTab, setActiveTab] = useState<'main' | 'history'>('main');
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
   // Supplier detail page state (synchronized with URL search parameter)
-  const [selectedSupplierDetail, setSelectedSupplierDetailState] = useState<string | null>(() => {
-    const params = new URLSearchParams(window.location.search);
+  const queryCari = useMemo(() => {
+    const params = new URLSearchParams(location.search);
     return params.get('cari') || null;
-  });
+  }, [location.search]);
+
+  const [selectedSupplierDetail, setSelectedSupplierDetailState] = useState<string | null>(queryCari);
+
+  // Synchronize state when URL query parameter changes (e.g. sidebar navigation, back/forward buttons)
+  useEffect(() => {
+    setSelectedSupplierDetailState(queryCari);
+  }, [queryCari]);
 
   const setSelectedSupplierDetail = (val: string | null) => {
     setSelectedSupplierDetailState(val);
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     if (val) {
       params.set('cari', val);
     } else {
       params.delete('cari');
     }
     const newSearch = params.toString();
-    const newUrl = `${window.location.pathname}${newSearch ? '?' + newSearch : ''}`;
-    window.history.pushState(null, '', newUrl);
+    navigate({
+      pathname: location.pathname,
+      search: newSearch ? `?${newSearch}` : ''
+    }, { replace: false });
   };
+
+  // Listen for explicit reset events from sidebar navigation
+  useEffect(() => {
+    const handleReset = () => {
+      setSelectedSupplierDetailState(null);
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('cari')) {
+        params.delete('cari');
+        const newSearch = params.toString();
+        navigate({
+          pathname: '/finans/cekten-hesabi',
+          search: newSearch ? `?${newSearch}` : ''
+        }, { replace: false });
+      }
+    };
+
+    window.addEventListener('cekten-hesabi-reset-view', handleReset);
+    return () => {
+      window.removeEventListener('cekten-hesabi-reset-view', handleReset);
+    };
+  }, [navigate]);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
