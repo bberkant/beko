@@ -120,7 +120,15 @@ export function VehiclesProvider({ children }: { children: ReactNode }) {
   }, [org]);
 
   useEffect(() => {
-    void refresh();
+    const isVehicleRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/arac-yonetimi');
+    if (isVehicleRoute) {
+      void refresh();
+      return;
+    }
+    const timer = setTimeout(() => {
+      void refresh();
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [refresh]);
 
   const saveVehicle = async (x: VehicleInput, id?: string) => {

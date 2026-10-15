@@ -64,141 +64,144 @@ export function Topbar({ onToggleSidebar, onOpenMobileSidebar }: TopbarProps) {
   }, []);
 
   useEffect(() => {
-    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+    const timer = setTimeout(() => {
+      const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
 
-    const p1 = supabase
-      .from('tenders')
-      .select('id,tender_number,title,institution,deadline_at,status')
-      .eq('organization_id', orgId)
-      .neq('status', 'kazanildi')
-      .neq('status', 'kaybedildi')
-      .neq('status', 'iptal');
+      const p1 = supabase
+        .from('tenders')
+        .select('id,tender_number,title,institution,deadline_at,status')
+        .eq('organization_id', orgId)
+        .neq('status', 'kazanildi')
+        .neq('status', 'kaybedildi')
+        .neq('status', 'iptal');
 
-    let notesQuery = supabase
-      .from('calendar_notes')
-      .select('id,content,date,completed')
-      .eq('organization_id', orgId)
-      .eq('completed', false)
-      .not('date', 'is', null);
+      let notesQuery = supabase
+        .from('calendar_notes')
+        .select('id,content,date,completed')
+        .eq('organization_id', orgId)
+        .eq('completed', false)
+        .not('date', 'is', null);
 
-    if (user?.id) {
-      notesQuery = notesQuery.eq('created_by', user.id);
-    }
-
-    Promise.all([p1, notesQuery]).then(([{ data: tenderData }, { data: noteData }]) => {
-      const list: NotificationItem[] = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // --- Credit Cards ---
-      for (const card of cards) {
-        const debt = resolveCardOutstandingDebt(card, statements);
-        if (card.status !== 'aktif' || card.limit <= 0 || debt <= 0) continue;
-        const dueDateInfo = resolveCardDueDate(card, statements);
-        const dueDate = new Date(dueDateInfo.date);
-        dueDate.setHours(0, 0, 0, 0);
-
-        const diffTime = dueDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays <= 3) {
-          list.push({
-            id: `card-${card.id}`,
-            title: `${card.bank} Kart Ödemesi`,
-            detail: `${card.cardName} ödemesi ${diffDays === 0 ? 'Bugün' : diffDays < 0 ? 'Gecikmiş (' + Math.abs(diffDays) + ' gün)' : diffDays + ' gün kaldı'}`,
-            type: 'credit-card',
-            dateStr: dueDateInfo.date,
-            to: `/finans/kredi-kartlari/${card.id}`
-          });
-        }
+      if (user?.id) {
+        notesQuery = notesQuery.eq('created_by', user.id);
       }
 
-      // --- Vehicles ---
-      for (const vehicle of vehicles) {
-        if (vehicle.inspectionDate) {
-          const inspDate = new Date(vehicle.inspectionDate);
-          inspDate.setHours(0, 0, 0, 0);
-          const diffTime = inspDate.getTime() - today.getTime();
+      Promise.all([p1, notesQuery]).then(([{ data: tenderData }, { data: noteData }]) => {
+        const list: NotificationItem[] = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // --- Credit Cards ---
+        for (const card of cards) {
+          const debt = resolveCardOutstandingDebt(card, statements);
+          if (card.status !== 'aktif' || card.limit <= 0 || debt <= 0) continue;
+          const dueDateInfo = resolveCardDueDate(card, statements);
+          const dueDate = new Date(dueDateInfo.date);
+          dueDate.setHours(0, 0, 0, 0);
+
+          const diffTime = dueDate.getTime() - today.getTime();
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-          if (diffDays <= 15 && diffDays >= -5) {
+          if (diffDays <= 3) {
             list.push({
-              id: `insp-${vehicle.id}`,
-              title: `${vehicle.plate} Muayene Son Günü`,
-              detail: `${diffDays === 0 ? 'Bugün' : diffDays < 0 ? 'Geçti' : diffDays + ' gün kaldı'} (${vehicle.brand} ${vehicle.model})`,
-              type: 'inspection',
-              dateStr: vehicle.inspectionDate,
-              to: `/arac-yonetimi/${vehicle.id}`
+              id: `card-${card.id}`,
+              title: `${card.bank} Kart Ödemesi`,
+              detail: `${card.cardName} ödemesi ${diffDays === 0 ? 'Bugün' : diffDays < 0 ? 'Gecikmiş (' + Math.abs(diffDays) + ' gün)' : diffDays + ' gün kaldı'}`,
+              type: 'credit-card',
+              dateStr: dueDateInfo.date,
+              to: `/finans/kredi-kartlari/${card.id}`
             });
           }
         }
-        if (vehicle.insuranceDate) {
-          const insDate = new Date(vehicle.insuranceDate);
-          insDate.setHours(0, 0, 0, 0);
-          const diffTime = insDate.getTime() - today.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-          if (diffDays <= 15 && diffDays >= -5) {
-            list.push({
-              id: `ins-${vehicle.id}`,
-              title: `${vehicle.plate} Sigorta Bitişi`,
-              detail: `${diffDays === 0 ? 'Bugün' : diffDays < 0 ? 'Geçti' : diffDays + ' gün kaldı'} (${vehicle.brand} ${vehicle.model})`,
-              type: 'insurance',
-              dateStr: vehicle.insuranceDate,
-              to: `/arac-yonetimi/${vehicle.id}`
-            });
+        // --- Vehicles ---
+        for (const vehicle of vehicles) {
+          if (vehicle.inspectionDate) {
+            const inspDate = new Date(vehicle.inspectionDate);
+            inspDate.setHours(0, 0, 0, 0);
+            const diffTime = inspDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays <= 15 && diffDays >= -5) {
+              list.push({
+                id: `insp-${vehicle.id}`,
+                title: `${vehicle.plate} Muayene Son Günü`,
+                detail: `${diffDays === 0 ? 'Bugün' : diffDays < 0 ? 'Geçti' : diffDays + ' gün kaldı'} (${vehicle.brand} ${vehicle.model})`,
+                type: 'inspection',
+                dateStr: vehicle.inspectionDate,
+                to: `/arac-yonetimi/${vehicle.id}`
+              });
+            }
+          }
+          if (vehicle.insuranceDate) {
+            const insDate = new Date(vehicle.insuranceDate);
+            insDate.setHours(0, 0, 0, 0);
+            const diffTime = insDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays <= 15 && diffDays >= -5) {
+              list.push({
+                id: `ins-${vehicle.id}`,
+                title: `${vehicle.plate} Sigorta Bitişi`,
+                detail: `${diffDays === 0 ? 'Bugün' : diffDays < 0 ? 'Geçti' : diffDays + ' gün kaldı'} (${vehicle.brand} ${vehicle.model})`,
+                type: 'insurance',
+                dateStr: vehicle.insuranceDate,
+                to: `/arac-yonetimi/${vehicle.id}`
+              });
+            }
           }
         }
-      }
 
-      // --- Tenders ---
-      if (tenderData) {
-        for (const tender of tenderData) {
-          if (!tender.deadline_at) continue;
-          const deadline = new Date(tender.deadline_at);
-          deadline.setHours(0, 0, 0, 0);
-          const diffTime = deadline.getTime() - today.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // --- Tenders ---
+        if (tenderData) {
+          for (const tender of tenderData) {
+            if (!tender.deadline_at) continue;
+            const deadline = new Date(tender.deadline_at);
+            deadline.setHours(0, 0, 0, 0);
+            const diffTime = deadline.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-          if (diffDays <= 3 && diffDays >= -1) {
-            list.push({
-              id: `tender-${tender.id}`,
-              title: `İhale Son Günü (${tender.tender_number})`,
-              detail: `${tender.title} · ${diffDays === 0 ? 'Bugün' : diffDays < 0 ? 'Geçti' : diffDays + ' gün kaldı'}`,
-              type: 'tender',
-              dateStr: tender.deadline_at,
-              to: '/ihaleler'
-            });
+            if (diffDays <= 3 && diffDays >= -1) {
+              list.push({
+                id: `tender-${tender.id}`,
+                title: `İhale Son Günü (${tender.tender_number})`,
+                detail: `${tender.title} · ${diffDays === 0 ? 'Bugün' : diffDays < 0 ? 'Geçti' : diffDays + ' gün kaldı'}`,
+                type: 'tender',
+                dateStr: tender.deadline_at,
+                to: '/ihaleler'
+              });
+            }
           }
         }
-      }
 
-      // --- Custom Notes ---
-      if (noteData) {
-        for (const note of noteData) {
-          const noteDate = new Date(note.date);
-          noteDate.setHours(0, 0, 0, 0);
-          const diffTime = noteDate.getTime() - today.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // --- Custom Notes ---
+        if (noteData) {
+          for (const note of noteData) {
+            const noteDate = new Date(note.date);
+            noteDate.setHours(0, 0, 0, 0);
+            const diffTime = noteDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-          if (diffDays <= 1) {
-            list.push({
-              id: `note-${note.id}`,
-              title: `Takvim Hatırlatması`,
-              detail: `${note.content} (${diffDays === 0 ? 'Bugün' : diffDays < 0 ? 'Geçmiş' : 'Yarın'})`,
-              type: 'note',
-              dateStr: note.date,
-              to: '/takvim'
-            });
+            if (diffDays <= 1) {
+              list.push({
+                id: `note-${note.id}`,
+                title: `Takvim Hatırlatması`,
+                detail: `${note.content} (${diffDays === 0 ? 'Bugün' : diffDays < 0 ? 'Geçmiş' : 'Yarın'})`,
+                type: 'note',
+                dateStr: note.date,
+                to: '/takvim'
+              });
+            }
           }
         }
-      }
 
-      list.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
-      setNotifications(list);
-    }).catch(err => {
-      console.error('Error fetching notification data', err);
-    });
+        list.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+        setNotifications(list);
+      }).catch(err => {
+        console.error('Error fetching notification data', err);
+      });
+    }, 1200);
+    return () => clearTimeout(timer);
   }, [user?.organizationId, cards, statements, vehicles]);
 
   const signOut = async () => {

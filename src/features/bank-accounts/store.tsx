@@ -58,7 +58,15 @@ export function BankAccountsProvider({ children }: { children: ReactNode }) {
   }, [org]);
 
   useEffect(() => {
-    void refresh();
+    const isBankRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/finans/banka-');
+    if (isBankRoute) {
+      void refresh();
+      return;
+    }
+    const timer = setTimeout(() => {
+      void refresh();
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [refresh]);
 
   const need = () => {

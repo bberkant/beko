@@ -366,18 +366,28 @@ export function getAllStaffUsers(): StaffRegistryUser[] {
   return Array.from(map.values());
 }
 
+let inFlightBackendSessionPromise: Promise<Session | null> | null = null;
+
 export async function ensureSupabaseBackendSession(): Promise<Session | null> {
-  try {
-    const { data } = await supabase.auth.getSession();
-    if (data?.session) return data.session;
-    const { data: signInRes } = await supabase.auth.signInWithPassword({
-      email: 'berkant@dars.local',
-      password: '123berkant_'
-    });
-    return signInRes?.session || null;
-  } catch {
-    return null;
+  if (inFlightBackendSessionPromise) {
+    return inFlightBackendSessionPromise;
   }
+  inFlightBackendSessionPromise = (async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session) return data.session;
+      const { data: signInRes } = await supabase.auth.signInWithPassword({
+        email: 'berkant@dars.local',
+        password: '123berkant_'
+      });
+      return signInRes?.session || null;
+    } catch {
+      return null;
+    } finally {
+      inFlightBackendSessionPromise = null;
+    }
+  })();
+  return inFlightBackendSessionPromise;
 }
 
 async function resolveUser(session: Session): Promise<AuthUser> {

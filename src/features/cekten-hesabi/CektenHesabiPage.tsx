@@ -327,9 +327,32 @@ function InlineEdit({
 export function CektenHesabiPage() {
   const { user } = useAuth();
   const { notify } = useToast();
+  const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
   
-  const [records, setRecords] = useState<CektenRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [records, setRecords] = useState<CektenRecord[]>(() => {
+    try {
+      const raw = localStorage.getItem(`dars_cekten_hesabi_cache_${orgId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((r: any) => ({
+            ...r,
+            total_amount: Number(r.total_amount || 0),
+            paid_amount: Number(r.paid_amount || 0),
+            remaining_amount: Number(r.remaining_amount || 0)
+          }));
+        }
+      }
+    } catch {}
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const raw = localStorage.getItem(`dars_cekten_hesabi_cache_${orgId}`);
+      if (raw && JSON.parse(raw)?.length > 0) return false;
+    } catch {}
+    return true;
+  });
   const [actionLoading, setActionLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'summary' | 'detail'>('summary');
   const [activeTab, setActiveTab] = useState<'main' | 'history'>('main');
@@ -442,7 +465,9 @@ export function CektenHesabiPage() {
 
   const fetchRecords = async () => {
     if (!user?.organizationId) return;
-    setLoading(true);
+    if (records.length === 0) {
+      setLoading(true);
+    }
     try {
       let query = supabase
         .from('cekten_hesabi')
@@ -461,18 +486,32 @@ export function CektenHesabiPage() {
       const { data, error } = await query;
       if (error) throw error;
       
-      setRecords((data || []).map(r => ({
+      const mapped = (data || []).map(r => ({
         ...r,
         total_amount: Number(r.total_amount || 0),
         paid_amount: Number(r.paid_amount || 0),
         remaining_amount: Number(r.remaining_amount || 0)
-      })));
+      }));
+      setRecords(mapped);
+      if (!startDate && !endDate) {
+        try {
+          localStorage.setItem(`dars_cekten_hesabi_cache_${user.organizationId}`, JSON.stringify(mapped));
+        } catch {}
+      }
     } catch (e: any) {
       notify('Çekten hesabı verileri yüklenirken hata oluştu: ' + e.message, 'error');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!startDate && !endDate && records.length > 0 && user?.organizationId) {
+      try {
+        localStorage.setItem(`dars_cekten_hesabi_cache_${user.organizationId}`, JSON.stringify(records));
+      } catch {}
+    }
+  }, [records, startDate, endDate, user?.organizationId]);
 
   useEffect(() => {
     void fetchRecords();

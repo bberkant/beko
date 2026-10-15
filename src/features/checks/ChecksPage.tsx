@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { SectionCard } from '../../components/ui/SectionCard';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../lib/auth';
+import { useAuth, ensureSupabaseBackendSession } from '../../lib/auth';
 import {
   Coins,
   Search,
@@ -76,7 +76,8 @@ import {
   formatDateForDB, 
   isCektenCheck, 
   createCektenPaymentPayload,
-  syncCektenIntoChecksList 
+  syncCektenIntoChecksList,
+  type CektenDbSyncAction
 } from './utils/cektenTakasSync';
 
 export { isCheckPaid, formatDateForDB, isCektenCheck };
@@ -278,46 +279,98 @@ const formatTaksitDesc = (desc: string | null | undefined): string => {
 const CHECKS_CACHE_KEY = 'dars_ebs_checks_cache';
 const TAKAS_CHECKS_CACHE_KEY = 'dars_ebs_takas_checks_cache';
 const ACCOUNTS_CACHE_KEY = 'dars_bank_accounts_cache';
+const CEKTEN_CACHE_KEY = 'dars_cekten_hesabi_cache';
 
-function getCachedChecks(orgId: string, _isTakas = false): EbsCheck[] {
+function getCachedCektenRows(orgId: string): any[] {
   try {
-    const timeStr = localStorage.getItem(`${CHECKS_CACHE_KEY}_time_${orgId}`);
-    if (timeStr) {
-      const ageMs = Date.now() - new Date(timeStr).getTime();
-      // If cache is older than 60 minutes, ignore it to prevent stale data
-      if (ageMs > 60 * 60 * 1000) return [];
-    }
-
-    const raw = localStorage.getItem(`${CHECKS_CACHE_KEY}_${orgId}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // Strip dynamic cekten_* and temp-* IDs: only genuine DB checks are loaded from cache.
-        // Dynamic checks will be synthesized fresh from cekten_hesabi to avoid ghost rows.
-        return parsed.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-'));
-      }
-    }
-    const takasRaw = localStorage.getItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`);
-    if (takasRaw) {
-      const parsed = JSON.parse(takasRaw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-'));
-      }
-    }
-    return [];
+    const raw = localStorage.getItem(`${CEKTEN_CACHE_KEY}_${orgId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 }
 
-function setCachedChecks(orgId: string, data: EbsCheck[], _isTakas = false) {
+function setCachedCektenRows(orgId: string, rows: any[]) {
+  try {
+    if (Array.isArray(rows)) {
+      localStorage.setItem(`${CEKTEN_CACHE_KEY}_${orgId}`, JSON.stringify(rows));
+    }
+  } catch {}
+}
+
+function getCachedChecks(orgId: string, isTakas = false): EbsCheck[] {
+  try {
+    const primaryKey = isTakas ? `${TAKAS_CHECKS_CACHE_KEY}_${orgId}` : `${CHECKS_CACHE_KEY}_${orgId}`;
+    const fallbackKey = isTakas ? `${CHECKS_CACHE_KEY}_${orgId}` : `${TAKAS_CHECKS_CACHE_KEY}_${orgId}`;
+
+    let baseChecks: EbsCheck[] = [];
+    const primaryRaw = localStorage.getItem(primaryKey);
+    if (primaryRaw) {
+      const parsed = JSON.parse(primaryRaw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        baseChecks = parsed.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-'));
+      }
+    }
+
+    if (baseChecks.length === 0) {
+      const fallbackRaw = localStorage.getItem(fallbackKey);
+      if (fallbackRaw) {
+        const parsed = JSON.parse(fallbackRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          baseChecks = parsed.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-'));
+        }
+      }
+    }
+
+    if (baseChecks.length === 0) return [];
+
+    const cachedCekten = getCachedCektenRows(orgId);
+    if (cachedCekten.length > 0) {
+      return syncCektenIntoChecksList(baseChecks, cachedCekten);
+    }
+    return baseChecks;
+  } catch {
+    return [];
+  }
+}
+
+function setCachedChecks(orgId: string, data: EbsCheck[], isTakas = false) {
   try {
     if (!Array.isArray(data) || data.length === 0) return;
     // Strip dynamic cekten_* and temp-* IDs: only genuine DB checks should be cached
     const realChecks = data.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-'));
-    const safeData = realChecks.length > 2500 ? realChecks.slice(-2500) : realChecks;
-    localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(safeData));
-    localStorage.setItem(`${CHECKS_CACHE_KEY}_time_${orgId}`, new Date().toISOString());
+    if (realChecks.length === 0) return;
+
+    // 1. Always keep a compact, fast Takas/Active cache of unpaid + kayıp checks (~300 KB)
+    const activeChecks = realChecks.filter(
+      c => !isCheckPaid(c.status) || cleanStatus(c.status).includes('kayıp')
+    );
+    if (activeChecks.length > 0) {
+      try {
+        localStorage.setItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(activeChecks));
+      } catch {}
+    }
+
+    // 2. Update full checks cache (prioritize all unpaid checks + recent paid checks so quota is never exceeded)
+    if (!isTakas || !localStorage.getItem(`${CHECKS_CACHE_KEY}_${orgId}`)) {
+      const paidChecks = realChecks.filter(
+        c => isCheckPaid(c.status) && !cleanStatus(c.status).includes('kayıp')
+      );
+      const maxPaid = Math.max(0, 1500 - activeChecks.length);
+      const combined = maxPaid > 0 ? [...activeChecks, ...paidChecks.slice(-maxPaid)] : activeChecks;
+      try {
+        localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(combined));
+        localStorage.setItem(`${CHECKS_CACHE_KEY}_time_${orgId}`, new Date().toISOString());
+      } catch {
+        // Fallback if localStorage is near 5MB quota: store only active unpaid checks
+        try {
+          localStorage.setItem(`${CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(activeChecks));
+          localStorage.setItem(`${CHECKS_CACHE_KEY}_time_${orgId}`, new Date().toISOString());
+        } catch {}
+      }
+    }
   } catch (e) {
     console.warn('localStorage caching quota warning:', e);
   }
@@ -730,131 +783,271 @@ export function ChecksPage() {
     }
   };
 
-  const fetchChecks = async () => {
-    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
-    setLoading(true);
-    setDbError(null);
-    try {
-      // Hem Takas hem Çek Yönetimi için tüm verileri eksiksiz çek
+  const isFetchingRef = useRef(false);
+  const lastFetchCompletedAtRef = useRef<number>(0);
+  const syncedCektenMapRef = useRef<Map<string, string>>(new Map());
+  const hasHydratedAllAlinanForModalRef = useRef(false);
 
-      // 2. Standart Çek Yönetimi Sayfasındaysak (Tüm Çekler/Raporlar)
-      const [countResult, accountsResult] = await withQueryTimeout(
+  const handleCektenDbSync = (action: CektenDbSyncAction) => {
+    const key = action.id;
+    const signature = action.type === 'update_amount'
+      ? `update:${action.amount}:${action.bank_name}:${action.ozel_alan}`
+      : `paid:${action.id}`;
+    if (syncedCektenMapRef.current.get(key) === signature) {
+      return;
+    }
+    syncedCektenMapRef.current.set(key, signature);
+
+    if (action.type === 'update_amount') {
+      void supabase
+        .from('ebs_checks')
+        .update({
+          amount: action.amount,
+          bank_name: action.bank_name,
+          ozel_alan: action.ozel_alan
+        })
+        .eq('id', action.id);
+    } else if (action.type === 'mark_paid') {
+      void supabase
+        .from('ebs_checks')
+        .update({ status: 'Ödendi' })
+        .eq('id', action.id);
+    }
+  };
+
+  // If user opens "+ Çek Seç" modal on Takas route, hydrate all unpaid alinan checks in background
+  useEffect(() => {
+    if (!modalOpen || !isTakasRoute || hasHydratedAllAlinanForModalRef.current) return;
+    hasHydratedAllAlinanForModalRef.current = true;
+    const targetOrg = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+    void Promise.all([
+      supabase.from('ebs_checks').select('*').eq('organization_id', targetOrg).eq('check_type', 'alinan').neq('status', 'Ödendi').order('due_date', { ascending: true }).range(0, 999),
+      supabase.from('ebs_checks').select('*').eq('organization_id', targetOrg).eq('check_type', 'alinan').neq('status', 'Ödendi').order('due_date', { ascending: true }).range(1000, 1999)
+    ]).then(([p0, p1]) => {
+      const extra = [...(p0.data || []), ...(p1.data || [])];
+      if (extra.length > 0) {
+        setChecks(prev => {
+          const map = new Map<string, EbsCheck>();
+          prev.forEach(c => map.set(c.id, c));
+          extra.forEach(c => {
+            if (!map.has(c.id)) map.set(c.id, c);
+          });
+          return Array.from(map.values());
+        });
+      }
+    }).catch(() => {});
+  }, [modalOpen, isTakasRoute, user?.organizationId]);
+
+  const fetchChecks = async (options?: { background?: boolean } | any) => {
+    const isBackground = Boolean(options && typeof options === 'object' && 'background' in options && options.background);
+    if (isFetchingRef.current) return;
+    if (isBackground && Date.now() - lastFetchCompletedAtRef.current < 2500) return;
+
+    isFetchingRef.current = true;
+    const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+    if (!isBackground) {
+      setLoading(true);
+    }
+    setDbError(null);
+
+    try {
+      await ensureSupabaseBackendSession();
+
+      if (isTakasRoute) {
+        // FAST SINGLE-ROUNDTRIP PARALLEL FETCH FOR TAKAS (~780 active rows instead of 9,300 historical rows)
+        const [kesilenRes, alinanTakasRes, accountsResult, cektenResult] = await withQueryTimeout(
+          Promise.all([
+            supabase
+              .from('ebs_checks')
+              .select('*')
+              .eq('organization_id', orgId)
+              .eq('check_type', 'kesilen')
+              .neq('status', 'Ödendi')
+              .order('due_date', { ascending: true })
+              .range(0, 999),
+            supabase
+              .from('ebs_checks')
+              .select('*')
+              .eq('organization_id', orgId)
+              .eq('check_type', 'alinan')
+              .neq('status', 'Ödendi')
+              .or('ozel_alan.ilike.%TAKASTA%,debtor.ilike.%HATIR%,creditor.ilike.%HATIR%,kesideci.ilike.%HATIR%,ozel_alan.ilike.%HATIR%,status.ilike.%KAYIP%,status.ilike.%kayıp%')
+              .order('due_date', { ascending: true })
+              .range(0, 999),
+            supabase
+              .from('bank_accounts')
+              .select('*')
+              .eq('organization_id', orgId)
+              .eq('status', 'aktif')
+              .order('bank', { ascending: true }),
+            supabase
+              .from('cekten_hesabi')
+              .select('*')
+              .eq('organization_id', orgId)
+          ]),
+          15000
+        );
+
+        if (kesilenRes.error) throw kesilenRes.error;
+        if (alinanTakasRes.error) throw alinanTakasRes.error;
+        if (accountsResult.error) throw accountsResult.error;
+
+        const accounts = accountsResult.data || [];
+        setBankAccounts(accounts);
+        setCachedBankAccounts(orgId, accounts);
+
+        let kesilenData = kesilenRes.data || [];
+        if (kesilenData.length === 1000) {
+          const { data: moreKesilen } = await supabase
+            .from('ebs_checks')
+            .select('*')
+            .eq('organization_id', orgId)
+            .eq('check_type', 'kesilen')
+            .neq('status', 'Ödendi')
+            .order('due_date', { ascending: true })
+            .range(1000, 1999);
+          if (moreKesilen) kesilenData = [...kesilenData, ...moreKesilen];
+        }
+
+        const dedupMap = new Map<string, EbsCheck>();
+        for (const row of kesilenData) dedupMap.set(row.id, row);
+        for (const row of (alinanTakasRes.data || [])) dedupMap.set(row.id, row);
+        let allData = Array.from(dedupMap.values());
+
+        if (!cektenResult.error && cektenResult.data) {
+          setCachedCektenRows(orgId, cektenResult.data);
+          allData = syncCektenIntoChecksList(allData, cektenResult.data, handleCektenDbSync);
+        } else {
+          const cachedCekten = getCachedCektenRows(orgId);
+          if (cachedCekten.length > 0) {
+            allData = syncCektenIntoChecksList(allData, cachedCekten);
+          }
+        }
+
+        setChecks(prev => {
+          const pendingTemp = prev.filter(c => String(c.id).startsWith('temp-'));
+          if (pendingTemp.length > 0) {
+            const fetchedLocalIds = new Set(allData.map(c => c.local_id).filter(Boolean));
+            const stillPending = pendingTemp.filter(t => !t.local_id || !fetchedLocalIds.has(t.local_id));
+            return [...allData, ...stillPending];
+          }
+          return allData;
+        });
+        setCachedChecks(orgId, allData, true);
+        setIsOfflineData(false);
+        setDbError(null);
+        setLoading(false);
+        lastFetchCompletedAtRef.current = Date.now();
+        return;
+      }
+
+      // STANDART ÇEK & SENET LİSTESİ (/cekler):
+      // Wave 1 (Fast Priority Wave): Fetch all unpaid checks + bank_accounts + cekten_hesabi in a single round-trip
+      const [unpaidP0, unpaidP1, unpaidP2, accountsResult, cektenResult] = await withQueryTimeout(
         Promise.all([
           supabase
             .from('ebs_checks')
-            .select('*', { count: 'exact', head: true })
-            .eq('organization_id', orgId),
+            .select('*')
+            .eq('organization_id', orgId)
+            .neq('status', 'Ödendi')
+            .order('due_date', { ascending: true })
+            .range(0, 999),
+          supabase
+            .from('ebs_checks')
+            .select('*')
+            .eq('organization_id', orgId)
+            .neq('status', 'Ödendi')
+            .order('due_date', { ascending: true })
+            .range(1000, 1999),
+          supabase
+            .from('ebs_checks')
+            .select('*')
+            .eq('organization_id', orgId)
+            .neq('status', 'Ödendi')
+            .order('due_date', { ascending: true })
+            .range(2000, 2999),
           supabase
             .from('bank_accounts')
             .select('*')
             .eq('organization_id', orgId)
             .eq('status', 'aktif')
-            .order('bank', { ascending: true })
+            .order('bank', { ascending: true }),
+          supabase
+            .from('cekten_hesabi')
+            .select('*')
+            .eq('organization_id', orgId)
         ]),
         15000
       );
 
-      if (countResult.error) throw countResult.error;
+      if (unpaidP0.error) throw unpaidP0.error;
       if (accountsResult.error) throw accountsResult.error;
 
-      const totalCount = countResult.count || 0;
       const accounts = accountsResult.data || [];
       setBankAccounts(accounts);
       setCachedBankAccounts(orgId, accounts);
 
-      let allData: EbsCheck[] = [];
-      const pageSize = 1000;
-      const numPages = Math.ceil(totalCount / pageSize);
+      let unpaidData: EbsCheck[] = [
+        ...(unpaidP0.data || []),
+        ...(unpaidP1.data || []),
+        ...(unpaidP2.data || [])
+      ];
 
-      if (numPages > 0) {
-        const fetchPages = Array.from({ length: numPages }).map((_, index) => {
-          const from = index * pageSize;
-          return supabase
-            .from('ebs_checks')
-            .select('*')
-            .eq('organization_id', orgId)
-            .order('due_date', { ascending: true })
-            .range(from, from + pageSize - 1);
-        });
-
-        const pagesResults = await withQueryTimeout(Promise.all(fetchPages), 20000);
-        for (const res of pagesResults) {
-          if (res.error) throw res.error;
-          if (res.data) {
-            allData = [...allData, ...res.data];
-          }
-        }
-      }
-
-      // Çekten Hesabı açık bakiyelerini dinamik olarak Takas ve Takasta Olmayan Çekler'e entegre et
-      try {
-        const { data: cektenRows, error: cektenErr } = await supabase
-          .from('cekten_hesabi')
-          .select('*')
-          .eq('organization_id', orgId);
-
-        if (!cektenErr && cektenRows) {
-          allData = syncCektenIntoChecksList(allData, cektenRows, (action) => {
-            if (action.type === 'update_amount') {
-              void supabase
-                .from('ebs_checks')
-                .update({
-                  amount: action.amount,
-                  bank_name: action.bank_name,
-                  ozel_alan: action.ozel_alan
-                })
-                .eq('id', action.id);
-            } else if (action.type === 'mark_paid') {
-              void supabase
-                .from('ebs_checks')
-                .update({ status: 'Ödendi' })
-                .eq('id', action.id);
-            }
-          });
-        }
-      } catch (cektenFetchErr) {
-        console.warn('Çekten hesabı bakiyeleri yüklenirken hata:', cektenFetchErr);
+      if (!cektenResult.error && cektenResult.data) {
+        setCachedCektenRows(orgId, cektenResult.data);
+        unpaidData = syncCektenIntoChecksList(unpaidData, cektenResult.data, handleCektenDbSync);
       }
 
       setChecks(prev => {
-        // If there are any pending optimistic temp- checks, preserve them so they don't flicker
+        const existingPaid = prev.filter(c => c.status === 'Ödendi');
         const pendingTemp = prev.filter(c => String(c.id).startsWith('temp-'));
-        if (pendingTemp.length > 0) {
-          const fetchedLocalIds = new Set(allData.map(c => c.local_id).filter(Boolean));
-          const stillPending = pendingTemp.filter(t => !t.local_id || !fetchedLocalIds.has(t.local_id));
-          return [...allData, ...stillPending];
-        }
-        return allData;
+        const fetchedLocalIds = new Set(unpaidData.map(c => c.local_id).filter(Boolean));
+        const stillPending = pendingTemp.filter(t => !t.local_id || !fetchedLocalIds.has(t.local_id));
+        return [...unpaidData, ...existingPaid, ...stillPending];
       });
-      setCachedChecks(orgId, allData, false);
+      setCachedChecks(orgId, unpaidData, false);
       setIsOfflineData(false);
       setDbError(null);
+      setLoading(false);
+      lastFetchCompletedAtRef.current = Date.now();
 
-      // Seed default kayip checks if they haven't been seeded yet
-      const hasSeededKayip = localStorage.getItem(`seeded_kayip_${orgId}`);
-      const dbKayipCount = allData.filter(c => cleanStatus(c.status).includes('kayıp')).length;
-      if (!hasSeededKayip && dbKayipCount === 0) {
-        const defaultKayipChecks = [
-          { organization_id: orgId, check_type: 'alinan', status: 'Kayıp', creditor: 'MUHARREM DEMİR', bank_name: 'E.ZİRAAT', amount: 0, due_date: '2023-06-12', para_birimi: 'TRY', created_by: user?.id || 'system' },
-          { organization_id: orgId, check_type: 'alinan', status: 'Kayıp', creditor: 'MUSTAFA GENÇELİOĞLU', bank_name: 'E.DENİZ', amount: 0, due_date: '2023-08-26', para_birimi: 'TRY', created_by: user?.id || 'system' },
-          { organization_id: orgId, check_type: 'alinan', status: 'Kayıp', creditor: 'ASLAN KIRIKTAŞ', bank_name: 'E.DENİZ', amount: 1478540, due_date: '2024-09-09', para_birimi: 'TRY', created_by: user?.id || 'system' },
-          { organization_id: orgId, check_type: 'alinan', status: 'Kayıp', creditor: 'ŞENOL', bank_name: 'E.ZİRAAT', amount: 1523884, due_date: '2025-03-19', para_birimi: 'TRY', created_by: user?.id || 'system' },
-          { organization_id: orgId, check_type: 'alinan', status: 'Kayıp', creditor: 'MUSTAFA UYUMAZ', bank_name: 'M.ZİRAAT', amount: 346398, due_date: '2025-09-30', para_birimi: 'TRY', created_by: user?.id || 'system' }
-        ];
-        const { error: seedError } = await supabase.from('ebs_checks').insert(defaultKayipChecks);
-        if (!seedError) {
-          localStorage.setItem(`seeded_kayip_${orgId}`, 'true');
-          const { data: refetchedData } = await supabase
+      // Wave 2 (Non-blocking background hydration for historical 'Ödendi' checks on /cekler)
+      void (async () => {
+        try {
+          const { count } = await supabase
             .from('ebs_checks')
-            .select('*')
+            .select('*', { count: 'exact', head: true })
             .eq('organization_id', orgId)
-            .order('due_date', { ascending: true });
-          if (refetchedData) {
-            setChecks(refetchedData);
-            setCachedChecks(orgId, refetchedData, false);
+            .eq('status', 'Ödendi');
+          const paidCount = count || 0;
+          if (paidCount > 0) {
+            const pageSize = 1000;
+            const numPages = Math.ceil(paidCount / pageSize);
+            const pages = await Promise.all(
+              Array.from({ length: numPages }).map((_, idx) =>
+                supabase
+                  .from('ebs_checks')
+                  .select('*')
+                  .eq('organization_id', orgId)
+                  .eq('status', 'Ödendi')
+                  .order('due_date', { ascending: true })
+                  .range(idx * pageSize, (idx + 1) * pageSize - 1)
+              )
+            );
+            const paidRows = pages.flatMap(p => p.data || []);
+            if (paidRows.length > 0) {
+              setChecks(prev => {
+                const nonPaid = prev.filter(c => c.status !== 'Ödendi');
+                const merged = [...nonPaid, ...paidRows];
+                setCachedChecks(orgId, merged, false);
+                return merged;
+              });
+            }
           }
+        } catch (bgErr) {
+          console.warn('Arka plan ödenen çekler yüklenirken uyarı:', bgErr);
         }
-      }
+      })();
 
     } catch (err: any) {
       console.error('Çek verileri yüklenirken hata oluştu:', err);
@@ -866,7 +1059,6 @@ export function ChecksPage() {
       
       setDbError(errorMsg);
 
-      // Supabase bağlantısı başarısızsa, sadece daha önce Supabase'den çekilmiş önbellek verisini yükle
       let cached = getCachedChecks(orgId, isTakasRoute);
       let cachedAcc = getCachedBankAccounts(orgId);
 
@@ -879,13 +1071,11 @@ export function ChecksPage() {
       }
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
   useEffect(() => {
-    try {
-      localStorage.removeItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`);
-    } catch {}
     void fetchChecks();
   }, [user?.organizationId, isTakasRoute]);
 
@@ -898,24 +1088,9 @@ export function ChecksPage() {
         .eq('organization_id', orgId);
 
       if (!cektenErr && cektenRows) {
+        setCachedCektenRows(orgId, cektenRows);
         setChecks(prevChecks =>
-          syncCektenIntoChecksList(prevChecks, cektenRows, (action) => {
-            if (action.type === 'update_amount') {
-              void supabase
-                .from('ebs_checks')
-                .update({
-                  amount: action.amount,
-                  bank_name: action.bank_name,
-                  ozel_alan: action.ozel_alan
-                })
-                .eq('id', action.id);
-            } else if (action.type === 'mark_paid') {
-              void supabase
-                .from('ebs_checks')
-                .update({ status: 'Ödendi' })
-                .eq('id', action.id);
-            }
-          })
+          syncCektenIntoChecksList(prevChecks, cektenRows, handleCektenDbSync)
         );
       }
     } catch (err) {
@@ -927,6 +1102,14 @@ export function ChecksPage() {
   useEffect(() => {
     const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
     if (!orgId) return;
+
+    let realtimeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedBackgroundFetch = () => {
+      if (realtimeDebounceTimer) clearTimeout(realtimeDebounceTimer);
+      realtimeDebounceTimer = setTimeout(() => {
+        void fetchChecks({ background: true });
+      }, 400);
+    };
 
     // 1. Supabase Realtime channel for both ebs_checks, cekten_hesabi and bank_accounts
     const channel = supabase
@@ -952,7 +1135,7 @@ export function ChecksPage() {
           filter: `organization_id=eq.${orgId}`
         },
         () => {
-          void fetchChecks();
+          debouncedBackgroundFetch();
         }
       )
       .on(
@@ -964,16 +1147,17 @@ export function ChecksPage() {
           filter: `organization_id=eq.${orgId}`
         },
         () => {
-          void fetchChecks();
+          debouncedBackgroundFetch();
         }
       )
       .subscribe();
 
     // 2. Cross-tab storage event (fires when Çekten Hesabı or Checks update in another tab)
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'cekten_last_update' || e.key?.startsWith('dars_ebs_checks_cache')) {
+      if (e.key === 'cekten_last_update') {
         void refreshCektenSync();
-        void fetchChecks();
+      } else if (e.key?.startsWith('dars_ebs_checks_cache')) {
+        debouncedBackgroundFetch();
       }
     };
 
@@ -982,10 +1166,9 @@ export function ChecksPage() {
       void refreshCektenSync();
     };
 
-    // 4. Background refresh on tab focus & tab visibility change
+    // 4. Background refresh on tab focus & tab visibility change (throttled via background option)
     const handleRefreshAll = () => {
-      void fetchChecks();
-      void refreshCektenSync();
+      void fetchChecks({ background: true });
     };
 
     const handleVisibilityChange = () => {
@@ -1005,6 +1188,7 @@ export function ChecksPage() {
     }, 60000);
 
     return () => {
+      if (realtimeDebounceTimer) clearTimeout(realtimeDebounceTimer);
       supabase.removeChannel(channel);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('cekten-data-changed', handleCektenChange);
@@ -2512,13 +2696,7 @@ export function ChecksPage() {
 
     return (
       <div className="space-y-6">
-        {loading && checks.length === 0 ? (
-          <div className="bg-white border-2 border-black rounded-lg p-12 text-center text-gray-500 shadow-sm print:hidden">
-            <RefreshCw size={28} className="animate-spin mx-auto mb-3 text-brand-600" />
-            <p className="font-semibold text-gray-700 text-sm">Takas Çekleri Yükleniyor...</p>
-            <p className="text-xs text-gray-400 mt-1">Lütfen bekleyiniz, veritabanından güncel takas kayıtları alınıyor.</p>
-          </div>
-        ) : checks.length === 0 && dbError ? (
+        {checks.length === 0 && dbError && !loading ? (
           <div className="bg-white border-2 border-black rounded-lg p-10 text-center text-gray-500 shadow-sm space-y-3 print:hidden">
             <AlertTriangle size={32} className="mx-auto text-amber-500" />
             <div className="font-semibold text-gray-800 text-base">Takas Verileri Alınamadı</div>

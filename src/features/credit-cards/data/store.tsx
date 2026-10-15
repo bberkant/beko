@@ -164,7 +164,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [orgId]);
 
-  useEffect(() => { void refresh().catch(console.error); }, [refresh]);
+  useEffect(() => {
+    const isCardRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/finans/kredi-kartlari');
+    if (isCardRoute) {
+      void refresh().catch(console.error);
+      return;
+    }
+    const timer = setTimeout(() => {
+      void refresh().catch(console.error);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [refresh]);
 
   const addCard = useCallback(async (input: NewCardInput) => {
     const organizationId = requireOrg();

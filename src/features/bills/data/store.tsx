@@ -241,15 +241,16 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: billsData, error: billsError } = await supabase
-        .from('company_bills')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      const { data: invData } = await supabase
-        .from('company_bill_invoices')
-        .select('*')
-        .order('due_date', { ascending: false });
+      const [{ data: billsData, error: billsError }, { data: invData }] = await Promise.all([
+        supabase
+          .from('company_bills')
+          .select('*')
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('company_bill_invoices')
+          .select('*')
+          .order('due_date', { ascending: false })
+      ]);
 
       if (billsError || !billsData || billsData.length === 0) {
         // Fallback or seed to Supabase
@@ -313,7 +314,15 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   useEffect(() => {
-    loadData();
+    const isBillsRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/finans/faturalar');
+    if (isBillsRoute) {
+      void loadData();
+      return;
+    }
+    const timer = setTimeout(() => {
+      void loadData();
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [loadData]);
 
   const addBill = async (input: BillFormInput): Promise<CompanyBill | null> => {

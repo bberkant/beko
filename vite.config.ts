@@ -139,6 +139,21 @@ const marifPdfPlugin = (): Plugin => ({
 export default defineConfig({
   base: '/',
   plugins: [react(), marifPdfPlugin()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('xlsx')) return 'vendor-xlsx';
+            if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-export';
+            if (id.includes('pdfjs-dist')) return 'vendor-pdfjs';
+            if (id.includes('@supabase')) return 'vendor-supabase';
+            if (id.includes('lucide-react')) return 'vendor-icons';
+          }
+        },
+      },
+    },
+  },
   server: {
     watch: {
       ignored: ['**/dosyalar/**', '**/*.xlsx', '**/*.rar', '**/*.zip'],
