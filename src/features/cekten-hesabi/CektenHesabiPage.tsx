@@ -1904,48 +1904,15 @@ export function CektenHesabiPage() {
             }}
             className="p-10 bg-white space-y-7 border border-slate-200"
           >
-            {/* Header Block */}
-            <div className="border-b-2 border-slate-200 pb-4">
+            {/* Header & Net Balance Block */}
+            <div className="flex items-center justify-between border-b-2 border-slate-200 pb-5">
               <h1 className="text-3xl font-black text-slate-900 tracking-tight">
                 {selectedSupplierDetail}
               </h1>
-            </div>
-
-            {/* High-Impact Balance & Summary KPI Cards */}
-            <div className="grid grid-cols-3 gap-6">
-              {/* Toplam Borç Girişi */}
-              <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-5 flex flex-col justify-between">
-                <div>
-                  <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
-                    TOPLAM BORÇ GİRİŞİ
-                  </span>
-                  <div className="text-2xl font-black text-slate-800 mt-1">
-                    {supplierStats.total.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
-                  </div>
-                </div>
-                <div className="text-xs font-medium text-slate-500 mt-3 pt-2.5 border-t border-slate-200">
-                  Sisteme işlenen alımlar ve faturalar
-                </div>
-              </div>
-
-              {/* Toplam Yapılan Ödeme */}
-              <div className="bg-emerald-50/70 border-2 border-emerald-300 rounded-2xl p-5 flex flex-col justify-between">
-                <div>
-                  <span className="text-xs font-black text-emerald-700 uppercase tracking-wider">
-                    TOPLAM YAPILAN ÖDEME
-                  </span>
-                  <div className="text-2xl font-black text-emerald-700 mt-1">
-                    {supplierStats.paid.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
-                  </div>
-                </div>
-                <div className="text-xs font-medium text-emerald-600 mt-3 pt-2.5 border-t border-emerald-200">
-                  Nakit, çek ve banka ödemeleri
-                </div>
-              </div>
 
               {/* Grand Net Status Card - Sitedeki Net Bakiye Görünümüyle Birebir */}
               <div
-                className={`rounded-2xl text-white p-5 flex flex-col justify-between shadow-md border-2 ${
+                className={`w-[380px] rounded-2xl text-white p-5 flex flex-col justify-between shadow-md border-2 ${
                   supplierStats.remaining > 0
                     ? 'bg-gradient-to-br from-rose-800 via-rose-900 to-rose-950 border-rose-900'
                     : supplierStats.remaining < 0
