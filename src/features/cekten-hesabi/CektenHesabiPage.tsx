@@ -951,8 +951,8 @@ export function CektenHesabiPage() {
       };
     });
 
-    // Last 15 movements for A3 screenshot export so it fits cleanly on a single page
-    const exportLedger = ledger.length > 15 ? ledger.slice(-15) : ledger;
+    // Last 10 movements for A3 screenshot export so it fits cleanly on a single page
+    const exportLedger = ledger.length > 10 ? ledger.slice(-10) : ledger;
 
     const latestTx = supplierRecords.length > 0 ? supplierRecords[supplierRecords.length - 1].date : '—';
     const latestTxFormatted = latestTx !== '—' ? new Date(latestTx).toLocaleDateString('tr-TR') : '—';
