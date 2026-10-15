@@ -115,50 +115,116 @@ export function createCektenPaymentPayload(
   };
 }
 
+export type CektenDbSyncAction =
+  | { type: 'update_amount'; id: string; amount: number; bank_name: string; ozel_alan: string }
+  | { type: 'mark_paid'; id: string };
+
 export function syncCektenIntoChecksList<T extends Record<string, any>>(
   currentChecks: T[],
-  cektenRows: any[]
+  cektenRows: any[],
+  onDbSync?: (action: CektenDbSyncAction) => void
 ): T[] {
   const supplierGroups = aggregateCektenBalances(cektenRows);
   const todayStr = new Date().toISOString().split('T')[0];
 
   // 1. Filter out checks whose balance is 0 or where we are creditor (alacaklıyız / netBalance <= 0)
-  // Per rule: Takasta Olmayan Çekler only includes amounts we owe to pay (borçlu olduklarımız / ödeyeceklerimiz)
+  // Applies to both TAKASTA OLMAYAN and TAKASTA (TAKSİT) Çekten items so paid-off caris don't stay stale
   let updated = currentChecks.filter(c => {
     if (isCheckPaid(c.status)) return true;
-    if (!isCektenCheck(c)) return true;
-    if (!c.ozel_alan?.includes('TAKASTA OLMAYAN')) return true;
 
     const cCreditor = fixCorruptedTurkishText(c.creditor || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
+    const isMatchedCari = isCektenCheck(c) || (!c.check_no && Boolean(cCreditor) && supplierGroups.has(cCreditor));
+    if (!isMatchedCari) return true;
+
     const summary = supplierGroups.get(cCreditor);
     if (!summary || summary.netBalance <= 0.01) {
+      const idStr = String(c.id || '');
+      if (onDbSync && idStr && !idStr.startsWith('cekten_') && !idStr.startsWith('temp-')) {
+        onDbSync({ type: 'mark_paid', id: idStr });
+      }
       return false;
     }
     return true;
   });
 
-  // 2. Update existing or insert new dynamic checks
+  // 2. Update existing (both TAKASTA / TAKSİT and TAKASTA OLMAYAN) or insert new dynamic checks
   // ONLY include caris where we owe money (netBalance > 0.01), NEVER when we are creditor (alacaklı olduklarımız)
   supplierGroups.forEach(({ supplier, netBalance }) => {
     if (netBalance <= 0.01) return;
 
     const supplierUpper = fixCorruptedTurkishText(supplier).trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
-    const existingIndex = updated.findIndex(c => {
-      if (isCheckPaid(c.status)) return false;
+    const matchingIndices: number[] = [];
+
+    updated.forEach((c, idx) => {
+      if (isCheckPaid(c.status)) return;
       const cCreditor = fixCorruptedTurkishText(c.creditor || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
-      if (cCreditor !== supplierUpper) return false;
-      return isCektenCheck(c);
+      if (cCreditor !== supplierUpper) return;
+      if (isCektenCheck(c) || !c.check_no) {
+        matchingIndices.push(idx);
+      }
     });
 
     const roundedAmount = Math.round(netBalance * 100) / 100;
 
-    if (existingIndex >= 0) {
-      const existingCheck = updated[existingIndex];
-      if (existingCheck.ozel_alan?.includes('TAKASTA OLMAYAN')) {
-        updated[existingIndex] = {
-          ...existingCheck,
-          amount: roundedAmount
-        };
+    if (matchingIndices.length > 0) {
+      // Prefer a row that is already in TAKASTA (TAKSİT) or backed by a real DB UUID
+      let primaryIdx = matchingIndices[0];
+      for (const idx of matchingIndices) {
+        const candidate = updated[idx];
+        const isInTakas = !candidate.ozel_alan?.includes('TAKASTA OLMAYAN');
+        const isRealDb = !String(candidate.id || '').startsWith('cekten_');
+        const primary = updated[primaryIdx];
+        const primaryInTakas = !primary.ozel_alan?.includes('TAKASTA OLMAYAN');
+        const primaryRealDb = !String(primary.id || '').startsWith('cekten_');
+
+        if ((isInTakas && !primaryInTakas) || (isRealDb && !primaryRealDb)) {
+          primaryIdx = idx;
+        }
+      }
+
+      const existingCheck = updated[primaryIdx];
+      const currentOzel = String(existingCheck.ozel_alan || '').trim();
+      const ensuredOzelAlan = currentOzel
+        ? (currentOzel.toLocaleUpperCase('tr-TR').includes('ÇEKTEN') ? currentOzel : `${currentOzel} - ÇEKTEN`)
+        : 'TAKASTA - ÇEKTEN';
+      const ensuredBankName = existingCheck.bank_name || 'ÇEKTEN';
+
+      const prevAmount = Number(existingCheck.amount || 0);
+      const amountChanged = Math.abs(prevAmount - roundedAmount) > 0.01;
+      const needsCektenTag = !isCektenCheck(existingCheck);
+
+      updated[primaryIdx] = {
+        ...existingCheck,
+        amount: roundedAmount,
+        bank_name: ensuredBankName,
+        ozel_alan: ensuredOzelAlan
+      };
+
+      const idStr = String(existingCheck.id || '');
+      if (onDbSync && idStr && !idStr.startsWith('cekten_') && !idStr.startsWith('temp-') && (amountChanged || needsCektenTag)) {
+        onDbSync({
+          type: 'update_amount',
+          id: idStr,
+          amount: roundedAmount,
+          bank_name: ensuredBankName,
+          ozel_alan: ensuredOzelAlan
+        });
+      }
+
+      // Remove any duplicate unpaid entries for the same supplier
+      if (matchingIndices.length > 1) {
+        const duplicateIdsToRemove = new Set<number>();
+        for (const idx of matchingIndices) {
+          if (idx !== primaryIdx) {
+            duplicateIdsToRemove.add(idx);
+            const dup = updated[idx];
+            const dupId = String(dup.id || '');
+            if (onDbSync && dupId && !dupId.startsWith('cekten_') && !dupId.startsWith('temp-')) {
+              onDbSync({ type: 'mark_paid', id: dupId });
+            }
+          }
+        }
+        updated = updated.filter((_, idx) => !duplicateIdsToRemove.has(idx));
       }
     } else {
       const dynamicCheck: any = {

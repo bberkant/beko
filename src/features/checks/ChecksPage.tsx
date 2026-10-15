@@ -786,7 +786,7 @@ export function ChecksPage() {
         }
       }
 
-      // Çekten Hesabı açık bakiyelerini dinamik olarak Takasta Olmayan Çekler'e entegre et
+      // Çekten Hesabı açık bakiyelerini dinamik olarak Takas ve Takasta Olmayan Çekler'e entegre et
       try {
         const { data: cektenRows, error: cektenErr } = await supabase
           .from('cekten_hesabi')
@@ -794,7 +794,23 @@ export function ChecksPage() {
           .eq('organization_id', orgId);
 
         if (!cektenErr && cektenRows) {
-          allData = syncCektenIntoChecksList(allData, cektenRows);
+          allData = syncCektenIntoChecksList(allData, cektenRows, (action) => {
+            if (action.type === 'update_amount') {
+              void supabase
+                .from('ebs_checks')
+                .update({
+                  amount: action.amount,
+                  bank_name: action.bank_name,
+                  ozel_alan: action.ozel_alan
+                })
+                .eq('id', action.id);
+            } else if (action.type === 'mark_paid') {
+              void supabase
+                .from('ebs_checks')
+                .update({ status: 'Ödendi' })
+                .eq('id', action.id);
+            }
+          });
         }
       } catch (cektenFetchErr) {
         console.warn('Çekten hesabı bakiyeleri yüklenirken hata:', cektenFetchErr);
@@ -882,7 +898,25 @@ export function ChecksPage() {
         .eq('organization_id', orgId);
 
       if (!cektenErr && cektenRows) {
-        setChecks(prevChecks => syncCektenIntoChecksList(prevChecks, cektenRows));
+        setChecks(prevChecks =>
+          syncCektenIntoChecksList(prevChecks, cektenRows, (action) => {
+            if (action.type === 'update_amount') {
+              void supabase
+                .from('ebs_checks')
+                .update({
+                  amount: action.amount,
+                  bank_name: action.bank_name,
+                  ozel_alan: action.ozel_alan
+                })
+                .eq('id', action.id);
+            } else if (action.type === 'mark_paid') {
+              void supabase
+                .from('ebs_checks')
+                .update({ status: 'Ödendi' })
+                .eq('id', action.id);
+            }
+          })
+        );
       }
     } catch (err) {
       console.warn('[Takas] refreshCektenSync error:', err);
@@ -2717,7 +2751,7 @@ export function ChecksPage() {
                             <td className={`p-0 h-full border border-gray-300 relative group ${isIcTakas ? 'bg-red-600 takas-ictakas-cell' : ''}`}>
                               <div className="relative flex items-center w-full h-full">
                                 <input
-                                 key={check ? (check.local_id ? `temp-${check.local_id}` : check.id) : `empty-${colName}-${rowIndex}`}
+                                 key={check ? (check.local_id ? `temp-${check.local_id}-${check.amount}` : `${check.id}-${check.amount}`) : `empty-${colName}-${rowIndex}`}
                                  type="text"
                                  className={`w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-[17px] pr-5 text-black font-normal ${selectedCells[check?.id || `takas-${colName}-${rowIndex}`] ? 'ring-2 ring-green-600 bg-green-50/50' : ''}`}
                                  onClick={e => handleCellClick(e, check, check ? check.amount : 0, check?.id || `takas-${colName}-${rowIndex}`)}
@@ -2798,7 +2832,7 @@ export function ChecksPage() {
                       <td className="p-0 h-full border border-gray-300 w-[100px] relative group taksit-tutar-col">
                         <div className="relative flex items-center w-full h-full">
                           <input
-                            key={taksitCheck ? (taksitCheck.local_id ? `temp-${taksitCheck.local_id}` : taksitCheck.id) : `empty-taksit-tutar-${rowIndex}`}
+                            key={taksitCheck ? (taksitCheck.local_id ? `temp-${taksitCheck.local_id}-${taksitCheck.amount}` : `${taksitCheck.id}-${taksitCheck.amount}`) : `empty-taksit-tutar-${rowIndex}`}
                             type="text"
                             className={`w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-[17px] font-normal text-gray-900 pr-5 ${selectedCells[taksitCheck?.id || `taksit-tutar-${rowIndex}`] ? 'ring-2 ring-green-600 bg-green-50/50' : ''}`}
                             onClick={e => handleCellClick(e, taksitCheck, taksitCheck ? taksitCheck.amount : 0, taksitCheck?.id || `taksit-tutar-${rowIndex}`)}
@@ -2865,7 +2899,7 @@ export function ChecksPage() {
                       {/* Taksit Açıklama */}
                       <td className="p-0 h-full border border-gray-300 w-[150px] taksit-desc-col">
                         <input
-                          key={taksitCheck ? (taksitCheck.local_id ? `temp-${taksitCheck.local_id}` : taksitCheck.id) : `empty-taksit-desc-${rowIndex}`}
+                          key={taksitCheck ? (taksitCheck.local_id ? `temp-${taksitCheck.local_id}-${taksitCheck.creditor || ''}` : `${taksitCheck.id}-${taksitCheck.creditor || ''}`) : `empty-taksit-desc-${rowIndex}`}
                           type="text"
                           className="w-full h-full bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-500 text-left pl-2 text-[17px] font-bold text-gray-700 uppercase"
                           style={{ fontFamily: 'Calibri, sans-serif', fontSize: '17px' }}
