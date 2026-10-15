@@ -16,8 +16,10 @@ import {
   Clock, 
   RotateCcw,
   User,
-  FolderOpen
+  FolderOpen,
+  Camera
 } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
@@ -239,6 +241,15 @@ export function CheckValuationPage() {
   const initialData = useMemo(() => loadUserData(userIdentifier), [userIdentifier]);
 
   const [activeTab, setActiveTab] = useState<'commission' | 'target'>('commission');
+  const [isCapturing, setIsCapturing] = useState(false);
+  const dedicatedExportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    return () => {
+      const existing = document.getElementById('html2canvas-font-fix');
+      if (existing) existing.remove();
+    };
+  }, []);
 
   // Common Inputs
   const [baseDate, setBaseDate] = useState<string>(initialData.loadedBaseDate);
@@ -685,13 +696,17 @@ export function CheckValuationPage() {
   };
 
   const handleLoadNote = (note: CalculationNote) => {
-    if (note.activeTab) setActiveTab(note.activeTab);
+    setActiveTab('commission');
     if (note.baseDate) setBaseDate(note.baseDate);
     if (typeof note.monthlyRate === 'number') {
       setMonthlyRate(note.monthlyRate);
       setRateInputStr(note.monthlyRate.toFixed(2).replace('.', ','));
     }
-    if (Array.isArray(note.checks) && note.checks.length > 0) {
+    if (Array.isArray(note.checks) && note.checks.some(c => c.dueDate || c.amount > 0)) {
+      setChecks(note.checks);
+    } else if (Array.isArray(note.targetDates) && note.targetDates.some(d => d.dueDate || d.amount > 0)) {
+      setChecks(note.targetDates);
+    } else if (Array.isArray(note.checks) && note.checks.length > 0) {
       setChecks(note.checks);
     }
     if (typeof note.isManualNetMode === 'boolean') {
@@ -759,6 +774,71 @@ export function CheckValuationPage() {
     }
   };
 
+  const handleCaptureScreenshot = async () => {
+    if (!dedicatedExportRef.current) return;
+    setIsCapturing(true);
+    let fontFixStyle: HTMLStyleElement | null = null;
+    try {
+      fontFixStyle = document.createElement('style');
+      fontFixStyle.id = 'html2canvas-font-fix';
+      fontFixStyle.textContent = 'img { display: inline !important; }';
+      document.head.appendChild(fontFixStyle);
+
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      const canvas = await html2canvas(dedicatedExportRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+        windowWidth: 1300,
+        onclone: (clonedDoc) => {
+          const cloneStyle = clonedDoc.createElement('style');
+          cloneStyle.textContent = 'img { display: inline !important; }';
+          clonedDoc.head.appendChild(cloneStyle);
+          const el = clonedDoc.getElementById('whatsapp-check-valuation-statement');
+          if (el) {
+            el.style.display = 'block';
+          }
+        },
+      });
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob((b) => resolve(b), 'image/png', 1.0)
+      );
+
+      if (!blob) throw new Error('Görsel oluşturulamadı.');
+
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'image/png': blob,
+          }),
+        ]);
+        notify(
+          'Hesaplama görüntüsü kopyalandı! WhatsApp Web\'e geçip direkt yapıştırabilirsiniz (Ctrl + V).',
+          'success'
+        );
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Cek_Vade_Hesaplama_${new Date().toISOString().slice(0, 10)}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        notify('Görüntü bilgisayarınıza indirildi.', 'success');
+      }
+    } catch (err) {
+      console.error('Screenshot error:', err);
+      notify('Ekran görüntüsü alınırken bir hata oluştu.', 'error');
+    } finally {
+      if (fontFixStyle && fontFixStyle.parentNode) {
+        fontFixStyle.parentNode.removeChild(fontFixStyle);
+      }
+      setIsCapturing(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[1400px]">
       <PageHeader 
@@ -800,30 +880,32 @@ export function CheckValuationPage() {
         }
       />
 
-      {/* Tabs Menu */}
-      <div className="mb-6 flex border-b border-gray-200">
+      {/* Tabs & Screenshot Bar */}
+      <div className="mb-6 flex flex-wrap items-center gap-4 border-b border-gray-200">
         <button
+          type="button"
           onClick={() => setActiveTab('commission')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all ${
-            activeTab === 'commission'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
+          className="flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 border-brand-600 text-brand-600 transition-all"
         >
           <Coins size={16} />
           Komisyon Hesaplama (Klasik)
         </button>
-        <button
-          onClick={() => setActiveTab('target')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all ${
-            activeTab === 'target'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
-        >
-          <ArrowRightLeft size={16} />
-          Tutardan Geriye Hesaplama (Hedef Net)
-        </button>
+        <div className="py-1.5">
+          <button
+            type="button"
+            disabled={isCapturing}
+            onClick={handleCaptureScreenshot}
+            className="flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-emerald-50 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold text-emerald-700 hover:bg-emerald-100 focus:outline-none shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            title="Hesaplama görüntüsünü panoya kopyalar (WhatsApp Web'de direkt Ctrl+V ile yapıştırabilirsiniz)"
+          >
+            {isCapturing ? (
+              <RefreshCw size={15} className="animate-spin text-emerald-600" />
+            ) : (
+              <Camera size={15} className="text-emerald-600" />
+            )}
+            <span>{isCapturing ? 'Kopyalanıyor...' : 'Ekran Görüntüsü Al'}</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -1522,6 +1604,504 @@ export function CheckValuationPage() {
           </div>
         </div>
       </Modal>
+
+      {/* =========================================================================================
+          DEDICATED WHATSAPP STATEMENT TEMPLATE (Hidden off-screen, captured by html2canvas)
+          ========================================================================================= */}
+      <div
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: 0,
+          zIndex: -50,
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          ref={dedicatedExportRef}
+          id="whatsapp-check-valuation-statement"
+          style={{
+            width: '1250px',
+            backgroundColor: '#ffffff',
+            padding: '24px 32px',
+            fontFamily: 'Calibri, Carlito, "Segoe UI", Arial, sans-serif',
+            color: '#0f172a',
+            boxSizing: 'border-box',
+          }}
+        >
+          {/* Top Corporate Header */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderBottom: '2px solid #0f172a',
+              paddingBottom: '12px',
+              marginBottom: '16px',
+            }}
+          >
+            <div>
+              <h1
+                style={{
+                  fontSize: '26px',
+                  fontWeight: 900,
+                  color: '#0f172a',
+                  margin: 0,
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.15,
+                  textTransform: 'uppercase',
+                }}
+              >
+                ÇEK ORTALAMA VADE & KOMİSYON HESAPLAMA
+              </h1>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                fontSize: '14px',
+                fontWeight: 700,
+                color: '#334155',
+              }}
+            >
+              <span>
+                Vade Başlangıç Tarihi:{' '}
+                <strong style={{ color: '#0f172a', fontWeight: 900 }}>
+                  {baseDate
+                    ? new Date(baseDate).toLocaleDateString('tr-TR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })
+                    : '-'}
+                </strong>
+              </span>
+              <span style={{ color: '#cbd5e1' }}>|</span>
+              <span>
+                Aylık Oran:{' '}
+                <strong style={{ color: '#dc2626', fontWeight: 900 }}>
+                  %{monthlyRate.toFixed(2)}
+                </strong>
+              </span>
+              <span style={{ color: '#cbd5e1' }}>|</span>
+              <span>
+                Yıllık Oran:{' '}
+                <strong style={{ color: '#0f172a', fontWeight: 900 }}>
+                  %{yearlyRate}
+                </strong>
+              </span>
+            </div>
+          </div>
+
+          {/* 4-Column Executive Summary Cards */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '12px',
+              marginBottom: '16px',
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderLeft: '4px solid #3b82f6',
+                borderRadius: '8px',
+                padding: '12px 16px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  color: '#475569',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                ÇEK TOPLAMI (BRÜT)
+              </div>
+              <div
+                style={{
+                  fontSize: '21px',
+                  fontWeight: 900,
+                  color: '#0f172a',
+                  marginTop: '4px',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {formatCurrency(tab1Calculations.totalAmount)} ₺
+              </div>
+              <div
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#64748b',
+                  marginTop: '2px',
+                }}
+              >
+                Toplam {tab1Calculations.rows.filter(r => r.dueDate || r.amount > 0).length} Adet Çek
+              </div>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderLeft: '4px solid #2563eb',
+                borderRadius: '8px',
+                padding: '12px 16px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  color: '#1e40af',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                ORTALAMA VADE & TARİH
+              </div>
+              <div
+                style={{
+                  fontSize: '21px',
+                  fontWeight: 900,
+                  color: '#1d4ed8',
+                  marginTop: '4px',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {tab1Calculations.averageMaturityDays.toFixed(0)} Gün
+              </div>
+              <div
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#1e3a8a',
+                  marginTop: '2px',
+                }}
+              >
+                Ortalama Tarih: {tab1Calculations.averageDate}
+              </div>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: '#fff1f2',
+                border: '1px solid #fecdd3',
+                borderLeft: '4px solid #e11d48',
+                borderRadius: '8px',
+                padding: '12px 16px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  color: '#9f1239',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                TOPLAM KOMİSYON (%{monthlyRate.toFixed(2)})
+              </div>
+              <div
+                style={{
+                  fontSize: '21px',
+                  fontWeight: 900,
+                  color: '#be123c',
+                  marginTop: '4px',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {formatCurrency(tab1Calculations.totalCommission)} ₺
+              </div>
+              <div
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#e11d48',
+                  marginTop: '2px',
+                }}
+              >
+                Komisyon Oranı: %{monthlyRate.toFixed(2)} / Ay
+              </div>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: '#065f46',
+                border: '1px solid #047857',
+                borderRadius: '8px',
+                padding: '12px 16px',
+                color: '#ffffff',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    color: '#a7f3d0',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  KALAN (NET ALINACAK)
+                </span>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    padding: '1px 8px 5px 8px',
+                    lineHeight: 1,
+                    borderRadius: '4px',
+                    backgroundColor: '#047857',
+                    color: '#ecfdf5',
+                    display: 'inline-block',
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Net Tutar
+                </span>
+              </div>
+              <div
+                style={{
+                  fontSize: '22px',
+                  fontWeight: 900,
+                  color: '#ffffff',
+                  marginTop: '4px',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {formatCurrency(tab1Calculations.remainingAmount)} ₺
+              </div>
+              <div
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#d1fae5',
+                  marginTop: '2px',
+                }}
+              >
+                İskonto Sonrası Net Ödeme
+              </div>
+            </div>
+          </div>
+
+          {/* Checks Table */}
+          {(() => {
+            const filledRows = tab1Calculations.rows.filter(
+              (r) => r.dueDate || r.amount > 0
+            );
+            const displayRows =
+              filledRows.length > 0 ? filledRows : tab1Calculations.rows;
+
+            return (
+              <div
+                style={{
+                  border: '1px solid #94a3b8',
+                  borderRadius: '6px',
+                  overflow: 'hidden',
+                }}
+              >
+                <table
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    fontSize: '15px',
+                  }}
+                >
+                  <thead>
+                    <tr
+                      style={{
+                        backgroundColor: '#0f172a',
+                        color: '#ffffff',
+                      }}
+                    >
+                      <th
+                        style={{
+                          padding: '9px 14px',
+                          textAlign: 'left',
+                          fontWeight: 800,
+                          fontSize: '12px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          width: '90px',
+                          borderRight: '1px solid #334155',
+                        }}
+                      >
+                        SIRA
+                      </th>
+                      <th
+                        style={{
+                          padding: '9px 14px',
+                          textAlign: 'left',
+                          fontWeight: 800,
+                          fontSize: '12px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          borderRight: '1px solid #334155',
+                        }}
+                      >
+                        ÇEK VADE TARİHİ
+                      </th>
+                      <th
+                        style={{
+                          padding: '9px 14px',
+                          textAlign: 'center',
+                          fontWeight: 800,
+                          fontSize: '12px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          width: '220px',
+                          borderRight: '1px solid #334155',
+                        }}
+                      >
+                        VADE GÜN
+                      </th>
+                      <th
+                        style={{
+                          padding: '9px 14px',
+                          textAlign: 'right',
+                          fontWeight: 800,
+                          fontSize: '12px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          width: '280px',
+                        }}
+                      >
+                        ÇEK TUTARI
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayRows.map((row, idx) => (
+                      <tr
+                        key={row.id}
+                        style={{
+                          backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc',
+                          borderBottom: '1px solid #cbd5e1',
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: '8px 14px',
+                            fontWeight: 800,
+                            color: '#475569',
+                            borderRight: '1px solid #e2e8f0',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          #{idx + 1}
+                        </td>
+                        <td
+                          style={{
+                            padding: '8px 14px',
+                            fontWeight: 800,
+                            color: '#0f172a',
+                            borderRight: '1px solid #e2e8f0',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {row.dueDate
+                            ? new Date(row.dueDate).toLocaleDateString('tr-TR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                              })
+                            : '-'}
+                        </td>
+                        <td
+                          style={{
+                            padding: '8px 14px',
+                            textAlign: 'center',
+                            fontWeight: 800,
+                            color: row.days < 0 ? '#dc2626' : '#1d4ed8',
+                            borderRight: '1px solid #e2e8f0',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {row.dueDate ? `${row.days} Gün` : '-'}
+                        </td>
+                        <td
+                          style={{
+                            padding: '8px 14px',
+                            textAlign: 'right',
+                            fontWeight: 900,
+                            color: '#0f172a',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {row.amount > 0 ? `${formatCurrency(row.amount)} ₺` : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr
+                      style={{
+                        backgroundColor: '#f1f5f9',
+                        borderTop: '2px solid #0f172a',
+                      }}
+                    >
+                      <td
+                        colSpan={2}
+                        style={{
+                          padding: '10px 14px',
+                          fontWeight: 900,
+                          color: '#0f172a',
+                          fontSize: '13px',
+                          textTransform: 'uppercase',
+                          borderRight: '1px solid #cbd5e1',
+                        }}
+                      >
+                        GENEL TOPLAM ({filledRows.length} ADET ÇEK)
+                      </td>
+                      <td
+                        style={{
+                          padding: '10px 14px',
+                          textAlign: 'center',
+                          fontWeight: 900,
+                          color: '#1d4ed8',
+                          fontSize: '14px',
+                          borderRight: '1px solid #cbd5e1',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        Ort. {tab1Calculations.averageMaturityDays.toFixed(0)} Gün ({tab1Calculations.averageDate})
+                      </td>
+                      <td
+                        style={{
+                          padding: '10px 14px',
+                          textAlign: 'right',
+                          fontWeight: 900,
+                          color: '#0f172a',
+                          fontSize: '16px',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {formatCurrency(tab1Calculations.totalAmount)} ₺
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
     </div>
   );
 }
