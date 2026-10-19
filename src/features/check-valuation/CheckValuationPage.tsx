@@ -667,15 +667,53 @@ export function CheckValuationPage() {
       ? `Çek Komisyonu - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(total)} TL)`
       : `Hedef Net - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(targetNet)} TL)`;
 
-    if (activeNote) {
-      setOverwriteTargetId(activeNote.id);
-      setNoteTitle(activeNote.title);
-      setNoteDescription(activeNote.description || '');
-    } else {
-      setOverwriteTargetId('');
-      setNoteTitle(defaultTitle);
-      setNoteDescription('');
+    setOverwriteTargetId('');
+    setNoteTitle(activeNote ? `${activeNote.title} (Yeni)` : defaultTitle);
+    setNoteDescription(activeNote?.description || '');
+    setIsSaveNoteModalOpen(true);
+  };
+
+  const openSaveAsNewFromNote = (sourceNote?: CalculationNote) => {
+    const isComm = activeTab === 'commission';
+    const currentTotal = isComm ? tab1Calculations.totalAmount : tab2Calculations.requiredGrossAmount;
+
+    if (sourceNote && currentTotal <= 0) {
+      setActiveTab('commission');
+      if (sourceNote.baseDate) setBaseDate(sourceNote.baseDate);
+      if (typeof sourceNote.monthlyRate === 'number') {
+        setMonthlyRate(sourceNote.monthlyRate);
+        setRateInputStr(sourceNote.monthlyRate.toFixed(2).replace('.', ','));
+      }
+      if (Array.isArray(sourceNote.checks) && sourceNote.checks.some(c => c.dueDate || c.amount > 0)) {
+        setChecks(sourceNote.checks);
+      } else if (Array.isArray(sourceNote.targetDates) && sourceNote.targetDates.some(d => d.dueDate || d.amount > 0)) {
+        setChecks(sourceNote.targetDates);
+      } else if (Array.isArray(sourceNote.checks) && sourceNote.checks.length > 0) {
+        setChecks(sourceNote.checks);
+      }
+      if (typeof sourceNote.isManualNetMode === 'boolean') {
+        setIsManualNetMode(sourceNote.isManualNetMode);
+      }
+      if (typeof sourceNote.targetNetVal === 'number') {
+        setTargetNetVal(sourceNote.targetNetVal);
+      }
+      if (typeof sourceNote.targetNet === 'number') {
+        setTargetNet(sourceNote.targetNet);
+      }
+      if (Array.isArray(sourceNote.targetDates) && sourceNote.targetDates.length > 0) {
+        setTargetDates(sourceNote.targetDates);
+      }
     }
+
+    const baseTitle = sourceNote?.title || activeNote?.title;
+    const defaultTitle = isComm
+      ? `Çek Komisyonu - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(currentTotal)} TL)`
+      : `Hedef Net - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(targetNet)} TL)`;
+
+    setOverwriteTargetId('');
+    setNoteTitle(baseTitle ? `${baseTitle} (Yeni)` : defaultTitle);
+    setNoteDescription(sourceNote?.description || activeNote?.description || '');
+    setIsNotesListModalOpen(false);
     setIsSaveNoteModalOpen(true);
   };
 
@@ -711,7 +749,7 @@ export function CheckValuationPage() {
     notify(`"${targetNote.title}" hesaplamasının üzerine başarıyla kaydedildi.`, 'success');
   };
 
-  const handleSaveCurrentCalculationAsNote = () => {
+  const handleSaveCurrentCalculationAsNote = (forceAsNew = false) => {
     if (!noteTitle.trim()) {
       notify('Lütfen bir not başlığı girin.', 'error');
       return;
@@ -737,7 +775,7 @@ export function CheckValuationPage() {
       targetDates: JSON.parse(JSON.stringify(targetDates)),
     };
 
-    if (overwriteTargetId) {
+    if (!forceAsNew && overwriteTargetId) {
       const updated = savedNotes.map(n =>
         n.id === overwriteTargetId ? { ...n, ...payload, id: n.id } : n
       );
@@ -757,7 +795,7 @@ export function CheckValuationPage() {
     setSavedNotes(updated);
     setActiveNoteId(newNote.id);
     setIsSaveNoteModalOpen(false);
-    notify('Hesaplama başarıyla notlarınıza kaydedildi.', 'success');
+    notify(`"${newNote.title}" yeni hesaplama notu olarak kaydedildi.`, 'success');
   };
 
   const handleLoadNote = (note: CalculationNote) => {
@@ -974,7 +1012,7 @@ export function CheckValuationPage() {
               <BookMarked size={14} className="text-brand-600" />
               Hesaplama Notlarım ({savedNotes.length})
             </button>
-            {activeNote && (
+            {activeNote ? (
               <button
                 type="button"
                 onClick={() => handleOverwriteNote(activeNote)}
@@ -984,14 +1022,33 @@ export function CheckValuationPage() {
                 <Save size={14} className="text-emerald-600" />
                 Üzerine Kaydet ({activeNote.title})
               </button>
+            ) : (
+              savedNotes.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const first = savedNotes[0];
+                    setOverwriteTargetId(first.id);
+                    setNoteTitle(first.title);
+                    setNoteDescription(first.description || '');
+                    setIsSaveNoteModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100 transition-all cursor-pointer"
+                  title="Ekrandaki hesaplamayı mevcut bir notun üzerine kaydet"
+                >
+                  <Save size={14} className="text-emerald-600" />
+                  Üzerine Kaydet
+                </button>
+              )
             )}
             <button
               type="button"
               onClick={openSaveNoteModal}
               className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm hover:bg-brand-100 transition-all cursor-pointer"
+              title="Ekrandaki hesaplamayı farklı bir isimle yeni not olarak kaydet"
             >
               <BookmarkPlus size={14} className="text-brand-600" />
-              Not Olarak Kaydet
+              Farklı Kaydet
             </button>
             <button
               type="button"
@@ -1517,11 +1574,11 @@ export function CheckValuationPage() {
       <Modal
         open={isSaveNoteModalOpen}
         onClose={() => setIsSaveNoteModalOpen(false)}
-        title="Hesaplamayı Not Olarak Kaydet"
-        description="Mevcut çek listenizi, oranları ve hesaplama sonuçlarını yeni bir not olarak kaydedebilir veya mevcut bir notun üzerine güncelleyebilirsiniz."
+        title="Hesaplamayı Kaydet / Farklı Kaydet"
+        description="Mevcut çek listenizi, oranları ve hesaplama sonuçlarını yeni bir isimle farklı kaydedebilir veya mevcut bir notun üzerine güncelleyebilirsiniz."
         size="md"
         footer={
-          <>
+          <div className="flex flex-wrap items-center justify-end gap-2 w-full">
             <button
               type="button"
               onClick={() => setIsSaveNoteModalOpen(false)}
@@ -1529,15 +1586,26 @@ export function CheckValuationPage() {
             >
               İptal
             </button>
+            {overwriteTargetId && (
+              <button
+                type="button"
+                onClick={() => handleSaveCurrentCalculationAsNote(false)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors cursor-pointer"
+              >
+                <Save size={14} />
+                Üzerine Kaydet (Güncelle)
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleSaveCurrentCalculationAsNote}
+              onClick={() => handleSaveCurrentCalculationAsNote(true)}
               className="btn-primary !py-1.5 !px-3.5 text-xs font-semibold inline-flex items-center gap-1.5"
+              title="Girilen başlıkla yeni bir hesaplama notu olarak kaydeder"
             >
-              {overwriteTargetId ? <Save size={14} /> : <BookmarkPlus size={14} />}
-              {overwriteTargetId ? 'Üzerine Kaydet (Güncelle)' : 'Yeni Not Olarak Kaydet'}
+              <BookmarkPlus size={14} />
+              Farklı Kaydet (Yeni Not)
             </button>
-          </>
+          </div>
         }
       >
         <div className="space-y-4">
@@ -1562,15 +1630,17 @@ export function CheckValuationPage() {
                     const isComm = activeTab === 'commission';
                     const total = isComm ? tab1Calculations.totalAmount : tab2Calculations.requiredGrossAmount;
                     setNoteTitle(
-                      isComm
+                      activeNote
+                        ? `${activeNote.title} (Yeni)`
+                        : isComm
                         ? `Çek Komisyonu - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(total)} TL)`
                         : `Hedef Net - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(targetNet)} TL)`
                     );
-                    setNoteDescription('');
+                    setNoteDescription(activeNote?.description || '');
                   }
                 }}
               >
-                <option value="">+ Yeni Not Olarak Kaydet</option>
+                <option value="">+ Farklı Kaydet (Yeni İsimle Yeni Not)</option>
                 <optgroup label="Mevcut Notun Üzerine Kaydet (Güncelle)">
                   {savedNotes.map(n => (
                     <option key={n.id} value={n.id}>
@@ -1661,13 +1731,24 @@ export function CheckValuationPage() {
             <span className="text-xs text-gray-500 font-medium">
               Toplam {savedNotes.length} kayıtlı hesaplama notu
             </span>
-            <button
-              type="button"
-              onClick={() => setIsNotesListModalOpen(false)}
-              className="btn-secondary !py-1.5 !px-3.5 text-xs font-semibold"
-            >
-              Kapat
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openSaveAsNewFromNote()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm hover:bg-brand-100 transition-colors cursor-pointer"
+                title="Ekrandaki hesaplamayı farklı bir isimle yeni not olarak kaydet"
+              >
+                <BookmarkPlus size={14} />
+                + Farklı İsimle Yeni Kaydet
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsNotesListModalOpen(false)}
+                className="btn-secondary !py-1.5 !px-3.5 text-xs font-semibold"
+              >
+                Kapat
+              </button>
+            </div>
           </div>
         }
       >
@@ -1691,7 +1772,7 @@ export function CheckValuationPage() {
                 <StickyNote className="mx-auto h-9 w-9 text-gray-400 mb-2" />
                 <p className="text-sm font-semibold text-gray-700">Henüz kayıtlı bir hesaplama notunuz yok</p>
                 <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
-                  Çek listenizi oluşturduktan sonra sağ üstteki "Not Olarak Kaydet" butonuna tıklayarak hesaplamalarınızı buraya saklayabilir, dilediğiniz zaman tek tıkla geri yükleyebilirsiniz.
+                  Çek listenizi oluşturduktan sonra sağ üstteki "Farklı Kaydet" butonuna tıklayarak hesaplamalarınızı buraya saklayabilir, dilediğiniz zaman tek tıkla geri yükleyebilirsiniz.
                 </p>
               </div>
             ) : (
@@ -1757,7 +1838,7 @@ export function CheckValuationPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 self-end md:self-center shrink-0">
                       <button
                         type="button"
                         onClick={() => handleOverwriteNote(note)}
@@ -1766,6 +1847,15 @@ export function CheckValuationPage() {
                       >
                         <Save size={13} />
                         Üzerine Kaydet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openSaveAsNewFromNote(note)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm hover:bg-brand-100 transition-colors cursor-pointer"
+                        title="Ekrandaki güncel hesaplamayı farklı bir isimle yeni not olarak kaydet"
+                      >
+                        <BookmarkPlus size={13} />
+                        Farklı Kaydet
                       </button>
                       <button
                         type="button"
