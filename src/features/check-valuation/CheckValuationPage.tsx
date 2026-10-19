@@ -17,7 +17,8 @@ import {
   RotateCcw,
   User,
   FolderOpen,
-  Camera
+  Camera,
+  Save
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { supabase } from '../../lib/supabase';
@@ -270,11 +271,18 @@ export function CheckValuationPage() {
 
   // User Calculation Notes
   const [savedNotes, setSavedNotes] = useState<CalculationNote[]>(initialData.loadedNotes);
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const [overwriteTargetId, setOverwriteTargetId] = useState<string>('');
   const [isSaveNoteModalOpen, setIsSaveNoteModalOpen] = useState(false);
   const [isNotesListModalOpen, setIsNotesListModalOpen] = useState(false);
   const [noteTitle, setNoteTitle] = useState('');
   const [noteDescription, setNoteDescription] = useState('');
   const [notesSearch, setNotesSearch] = useState('');
+
+  const activeNote = useMemo(
+    () => savedNotes.find(n => n.id === activeNoteId) || null,
+    [savedNotes, activeNoteId]
+  );
 
   // EBS Import Modal States
   const [ebsLoading, setEbsLoading] = useState(false);
@@ -642,6 +650,7 @@ export function CheckValuationPage() {
     if (confirm('Tüm çeklerin bilgileri silinsin mi?')) {
       setChecks(defaultChecks());
       setIsManualNetMode(false);
+      setActiveNoteId(null);
     }
   };
 
@@ -657,9 +666,49 @@ export function CheckValuationPage() {
     const defaultTitle = isComm
       ? `Çek Komisyonu - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(total)} TL)`
       : `Hedef Net - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(targetNet)} TL)`;
-    setNoteTitle(defaultTitle);
-    setNoteDescription('');
+
+    if (activeNote) {
+      setOverwriteTargetId(activeNote.id);
+      setNoteTitle(activeNote.title);
+      setNoteDescription(activeNote.description || '');
+    } else {
+      setOverwriteTargetId('');
+      setNoteTitle(defaultTitle);
+      setNoteDescription('');
+    }
     setIsSaveNoteModalOpen(true);
+  };
+
+  const handleOverwriteNote = (targetNote: CalculationNote) => {
+    const isComm = activeTab === 'commission';
+    const currentTotal = isComm ? tab1Calculations.totalAmount : tab2Calculations.requiredGrossAmount;
+    if (currentTotal <= 0) {
+      notify('Üzerine kaydetmek için ekranda en az bir çek tutarı bulunmalıdır.', 'error');
+      return;
+    }
+
+    const updatedNote: CalculationNote = {
+      ...targetNote,
+      createdAt: new Date().toISOString(),
+      activeTab,
+      baseDate,
+      monthlyRate,
+      checks: JSON.parse(JSON.stringify(checks)),
+      totalAmount: currentTotal,
+      remainingAmount: isComm ? tab1Calculations.remainingAmount : targetNet,
+      totalCommission: isComm ? tab1Calculations.totalCommission : tab2Calculations.totalCommission,
+      averageMaturityDays: isComm ? tab1Calculations.averageMaturityDays : tab2Calculations.averageMaturityDays,
+      averageDate: isComm ? tab1Calculations.averageDate : tab2Calculations.averageDate,
+      isManualNetMode,
+      targetNetVal,
+      targetNet,
+      targetDates: JSON.parse(JSON.stringify(targetDates)),
+    };
+
+    const updated = savedNotes.map(n => (n.id === targetNote.id ? updatedNote : n));
+    setSavedNotes(updated);
+    setActiveNoteId(targetNote.id);
+    notify(`"${targetNote.title}" hesaplamasının üzerine başarıyla kaydedildi.`, 'success');
   };
 
   const handleSaveCurrentCalculationAsNote = () => {
@@ -669,8 +718,7 @@ export function CheckValuationPage() {
     }
 
     const isComm = activeTab === 'commission';
-    const newNote: CalculationNote = {
-      id: Date.now().toString(),
+    const payload = {
       title: noteTitle.trim(),
       description: noteDescription.trim(),
       createdAt: new Date().toISOString(),
@@ -689,8 +737,25 @@ export function CheckValuationPage() {
       targetDates: JSON.parse(JSON.stringify(targetDates)),
     };
 
+    if (overwriteTargetId) {
+      const updated = savedNotes.map(n =>
+        n.id === overwriteTargetId ? { ...n, ...payload, id: n.id } : n
+      );
+      setSavedNotes(updated);
+      setActiveNoteId(overwriteTargetId);
+      setIsSaveNoteModalOpen(false);
+      notify(`"${payload.title}" hesaplaması güncellendi (üzerine kaydedildi).`, 'success');
+      return;
+    }
+
+    const newNote: CalculationNote = {
+      id: Date.now().toString(),
+      ...payload,
+    };
+
     const updated = [newNote, ...savedNotes];
     setSavedNotes(updated);
+    setActiveNoteId(newNote.id);
     setIsSaveNoteModalOpen(false);
     notify('Hesaplama başarıyla notlarınıza kaydedildi.', 'success');
   };
@@ -721,6 +786,7 @@ export function CheckValuationPage() {
     if (Array.isArray(note.targetDates) && note.targetDates.length > 0) {
       setTargetDates(note.targetDates);
     }
+    setActiveNoteId(note.id);
     setIsNotesListModalOpen(false);
     notify(`"${note.title}" hesaplaması çalışma alanına yüklendi.`, 'success');
   };
@@ -730,6 +796,9 @@ export function CheckValuationPage() {
     if (confirm('Bu kayıtlı hesaplama notunu silmek istediğinize emin misiniz?')) {
       const updated = savedNotes.filter(n => n.id !== id);
       setSavedNotes(updated);
+      if (activeNoteId === id) {
+        setActiveNoteId(null);
+      }
       notify('Hesaplama notu silindi.', 'info');
     }
   };
@@ -741,6 +810,7 @@ export function CheckValuationPage() {
       setTargetNetVal(0);
       setTargetDates(defaultTargetDates());
       setBaseDate(new Date().toISOString().split('T')[0]);
+      setActiveNoteId(null);
       notify('Yeni boş hesaplama alanı hazırlandı.', 'info');
     }
   };
@@ -904,6 +974,17 @@ export function CheckValuationPage() {
               <BookMarked size={14} className="text-brand-600" />
               Hesaplama Notlarım ({savedNotes.length})
             </button>
+            {activeNote && (
+              <button
+                type="button"
+                onClick={() => handleOverwriteNote(activeNote)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100 transition-all cursor-pointer"
+                title={`Ekrandaki güncel hesaplamayı "${activeNote.title}" notunun üzerine kaydeder`}
+              >
+                <Save size={14} className="text-emerald-600" />
+                Üzerine Kaydet ({activeNote.title})
+              </button>
+            )}
             <button
               type="button"
               onClick={openSaveNoteModal}
@@ -1437,7 +1518,7 @@ export function CheckValuationPage() {
         open={isSaveNoteModalOpen}
         onClose={() => setIsSaveNoteModalOpen(false)}
         title="Hesaplamayı Not Olarak Kaydet"
-        description="Mevcut çek listenizi, oranları ve hesaplama sonuçlarını daha sonra tekrar yüklemek üzere kişisel notlarınıza kaydedin."
+        description="Mevcut çek listenizi, oranları ve hesaplama sonuçlarını yeni bir not olarak kaydedebilir veya mevcut bir notun üzerine güncelleyebilirsiniz."
         size="md"
         footer={
           <>
@@ -1453,13 +1534,54 @@ export function CheckValuationPage() {
               onClick={handleSaveCurrentCalculationAsNote}
               className="btn-primary !py-1.5 !px-3.5 text-xs font-semibold inline-flex items-center gap-1.5"
             >
-              <BookmarkPlus size={14} />
-              Kaydet
+              {overwriteTargetId ? <Save size={14} /> : <BookmarkPlus size={14} />}
+              {overwriteTargetId ? 'Üzerine Kaydet (Güncelle)' : 'Yeni Not Olarak Kaydet'}
             </button>
           </>
         }
       >
         <div className="space-y-4">
+          {savedNotes.length > 0 && (
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Kayıt İşlemi Seçimi
+              </label>
+              <select
+                className="input text-sm font-medium"
+                value={overwriteTargetId}
+                onChange={e => {
+                  const selectedId = e.target.value;
+                  setOverwriteTargetId(selectedId);
+                  if (selectedId) {
+                    const target = savedNotes.find(n => n.id === selectedId);
+                    if (target) {
+                      setNoteTitle(target.title);
+                      setNoteDescription(target.description || '');
+                    }
+                  } else {
+                    const isComm = activeTab === 'commission';
+                    const total = isComm ? tab1Calculations.totalAmount : tab2Calculations.requiredGrossAmount;
+                    setNoteTitle(
+                      isComm
+                        ? `Çek Komisyonu - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(total)} TL)`
+                        : `Hedef Net - ${new Date().toLocaleDateString('tr-TR')} (${formatNumberWithDots(targetNet)} TL)`
+                    );
+                    setNoteDescription('');
+                  }
+                }}
+              >
+                <option value="">+ Yeni Not Olarak Kaydet</option>
+                <optgroup label="Mevcut Notun Üzerine Kaydet (Güncelle)">
+                  {savedNotes.map(n => (
+                    <option key={n.id} value={n.id}>
+                      Üzerine Kaydet: {n.title} ({formatNumberWithDots(n.totalAmount)} TL)
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">
               Hesaplama / Müşteri Notu Başlığı <span className="text-red-500">*</span>
@@ -1573,78 +1695,99 @@ export function CheckValuationPage() {
                 </p>
               </div>
             ) : (
-              filteredNotes.map(note => (
-                <div
-                  key={note.id}
-                  className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-brand-300 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
-                >
-                  <div className="space-y-2 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold ${
-                        note.activeTab === 'target' 
-                          ? 'bg-purple-50 text-purple-700 border border-purple-200' 
-                          : 'bg-brand-50 text-brand-700 border border-brand-200'
-                      }`}>
-                        {note.activeTab === 'target' ? <ArrowRightLeft size={11} /> : <Coins size={11} />}
-                        {note.activeTab === 'target' ? 'Hedef Net Tutar' : 'Komisyon Hesaplama'}
-                      </span>
-                      <h4 className="font-bold text-gray-900 text-sm">{note.title}</h4>
-                    </div>
-
-                    {note.description && (
-                      <p className="text-xs text-gray-600 line-clamp-2">{note.description}</p>
-                    )}
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1 border-t border-gray-100">
-                      <div>
-                        <span className="text-gray-400 block text-[10px]">TOPLAM TUTAR</span>
-                        <span className="font-bold text-gray-800">{formatNumberWithDots(note.totalAmount)} TL</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-400 block text-[10px]">ORT. VADE & TARİH</span>
-                        <span className="font-semibold text-gray-700">
-                          {note.averageMaturityDays?.toFixed(1) || 0} Gün <span className="text-gray-400 font-normal">({note.averageDate || '-'})</span>
+              filteredNotes.map(note => {
+                const isCurrentlyLoaded = note.id === activeNoteId;
+                return (
+                  <div
+                    key={note.id}
+                    className={`rounded-xl border p-4 shadow-sm hover:border-brand-300 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                      isCurrentlyLoaded
+                        ? 'border-emerald-300 bg-emerald-50/20'
+                        : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    <div className="space-y-2 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold ${
+                          note.activeTab === 'target' 
+                            ? 'bg-purple-50 text-purple-700 border border-purple-200' 
+                            : 'bg-brand-50 text-brand-700 border border-brand-200'
+                        }`}>
+                          {note.activeTab === 'target' ? <ArrowRightLeft size={11} /> : <Coins size={11} />}
+                          {note.activeTab === 'target' ? 'Hedef Net Tutar' : 'Komisyon Hesaplama'}
                         </span>
+                        {isCurrentlyLoaded && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Aktif Yüklü
+                          </span>
+                        )}
+                        <h4 className="font-bold text-gray-900 text-sm">{note.title}</h4>
                       </div>
-                      <div>
-                        <span className="text-gray-400 block text-[10px]">AYLIK ORAN</span>
-                        <span className="font-semibold text-gray-700">%{note.monthlyRate?.toFixed(2)}</span>
+
+                      {note.description && (
+                        <p className="text-xs text-gray-600 line-clamp-2">{note.description}</p>
+                      )}
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1 border-t border-gray-100">
+                        <div>
+                          <span className="text-gray-400 block text-[10px]">TOPLAM TUTAR</span>
+                          <span className="font-bold text-gray-800">{formatNumberWithDots(note.totalAmount)} TL</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 block text-[10px]">ORT. VADE & TARİH</span>
+                          <span className="font-semibold text-gray-700">
+                            {note.averageMaturityDays?.toFixed(1) || 0} Gün <span className="text-gray-400 font-normal">({note.averageDate || '-'})</span>
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 block text-[10px]">AYLIK ORAN</span>
+                          <span className="font-semibold text-gray-700">%{note.monthlyRate?.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 block text-[10px]">ELE GEÇECEK NET</span>
+                          <span className="font-bold text-emerald-700">{formatNumberWithDots(Math.round(note.remainingAmount))} TL</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-gray-400 block text-[10px]">ELE GEÇECEK NET</span>
-                        <span className="font-bold text-emerald-700">{formatNumberWithDots(Math.round(note.remainingAmount))} TL</span>
+
+                      <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                        <Clock size={12} />
+                        <span>{new Date(note.createdAt).toLocaleString('tr-TR')}</span>
+                        <span>•</span>
+                        <span>{note.checks?.filter(c => c.amount > 0).length || 0} Adet Çek</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                      <Clock size={12} />
-                      <span>{new Date(note.createdAt).toLocaleString('tr-TR')}</span>
-                      <span>•</span>
-                      <span>{note.checks?.filter(c => c.amount > 0).length || 0} Adet Çek</span>
+                    <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOverwriteNote(note)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100 transition-colors cursor-pointer"
+                        title="Ekrandaki güncel hesaplamayı bu notun üzerine kaydet (güncelle)"
+                      >
+                        <Save size={13} />
+                        Üzerine Kaydet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleLoadNote(note)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-700 transition-colors cursor-pointer"
+                        title="Bu hesaplamayı çalışma alanına yükle"
+                      >
+                        <FolderOpen size={13} />
+                        Yükle
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteNote(note.id, e)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                        title="Notu sil"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2 self-end md:self-center shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleLoadNote(note)}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-700 transition-colors cursor-pointer"
-                      title="Bu hesaplamayı çalışma alanına yükle"
-                    >
-                      <FolderOpen size={13} />
-                      Yükle
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteNote(note.id, e)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
-                      title="Notu sil"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
