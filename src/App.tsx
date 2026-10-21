@@ -30,6 +30,7 @@ import { SanayiGiderleriPage } from './features/vehicles/SanayiGiderleriPage';
 import { CheckValuationPage } from './features/check-valuation/CheckValuationPage';
 import { PosDifferencesPage } from './features/pos-valuation/PosDifferencesPage';
 import { ChecksPage } from './features/checks/ChecksPage';
+import { CustomerChecksPage } from './features/checks/CustomerChecksPage';
 import { PosPage } from './features/pos/PosPage';
 import { RealEstatesPage } from './features/real-estates/RealEstatesPage';
 import { MainCashboxPage } from './features/main-cashbox/MainCashboxPage';
@@ -169,6 +170,7 @@ export default function App() {
 
                 <Route path="/cekler" element={<ChecksPage />} />
                 <Route path="/cekler/takas" element={<ChecksPage />} />
+                <Route path="/cekler/musteri-cekleri" element={<CustomerChecksPage />} />
                 <Route path="/pos" element={<PosPage />} />
 
                 {/* Ana Kasa, Ay Sonu ve Raporlama (Süleyman ve Mustafa Demir hariç tüm kullanıcılar erişebilir) */}

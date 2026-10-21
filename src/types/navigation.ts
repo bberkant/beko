@@ -43,6 +43,7 @@ export const navItems: NavItem[] = [
     children: [
       { label: 'Takas Çekleri', to: '/cekler/takas' },
       { label: 'Çek & Senet Listesi', to: '/cekler' },
+      { label: 'Müşteri Çekleri Listesi', to: '/cekler/musteri-cekleri' },
     ],
   },
   {
