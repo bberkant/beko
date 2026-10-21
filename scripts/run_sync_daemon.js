@@ -1164,17 +1164,42 @@ async function triggerVegaSync(force = false) {
   }
 }
 
+let lastEbsSyncTime = 0;
+const EBS_SYNC_INTERVAL_MS = 3 * 60 * 1000; // 3 dakikada bir
+
+async function triggerEbsSync(force = false) {
+  const now = Date.now();
+  if (!force && (now - lastEbsSyncTime < EBS_SYNC_INTERVAL_MS)) {
+    return;
+  }
+  lastEbsSyncTime = now;
+  try {
+    const ebsScriptPath = path.resolve(__dirname, 'sync_ebs_office.cjs');
+    if (fs.existsSync(ebsScriptPath)) {
+      const { runEbsSync } = require(ebsScriptPath);
+      if (typeof runEbsSync === 'function') {
+        await runEbsSync();
+        log('✔️ [EBS ÇEK] Firebird -> Supabase çek ve taksit eşitlemesi tamamlandı.');
+      }
+    }
+  } catch (err) {
+    log(`⚠️ [EBS ÇEK] Senkronizasyon hatası: ${err.message}`);
+  }
+}
+
 async function startDaemon() {
-  log("🚀 One DARS Kasa & e-Fatura & Vega Senkronizasyon Servisi Başlatıldı (V5.1).");
-  log("👀 Klasörler her 60 saniyede bir, e-Faturalar 10 dk, Vega Hareketler 30 dk bir otomatik eşitleniyor...");
+  log("🚀 One DARS Kasa & e-Fatura & Vega & EBS Çek Senkronizasyon Servisi Başlatıldı (V5.2).");
+  log("👀 Klasörler her 60 saniyede bir, EBS Çek 3 dk, e-Faturalar 10 dk, Vega Hareketler 30 dk bir otomatik eşitleniyor...");
 
   // İlk açılışta senkronizasyonları başlat
   await runSyncCycle();
+  triggerEbsSync(true).catch(() => {});
   triggerEfaturaSync(true).catch(() => {});
   triggerVegaSync(true).catch(() => {});
 
   setInterval(async () => {
     await runSyncCycle();
+    await triggerEbsSync(false);
   }, 60 * 1000); // 1 dakika
 
   setInterval(async () => {

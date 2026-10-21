@@ -1749,8 +1749,7 @@ export function ChecksPage() {
 
     // 1. Durumu 'Tahsilde', 'beklemede', 'ödenmedi' olan (yani Ödendi/İptal OLMAYAN), kesilen tipte:
     // - Vadesi seçilen gün olanlar (veya tüm yaklaşanlar modunda >= seçilen gün)
-    // - VEYA özel alanı 'TAKASTA' ile başlayanlar
-    // - VEYA taksit / manuel girilmiş olup henüz 'Ödendi' yapılmamış geçmiş kayıtlar (debtor === 'TAKSİT' veya !check_no)
+    // - VEYA Çekten Hesabı kaydı olup henüz ödenmemiş olanlar
     const activeUnpaidKesilen = checks.filter(c => {
       if (c.check_type !== 'kesilen') return false;
       const status = cleanStatus(c.status);
@@ -1759,31 +1758,28 @@ export function ChecksPage() {
       }
       if (!c.due_date) return false;
       const due = c.due_date.substring(0, 10);
-      const isForced = (c.ozel_alan || '').trim().toUpperCase().startsWith('TAKASTA');
-      const isManualOrTaksit = c.debtor === 'TAKSİT' || !c.check_no;
+      const isCekten = isCektenCheck(c);
       
       const dateMatch = takasViewMode === 'upcoming' 
         ? due >= targetDateStr 
         : due === targetDateStr;
 
-      return dateMatch || isForced || (isManualOrTaksit && due <= targetDateStr);
+      return dateMatch || (isCekten && due <= targetDateStr);
     });
 
     // 2. Alınan çeklerde asıl alacaklı kısmında 'HATIR BİZİM BORCUMUZ' veya 'HATIR BİZİM BORÇ' yazanlar (Veya özel alanı 'TAKASTA' ile başlayanlar)
     const hatirAlinan = checks.filter(c => {
       if (c.check_type !== 'alinan') return false;
       if (isCheckPaid(c.status)) return false;
+      if (!c.due_date) return false;
       
-      const isForced = (c.ozel_alan || '').trim().toUpperCase().startsWith('TAKASTA');
-      if (!isForced) {
-        if (!c.due_date) return false;
-        const due = c.due_date.substring(0, 10);
-        const dateMatch = takasViewMode === 'upcoming' 
-          ? due >= targetDateStr 
-          : due === targetDateStr;
-        if (!dateMatch) return false;
-      }
+      const due = c.due_date.substring(0, 10);
+      const dateMatch = takasViewMode === 'upcoming' 
+        ? due >= targetDateStr 
+        : due === targetDateStr;
+      if (!dateMatch) return false;
 
+      const isForced = (c.ozel_alan || '').trim().toUpperCase().startsWith('TAKASTA');
       return isForced || isHatirAlinan(c);
     });
 
