@@ -867,13 +867,6 @@ export function CustomerChecksPage() {
             <div className="grid grid-cols-6 gap-3 items-start">
               {groupedData.strips.map((strip) => (
                 <div key={strip.stripNumber} className="flex flex-col gap-3 min-w-[230px]">
-                  {/* Strip Header Banner */}
-                  <div className="bg-slate-800 text-white px-2.5 py-2 rounded-lg shadow-xs flex items-center justify-between">
-                    <span className="font-bold text-[11px] tracking-wide truncate" title={strip.title}>
-                      SÜTUN {strip.stripNumber}: {strip.title}
-                    </span>
-                  </div>
-
                   {/* Bank & Factoring Blocks */}
                   {strip.blocks.map((block) => (
                     <div
