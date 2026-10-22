@@ -949,48 +949,73 @@ export function CustomerChecksPage() {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 6mm 5mm 6mm 5mm;
+            margin: 4mm 4mm 4mm 4mm;
           }
-          aside, header, nav, button, .no-print, input, [class*="PageHeader"], [class*="CustomNavigation"], .kpi-summary-cards, .kasada-bottom-table {
+          .no-print,
+          .no-print *,
+          aside,
+          header,
+          nav,
+          button,
+          input,
+          select,
+          [class*="PageHeader"],
+          [class*="CustomNavigation"],
+          .kpi-summary-cards,
+          .kasada-bottom-table {
             display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            overflow: hidden !important;
           }
           div.lg\\:pl-\\[72px\\], div.lg\\:pl-\\[240px\\], [class*="lg:pl-"] {
             padding-left: 0 !important;
           }
-          body, html, main, #root, .min-h-screen {
+          body, html, main, #root, .min-h-screen, [class*="min-h-"], .space-y-6, .space-y-4 {
             background: white !important;
             color: black !important;
             padding: 0 !important;
             margin: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
+            min-height: 0 !important;
+            height: auto !important;
+          }
+          .space-y-6 > *, .space-y-4 > * {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
           }
           #musteri-cekleri-matrix-capture {
+            display: block !important;
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
             margin: 0 !important;
             width: 100% !important;
             min-width: 100% !important;
+            break-after: avoid !important;
+            page-break-after: avoid !important;
           }
           #musteri-cekleri-page-1 {
             display: block !important;
+            page-break-before: avoid !important;
+            break-before: avoid !important;
             page-break-after: always !important;
             break-after: page !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
             padding: 0 !important;
-            margin: 0 0 10mm 0 !important;
+            margin: 0 !important;
             border: none !important;
             box-shadow: none !important;
             width: 100% !important;
           }
           #musteri-cekleri-page-2 {
             display: block !important;
+            page-break-before: auto !important;
             page-break-after: avoid !important;
             break-after: avoid !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
             padding: 0 !important;
             margin: 0 !important;
             border: none !important;
@@ -1000,73 +1025,75 @@ export function CustomerChecksPage() {
           .matrix-page-grid {
             display: grid !important;
             grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-            gap: 6px !important;
+            gap: 4px !important;
             width: 100% !important;
           }
         }
       `}</style>
 
       {/* Header & Main Actions */}
-      <PageHeader
-        title="Müşteri Çekleri Listesi"
-        description="Müşterilerden alınan çek ve senetlerin banka ve faktoring matrisi, kasadaki çekler ve analizi"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={fetchCustomerChecks}
-              disabled={loading}
-              title="Supabase'den güncel verileri çek"
-              className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3"
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              <span>Verileri Güncelle</span>
-            </button>
+      <div className="no-print">
+        <PageHeader
+          title="Müşteri Çekleri Listesi"
+          description="Müşterilerden alınan çek ve senetlerin banka ve faktoring matrisi, kasadaki çekler ve analizi"
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={fetchCustomerChecks}
+                disabled={loading}
+                title="Supabase'den güncel verileri çek"
+                className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                <span>Verileri Güncelle</span>
+              </button>
 
-            <button
-              onClick={handleExportExcel}
-              disabled={isExportingExcel || loading}
-              title="Excel (.xlsx) çoklu sayfa olarak indir"
-              className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300"
-            >
-              <FileSpreadsheet size={14} className="text-emerald-600" />
-              <span>{isExportingExcel ? 'Hazırlanıyor...' : 'Excel İndir'}</span>
-            </button>
+              <button
+                onClick={handleExportExcel}
+                disabled={isExportingExcel || loading}
+                title="Excel (.xlsx) çoklu sayfa olarak indir"
+                className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300"
+              >
+                <FileSpreadsheet size={14} className="text-emerald-600" />
+                <span>{isExportingExcel ? 'Hazırlanıyor...' : 'Excel İndir'}</span>
+              </button>
 
-            <button
-              onClick={handleExportPdf}
-              disabled={isExportingPdf || loading}
-              title="Dikey A4 PDF indir (Sayfa 1: 1-3. Sütunlar / Ön Yüz, Sayfa 2: 4-6. Sütunlar / Arka Yüz)"
-              className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300"
-            >
-              <FileDown size={14} className="text-rose-600" />
-              <span>{isExportingPdf ? 'İndiriliyor...' : 'PDF İndir (Dikey A4)'}</span>
-            </button>
+              <button
+                onClick={handleExportPdf}
+                disabled={isExportingPdf || loading}
+                title="Dikey A4 PDF indir (Sayfa 1: 1-3. Sütunlar / Ön Yüz, Sayfa 2: 4-6. Sütunlar / Arka Yüz)"
+                className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300"
+              >
+                <FileDown size={14} className="text-rose-600" />
+                <span>{isExportingPdf ? 'İndiriliyor...' : 'PDF İndir (Dikey A4)'}</span>
+              </button>
 
-            <button
-              onClick={handlePrint}
-              disabled={loading}
-              title="Dikey A4 Çift Taraflı Yazdır (Ön Yüz: 1-3. Sütun, Arka Yüz: 4-6. Sütun)"
-              className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3"
-            >
-              <Printer size={14} className="text-gray-600" />
-              <span>Yazdır (Dikey A4)</span>
-            </button>
+              <button
+                onClick={handlePrint}
+                disabled={loading}
+                title="Dikey A4 Çift Taraflı Yazdır (Ön Yüz: 1-3. Sütun, Arka Yüz: 4-6. Sütun)"
+                className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3"
+              >
+                <Printer size={14} className="text-gray-600" />
+                <span>Yazdır (Dikey A4)</span>
+              </button>
 
-            <button
-              onClick={handleCaptureScreenshot}
-              disabled={isCapturingScreenshot || loading}
-              title="WhatsApp paylaşımı için yüksek çözünürlüklü ekran görüntüsü al"
-              className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3 shadow-xs bg-emerald-600 hover:bg-emerald-700"
-            >
-              <Camera size={14} />
-              <span>{isCapturingScreenshot ? 'Çekiliyor...' : 'Ekran Görüntüsü Al'}</span>
-            </button>
-          </div>
-        }
-      />
+              <button
+                onClick={handleCaptureScreenshot}
+                disabled={isCapturingScreenshot || loading}
+                title="WhatsApp paylaşımı için yüksek çözünürlüklü ekran görüntüsü al"
+                className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3 shadow-xs bg-emerald-600 hover:bg-emerald-700"
+              >
+                <Camera size={14} />
+                <span>{isCapturingScreenshot ? 'Çekiliyor...' : 'Ekran Görüntüsü Al'}</span>
+              </button>
+            </div>
+          }
+        />
+      </div>
 
       {/* Cross-Table Instant Search Input */}
-      <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="no-print bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
           <Coins size={18} className="text-brand-600" />
           <span>Aktif Müşteri Çekleri ve Senetleri</span>
@@ -1097,7 +1124,7 @@ export function CustomerChecksPage() {
       </div>
 
       {/* Top 5 KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 kpi-summary-cards">
+      <div className="no-print grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 kpi-summary-cards">
         {/* KPI 1: GENEL TOPLAM */}
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
@@ -1194,7 +1221,7 @@ export function CustomerChecksPage() {
          ========================================================================= */}
       <div className="space-y-4">
         {/* Title & Info Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide flex items-center gap-2">
               <Building2 size={16} className="text-brand-600" />
@@ -1336,7 +1363,7 @@ export function CustomerChecksPage() {
       {/* =========================================================================
           BOTTOM SECTION: KASADA / YAZILAN / AVUKATTAKİ ÇEKLER TABLOSU
          ========================================================================= */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden kasada-bottom-table">
+      <div className="no-print rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden kasada-bottom-table">
         {/* Header & Category Filter Pills */}
         <div className="p-4 border-b border-gray-100 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
