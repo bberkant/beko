@@ -158,9 +158,8 @@ export function CustomerChecksPage() {
     e.preventDefault();
     const kesideciClean = newSenetKesideci.trim().toLocaleUpperCase('tr-TR');
     const ciroClean = newSenetCiroEden.trim().toLocaleUpperCase('tr-TR');
-    const parsedAmount = parseFloat(
-      newSenetAmount.replace(/\./g, '').replace(',', '.').trim()
-    );
+    const rawAmtStr = newSenetAmount.replace(/\./g, '').replace(',', '.').trim();
+    const parsedAmount = rawAmtStr === '' ? 0 : parseFloat(rawAmtStr);
 
     if (!newSenetDate) {
       notify('Lütfen senet vade tarihini seçin.', 'error');
@@ -170,7 +169,7 @@ export function CustomerChecksPage() {
       notify('Lütfen keşideci / firma adını girin.', 'error');
       return;
     }
-    if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
+    if (isNaN(parsedAmount) || parsedAmount < 0) {
       notify('Lütfen geçerli bir senet tutarı girin.', 'error');
       return;
     }
@@ -182,7 +181,7 @@ export function CustomerChecksPage() {
         organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
         check_type: 'alinan',
         document_type: 'senet',
-        local_id: Math.floor(Date.now() / 1000),
+        local_id: 2100000 + Math.floor((Date.now() % 100000000) / 1000),
         check_no: '',
         issue_date: newSenetDate,
         due_date: newSenetDate,
@@ -980,7 +979,11 @@ export function CustomerChecksPage() {
                                   {formattedDrawer}
                                 </span>
                                 <span className="col-span-4 font-mono font-bold text-gray-900 text-right whitespace-nowrap flex items-center justify-end gap-1">
-                                  <span>{formatCurrency(c.amount, false)}</span>
+                                  <span>
+                                    {isSenetBlock && Number(c.amount || 0) === 0
+                                      ? ''
+                                      : formatCurrency(c.amount, false)}
+                                  </span>
                                   {isSenetBlock && (
                                     <button
                                       type="button"

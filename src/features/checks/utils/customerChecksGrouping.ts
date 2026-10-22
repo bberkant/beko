@@ -215,9 +215,11 @@ export function groupCustomerChecks(
     const ce = fixCorruptedTurkishText(c.ciro_edilen || '').trim().toLocaleUpperCase('tr-TR');
     const docType = (c.document_type || '').trim().toLowerCase();
 
-    // Strip 6: Promissory Notes
+    // Strip 6: Promissory Notes (Tahsildeki Senetler - managed via WEB_MANUEL_SENET list)
     if (tb === 'SENET' || docType === 'senet') {
-      b_senet.checks.push(c);
+      if ((c.ozel_alan || '').toUpperCase().includes('WEB_MANUEL_SENET')) {
+        b_senet.checks.push(c);
+      }
     }
     // Strip 1: Kuveyt
     else if (isTeminataVerildi && (tb === 'KUVEYT' || tb === 'KUVEYT TÜRK' || tb === 'KUVEYT TURK')) {
@@ -324,7 +326,11 @@ export function groupCustomerChecks(
   ];
 
   for (const block of allBlocks) {
-    block.checks.sort(compareByDueDate);
+    if (block.id === 'tahsildeki-senetler') {
+      block.checks.sort((a, b) => (a.local_id || 9999999999) - (b.local_id || 9999999999));
+    } else {
+      block.checks.sort(compareByDueDate);
+    }
     block.subtotal = block.checks.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   }
 
