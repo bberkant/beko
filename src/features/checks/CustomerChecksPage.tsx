@@ -1156,18 +1156,13 @@ export function CustomerChecksPage() {
                     </div>
                   ))}
 
-                  {/* Tahsildeki Senetler Altındaki Boşluğa Büyük GENEL TOPLAM Kutusu */}
+                  {/* Tahsildeki Senetler Altındaki Boşluğa GENEL TOPLAM Kutusu */}
                   {strip.stripNumber === 6 && (
-                    <div className="mt-2 rounded-xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-4 shadow-md border-2 border-amber-400 space-y-2">
-                      <div className="text-xs font-black uppercase tracking-widest text-amber-300 text-center border-b border-slate-700 pb-2">
-                        GENEL TOPLAM
-                      </div>
-                      <div className="text-xl font-black font-mono text-amber-400 text-center tracking-tight py-1.5">
+                    <div className="bg-slate-100 text-slate-800 px-3 py-2.5 rounded-lg border border-slate-200 flex items-center justify-between text-xs font-bold shadow-2xs">
+                      <span className="truncate">GENEL TOPLAM:</span>
+                      <span className="font-mono text-slate-900 text-sm font-black shrink-0 ml-1">
                         {formatCurrency(groupedData.matrixTotal)}
-                      </div>
-                      <div className="text-[10px] text-slate-300 text-center font-medium">
-                        Matris Toplamı ({groupedData.totalMatrixChecks} Kayıt)
-                      </div>
+                      </span>
                     </div>
                   )}
                 </div>
