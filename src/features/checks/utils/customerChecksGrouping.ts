@@ -175,24 +175,26 @@ export function groupCustomerChecks(
   const b_marif_kuveyt: MatrixBlock = { id: 'marif-kuveyt', title: 'MARİF KUVEYT', checks: [], subtotal: 0 };
   const b_marif_akbank: MatrixBlock = { id: 'marif-akbank', title: 'MARİF AKBANK', checks: [], subtotal: 0 };
 
-  // Strip 3: ETİK DENİZ, MARİF FİBA, FİBA, İŞBANK, VAKIF KATILIM
+  // Strip 3: DENİZ (ETİK DENİZ), DENİZ İSKONTO, MARİF FİBA, FİBA, İŞBANK, VAKIF KATILIM
   const b_etik_deniz: MatrixBlock = { id: 'etik-deniz', title: 'ETİK DENİZ', checks: [], subtotal: 0 };
+  const b_deniz_iskonto: MatrixBlock = { id: 'deniz-iskonto', title: 'DENİZ İSKONTO', checks: [], subtotal: 0 };
   const b_marif_fiba: MatrixBlock = { id: 'marif-fiba', title: 'MARİF FİBA(İSKONTO)', checks: [], subtotal: 0 };
   const b_fiba: MatrixBlock = { id: 'fiba', title: 'FİBA', checks: [], subtotal: 0 };
   const b_isbank_iskonto: MatrixBlock = { id: 'isbank-iskonto', title: 'İŞBANK-İSKONTO', checks: [], subtotal: 0 };
   const b_vakif_katilim: MatrixBlock = { id: 'vakif-katilim', title: 'VAKIF KATILIM-SAMSUN', checks: [], subtotal: 0 };
 
-  // Strip 4: GARANTİ FAK, MARİF ULUSAL, İŞBANK FAKİR, MARİF YAPI, DENİZ FAKİR
-  const b_garanti_fak: MatrixBlock = { id: 'garanti-fak', title: 'GARANTİ FAK', checks: [], subtotal: 0 };
-  const b_marif_ulusal: MatrixBlock = { id: 'marif-ulusal-fakir', title: 'MARİF ULUSAL FAKİR', checks: [], subtotal: 0 };
-  const b_isbank_fakir: MatrixBlock = { id: 'isbank-fakir', title: 'İŞBANK FAKİR', checks: [], subtotal: 0 };
-  const b_marif_yapi: MatrixBlock = { id: 'marif-yapi-fakir', title: 'MARİF YAPI FAKİR', checks: [], subtotal: 0 };
-  const b_deniz_fakir: MatrixBlock = { id: 'deniz-fakir', title: 'DENİZ FAKİR', checks: [], subtotal: 0 };
+  // Strip 4: GARANTİ FAKTORİNG, MARİF ULUSAL FAKTORİNG, İŞBANK FAKTORİNG, YAPI FAKTORİNG, DENİZ FAKTORİNG
+  const b_garanti_fak: MatrixBlock = { id: 'garanti-fak', title: 'GARANTİ FAKTORİNG', checks: [], subtotal: 0 };
+  const b_marif_ulusal: MatrixBlock = { id: 'marif-ulusal-fakir', title: 'MARİF ULUSAL FAKTORİNG', checks: [], subtotal: 0 };
+  const b_isbank_fakir: MatrixBlock = { id: 'isbank-fakir', title: 'İŞBANK FAKTORİNG', checks: [], subtotal: 0 };
+  const b_marif_yapi: MatrixBlock = { id: 'marif-yapi-fakir', title: 'YAPI FAKTORİNG', checks: [], subtotal: 0 };
+  const b_deniz_fakir: MatrixBlock = { id: 'deniz-fakir', title: 'DENİZ FAKTORİNG', checks: [], subtotal: 0 };
 
-  // Strip 5: FİNANS FAKİR, FİBA FAKİR, TEB FAKİR, ELİMİZDEKİ ÇEKLER
-  const b_finans_fakir: MatrixBlock = { id: 'finans-fakir', title: 'FİNANS FAKİR', checks: [], subtotal: 0 };
-  const b_fiba_fakir: MatrixBlock = { id: 'fiba-fakir', title: 'FİBA FAKİR', checks: [], subtotal: 0 };
-  const b_teb_fakir: MatrixBlock = { id: 'teb-fakir', title: 'TEB FAKİR', checks: [], subtotal: 0 };
+  // Strip 5: FİNANS FAKTORİNG, FİBA FAKTORİNG, TEB FAKTORİNG, FİGO FAKTORİNG, ELİMİZDEKİ ÇEKLER
+  const b_finans_fakir: MatrixBlock = { id: 'finans-fakir', title: 'FİNANS FAKTORİNG', checks: [], subtotal: 0 };
+  const b_fiba_fakir: MatrixBlock = { id: 'fiba-fakir', title: 'FİBA FAKTORİNG', checks: [], subtotal: 0 };
+  const b_teb_fakir: MatrixBlock = { id: 'teb-fakir', title: 'TEB FAKTORİNG', checks: [], subtotal: 0 };
+  const b_figo_fakir: MatrixBlock = { id: 'figo-fakir', title: 'FİGO FAKTORİNG', checks: [], subtotal: 0 };
   const b_elimizdeki: MatrixBlock = { id: 'elimizdeki-cekler', title: 'ELİMİZDEKİ ÇEKLER', checks: [], subtotal: 0 };
 
   // Strip 6: TAHSİLDEKİ SENETLER
@@ -231,8 +233,11 @@ export function groupCustomerChecks(
     else if (isTeminataVerildi && (tb === 'MARİF AKBANK' || tb === 'MARIF AKBANK')) {
       b_marif_akbank.checks.push(c);
     }
-    // Strip 3: Etik Deniz, Marif Fiba, Fiba, İşbank, Vakıf Katılım
-    else if (isTeminataVerildi && (tb === 'DENİZ' || tb === 'DENİZ İSKONTO' || tb === 'ETİK DENİZ' || tb === 'DENIZ' || tb === 'DENIZ ISKONTO')) {
+    // Strip 3: Etik Deniz, Deniz İskonto, Marif Fiba, Fiba, İşbank, Vakıf Katılım
+    else if (isTeminataVerildi && (tb === 'DENİZ İSKONTO' || tb === 'DENIZ ISKONTO')) {
+      b_deniz_iskonto.checks.push(c);
+    }
+    else if (isTeminataVerildi && (tb === 'DENİZ' || tb === 'ETİK DENİZ' || tb === 'DENIZ')) {
       b_etik_deniz.checks.push(c);
     }
     else if (isTeminataVerildi && (tb === 'MARİF FİBA' || tb === 'MARIF FIBA')) {
@@ -247,7 +252,7 @@ export function groupCustomerChecks(
     else if (isTeminataVerildi && (tb === 'VAKIF KATILIM' || tb === 'VAKIF KATILIM-SAMSUN')) {
       b_vakif_katilim.checks.push(c);
     }
-    // Strip 4: Factoring 1 (Garanti, Marif Ulusal, İşbank Fakir, Marif Yapı, Deniz Fakir)
+    // Strip 4: Factoring 1 (Garanti, Marif Ulusal, İşbank Faktoring, Yapı Faktoring, Deniz Faktoring)
     else if (isTeminataVerildi && (tb === 'GARANTİ FAKTORİNG' || tb === 'GARANTI FAKTORING' || tb === 'GARANTİ FAK')) {
       b_garanti_fak.checks.push(c);
     }
@@ -263,7 +268,7 @@ export function groupCustomerChecks(
     else if (isTeminataVerildi && (tb === 'DENİZ FAKTORİNG' || tb === 'DENIZ FAKTORING' || tb === 'DENİZ FAKİR')) {
       b_deniz_fakir.checks.push(c);
     }
-    // Strip 5: Factoring 2 & Portfolio in hand (Finans, Fiba, TEB, Elimizdeki Çekler)
+    // Strip 5: Factoring 2 & Portfolio in hand (Finans, Fiba, TEB, Figo, Elimizdeki Çekler)
     else if (isTeminataVerildi && (tb === 'FİNANS FAKTORİNG' || tb === 'FINANS FAKTORING' || tb === 'FİNANS FAKİR')) {
       b_finans_fakir.checks.push(c);
     }
@@ -272,6 +277,9 @@ export function groupCustomerChecks(
     }
     else if (isTeminataVerildi && (tb === 'TEB FAKTORİNG' || tb === 'TEB FAKTORING' || tb === 'TEB FAKİR')) {
       b_teb_fakir.checks.push(c);
+    }
+    else if (isTeminataVerildi && (tb === 'FİGO FAKTORİNG' || tb === 'FIGO FAKTORING' || tb === 'FİGO FAKİR')) {
+      b_figo_fakir.checks.push(c);
     }
     else if (isPortfoyde && ce === 'ELİMİZDE') {
       b_elimizdeki.checks.push(c);
@@ -297,6 +305,7 @@ export function groupCustomerChecks(
     b_marif_kuveyt,
     b_marif_akbank,
     b_etik_deniz,
+    b_deniz_iskonto,
     b_marif_fiba,
     b_fiba,
     b_isbank_iskonto,
@@ -309,6 +318,7 @@ export function groupCustomerChecks(
     b_finans_fakir,
     b_fiba_fakir,
     b_teb_fakir,
+    b_figo_fakir,
     b_elimizdeki,
     b_senet,
   ];
@@ -348,10 +358,10 @@ export function groupCustomerChecks(
     stripTotal: strip2Blocks.reduce((sum, b) => sum + b.subtotal, 0),
   };
 
-  const strip3Blocks = [b_etik_deniz, b_marif_fiba, b_fiba, b_isbank_iskonto, b_vakif_katilim];
+  const strip3Blocks = [b_etik_deniz, b_deniz_iskonto, b_marif_fiba, b_fiba, b_isbank_iskonto, b_vakif_katilim];
   const strip3: MatrixStrip = {
     stripNumber: 3,
-    title: 'ETİK DENİZ / MARİF FİBA / FİBA / İŞBANK / VAKIF KATILIM',
+    title: 'ETİK DENİZ / DENİZ İSKONTO / MARİF FİBA / FİBA / İŞBANK / VAKIF KATILIM',
     blocks: strip3Blocks,
     stripTotal: strip3Blocks.reduce((sum, b) => sum + b.subtotal, 0),
   };
@@ -364,11 +374,11 @@ export function groupCustomerChecks(
     stripTotal: strip4Blocks.reduce((sum, b) => sum + b.subtotal, 0),
   };
 
-  // Strip 5 includes Factoring 2, Elimizdeki Çekler, and any dynamic fallback blocks
-  const strip5Blocks = [b_finans_fakir, b_fiba_fakir, b_teb_fakir, b_elimizdeki, ...dynamicBlocks];
+  // Strip 5 includes Factoring 2 (Finans, Fiba, TEB, Figo), Elimizdeki Çekler, and any dynamic fallback blocks
+  const strip5Blocks = [b_finans_fakir, b_fiba_fakir, b_teb_fakir, b_figo_fakir, b_elimizdeki, ...dynamicBlocks];
   const strip5: MatrixStrip = {
     stripNumber: 5,
-    title: 'FİNANS / FİBA / TEB FAKTORİNG & ELİMİZDEKİ ÇEKLER',
+    title: 'FİNANS / FİBA / TEB / FİGO FAKTORİNG & ELİMİZDEKİ ÇEKLER',
     blocks: strip5Blocks,
     stripTotal: strip5Blocks.reduce((sum, b) => sum + b.subtotal, 0),
   };
