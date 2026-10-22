@@ -23,6 +23,8 @@ import {
   Plus,
   Trash2,
   RotateCcw,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import { CustomerCheckItem } from './types/customerChecks';
 import {
@@ -57,7 +59,7 @@ export function CustomerChecksPage() {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
 
-  // Tahsildeki Senetler Ekleme / Çıkarma state'leri
+  // Tahsildeki Senetler Ekleme / Çıkarma / Düzenleme state'leri
   const [showAddSenetForm, setShowAddSenetForm] = useState(false);
   const [newSenetDate, setNewSenetDate] = useState(() => new Date().toISOString().substring(0, 10));
   const [newSenetKesideci, setNewSenetKesideci] = useState('');
@@ -65,6 +67,10 @@ export function CustomerChecksPage() {
   const [newSenetAmount, setNewSenetAmount] = useState('');
   const [isSavingSenet, setIsSavingSenet] = useState(false);
   const [removedSenetHistory, setRemovedSenetHistory] = useState<CustomerCheckItem[]>([]);
+  const [editingSenetId, setEditingSenetId] = useState<string | null>(null);
+  const [editSenetDate, setEditSenetDate] = useState('');
+  const [editSenetName, setEditSenetName] = useState('');
+  const [editSenetAmount, setEditSenetAmount] = useState('');
 
   // Kasada / Yazılan / Avukattaki Çekler Ekleme / Çıkarma state'leri
   const [showAddKasadaForm, setShowAddKasadaForm] = useState(false);
@@ -298,6 +304,68 @@ export function CustomerChecksPage() {
     } catch (err: any) {
       console.error('Senet geri alma hatası:', err);
       notify('Senet geri alınırken hata: ' + (err?.message || String(err)), 'error');
+      void fetchCustomerChecks();
+    }
+  };
+
+  const startEditingSenet = (item: CustomerCheckItem) => {
+    setEditingSenetId(item.id);
+    setEditSenetDate((item.due_date || '').substring(0, 10));
+    setEditSenetName(formatDrawerEndorser(item.kesideci, item.creditor));
+    setEditSenetAmount(item.amount ? String(item.amount) : '');
+  };
+
+  const cancelEditingSenet = () => {
+    setEditingSenetId(null);
+    setEditSenetDate('');
+    setEditSenetName('');
+    setEditSenetAmount('');
+  };
+
+  const handleSaveEditSenet = async (item: CustomerCheckItem) => {
+    const cleanName = editSenetName.trim().toLocaleUpperCase('tr-TR');
+    const rawAmtStr = editSenetAmount.replace(/\./g, '').replace(',', '.').trim();
+    const parsedAmount = rawAmtStr === '' ? 0 : parseFloat(rawAmtStr);
+
+    if (!editSenetDate) {
+      notify('Lütfen geçerli bir vade tarihi girin.', 'error');
+      return;
+    }
+    if (!cleanName) {
+      notify('Lütfen keşideci / firma adını girin.', 'error');
+      return;
+    }
+    if (isNaN(parsedAmount) || parsedAmount < 0) {
+      notify('Lütfen geçerli bir tutar girin.', 'error');
+      return;
+    }
+
+    const updatedFields = {
+      due_date: editSenetDate,
+      issue_date: editSenetDate,
+      kesideci: cleanName,
+      creditor: cleanName,
+      amount: parsedAmount,
+    };
+
+    // Optimistically update UI
+    setChecks((prev) =>
+      prev.map((c) => (c.id === item.id ? { ...c, ...updatedFields } : c))
+    );
+    cancelEditingSenet();
+
+    try {
+      await ensureSupabaseBackendSession();
+      const { error } = await supabase
+        .from('ebs_checks')
+        .update(updatedFields)
+        .eq('id', item.id);
+
+      if (error) throw error;
+      notify('Senet bilgileri güncellendi.', 'success');
+    } catch (err: any) {
+      console.error('Senet güncelleme hatası:', err);
+      notify('Senet güncellenirken hata oluştu: ' + (err?.message || String(err)), 'error');
       void fetchCustomerChecks();
     }
   };
@@ -804,9 +872,6 @@ export function CustomerChecksPage() {
                     <span className="font-bold text-[11px] tracking-wide truncate" title={strip.title}>
                       SÜTUN {strip.stripNumber}: {strip.title}
                     </span>
-                    <span className="font-mono text-[11px] font-bold text-amber-300 shrink-0 ml-1">
-                      {formatCurrency(strip.stripTotal)}
-                    </span>
                   </div>
 
                   {/* Bank & Factoring Blocks */}
@@ -961,10 +1026,78 @@ export function CustomerChecksPage() {
                           block.checks.map((c) => {
                             const formattedDrawer = formatDrawerEndorser(c.kesideci, c.creditor);
                             const isSenetBlock = block.id === 'tahsildeki-senetler';
+                            const isEditingThisRow = isSenetBlock && editingSenetId === c.id;
+
+                            if (isEditingThisRow) {
+                              return (
+                                <div
+                                  key={c.id}
+                                  data-html2canvas-ignore="true"
+                                  className="no-print bg-amber-50/90 p-1.5 space-y-1.5 border-l-2 border-amber-500"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      void handleSaveEditSenet(c);
+                                    } else if (e.key === 'Escape') {
+                                      cancelEditingSenet();
+                                    }
+                                  }}
+                                >
+                                  <div className="grid grid-cols-12 gap-1">
+                                    <input
+                                      type="date"
+                                      value={editSenetDate}
+                                      onChange={(e) => setEditSenetDate(e.target.value)}
+                                      className="col-span-5 rounded border border-amber-300 bg-white px-1 py-0.5 text-[10px] font-mono focus:border-amber-600 focus:outline-none"
+                                    />
+                                    <input
+                                      type="text"
+                                      inputMode="decimal"
+                                      placeholder="Tutar (₺)"
+                                      value={editSenetAmount}
+                                      onChange={(e) => setEditSenetAmount(e.target.value)}
+                                      className="col-span-7 rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-mono font-bold text-right focus:border-amber-600 focus:outline-none"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="text"
+                                      placeholder="Keşideci / Açıklama"
+                                      value={editSenetName}
+                                      onChange={(e) => setEditSenetName(e.target.value)}
+                                      className="flex-1 rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-medium uppercase focus:border-amber-600 focus:outline-none"
+                                      autoFocus
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleSaveEditSenet(c)}
+                                      className="p-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                                      title="Kaydet (Enter)"
+                                    >
+                                      <Check size={11} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={cancelEditingSenet}
+                                      className="p-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 shrink-0"
+                                      title="İptal (Esc)"
+                                    >
+                                      <X size={11} />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            }
+
                             return (
                               <div
                                 key={c.id}
-                                className="group grid grid-cols-12 px-1.5 py-1 hover:bg-amber-50/50 transition-colors items-center"
+                                onDoubleClick={() => {
+                                  if (isSenetBlock) startEditingSenet(c);
+                                }}
+                                className={`group grid grid-cols-12 px-1.5 py-1 hover:bg-amber-50/50 transition-colors items-center ${
+                                  isSenetBlock ? 'cursor-pointer' : ''
+                                }`}
                               >
                                 <span
                                   className="col-span-3 font-mono text-gray-600 truncate"
@@ -978,22 +1111,40 @@ export function CustomerChecksPage() {
                                 >
                                   {formattedDrawer}
                                 </span>
-                                <span className="col-span-4 font-mono font-bold text-gray-900 text-right whitespace-nowrap flex items-center justify-end gap-1">
+                                <span className="col-span-4 font-mono font-bold text-gray-900 text-right whitespace-nowrap flex items-center justify-end gap-0.5">
                                   <span>
                                     {isSenetBlock && Number(c.amount || 0) === 0
                                       ? ''
                                       : formatCurrency(c.amount, false)}
                                   </span>
                                   {isSenetBlock && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveSenet(c)}
+                                    <span
                                       data-html2canvas-ignore="true"
-                                      className="no-print text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-0.5 rounded transition-colors shrink-0"
-                                      title="Bu senedi listeden çıkar"
+                                      className="no-print inline-flex items-center gap-0.5 ml-0.5 shrink-0"
                                     >
-                                      <Trash2 size={11} />
-                                    </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          startEditingSenet(c);
+                                        }}
+                                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-0.5 rounded transition-colors"
+                                        title="Bu senedi düzenle (veya satıra çift tıklayın)"
+                                      >
+                                        <Pencil size={10} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void handleRemoveSenet(c);
+                                        }}
+                                        className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-0.5 rounded transition-colors"
+                                        title="Bu senedi listeden çıkar"
+                                      >
+                                        <Trash2 size={10} />
+                                      </button>
+                                    </span>
                                   )}
                                 </span>
                               </div>
@@ -1012,13 +1163,18 @@ export function CustomerChecksPage() {
                     </div>
                   ))}
 
-                  {/* Strip Total Summary Card (if multiple blocks) */}
-                  {strip.blocks.length > 1 && (
-                    <div className="bg-slate-100 text-slate-800 px-2.5 py-1.5 rounded-md border border-slate-200 flex items-center justify-between text-[11px] font-bold">
-                      <span className="truncate">{strip.title} Toplamı:</span>
-                      <span className="font-mono text-slate-900 shrink-0 ml-1">
-                        {formatCurrency(strip.stripTotal)}
-                      </span>
+                  {/* Tahsildeki Senetler Altındaki Boşluğa Büyük GENEL TOPLAM Kutusu */}
+                  {strip.stripNumber === 6 && (
+                    <div className="mt-2 rounded-xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-4 shadow-md border-2 border-amber-400 space-y-2">
+                      <div className="text-xs font-black uppercase tracking-widest text-amber-300 text-center border-b border-slate-700 pb-2">
+                        GENEL TOPLAM
+                      </div>
+                      <div className="text-xl font-black font-mono text-amber-400 text-center tracking-tight py-1.5">
+                        {formatCurrency(groupedData.matrixTotal)}
+                      </div>
+                      <div className="text-[10px] text-slate-300 text-center font-medium">
+                        Matris Toplamı ({groupedData.totalMatrixChecks} Kayıt)
+                      </div>
                     </div>
                   )}
                 </div>
