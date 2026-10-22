@@ -66,6 +66,18 @@ export function CustomerChecksPage() {
   const [isSavingSenet, setIsSavingSenet] = useState(false);
   const [removedSenetHistory, setRemovedSenetHistory] = useState<CustomerCheckItem[]>([]);
 
+  // Kasada / Yazılan / Avukattaki Çekler Ekleme / Çıkarma state'leri
+  const [showAddKasadaForm, setShowAddKasadaForm] = useState(false);
+  const [newKasadaDate, setNewKasadaDate] = useState(() => new Date().toISOString().substring(0, 10));
+  const [newKasadaCheckNo, setNewKasadaCheckNo] = useState('');
+  const [newKasadaKesideci, setNewKasadaKesideci] = useState('');
+  const [newKasadaCiroEden, setNewKasadaCiroEden] = useState('');
+  const [newKasadaBank, setNewKasadaBank] = useState('');
+  const [newKasadaLocation, setNewKasadaLocation] = useState('KASADA');
+  const [newKasadaAmount, setNewKasadaAmount] = useState('');
+  const [isSavingKasada, setIsSavingKasada] = useState(false);
+  const [removedKasadaHistory, setRemovedKasadaHistory] = useState<CustomerCheckItem[]>([]);
+
   /**
    * Fetches all active incoming customer checks from Supabase ebs_checks table.
    * Uses pagination loop to guarantee all checks (>400) are retrieved without truncation.
@@ -287,6 +299,163 @@ export function CustomerChecksPage() {
     } catch (err: any) {
       console.error('Senet geri alma hatası:', err);
       notify('Senet geri alınırken hata: ' + (err?.message || String(err)), 'error');
+      void fetchCustomerChecks();
+    }
+  };
+
+  // =========================================================================
+  // KASADA / YAZILAN / AVUKATTAKİ ÇEKLER EKLEME / ÇIKARMA / GERİ ALMA İŞLEMLERİ
+  // =========================================================================
+  const handleAddKasadaCheck = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const kesideciClean = newKasadaKesideci.trim().toLocaleUpperCase('tr-TR');
+    const ciroClean = newKasadaCiroEden.trim().toLocaleUpperCase('tr-TR');
+    const checkNoClean = newKasadaCheckNo.trim();
+    const bankClean = newKasadaBank.trim().toLocaleUpperCase('tr-TR');
+    const locationClean = (newKasadaLocation || 'KASADA').trim().toLocaleUpperCase('tr-TR');
+    const parsedAmount = parseFloat(
+      newKasadaAmount.replace(/\./g, '').replace(',', '.').trim()
+    );
+
+    if (!newKasadaDate) {
+      notify('Lütfen çek vade tarihini seçin.', 'error');
+      return;
+    }
+    if (!kesideciClean) {
+      notify('Lütfen keşideci / firma adını girin.', 'error');
+      return;
+    }
+    if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
+      notify('Lütfen geçerli bir çek tutarı girin.', 'error');
+      return;
+    }
+
+    setIsSavingKasada(true);
+    try {
+      await ensureSupabaseBackendSession();
+      const payload = {
+        organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
+        check_type: 'alinan',
+        document_type: 'cek',
+        local_id: Math.floor(Date.now() / 1000),
+        check_no: checkNoClean,
+        issue_date: newKasadaDate,
+        due_date: newKasadaDate,
+        amount: parsedAmount,
+        kesideci: kesideciClean,
+        creditor: ciroClean || kesideciClean,
+        debtor: '',
+        bank_name: bankClean || '-',
+        bank_branch: '',
+        tahsildar_banka: '',
+        ciro_edilen: locationClean,
+        status: 'Portföyde',
+        para_birimi: 'TL',
+        ozel_alan: 'WEB_MANUEL_KASADA',
+      };
+
+      const { data: inserted, error } = await supabase
+        .from('ebs_checks')
+        .insert([payload])
+        .select();
+
+      if (error) throw error;
+
+      const createdRow: CustomerCheckItem =
+        inserted && inserted[0]
+          ? (inserted[0] as CustomerCheckItem)
+          : ({ id: `kasada-${Date.now()}`, ...payload } as CustomerCheckItem);
+
+      setChecks((prev) => [...prev, createdRow]);
+      setNewKasadaCheckNo('');
+      setNewKasadaKesideci('');
+      setNewKasadaCiroEden('');
+      setNewKasadaBank('');
+      setNewKasadaAmount('');
+      setShowAddKasadaForm(false);
+      notify('Yeni çek Kasada / Yazılan / Avukattaki Çekler tablosuna eklendi.', 'success');
+    } catch (err: any) {
+      console.error('Kasada çek ekleme hatası:', err);
+      notify('Çek eklenirken hata oluştu: ' + (err?.message || String(err)), 'error');
+    } finally {
+      setIsSavingKasada(false);
+    }
+  };
+
+  const handleRemoveKasadaCheck = async (item: CustomerCheckItem) => {
+    setChecks((prev) => prev.filter((c) => c.id !== item.id));
+    setRemovedKasadaHistory((prev) => [...prev, item]);
+
+    try {
+      await ensureSupabaseBackendSession();
+      const ozelUpper = String(item.ozel_alan || '').toUpperCase();
+      const isWebManual = ozelUpper.includes('WEB_MANUEL_KASADA') || ozelUpper.includes('WEB_MANUEL_SENET');
+      const hasEbsLocalId = Boolean(item.local_id && item.local_id > 0 && item.local_id < 1000000);
+
+      if (hasEbsLocalId && !isWebManual) {
+        const { error } = await supabase
+          .from('ebs_checks')
+          .update({
+            status: 'Ödendi',
+            ozel_alan: 'SİLİNDİ - KASADA LİSTESİNDEN KALDIRILDI',
+          })
+          .eq('id', item.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('ebs_checks').delete().eq('id', item.id);
+        if (error) throw error;
+      }
+
+      notify('Çek listeden çıkarıldı.', 'success');
+    } catch (err: any) {
+      console.error('Kasada çek silme hatası:', err);
+      notify('Çek çıkarılırken hata oluştu: ' + (err?.message || String(err)), 'error');
+      void fetchCustomerChecks();
+    }
+  };
+
+  const handleUndoRemoveKasadaCheck = async () => {
+    if (removedKasadaHistory.length === 0) return;
+    const lastRemoved = removedKasadaHistory[removedKasadaHistory.length - 1];
+    setRemovedKasadaHistory((prev) => prev.slice(0, -1));
+
+    try {
+      await ensureSupabaseBackendSession();
+      const ozelUpper = String(lastRemoved.ozel_alan || '').toUpperCase();
+      const isWebManual = ozelUpper.includes('WEB_MANUEL_KASADA') || ozelUpper.includes('WEB_MANUEL_SENET');
+      const hasEbsLocalId = Boolean(
+        lastRemoved.local_id && lastRemoved.local_id > 0 && lastRemoved.local_id < 1000000
+      );
+
+      if (hasEbsLocalId && !isWebManual) {
+        const { error } = await supabase
+          .from('ebs_checks')
+          .update({
+            status: lastRemoved.status || 'Portföyde',
+            ozel_alan:
+              lastRemoved.ozel_alan && !lastRemoved.ozel_alan.includes('SİLİNDİ')
+                ? lastRemoved.ozel_alan
+                : '',
+          })
+          .eq('id', lastRemoved.id);
+        if (error) throw error;
+        setChecks((prev) => [...prev, lastRemoved]);
+      } else {
+        const { id: _oldId, ...insertFields } = lastRemoved as any;
+        const { data: reInserted, error } = await supabase
+          .from('ebs_checks')
+          .insert([insertFields])
+          .select();
+        if (error) throw error;
+        const restored =
+          reInserted && reInserted[0] ? (reInserted[0] as CustomerCheckItem) : lastRemoved;
+        setChecks((prev) => [...prev, restored]);
+      }
+
+      notify('Çıkarılan çek geri alındı.', 'success');
+    } catch (err: any) {
+      console.error('Kasada çek geri alma hatası:', err);
+      notify('Çek geri alınırken hata: ' + (err?.message || String(err)), 'error');
       void fetchCustomerChecks();
     }
   };
@@ -908,12 +1077,178 @@ export function CustomerChecksPage() {
                 Kasada bekleyen, yazılan veya hukuki takipteki müşteri çekleri
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600">
+            <div className="flex flex-wrap items-center gap-2">
+              {removedKasadaHistory.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleUndoRemoveKasadaCheck}
+                  data-html2canvas-ignore="true"
+                  className="no-print inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-bold transition-colors"
+                  title="Son çıkarılan çeki geri al"
+                >
+                  <RotateCcw size={13} />
+                  <span>Geri Al ({removedKasadaHistory.length})</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowAddKasadaForm((prev) => !prev)}
+                data-html2canvas-ignore="true"
+                className="no-print inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors"
+                title="Kasada / Yazılan / Avukattaki Çekler tablosuna yeni çek ekle"
+              >
+                <Plus size={14} />
+                <span>Yeni Çek Ekle</span>
+              </button>
+              <span className="text-xs font-semibold text-gray-600 ml-1">
                 Toplam: <strong className="font-mono text-gray-900">{formatCurrency(groupedData.kasadaTotal)}</strong> ({groupedData.kasadaChecks.length} Çek)
               </span>
             </div>
           </div>
+
+          {/* Inline Add Form for Kasada / Yazılan / Avukattaki Çekler */}
+          {showAddKasadaForm && (
+            <form
+              onSubmit={handleAddKasadaCheck}
+              data-html2canvas-ignore="true"
+              className="no-print bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200 space-y-3 text-xs"
+            >
+              <div className="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                <span className="font-bold text-emerald-900">
+                  Kasada / Yazılan / Avukattaki Çekler Tablosuna Yeni Kayıt Ekle
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowAddKasadaForm(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                    Vade Tarihi *
+                  </label>
+                  <input
+                    type="date"
+                    value={newKasadaDate}
+                    onChange={(e) => setNewKasadaDate(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs focus:border-emerald-500 focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                    Çek No
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Örn: 2044998"
+                    value={newKasadaCheckNo}
+                    onChange={(e) => setNewKasadaCheckNo(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-mono focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                    Keşideci / Borçlu *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Örn: AKY PLASTİK AMBALAJ"
+                    value={newKasadaKesideci}
+                    onChange={(e) => setNewKasadaKesideci(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs uppercase focus:border-emerald-500 focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                    Ciro Eden (Opsiyonel)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Örn: MURAT ATEŞ KENDİNE"
+                    value={newKasadaCiroEden}
+                    onChange={(e) => setNewKasadaCiroEden(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs uppercase focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                    Banka
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Örn: İŞ, HALK, DENİZ"
+                    value={newKasadaBank}
+                    onChange={(e) => setNewKasadaBank(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs uppercase focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                    Ciro Edilen / Konum *
+                  </label>
+                  <select
+                    value={newKasadaLocation}
+                    onChange={(e) => setNewKasadaLocation(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none"
+                  >
+                    <option value="KASADA">KASADA</option>
+                    <option value="KASADA YAZILDI">KASADA YAZILDI</option>
+                    <option value="KASADA İCRA DA">KASADA İCRA DA</option>
+                    <option value="BURAK TA AVUKAT">BURAK TA AVUKAT</option>
+                    <option value="ÖNDER ABİ DE">ÖNDER ABİ DE</option>
+                    <option value="ÖNDER ABİ DE BEDELSİZ">ÖNDER ABİ DE BEDELSİZ</option>
+                    <option value="APO ABİ DE">APO ABİ DE</option>
+                    <option value="BANKADA">BANKADA</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2.5 pt-1">
+                <div className="w-full sm:w-64">
+                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                    Tutar (₺) *
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Örn: 1500000"
+                    value={newKasadaAmount}
+                    onChange={(e) => setNewKasadaAmount(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-mono font-bold focus:border-emerald-500 focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddKasadaForm(false)}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-semibold"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingKasada}
+                    className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs disabled:opacity-50"
+                  >
+                    {isSavingKasada ? 'Kaydediliyor...' : 'Kaydet'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
 
           {/* Quick Filter Badges/Pills by Ciro Edilen Category */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -1026,7 +1361,18 @@ export function CustomerChecksPage() {
                         </span>
                       </td>
                       <td className="py-2 px-3 text-right font-bold font-mono text-gray-900 whitespace-nowrap">
-                        {formatCurrency(c.amount)}
+                        <div className="inline-flex items-center justify-end gap-2">
+                          <span>{formatCurrency(c.amount)}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveKasadaCheck(c)}
+                            data-html2canvas-ignore="true"
+                            className="no-print text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition-colors shrink-0"
+                            title="Bu çeki listeden çıkar"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
