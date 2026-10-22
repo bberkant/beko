@@ -10,6 +10,7 @@ import html2canvas from 'html2canvas';
 import {
   GroupedCustomerChecks,
   CustomerCheckItem,
+  MatrixStrip,
 } from '../types/customerChecks';
 import {
   formatCurrency,
@@ -25,97 +26,73 @@ export interface ExcelExportResult {
 }
 
 /**
- * Exports Customer Checks to a multi-sheet Excel (.xlsx) workbook:
- * - Sheet 1: "Müşteri Çekleri Matrisi" (6 side-by-side vertical strips with block headers, check rows, subtotals)
- * - Sheet 2: "Kasada - Avukat - Yazılan" (Returned/legal/safe checks table)
- * - Sheet 3: "Tüm Çekler (Düz Liste)" (Complete flat listing for pivot analysis)
+ * Helper to build 3-column rows for a single strip: [Vade, Keşideci (Ciro Eden), Tutar]
  */
-export function exportCustomerChecksToExcel(
-  groupedData: GroupedCustomerChecks,
-  dateStr?: string
-): ExcelExportResult {
-  const wb = XLSX.utils.book_new();
-  const dateFormatted = dateStr || new Date().toLocaleDateString('tr-TR');
+function buildStripRows(strip: MatrixStrip): (string | number)[][] {
+  const stripRows: (string | number)[][] = [];
 
-  // =========================================================================
-  // SHEET 1: Müşteri Çekleri Matrisi (6-Strip Side-by-Side Layout)
-  // =========================================================================
-  // For each strip (0..5), construct an array of 3-column cells: [Vade, Keşideci (Ciro Eden), Tutar]
-  const stripColumnsData: (string | number)[][][] = [];
+  // Strip Header
+  stripRows.push([
+    `SÜTUN ${strip.stripNumber}: ${strip.title}`,
+    `Toplam: ${formatCurrency(strip.stripTotal)}`,
+    '',
+  ]);
+  stripRows.push(['', '', '']); // empty row
 
-  groupedData.strips.forEach((strip) => {
-    const stripRows: (string | number)[][] = [];
-
-    // Strip Header
+  // Blocks in this strip
+  strip.blocks.forEach((block) => {
     stripRows.push([
-      `SÜTUN ${strip.stripNumber}: ${strip.title}`,
-      `Toplam: ${formatCurrency(strip.stripTotal)}`,
+      `[${block.title}] (${block.checks.length} Adet)`,
+      `Ara Toplam: ${formatCurrency(block.subtotal)}`,
       '',
     ]);
-    stripRows.push(['', '', '']); // empty row
+    stripRows.push(['Vade Tarihi', 'Keşideci (Ciro Eden)', 'Tutar (TL)']);
 
-    // Blocks in this strip
-    strip.blocks.forEach((block) => {
-      stripRows.push([
-        `[${block.title}] (${block.checks.length} Adet)`,
-        `Ara Toplam: ${formatCurrency(block.subtotal)}`,
-        '',
-      ]);
-      stripRows.push(['Vade Tarihi', 'Keşideci (Ciro Eden)', 'Tutar (TL)']);
+    if (block.checks.length === 0) {
+      stripRows.push(['-', 'Kayıt bulunamadı', 0]);
+    } else {
+      block.checks.forEach((c) => {
+        stripRows.push([
+          formatDate(c.due_date),
+          formatDrawerEndorser(c.kesideci, c.creditor),
+          Number(c.amount || 0),
+        ]);
+      });
+    }
 
-      if (block.checks.length === 0) {
-        stripRows.push(['-', 'Kayıt bulunamadı', 0]);
-      } else {
-        block.checks.forEach((c) => {
-          stripRows.push([
-            formatDate(c.due_date),
-            formatDrawerEndorser(c.kesideci, c.creditor),
-            Number(c.amount || 0),
-          ]);
-        });
-      }
-
-      // Block Subtotal
-      stripRows.push(['', 'Ara Toplam:', Number(block.subtotal || 0)]);
-      stripRows.push(['', '', '']); // spacer
-    });
-
-    // Strip Subtotal
-    stripRows.push([
-      '',
-      `${strip.title} Toplamı:`,
-      Number(strip.stripTotal || 0),
-    ]);
-
-    stripColumnsData.push(stripRows);
+    // Block Subtotal
+    stripRows.push(['', 'Ara Toplam:', Number(block.subtotal || 0)]);
+    stripRows.push(['', '', '']); // spacer
   });
 
-  // Calculate maximum rows among all strips
-  const maxStripRows = Math.max(
-    0,
-    ...stripColumnsData.map((rows) => rows.length)
-  );
-
-  // Build the unified 2D grid
-  const matrixSheetData: (string | number)[][] = [];
-
-  // Title rows
-  matrixSheetData.push([
-    `DARS - MÜŞTERİ ÇEKLERİ MATRİS RAPORU (${dateFormatted})`,
+  // Strip Subtotal
+  stripRows.push([
+    '',
+    `${strip.title} Toplamı:`,
+    Number(strip.stripTotal || 0),
   ]);
-  matrixSheetData.push([
-    `GENEL TOPLAM: ${formatCurrency(groupedData.grandTotal)}`,
-    '',
-    `MATRİS TOPLAMI: ${formatCurrency(groupedData.matrixTotal)}`,
-    '',
-    `KASADA TOPLAMI: ${formatCurrency(groupedData.kasadaTotal)}`,
-    '',
-    `TOPLAM ÇEK: ${groupedData.totalActiveChecks} Adet`,
-  ]);
-  matrixSheetData.push([]); // blank line
 
-  // Align side-by-side rows
-  for (let r = 0; r < maxStripRows; r++) {
+  return stripRows;
+}
+
+/**
+ * Builds side-by-side 2D sheet grid from a subset of strips
+ */
+function buildStripsSheetGrid(
+  strips: MatrixStrip[],
+  title: string,
+  summaryRow: (string | number)[],
+  footerRows?: (string | number)[][]
+): (string | number)[][] {
+  const stripColumnsData = strips.map(buildStripRows);
+  const maxRows = Math.max(0, ...stripColumnsData.map((rows) => rows.length));
+
+  const sheetData: (string | number)[][] = [];
+  sheetData.push([title]);
+  sheetData.push(summaryRow);
+  sheetData.push([]); // blank line
+
+  for (let r = 0; r < maxRows; r++) {
     const combinedRow: (string | number)[] = [];
     for (let s = 0; s < stripColumnsData.length; s++) {
       const rowItem = stripColumnsData[s][r];
@@ -124,44 +101,156 @@ export function exportCustomerChecksToExcel(
       } else {
         combinedRow.push('', '', '');
       }
-      // Add spacer between strips
       if (s < stripColumnsData.length - 1) {
         combinedRow.push('');
       }
     }
-    matrixSheetData.push(combinedRow);
+    sheetData.push(combinedRow);
   }
 
-  // Grand summary footer row
-  matrixSheetData.push([]);
-  matrixSheetData.push([
-    'GENEL MATRİS TOPLAMI:',
-    '',
-    Number(groupedData.matrixTotal || 0),
-    '',
-    'KASADA TOPLAMI:',
-    '',
-    Number(groupedData.kasadaTotal || 0),
-    '',
-    'GENEL TOPLAM:',
-    '',
-    Number(groupedData.grandTotal || 0),
-  ]);
+  if (footerRows && footerRows.length > 0) {
+    sheetData.push([]);
+    footerRows.forEach((fr) => sheetData.push(fr));
+  }
 
-  const matrixSheet = XLSX.utils.aoa_to_sheet(matrixSheetData);
+  return sheetData;
+}
 
-  // Set column widths for matrix sheet
-  const matrixCols: { wch: number }[] = [];
-  for (let s = 0; s < groupedData.strips.length; s++) {
-    matrixCols.push({ wch: 13 }); // Vade
-    matrixCols.push({ wch: 32 }); // Keşideci (Ciro Eden)
-    matrixCols.push({ wch: 16 }); // Tutar
-    if (s < groupedData.strips.length - 1) {
-      matrixCols.push({ wch: 4 }); // separator
+function getMatrixCols(stripCount: number): { wch: number }[] {
+  const cols: { wch: number }[] = [];
+  for (let s = 0; s < stripCount; s++) {
+    cols.push({ wch: 13 }); // Vade
+    cols.push({ wch: 32 }); // Keşideci
+    cols.push({ wch: 16 }); // Tutar
+    if (s < stripCount - 1) {
+      cols.push({ wch: 4 }); // separator
     }
   }
-  matrixSheet['!cols'] = matrixCols;
-  XLSX.utils.book_append_sheet(wb, matrixSheet, 'Müşteri Çekleri Matrisi');
+  return cols;
+}
+
+/**
+ * Exports Customer Checks to a multi-sheet Excel (.xlsx) workbook:
+ * - Sheet 1: "Ön Sayfa (1-3 Sütun)" (Portrait A4 print setup - Kuveyt, Albaraka, Deniz & Diğer Bankalar)
+ * - Sheet 2: "Arka Sayfa (4-6 Sütun)" (Portrait A4 print setup - Garanti, Finans/TEB Faktoring & Senetler)
+ * - Sheet 3: "Müşteri Çekleri Matrisi (Tüm)" (6 side-by-side vertical strips with block headers, check rows, subtotals)
+ * - Sheet 4: "Kasada - Avukat - Yazılan" (Returned/legal/safe checks table)
+ * - Sheet 5: "Tüm Çekler (Düz Liste)" (Complete flat listing for pivot analysis)
+ */
+export function exportCustomerChecksToExcel(
+  groupedData: GroupedCustomerChecks,
+  dateStr?: string
+): ExcelExportResult {
+  const wb = XLSX.utils.book_new();
+  const dateFormatted = dateStr || new Date().toLocaleDateString('tr-TR');
+
+  const page1Strips = groupedData.strips.slice(0, 3);
+  const page2Strips = groupedData.strips.slice(3, 6);
+
+  const page1Total = page1Strips.reduce((sum, s) => sum + Number(s.stripTotal || 0), 0);
+  const page1ChecksCount = page1Strips.reduce(
+    (sum, s) => sum + s.blocks.reduce((acc, b) => acc + b.checks.length, 0),
+    0
+  );
+
+  const page2Total = page2Strips.reduce((sum, s) => sum + Number(s.stripTotal || 0), 0);
+  const page2ChecksCount = page2Strips.reduce(
+    (sum, s) => sum + s.blocks.reduce((acc, b) => acc + b.checks.length, 0),
+    0
+  );
+
+  // =========================================================================
+  // SHEET 1: Ön Sayfa (1-3 Sütunlar - Banka Çekleri) -> DİKEY A4 YAZDIRMAYA UYGUN
+  // =========================================================================
+  const page1Grid = buildStripsSheetGrid(
+    page1Strips,
+    `DARS - MÜŞTERİ ÇEKLERİ MATRİSİ - ÖN SAYFA (1/2) (${dateFormatted})`,
+    [
+      `ÖN SAYFA TOPLAMI: ${formatCurrency(page1Total)}`,
+      '',
+      `KAYIT SAYISI: ${page1ChecksCount} Adet`,
+      '',
+      'Kapsam: 1. Sütun (Kuveyt) | 2. Sütun (Albaraka & Marif) | 3. Sütun (Deniz, Fiba & Diğerleri)',
+    ],
+    [['', 'ÖN SAYFA (1. GRUP) TOPLAMI:', page1Total]]
+  );
+  const sheetPage1 = XLSX.utils.aoa_to_sheet(page1Grid);
+  sheetPage1['!cols'] = getMatrixCols(3);
+  (sheetPage1 as any)['!pageSetup'] = { orientation: 'portrait', paperSize: 9, fitToWidth: 1, fitToHeight: 0 };
+  XLSX.utils.book_append_sheet(wb, sheetPage1, 'Ön Sayfa (1-3 Sütun)');
+
+  // =========================================================================
+  // SHEET 2: Arka Sayfa (4-6 Sütunlar - Faktoring & Senetler) -> DİKEY A4 YAZDIRMAYA UYGUN
+  // =========================================================================
+  const page2Grid = buildStripsSheetGrid(
+    page2Strips,
+    `DARS - MÜŞTERİ ÇEKLERİ MATRİSİ - ARKA SAYFA (2/2) (${dateFormatted})`,
+    [
+      `ARKA SAYFA TOPLAMI: ${formatCurrency(page2Total)}`,
+      '',
+      `KAYIT SAYISI: ${page2ChecksCount} Adet`,
+      '',
+      `GENEL TOPLAM: ${formatCurrency(groupedData.grandTotal)}`,
+      '',
+      'Kapsam: 4. Sütun (Garanti Fak.) | 5. Sütun (Finans & TEB Fak.) | 6. Sütun (Tahsildeki Senetler)',
+    ],
+    [
+      ['', 'ARKA SAYFA (2. GRUP) TOPLAMI:', page2Total],
+      [],
+      [
+        'GENEL MATRİS TOPLAMI:',
+        '',
+        Number(groupedData.matrixTotal || 0),
+        '',
+        'KASADA TOPLAMI:',
+        '',
+        Number(groupedData.kasadaTotal || 0),
+        '',
+        'GENEL TOPLAM:',
+        '',
+        Number(groupedData.grandTotal || 0),
+      ],
+    ]
+  );
+  const sheetPage2 = XLSX.utils.aoa_to_sheet(page2Grid);
+  sheetPage2['!cols'] = getMatrixCols(3);
+  (sheetPage2 as any)['!pageSetup'] = { orientation: 'portrait', paperSize: 9, fitToWidth: 1, fitToHeight: 0 };
+  XLSX.utils.book_append_sheet(wb, sheetPage2, 'Arka Sayfa (4-6 Sütun)');
+
+  // =========================================================================
+  // SHEET 3: Müşteri Çekleri Matrisi (Tüm 6 Sütun Yan Yana)
+  // =========================================================================
+  const fullGrid = buildStripsSheetGrid(
+    groupedData.strips,
+    `DARS - MÜŞTERİ ÇEKLERİ MATRİS RAPORU (TÜM SÜTUNLAR) (${dateFormatted})`,
+    [
+      `GENEL TOPLAM: ${formatCurrency(groupedData.grandTotal)}`,
+      '',
+      `MATRİS TOPLAMI: ${formatCurrency(groupedData.matrixTotal)}`,
+      '',
+      `KASADA TOPLAMI: ${formatCurrency(groupedData.kasadaTotal)}`,
+      '',
+      `TOPLAM ÇEK: ${groupedData.totalActiveChecks} Adet`,
+    ],
+    [
+      [
+        'GENEL MATRİS TOPLAMI:',
+        '',
+        Number(groupedData.matrixTotal || 0),
+        '',
+        'KASADA TOPLAMI:',
+        '',
+        Number(groupedData.kasadaTotal || 0),
+        '',
+        'GENEL TOPLAM:',
+        '',
+        Number(groupedData.grandTotal || 0),
+      ],
+    ]
+  );
+  const fullMatrixSheet = XLSX.utils.aoa_to_sheet(fullGrid);
+  fullMatrixSheet['!cols'] = getMatrixCols(groupedData.strips.length);
+  XLSX.utils.book_append_sheet(wb, fullMatrixSheet, 'Müşteri Çekleri Matrisi (Tüm)');
 
   // =========================================================================
   // SHEET 2: Kasada - Avukat - Yazılan
@@ -317,17 +406,46 @@ export function exportCustomerChecksToExcel(
 }
 
 /**
- * Captures the matrix container and downloads a landscape A4 PDF.
+ * Captures the matrix pages and downloads a portrait 2-page A4 PDF:
+ * - Page 1 (Ön Sayfa): 1-3. Sütunlar (Kuveyt, Albaraka & Marif, Deniz & Diğer Bankalar)
+ * - Page 2 (Arka Sayfa): 4-6. Sütunlar (Garanti Fak., Finans & TEB Fak., Tahsildeki Senetler)
  */
 export async function exportCustomerChecksToPdf(
-  elementId = 'musteri-cekleri-matrix-capture',
-  filename?: string
+  page1OrElementId: string = 'musteri-cekleri-page-1',
+  page2OrFilename?: string,
+  maybeFilename?: string
 ): Promise<void> {
   if (typeof window === 'undefined') return;
 
-  const element = document.getElementById(elementId);
-  if (!element) {
-    throw new Error(`PDF dışa aktarımı için #${elementId} elementi bulunamadı.`);
+  let page1Id = 'musteri-cekleri-page-1';
+  let page2Id: string | null = 'musteri-cekleri-page-2';
+  let filename: string | undefined = undefined;
+
+  if (page2OrFilename && page2OrFilename.toLowerCase().endsWith('.pdf')) {
+    // Backward compatibility: (elementId, filename)
+    page1Id = page1OrElementId;
+    page2Id = null;
+    filename = page2OrFilename;
+  } else {
+    page1Id = page1OrElementId || 'musteri-cekleri-page-1';
+    page2Id = page2OrFilename || (page1Id === 'musteri-cekleri-page-1' ? 'musteri-cekleri-page-2' : null);
+    filename = maybeFilename;
+  }
+
+  // Find elements
+  let p1El = document.getElementById(page1Id);
+  let p2El = page2Id ? document.getElementById(page2Id) : null;
+
+  // Fallback if not found by specific IDs
+  if (!p1El) {
+    p1El = document.getElementById('musteri-cekleri-page-1') || document.getElementById('musteri-cekleri-matrix-capture');
+  }
+  if (!p2El && page2Id) {
+    p2El = document.getElementById('musteri-cekleri-page-2');
+  }
+
+  if (!p1El) {
+    throw new Error(`PDF dışa aktarımı için #${page1Id} elementi bulunamadı.`);
   }
 
   // Apply Tailwind Preflight baseline fix
@@ -345,71 +463,86 @@ export async function exportCustomerChecksToPdf(
   document.head.appendChild(fixStyle);
 
   try {
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-      scrollX: 0,
-      scrollY: 0,
-      windowWidth: Math.max(element.scrollWidth, 1600),
-      onclone: (clonedDoc) => {
-        const cloneFix = clonedDoc.createElement('style');
-        cloneFix.id = 'html2canvas-font-fix-clone';
-        cloneFix.textContent = `
-          img, svg {
-            display: inline !important;
-            vertical-align: baseline !important;
+    const capturePage = async (element: HTMLElement) => {
+      return await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: Math.max(element.scrollWidth, 1150),
+        onclone: (clonedDoc) => {
+          const cloneFix = clonedDoc.createElement('style');
+          cloneFix.id = 'html2canvas-font-fix-clone';
+          cloneFix.textContent = `
+            img, svg {
+              display: inline !important;
+              vertical-align: baseline !important;
+            }
+          `;
+          clonedDoc.head.appendChild(cloneFix);
+
+          clonedDoc.querySelectorAll('[data-html2canvas-ignore="true"]').forEach((el) => {
+            (el as HTMLElement).style.display = 'none';
+          });
+
+          const target = clonedDoc.getElementById(element.id);
+          if (target) {
+            target.style.position = 'static';
+            target.style.margin = '0 auto';
+            target.style.padding = '14px';
+            target.style.backgroundColor = '#ffffff';
+            target.style.width = '1100px';
+            target.style.minWidth = '1050px';
           }
-        `;
-        clonedDoc.head.appendChild(cloneFix);
+        },
+      });
+    };
 
-        clonedDoc.querySelectorAll('[data-html2canvas-ignore="true"]').forEach((el) => {
-          (el as HTMLElement).style.display = 'none';
-        });
-
-        const target = clonedDoc.getElementById(elementId);
-        if (target) {
-          target.style.position = 'static';
-          target.style.margin = '0 auto';
-          target.style.padding = '16px';
-          target.style.backgroundColor = '#ffffff';
-          target.style.width = 'max-content';
-          target.style.minWidth = '100%';
-        }
-      },
-    });
-
-    const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF({
-      orientation: 'landscape',
+      orientation: 'portrait',
       unit: 'mm',
       format: 'a4',
     });
 
-    const pdfWidth = 297; // A4 landscape width in mm
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    const pdfWidth = 210; // A4 portrait width in mm
+    const pdfHeight = 297; // A4 portrait height in mm
+    const margin = 5; // mm
+    const maxPrintableWidth = pdfWidth - margin * 2; // 200 mm
+    const maxPrintableHeight = pdfHeight - margin * 2; // 287 mm
 
-    if (pdfHeight <= 210) {
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    } else {
-      let position = 0;
-      let heightLeft = pdfHeight;
-      const pageHeight = 210;
+    const addCanvasToPdf = (canvas: HTMLCanvasElement) => {
+      const imgData = canvas.toDataURL('image/png');
+      const aspect = canvas.height / canvas.width;
+      let renderWidth = maxPrintableWidth;
+      let renderHeight = renderWidth * aspect;
 
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - pdfHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
+      if (renderHeight > maxPrintableHeight) {
+        const scale = maxPrintableHeight / renderHeight;
+        renderHeight = maxPrintableHeight;
+        renderWidth = renderWidth * scale;
       }
+
+      const offsetX = margin + (maxPrintableWidth - renderWidth) / 2;
+      const offsetY = margin + (maxPrintableHeight - renderHeight) / 2;
+
+      pdf.addImage(imgData, 'PNG', offsetX, offsetY, renderWidth, renderHeight, undefined, 'FAST');
+    };
+
+    // 1. Capture Page 1 (Ön Sayfa: 1-3. Sütunlar)
+    const canvas1 = await capturePage(p1El);
+    addCanvasToPdf(canvas1);
+
+    // 2. Capture Page 2 (Arka Sayfa: 4-6. Sütunlar) if present
+    if (p2El) {
+      pdf.addPage('a4', 'portrait');
+      const canvas2 = await capturePage(p2El);
+      addCanvasToPdf(canvas2);
     }
 
-    const defaultFilename = `Musteri_Cekleri_Listesi_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const defaultFilename = `Musteri_Cekleri_Dikey_A4_${new Date().toISOString().slice(0, 10)}.pdf`;
     pdf.save(filename || defaultFilename);
   } finally {
     document.getElementById('html2canvas-font-fix')?.remove();

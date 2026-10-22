@@ -157,6 +157,28 @@ export function CustomerChecksPage() {
     0
   ) || 0;
 
+  // Ön Sayfa (1-3. Sütunlar) ve Arka Sayfa (4-6. Sütunlar) grupları
+  const page1Strips = useMemo(() => groupedData.strips.slice(0, 3), [groupedData.strips]);
+  const page2Strips = useMemo(() => groupedData.strips.slice(3, 6), [groupedData.strips]);
+
+  const page1Total = useMemo(
+    () => page1Strips.reduce((sum, s) => sum + Number(s.stripTotal || 0), 0),
+    [page1Strips]
+  );
+  const page1ChecksCount = useMemo(
+    () => page1Strips.reduce((sum, s) => sum + s.blocks.reduce((acc, b) => acc + b.checks.length, 0), 0),
+    [page1Strips]
+  );
+
+  const page2Total = useMemo(
+    () => page2Strips.reduce((sum, s) => sum + Number(s.stripTotal || 0), 0),
+    [page2Strips]
+  );
+  const page2ChecksCount = useMemo(
+    () => page2Strips.reduce((sum, s) => sum + s.blocks.reduce((acc, b) => acc + b.checks.length, 0), 0),
+    [page2Strips]
+  );
+
   // =========================================================================
   // TAHSİLDEKİ SENETLER EKLEME / ÇIKARMA / GERİ ALMA İŞLEMLERİ
   // =========================================================================
@@ -546,8 +568,8 @@ export function CustomerChecksPage() {
   const handleExportPdf = async () => {
     try {
       setIsExportingPdf(true);
-      await exportCustomerChecksToPdf('musteri-cekleri-matrix-capture');
-      notify('Müşteri çekleri matrisi PDF dosyası başarıyla indirildi.', 'success');
+      await exportCustomerChecksToPdf('musteri-cekleri-page-1', 'musteri-cekleri-page-2');
+      notify('Müşteri çekleri matrisi Dikey A4 (Ön ve Arka Sayfa) PDF dosyası başarıyla indirildi.', 'success');
     } catch (err: any) {
       console.error('PDF dışa aktarım hatası:', err);
       notify('PDF oluşturulurken hata: ' + (err?.message || String(err)), 'error');
@@ -604,16 +626,332 @@ export function CustomerChecksPage() {
     }
   };
 
+  /**
+   * Helper to render an individual matrix strip
+   */
+  const renderStrip = (strip: (typeof groupedData.strips)[0]) => (
+    <div key={strip.stripNumber} className="flex flex-col gap-3 min-w-0 w-full">
+      {/* Strip Title Header with Strip Total */}
+      <div className="bg-slate-100/90 px-2.5 py-1.5 rounded-lg border border-slate-200 flex items-center justify-between shadow-2xs">
+        <span className="font-extrabold text-[11px] text-slate-800 uppercase tracking-tight truncate">
+          SÜTUN {strip.stripNumber}: {strip.title}
+        </span>
+        <span className="font-mono text-[11px] font-bold text-slate-900 bg-white px-2 py-0.5 rounded shadow-2xs">
+          {formatCurrency(strip.stripTotal)}
+        </span>
+      </div>
+
+      {/* Bank & Factoring Blocks */}
+      {strip.blocks.map((block) => (
+        <div
+          key={block.id}
+          className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden flex flex-col"
+        >
+          {/* Block Title Header */}
+          <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-200 flex items-center justify-between gap-1">
+            <span
+              className="font-bold text-[11px] text-gray-800 uppercase tracking-tight truncate mr-1"
+              title={block.title}
+            >
+              {block.title}
+            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              {block.id === 'tahsildeki-senetler' && removedSenetHistory.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleUndoRemoveSenet}
+                  data-html2canvas-ignore="true"
+                  className="no-print inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 text-[9px] font-bold transition-colors"
+                  title="Son çıkarılan senedi geri al"
+                >
+                  <RotateCcw size={9} />
+                  <span>Geri Al</span>
+                </button>
+              )}
+              {block.id === 'tahsildeki-senetler' && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddSenetForm((prev) => !prev)}
+                  data-html2canvas-ignore="true"
+                  className="no-print inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold shadow-2xs transition-colors"
+                  title="Tahsildeki Senetlere Yeni Senet Ekle"
+                >
+                  <Plus size={10} />
+                  <span>Ekle</span>
+                </button>
+              )}
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-semibold bg-gray-200 text-gray-700 shrink-0">
+                {block.checks.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Inline Add Form ONLY for Tahsildeki Senetler */}
+          {block.id === 'tahsildeki-senetler' && showAddSenetForm && (
+            <form
+              onSubmit={handleAddSenet}
+              data-html2canvas-ignore="true"
+              className="no-print bg-emerald-50/70 p-2 border-b border-emerald-200 space-y-1.5 text-[10px]"
+            >
+              <div className="font-bold text-emerald-900 flex items-center justify-between">
+                <span>Yeni Senet Ekle</span>
+                <button
+                  type="button"
+                  onClick={() => setShowAddSenetForm(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+              <div>
+                <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
+                  Vade Tarihi
+                </label>
+                <input
+                  type="date"
+                  value={newSenetDate}
+                  onChange={(e) => setNewSenetDate(e.target.value)}
+                  className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] focus:border-emerald-500 focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
+                  Keşideci / Borçlu
+                </label>
+                <input
+                  type="text"
+                  placeholder="Örn: KÖFTEHANEM"
+                  value={newSenetKesideci}
+                  onChange={(e) => setNewSenetKesideci(e.target.value)}
+                  className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] uppercase focus:border-emerald-500 focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
+                  Ciro Eden (Opsiyonel)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Örn: GEREDE ÜRETİM"
+                  value={newSenetCiroEden}
+                  onChange={(e) => setNewSenetCiroEden(e.target.value)}
+                  className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] uppercase focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
+                  Tutar (₺)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Örn: 250000"
+                  value={newSenetAmount}
+                  onChange={(e) => setNewSenetAmount(e.target.value)}
+                  className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] font-mono focus:border-emerald-500 focus:outline-none"
+                  required
+                />
+              </div>
+              <div className="flex items-center justify-end gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowAddSenetForm(false)}
+                  className="px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-semibold"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingSenet}
+                  className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-2xs disabled:opacity-50"
+                >
+                  {isSavingSenet ? 'Kaydediliyor...' : 'Kaydet'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Checks List */}
+          <div className="divide-y divide-gray-100 text-[10px]">
+            <div className="grid grid-cols-12 bg-gray-50/70 px-1.5 py-1 text-[9px] font-bold text-gray-500 uppercase border-b border-gray-100">
+              <span className="col-span-3">Vade</span>
+              <span className="col-span-6">Keşideci (Ciro)</span>
+              <span className="col-span-3 text-right">Tutar</span>
+            </div>
+
+            {loading ? (
+              <div className="py-3 text-center text-gray-400 text-[10px]">
+                Yükleniyor...
+              </div>
+            ) : block.checks.length === 0 ? (
+              <div className="py-2.5 text-center text-gray-400 italic text-[10px]">
+                Kayıt bulunamadı
+              </div>
+            ) : (
+              block.checks.map((c) => {
+                const formattedDrawer = formatDrawerEndorser(c.kesideci, c.creditor);
+                const isSenetBlock = block.id === 'tahsildeki-senetler';
+                const isEditingThisRow = isSenetBlock && editingSenetId === c.id;
+
+                if (isEditingThisRow) {
+                  return (
+                    <div
+                      key={c.id}
+                      data-html2canvas-ignore="true"
+                      className="no-print bg-amber-50/90 p-1.5 space-y-1.5 border-l-2 border-amber-500"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void handleSaveEditSenet(c);
+                        } else if (e.key === 'Escape') {
+                          cancelEditingSenet();
+                        }
+                      }}
+                    >
+                      <div className="grid grid-cols-12 gap-1">
+                        <input
+                          type="date"
+                          value={editSenetDate}
+                          onChange={(e) => setEditSenetDate(e.target.value)}
+                          className="col-span-5 rounded border border-amber-300 bg-white px-1 py-0.5 text-[10px] font-mono focus:border-amber-600 focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="Tutar (₺)"
+                          value={editSenetAmount}
+                          onChange={(e) => setEditSenetAmount(e.target.value)}
+                          className="col-span-7 rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-mono font-bold text-right focus:border-amber-600 focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          placeholder="Keşideci / Açıklama"
+                          value={editSenetName}
+                          onChange={(e) => setEditSenetName(e.target.value)}
+                          className="flex-1 rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-medium uppercase focus:border-amber-600 focus:outline-none"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveEditSenet(c)}
+                          className="p-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                          title="Kaydet (Enter)"
+                        >
+                          <Check size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditingSenet}
+                          className="p-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 shrink-0"
+                          title="İptal (Esc)"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={c.id}
+                    onDoubleClick={() => {
+                      if (isSenetBlock) startEditingSenet(c);
+                    }}
+                    className={`group grid grid-cols-12 px-1.5 py-1 hover:bg-amber-50/50 transition-colors items-center ${
+                      isSenetBlock ? 'cursor-pointer' : ''
+                    }`}
+                  >
+                    <span
+                      className="col-span-3 font-mono text-gray-600 truncate"
+                      title={c.due_date || '-'}
+                    >
+                      {formatDate(c.due_date)}
+                    </span>
+                    <span
+                      className="col-span-5 font-medium text-gray-800 truncate pr-1"
+                      title={formattedDrawer}
+                    >
+                      {formattedDrawer}
+                    </span>
+                    <span className="col-span-4 font-mono font-bold text-gray-900 text-right whitespace-nowrap flex items-center justify-end gap-0.5">
+                      <span>
+                        {isSenetBlock && Number(c.amount || 0) === 0
+                          ? ''
+                          : formatCurrency(c.amount, false)}
+                      </span>
+                      {isSenetBlock && (
+                        <span
+                          data-html2canvas-ignore="true"
+                          className="no-print inline-flex items-center gap-0.5 ml-0.5 shrink-0"
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditingSenet(c);
+                            }}
+                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-0.5 rounded transition-colors"
+                            title="Bu senedi düzenle (veya satıra çift tıklayın)"
+                          >
+                            <Pencil size={10} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleRemoveSenet(c);
+                            }}
+                            className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-0.5 rounded transition-colors"
+                            title="Bu senedi listeden çıkar"
+                          >
+                            <Trash2 size={10} />
+                          </button>
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Block Subtotal */}
+          <div className="bg-gray-50/90 px-2 py-1 border-t border-gray-200 flex items-center justify-between font-bold text-[10px]">
+            <span className="text-gray-500">Ara Toplam:</span>
+            <span className="font-mono text-gray-900">
+              {formatCurrency(block.subtotal)}
+            </span>
+          </div>
+        </div>
+      ))}
+
+      {/* Tahsildeki Senetler Altındaki Boşluğa GENEL TOPLAM Kutusu */}
+      {strip.stripNumber === 6 && (
+        <div className="bg-slate-900 text-white px-3 py-2.5 rounded-lg border border-slate-800 flex items-center justify-between text-xs font-bold shadow-xs">
+          <span className="text-amber-300 font-bold uppercase tracking-wider text-[11px]">GENEL TOPLAM:</span>
+          <span className="font-mono text-amber-300 text-sm font-black shrink-0 ml-1">
+            {formatCurrency(groupedData.grandTotal)}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      {/* Embedded Print Styling */}
+      {/* Embedded Print Styling - Dikey A4 Portrait (Sayfa 1: Ön Yüz 1-3. Sütun, Sayfa 2: Arka Yüz 4-6. Sütun) */}
       <style>{`
         @media print {
           @page {
-            size: A4 landscape;
-            margin: 4mm;
+            size: A4 portrait;
+            margin: 6mm 5mm 6mm 5mm;
           }
-          aside, header, nav, button, .no-print, input, [class*="PageHeader"] {
+          aside, header, nav, button, .no-print, input, [class*="PageHeader"], [class*="CustomNavigation"], .kpi-summary-cards, .kasada-bottom-table {
             display: none !important;
           }
           div.lg\\:pl-\\[72px\\], div.lg\\:pl-\\[240px\\], [class*="lg:pl-"] {
@@ -631,8 +969,39 @@ export function CustomerChecksPage() {
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
+            margin: 0 !important;
             width: 100% !important;
             min-width: 100% !important;
+          }
+          #musteri-cekleri-page-1 {
+            display: block !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            padding: 0 !important;
+            margin: 0 0 10mm 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            width: 100% !important;
+          }
+          #musteri-cekleri-page-2 {
+            display: block !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            width: 100% !important;
+          }
+          .matrix-page-grid {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            gap: 6px !important;
+            width: 100% !important;
           }
         }
       `}</style>
@@ -666,21 +1035,21 @@ export function CustomerChecksPage() {
             <button
               onClick={handleExportPdf}
               disabled={isExportingPdf || loading}
-              title="Matris tablosunu yatay A4 PDF olarak indir"
+              title="Dikey A4 PDF indir (Sayfa 1: 1-3. Sütunlar / Ön Yüz, Sayfa 2: 4-6. Sütunlar / Arka Yüz)"
               className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300"
             >
               <FileDown size={14} className="text-rose-600" />
-              <span>{isExportingPdf ? 'İndiriliyor...' : 'PDF İndir'}</span>
+              <span>{isExportingPdf ? 'İndiriliyor...' : 'PDF İndir (Dikey A4)'}</span>
             </button>
 
             <button
               onClick={handlePrint}
               disabled={loading}
-              title="Yazdır veya tarayıcıdan PDF kaydet"
+              title="Dikey A4 Çift Taraflı Yazdır (Ön Yüz: 1-3. Sütun, Arka Yüz: 4-6. Sütun)"
               className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3"
             >
               <Printer size={14} className="text-gray-600" />
-              <span>Yazdır</span>
+              <span>Yazdır (Dikey A4)</span>
             </button>
 
             <button
@@ -728,7 +1097,7 @@ export function CustomerChecksPage() {
       </div>
 
       {/* Top 5 KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 kpi-summary-cards">
         {/* KPI 1: GENEL TOPLAM */}
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
@@ -821,359 +1190,115 @@ export function CustomerChecksPage() {
       </div>
 
       {/* =========================================================================
-          MAIN 6-STRIP SIDE-BY-SIDE MATRIX TABLE (CAPTURE CONTAINER)
+          MAIN MATRIX CONTAINERS: DİKEY A4 ÖN SAYFA (1-3) & ARKA SAYFA (4-6)
          ========================================================================= */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide flex items-center gap-2">
-            <Building2 size={16} className="text-brand-600" />
-            Müşteri Çekleri & Senetleri Matrisi (6 Sütun)
-          </h2>
-          <span className="text-xs text-gray-500 font-medium">
-            Tahsildar Banka / Faktoring / Elimizdeki / Senetler
-          </span>
+      <div className="space-y-4">
+        {/* Title & Info Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide flex items-center gap-2">
+              <Building2 size={16} className="text-brand-600" />
+              Müşteri Çekleri & Senetleri Matrisi
+            </h2>
+            <p className="text-xs text-gray-500">
+              Dikey A4 Çift Yönlü Düzen: Ön Sayfa (1-3. Sütunlar: Bankalar) ve Arka Sayfa (4-6. Sütunlar: Faktoring & Senetler)
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs">
+            <span className="bg-emerald-50 text-emerald-800 font-semibold px-2.5 py-1 rounded-md border border-emerald-200 font-mono">
+              Matris: {formatCurrency(groupedData.matrixTotal)}
+            </span>
+            <span className="bg-amber-50 text-amber-800 font-semibold px-2.5 py-1 rounded-md border border-amber-200 font-mono">
+              Kasada: {formatCurrency(groupedData.kasadaTotal)}
+            </span>
+            <span className="bg-slate-900 text-amber-300 font-bold px-3 py-1 rounded-md font-mono">
+              GENEL: {formatCurrency(groupedData.grandTotal)}
+            </span>
+          </div>
         </div>
 
-        <div className="overflow-x-auto pb-4 custom-scrollbar">
+        {/* Matrix Container */}
+        <div id="musteri-cekleri-matrix-capture" ref={matrixCaptureRef} className="space-y-6">
+          {/* DİKEY A4 SAYFA 1: ÖN SAYFA (1 - 3. SÜTUNLAR - BANKALAR) */}
           <div
-            id="musteri-cekleri-matrix-capture"
-            ref={matrixCaptureRef}
-            className="min-w-[1460px] bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4"
+            id="musteri-cekleri-page-1"
+            className="bg-white p-4 sm:p-5 rounded-xl border border-gray-200 shadow-xs space-y-4 print:p-0 print:border-none print:shadow-none block"
           >
-            {/* Header info bar inside screenshot/print capture */}
+            {/* Page 1 Header */}
             <div className="border-b border-gray-200 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h3 className="text-base font-black text-gray-900 tracking-tight">
-                  DARS - MÜŞTERİ ÇEKLERİ MATRİS TABLOSU
-                </h3>
-                <p className="text-xs text-gray-500">
-                  Rapor Tarihi: {new Date().toLocaleDateString('tr-TR')} | Durum: Aktif Alınan Çekler ve Senetler
+                <div className="flex items-center gap-2">
+                  <span className="bg-brand-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                    Ön Sayfa (1 / 2)
+                  </span>
+                  <h3 className="text-sm sm:text-base font-black text-gray-900 tracking-tight">
+                    DARS - MÜŞTERİ ÇEKLERİ MATRİSİ (BANKA ÇEKLERİ)
+                  </h3>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  1. Sütun: Kuveyt | 2. Sütun: Albaraka & Marif | 3. Sütun: Deniz, Fiba & Diğer Bankalar • Tarih: {new Date().toLocaleDateString('tr-TR')}
                 </p>
               </div>
-              <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-2 text-xs">
                 <div className="bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-md border border-emerald-200 font-semibold font-mono">
-                  Matris: {formatCurrency(groupedData.matrixTotal)}
+                  Ön Sayfa Toplamı: {formatCurrency(page1Total)}
                 </div>
-                <div className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200 font-semibold font-mono">
-                  Kasada: {formatCurrency(groupedData.kasadaTotal)}
-                </div>
-                <div className="bg-slate-900 text-amber-300 px-3 py-1 rounded-md font-bold font-mono">
-                  GENEL: {formatCurrency(groupedData.grandTotal)}
+                <div className="bg-gray-100 text-gray-700 px-2 py-1 rounded-md font-mono text-[11px]">
+                  {page1ChecksCount} Çek
                 </div>
               </div>
             </div>
 
-            {/* 6 Side-by-Side Strips */}
-            <div className="grid grid-cols-6 gap-3 items-start">
-              {groupedData.strips.map((strip) => (
-                <div key={strip.stripNumber} className="flex flex-col gap-3 min-w-[230px]">
-                  {/* Bank & Factoring Blocks */}
-                  {strip.blocks.map((block) => (
-                    <div
-                      key={block.id}
-                      className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden flex flex-col"
-                    >
-                      {/* Block Title Header */}
-                      <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-200 flex items-center justify-between gap-1">
-                        <span
-                          className="font-bold text-[11px] text-gray-800 uppercase tracking-tight truncate mr-1"
-                          title={block.title}
-                        >
-                          {block.title}
-                        </span>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {block.id === 'tahsildeki-senetler' && removedSenetHistory.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={handleUndoRemoveSenet}
-                              data-html2canvas-ignore="true"
-                              className="no-print inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 text-[9px] font-bold transition-colors"
-                              title="Son çıkarılan senedi geri al"
-                            >
-                              <RotateCcw size={9} />
-                              <span>Geri Al</span>
-                            </button>
-                          )}
-                          {block.id === 'tahsildeki-senetler' && (
-                            <button
-                              type="button"
-                              onClick={() => setShowAddSenetForm((prev) => !prev)}
-                              data-html2canvas-ignore="true"
-                              className="no-print inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold shadow-2xs transition-colors"
-                              title="Tahsildeki Senetlere Yeni Senet Ekle"
-                            >
-                              <Plus size={10} />
-                              <span>Ekle</span>
-                            </button>
-                          )}
-                          <span className="text-[10px] px-1.5 py-0.2 rounded-full font-semibold bg-gray-200 text-gray-700 shrink-0">
-                            {block.checks.length}
-                          </span>
-                        </div>
-                      </div>
+            {/* Page 1 3-Columns Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-start matrix-page-grid print:grid-cols-3">
+              {page1Strips.map(renderStrip)}
+            </div>
+          </div>
 
-                      {/* Inline Add Form ONLY for Tahsildeki Senetler */}
-                      {block.id === 'tahsildeki-senetler' && showAddSenetForm && (
-                        <form
-                          onSubmit={handleAddSenet}
-                          data-html2canvas-ignore="true"
-                          className="no-print bg-emerald-50/70 p-2 border-b border-emerald-200 space-y-1.5 text-[10px]"
-                        >
-                          <div className="font-bold text-emerald-900 flex items-center justify-between">
-                            <span>Yeni Senet Ekle</span>
-                            <button
-                              type="button"
-                              onClick={() => setShowAddSenetForm(false)}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                          <div>
-                            <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
-                              Vade Tarihi
-                            </label>
-                            <input
-                              type="date"
-                              value={newSenetDate}
-                              onChange={(e) => setNewSenetDate(e.target.value)}
-                              className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] focus:border-emerald-500 focus:outline-none"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
-                              Keşideci / Borçlu
-                            </label>
-                            <input
-                              type="text"
-                              placeholder="Örn: KÖFTEHANEM"
-                              value={newSenetKesideci}
-                              onChange={(e) => setNewSenetKesideci(e.target.value)}
-                              className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] uppercase focus:border-emerald-500 focus:outline-none"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
-                              Ciro Eden (Opsiyonel)
-                            </label>
-                            <input
-                              type="text"
-                              placeholder="Örn: GEREDE ÜRETİM"
-                              value={newSenetCiroEden}
-                              onChange={(e) => setNewSenetCiroEden(e.target.value)}
-                              className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] uppercase focus:border-emerald-500 focus:outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
-                              Tutar (₺)
-                            </label>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="Örn: 250000"
-                              value={newSenetAmount}
-                              onChange={(e) => setNewSenetAmount(e.target.value)}
-                              className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] font-mono focus:border-emerald-500 focus:outline-none"
-                              required
-                            />
-                          </div>
-                          <div className="flex items-center justify-end gap-1.5 pt-1">
-                            <button
-                              type="button"
-                              onClick={() => setShowAddSenetForm(false)}
-                              className="px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-semibold"
-                            >
-                              İptal
-                            </button>
-                            <button
-                              type="submit"
-                              disabled={isSavingSenet}
-                              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-2xs disabled:opacity-50"
-                            >
-                              {isSavingSenet ? 'Kaydediliyor...' : 'Kaydet'}
-                            </button>
-                          </div>
-                        </form>
-                      )}
-
-                      {/* Checks List */}
-                      <div className="divide-y divide-gray-100 text-[10px]">
-                        <div className="grid grid-cols-12 bg-gray-50/70 px-1.5 py-1 text-[9px] font-bold text-gray-500 uppercase border-b border-gray-100">
-                          <span className="col-span-3">Vade</span>
-                          <span className="col-span-6">Keşideci (Ciro)</span>
-                          <span className="col-span-3 text-right">Tutar</span>
-                        </div>
-
-                        {loading ? (
-                          <div className="py-3 text-center text-gray-400 text-[10px]">
-                            Yükleniyor...
-                          </div>
-                        ) : block.checks.length === 0 ? (
-                          <div className="py-2.5 text-center text-gray-400 italic text-[10px]">
-                            Kayıt bulunamadı
-                          </div>
-                        ) : (
-                          block.checks.map((c) => {
-                            const formattedDrawer = formatDrawerEndorser(c.kesideci, c.creditor);
-                            const isSenetBlock = block.id === 'tahsildeki-senetler';
-                            const isEditingThisRow = isSenetBlock && editingSenetId === c.id;
-
-                            if (isEditingThisRow) {
-                              return (
-                                <div
-                                  key={c.id}
-                                  data-html2canvas-ignore="true"
-                                  className="no-print bg-amber-50/90 p-1.5 space-y-1.5 border-l-2 border-amber-500"
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      void handleSaveEditSenet(c);
-                                    } else if (e.key === 'Escape') {
-                                      cancelEditingSenet();
-                                    }
-                                  }}
-                                >
-                                  <div className="grid grid-cols-12 gap-1">
-                                    <input
-                                      type="date"
-                                      value={editSenetDate}
-                                      onChange={(e) => setEditSenetDate(e.target.value)}
-                                      className="col-span-5 rounded border border-amber-300 bg-white px-1 py-0.5 text-[10px] font-mono focus:border-amber-600 focus:outline-none"
-                                    />
-                                    <input
-                                      type="text"
-                                      inputMode="decimal"
-                                      placeholder="Tutar (₺)"
-                                      value={editSenetAmount}
-                                      onChange={(e) => setEditSenetAmount(e.target.value)}
-                                      className="col-span-7 rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-mono font-bold text-right focus:border-amber-600 focus:outline-none"
-                                    />
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <input
-                                      type="text"
-                                      placeholder="Keşideci / Açıklama"
-                                      value={editSenetName}
-                                      onChange={(e) => setEditSenetName(e.target.value)}
-                                      className="flex-1 rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-medium uppercase focus:border-amber-600 focus:outline-none"
-                                      autoFocus
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleSaveEditSenet(c)}
-                                      className="p-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
-                                      title="Kaydet (Enter)"
-                                    >
-                                      <Check size={11} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={cancelEditingSenet}
-                                      className="p-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 shrink-0"
-                                      title="İptal (Esc)"
-                                    >
-                                      <X size={11} />
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <div
-                                key={c.id}
-                                onDoubleClick={() => {
-                                  if (isSenetBlock) startEditingSenet(c);
-                                }}
-                                className={`group grid grid-cols-12 px-1.5 py-1 hover:bg-amber-50/50 transition-colors items-center ${
-                                  isSenetBlock ? 'cursor-pointer' : ''
-                                }`}
-                              >
-                                <span
-                                  className="col-span-3 font-mono text-gray-600 truncate"
-                                  title={c.due_date || '-'}
-                                >
-                                  {formatDate(c.due_date)}
-                                </span>
-                                <span
-                                  className="col-span-5 font-medium text-gray-800 truncate pr-1"
-                                  title={formattedDrawer}
-                                >
-                                  {formattedDrawer}
-                                </span>
-                                <span className="col-span-4 font-mono font-bold text-gray-900 text-right whitespace-nowrap flex items-center justify-end gap-0.5">
-                                  <span>
-                                    {isSenetBlock && Number(c.amount || 0) === 0
-                                      ? ''
-                                      : formatCurrency(c.amount, false)}
-                                  </span>
-                                  {isSenetBlock && (
-                                    <span
-                                      data-html2canvas-ignore="true"
-                                      className="no-print inline-flex items-center gap-0.5 ml-0.5 shrink-0"
-                                    >
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          startEditingSenet(c);
-                                        }}
-                                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-0.5 rounded transition-colors"
-                                        title="Bu senedi düzenle (veya satıra çift tıklayın)"
-                                      >
-                                        <Pencil size={10} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          void handleRemoveSenet(c);
-                                        }}
-                                        className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-0.5 rounded transition-colors"
-                                        title="Bu senedi listeden çıkar"
-                                      >
-                                        <Trash2 size={10} />
-                                      </button>
-                                    </span>
-                                  )}
-                                </span>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-
-                      {/* Block Subtotal */}
-                      <div className="bg-gray-50/90 px-2 py-1 border-t border-gray-200 flex items-center justify-between font-bold text-[10px]">
-                        <span className="text-gray-500">Ara Toplam:</span>
-                        <span className="font-mono text-gray-900">
-                          {formatCurrency(block.subtotal)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Tahsildeki Senetler Altındaki Boşluğa GENEL TOPLAM Kutusu */}
-                  {strip.stripNumber === 6 && (
-                    <div className="bg-slate-100 text-slate-800 px-3 py-2.5 rounded-lg border border-slate-200 flex items-center justify-between text-xs font-bold shadow-2xs">
-                      <span className="truncate">GENEL TOPLAM:</span>
-                      <span className="font-mono text-slate-900 text-sm font-black shrink-0 ml-1">
-                        {formatCurrency(groupedData.matrixTotal)}
-                      </span>
-                    </div>
-                  )}
+          {/* DİKEY A4 SAYFA 2: ARKA SAYFA (4 - 6. SÜTUNLAR - FAKTORİNG & SENETLER) */}
+          <div
+            id="musteri-cekleri-page-2"
+            className="bg-white p-4 sm:p-5 rounded-xl border border-gray-200 shadow-xs space-y-4 print:p-0 print:border-none print:shadow-none block"
+          >
+            {/* Page 2 Header */}
+            <div className="border-b border-gray-200 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-purple-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                    Arka Sayfa (2 / 2)
+                  </span>
+                  <h3 className="text-sm sm:text-base font-black text-gray-900 tracking-tight">
+                    DARS - MÜŞTERİ ÇEKLERİ MATRİSİ (FAKTORİNG & SENETLER)
+                  </h3>
                 </div>
-              ))}
+                <p className="text-[11px] text-gray-500 mt-1">
+                  4. Sütun: Garanti Faktoring | 5. Sütun: Finans & TEB Faktoring | 6. Sütun: Tahsildeki Senetler • Tarih: {new Date().toLocaleDateString('tr-TR')}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="bg-purple-50 text-purple-800 px-2.5 py-1 rounded-md border border-purple-200 font-semibold font-mono">
+                  Arka Sayfa: {formatCurrency(page2Total)}
+                </div>
+                <div className="bg-gray-100 text-gray-700 px-2 py-1 rounded-md font-mono text-[11px]">
+                  {page2ChecksCount} Çek
+                </div>
+                <div className="bg-slate-900 text-amber-300 px-2.5 py-1 rounded-md font-bold font-mono">
+                  GENEL TOPLAM: {formatCurrency(groupedData.grandTotal)}
+                </div>
+              </div>
             </div>
 
-            {/* Matrix Grand Summary Banner */}
-            <div className="mt-4 p-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-sm">
-              <div className="flex flex-wrap items-center gap-6">
+            {/* Page 2 3-Columns Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-start matrix-page-grid print:grid-cols-3">
+              {page2Strips.map(renderStrip)}
+            </div>
+
+            {/* Grand Summary Bottom Banner */}
+            <div className="mt-3 p-3 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-xs">
+              <div className="flex flex-wrap items-center gap-5">
                 <div>
-                  <span className="text-slate-400 mr-2">Matris Toplamı:</span>
+                  <span className="text-slate-400 mr-1.5">Matris Toplamı:</span>
                   <strong className="text-emerald-400 font-mono text-sm">
                     {formatCurrency(groupedData.matrixTotal)}
                   </strong>
@@ -1182,7 +1307,7 @@ export function CustomerChecksPage() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 mr-2">Kasa/Avukat Toplamı:</span>
+                  <span className="text-slate-400 mr-1.5">Kasa/Avukat:</span>
                   <strong className="text-amber-300 font-mono text-sm">
                     {formatCurrency(groupedData.kasadaTotal)}
                   </strong>
@@ -1196,7 +1321,7 @@ export function CustomerChecksPage() {
                 <span className="text-slate-300 font-bold uppercase tracking-wider text-xs">
                   GENEL TOPLAM:
                 </span>
-                <span className="text-xl font-black font-mono text-amber-400">
+                <span className="text-lg sm:text-xl font-black font-mono text-amber-400">
                   {formatCurrency(groupedData.grandTotal)}
                 </span>
                 <span className="text-slate-400 text-xs">
@@ -1211,7 +1336,7 @@ export function CustomerChecksPage() {
       {/* =========================================================================
           BOTTOM SECTION: KASADA / YAZILAN / AVUKATTAKİ ÇEKLER TABLOSU
          ========================================================================= */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden kasada-bottom-table">
         {/* Header & Category Filter Pills */}
         <div className="p-4 border-b border-gray-100 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
