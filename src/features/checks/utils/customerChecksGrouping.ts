@@ -147,9 +147,11 @@ export function groupCustomerChecks(
 
   // Filter checks by search query and active status (check_type = 'alinan' and status !== 'Ödendi')
   const activeChecks = checks.filter((c) => {
-    // Exclude settled checks
+    // Exclude settled or deleted checks
     const st = (c.status || '').trim().toLocaleLowerCase('tr-TR');
-    if (st === 'ödendi' || st === 'odendi') return false;
+    if (st === 'ödendi' || st === 'odendi' || st === 'iptal' || st === 'i̇ptal') return false;
+    const ozel = (c.ozel_alan || '').toLocaleUpperCase('tr-TR');
+    if (ozel.includes('SİLİNDİ')) return false;
 
     // If check_type is explicitly specified, only keep 'alinan'
     if (c.check_type && c.check_type.trim().toLowerCase() !== 'alinan') {

@@ -141,11 +141,12 @@ const queryDb = (dbPath, sql) => {
 };
 
 function isWebCektenRow(c) {
+  const o = String(c.ozel_alan || '').toUpperCase();
+  if (o.includes('WEB_MANUEL_SENET')) return true;
   if (c.local_id && c.local_id > 0 && c.local_id < 100000) return false;
   if (c.check_no && String(c.check_no).trim() !== '') return false;
   const d = String(c.debtor || '').toUpperCase();
   const b = String(c.bank_name || '').toUpperCase();
-  const o = String(c.ozel_alan || '').toUpperCase();
   return d.includes('ÇEKTEN') || d.includes('CEKTEN') || b.includes('ÇEKTEN') || b.includes('CEKTEN') || o.includes('ÇEKTEN') || o.includes('CEKTEN');
 }
 

@@ -20,6 +20,9 @@ import {
   Building2,
   FolderLock,
   Wallet,
+  Plus,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react';
 import { CustomerCheckItem } from './types/customerChecks';
 import {
@@ -53,6 +56,15 @@ export function CustomerChecksPage() {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+
+  // Tahsildeki Senetler Ekleme / Çıkarma state'leri
+  const [showAddSenetForm, setShowAddSenetForm] = useState(false);
+  const [newSenetDate, setNewSenetDate] = useState(() => new Date().toISOString().substring(0, 10));
+  const [newSenetKesideci, setNewSenetKesideci] = useState('');
+  const [newSenetCiroEden, setNewSenetCiroEden] = useState('');
+  const [newSenetAmount, setNewSenetAmount] = useState('');
+  const [isSavingSenet, setIsSavingSenet] = useState(false);
+  const [removedSenetHistory, setRemovedSenetHistory] = useState<CustomerCheckItem[]>([]);
 
   /**
    * Fetches all active incoming customer checks from Supabase ebs_checks table.
@@ -126,6 +138,158 @@ export function CustomerChecksPage() {
     (acc, b) => acc + b.checks.length,
     0
   ) || 0;
+
+  // =========================================================================
+  // TAHSİLDEKİ SENETLER EKLEME / ÇIKARMA / GERİ ALMA İŞLEMLERİ
+  // =========================================================================
+  const handleAddSenet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const kesideciClean = newSenetKesideci.trim().toLocaleUpperCase('tr-TR');
+    const ciroClean = newSenetCiroEden.trim().toLocaleUpperCase('tr-TR');
+    const parsedAmount = parseFloat(
+      newSenetAmount.replace(/\./g, '').replace(',', '.').trim()
+    );
+
+    if (!newSenetDate) {
+      notify('Lütfen senet vade tarihini seçin.', 'error');
+      return;
+    }
+    if (!kesideciClean) {
+      notify('Lütfen keşideci / firma adını girin.', 'error');
+      return;
+    }
+    if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
+      notify('Lütfen geçerli bir senet tutarı girin.', 'error');
+      return;
+    }
+
+    setIsSavingSenet(true);
+    try {
+      await ensureSupabaseBackendSession();
+      const payload = {
+        organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
+        check_type: 'alinan',
+        document_type: 'senet',
+        local_id: Math.floor(Date.now() / 1000),
+        check_no: '',
+        issue_date: newSenetDate,
+        due_date: newSenetDate,
+        amount: parsedAmount,
+        kesideci: kesideciClean,
+        creditor: ciroClean || kesideciClean,
+        debtor: '',
+        bank_name: 'SENET',
+        bank_branch: '',
+        tahsildar_banka: 'SENET',
+        ciro_edilen: '',
+        status: 'Teminata Verildi',
+        para_birimi: 'TL',
+        ozel_alan: 'WEB_MANUEL_SENET',
+      };
+
+      const { data: inserted, error } = await supabase
+        .from('ebs_checks')
+        .insert([payload])
+        .select();
+
+      if (error) throw error;
+
+      const createdRow: CustomerCheckItem =
+        inserted && inserted[0]
+          ? (inserted[0] as CustomerCheckItem)
+          : ({ id: `senet-${Date.now()}`, ...payload } as CustomerCheckItem);
+
+      setChecks((prev) => [...prev, createdRow]);
+      setNewSenetKesideci('');
+      setNewSenetCiroEden('');
+      setNewSenetAmount('');
+      setShowAddSenetForm(false);
+      notify('Yeni senet Tahsildeki Senetler listesine eklendi.', 'success');
+    } catch (err: any) {
+      console.error('Senet ekleme hatası:', err);
+      notify('Senet eklenirken hata oluştu: ' + (err?.message || String(err)), 'error');
+    } finally {
+      setIsSavingSenet(false);
+    }
+  };
+
+  const handleRemoveSenet = async (item: CustomerCheckItem) => {
+    // Optimistically remove from UI and save in undo stack
+    setChecks((prev) => prev.filter((c) => c.id !== item.id));
+    setRemovedSenetHistory((prev) => [...prev, item]);
+
+    try {
+      await ensureSupabaseBackendSession();
+      const isWebManual = String(item.ozel_alan || '').toUpperCase().includes('WEB_MANUEL_SENET');
+      const hasEbsLocalId = Boolean(item.local_id && item.local_id > 0 && item.local_id < 1000000);
+
+      if (hasEbsLocalId && !isWebManual) {
+        // EBS'den gelen senetleri Ödendi + SİLİNDİ olarak işaretle ki 5 dk senkronizasyonda geri gelmesin
+        const { error } = await supabase
+          .from('ebs_checks')
+          .update({
+            status: 'Ödendi',
+            ozel_alan: 'SİLİNDİ - SENET LİSTESİNDEN KALDIRILDI',
+          })
+          .eq('id', item.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('ebs_checks').delete().eq('id', item.id);
+        if (error) throw error;
+      }
+
+      notify('Senet listeden çıkarıldı.', 'success');
+    } catch (err: any) {
+      console.error('Senet silme hatası:', err);
+      notify('Senet çıkarılırken hata oluştu: ' + (err?.message || String(err)), 'error');
+      void fetchCustomerChecks();
+    }
+  };
+
+  const handleUndoRemoveSenet = async () => {
+    if (removedSenetHistory.length === 0) return;
+    const lastRemoved = removedSenetHistory[removedSenetHistory.length - 1];
+    setRemovedSenetHistory((prev) => prev.slice(0, -1));
+
+    try {
+      await ensureSupabaseBackendSession();
+      const isWebManual = String(lastRemoved.ozel_alan || '').toUpperCase().includes('WEB_MANUEL_SENET');
+      const hasEbsLocalId = Boolean(
+        lastRemoved.local_id && lastRemoved.local_id > 0 && lastRemoved.local_id < 1000000
+      );
+
+      if (hasEbsLocalId && !isWebManual) {
+        const { error } = await supabase
+          .from('ebs_checks')
+          .update({
+            status: lastRemoved.status || 'Teminata Verildi',
+            ozel_alan:
+              lastRemoved.ozel_alan && !lastRemoved.ozel_alan.includes('SİLİNDİ')
+                ? lastRemoved.ozel_alan
+                : 'SENET',
+          })
+          .eq('id', lastRemoved.id);
+        if (error) throw error;
+        setChecks((prev) => [...prev, lastRemoved]);
+      } else {
+        const { id: _oldId, ...insertFields } = lastRemoved as any;
+        const { data: reInserted, error } = await supabase
+          .from('ebs_checks')
+          .insert([insertFields])
+          .select();
+        if (error) throw error;
+        const restored =
+          reInserted && reInserted[0] ? (reInserted[0] as CustomerCheckItem) : lastRemoved;
+        setChecks((prev) => [...prev, restored]);
+      }
+
+      notify('Çıkarılan senet geri alındı.', 'success');
+    } catch (err: any) {
+      console.error('Senet geri alma hatası:', err);
+      notify('Senet geri alınırken hata: ' + (err?.message || String(err)), 'error');
+      void fetchCustomerChecks();
+    }
+  };
 
   // =========================================================================
   // EXPORT ACTION HANDLERS
@@ -484,17 +648,130 @@ export function CustomerChecksPage() {
                       className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden flex flex-col"
                     >
                       {/* Block Title Header */}
-                      <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-200 flex items-center justify-between">
+                      <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-200 flex items-center justify-between gap-1">
                         <span
                           className="font-bold text-[11px] text-gray-800 uppercase tracking-tight truncate mr-1"
                           title={block.title}
                         >
                           {block.title}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-full font-semibold bg-gray-200 text-gray-700 shrink-0">
-                          {block.checks.length}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {block.id === 'tahsildeki-senetler' && removedSenetHistory.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleUndoRemoveSenet}
+                              data-html2canvas-ignore="true"
+                              className="no-print inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 text-[9px] font-bold transition-colors"
+                              title="Son çıkarılan senedi geri al"
+                            >
+                              <RotateCcw size={9} />
+                              <span>Geri Al</span>
+                            </button>
+                          )}
+                          {block.id === 'tahsildeki-senetler' && (
+                            <button
+                              type="button"
+                              onClick={() => setShowAddSenetForm((prev) => !prev)}
+                              data-html2canvas-ignore="true"
+                              className="no-print inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold shadow-2xs transition-colors"
+                              title="Tahsildeki Senetlere Yeni Senet Ekle"
+                            >
+                              <Plus size={10} />
+                              <span>Ekle</span>
+                            </button>
+                          )}
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-full font-semibold bg-gray-200 text-gray-700 shrink-0">
+                            {block.checks.length}
+                          </span>
+                        </div>
                       </div>
+
+                      {/* Inline Add Form ONLY for Tahsildeki Senetler */}
+                      {block.id === 'tahsildeki-senetler' && showAddSenetForm && (
+                        <form
+                          onSubmit={handleAddSenet}
+                          data-html2canvas-ignore="true"
+                          className="no-print bg-emerald-50/70 p-2 border-b border-emerald-200 space-y-1.5 text-[10px]"
+                        >
+                          <div className="font-bold text-emerald-900 flex items-center justify-between">
+                            <span>Yeni Senet Ekle</span>
+                            <button
+                              type="button"
+                              onClick={() => setShowAddSenetForm(false)}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
+                              Vade Tarihi
+                            </label>
+                            <input
+                              type="date"
+                              value={newSenetDate}
+                              onChange={(e) => setNewSenetDate(e.target.value)}
+                              className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] focus:border-emerald-500 focus:outline-none"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
+                              Keşideci / Borçlu
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Örn: KÖFTEHANEM"
+                              value={newSenetKesideci}
+                              onChange={(e) => setNewSenetKesideci(e.target.value)}
+                              className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] uppercase focus:border-emerald-500 focus:outline-none"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
+                              Ciro Eden (Opsiyonel)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Örn: GEREDE ÜRETİM"
+                              value={newSenetCiroEden}
+                              onChange={(e) => setNewSenetCiroEden(e.target.value)}
+                              className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] uppercase focus:border-emerald-500 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-semibold text-gray-600 mb-0.5">
+                              Tutar (₺)
+                            </label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="Örn: 250000"
+                              value={newSenetAmount}
+                              onChange={(e) => setNewSenetAmount(e.target.value)}
+                              className="w-full rounded border border-gray-300 bg-white px-1.5 py-1 text-[10px] font-mono focus:border-emerald-500 focus:outline-none"
+                              required
+                            />
+                          </div>
+                          <div className="flex items-center justify-end gap-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setShowAddSenetForm(false)}
+                              className="px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-semibold"
+                            >
+                              İptal
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={isSavingSenet}
+                              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-2xs disabled:opacity-50"
+                            >
+                              {isSavingSenet ? 'Kaydediliyor...' : 'Kaydet'}
+                            </button>
+                          </div>
+                        </form>
+                      )}
 
                       {/* Checks List */}
                       <div className="divide-y divide-gray-100 text-[10px]">
@@ -515,10 +792,11 @@ export function CustomerChecksPage() {
                         ) : (
                           block.checks.map((c) => {
                             const formattedDrawer = formatDrawerEndorser(c.kesideci, c.creditor);
+                            const isSenetBlock = block.id === 'tahsildeki-senetler';
                             return (
                               <div
                                 key={c.id}
-                                className="grid grid-cols-12 px-1.5 py-1 hover:bg-amber-50/50 transition-colors items-center"
+                                className="group grid grid-cols-12 px-1.5 py-1 hover:bg-amber-50/50 transition-colors items-center"
                               >
                                 <span
                                   className="col-span-3 font-mono text-gray-600 truncate"
@@ -527,13 +805,24 @@ export function CustomerChecksPage() {
                                   {formatDate(c.due_date)}
                                 </span>
                                 <span
-                                  className="col-span-6 font-medium text-gray-800 truncate pr-1"
+                                  className="col-span-5 font-medium text-gray-800 truncate pr-1"
                                   title={formattedDrawer}
                                 >
                                   {formattedDrawer}
                                 </span>
-                                <span className="col-span-3 font-mono font-bold text-gray-900 text-right whitespace-nowrap">
-                                  {formatCurrency(c.amount, false)}
+                                <span className="col-span-4 font-mono font-bold text-gray-900 text-right whitespace-nowrap flex items-center justify-end gap-1">
+                                  <span>{formatCurrency(c.amount, false)}</span>
+                                  {isSenetBlock && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveSenet(c)}
+                                      data-html2canvas-ignore="true"
+                                      className="no-print text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-0.5 rounded transition-colors shrink-0"
+                                      title="Bu senedi listeden çıkar"
+                                    >
+                                      <Trash2 size={11} />
+                                    </button>
+                                  )}
                                 </span>
                               </div>
                             );
