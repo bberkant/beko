@@ -273,7 +273,7 @@ export function groupCustomerChecks(
     else if (isTeminataVerildi && (tb === 'TEB FAKTORİNG' || tb === 'TEB FAKTORING' || tb === 'TEB FAKİR')) {
       b_teb_fakir.checks.push(c);
     }
-    else if ((isPortfoyde && ce === 'ELİMİZDE') || tb === 'FİGO FAKTORİNG' || tb === 'FIGO FAKTORING') {
+    else if (isPortfoyde && ce === 'ELİMİZDE') {
       b_elimizdeki.checks.push(c);
     }
     // Dynamic Fallback: Any other Teminata Verildi bank
