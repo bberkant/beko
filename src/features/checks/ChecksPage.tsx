@@ -2321,7 +2321,7 @@ export function ChecksPage() {
       if (pendingInserts.current[cellKey]) return;
       pendingInserts.current[cellKey] = true;
 
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = takasDate || new Date().toISOString().split('T')[0];
       const localId = Math.floor(Date.now() % 10000000);
       const tempId = `temp-${localId}`;
 
@@ -2360,7 +2360,13 @@ export function ChecksPage() {
         ...insertData
       };
 
-      setChecks(prev => [...prev, optimisticCheck]);
+      const targetOrgId = user.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+
+      setChecks(prev => {
+        const next = [...prev, optimisticCheck];
+        setCachedChecks(targetOrgId, next, isTakasRoute);
+        return next;
+      });
 
       // Insert into Supabase in background
       const insertPromise = supabase
@@ -2374,11 +2380,14 @@ export function ChecksPage() {
         delete pendingInserts.current[cellKey];
         delete insertPromises.current[tempId];
         if (error) {
-          console.error('Supabase insert error:', error);
-          setChecks(prev => prev.filter(c => c.id !== tempId));
+          console.error('Supabase insert error, keeping optimistic row in cache:', error);
         } else if (data && data[0]) {
           // Replace optimistic check with real check from DB, keeping any changes made in the meantime
-          setChecks(prev => prev.map(c => c.id === tempId ? { ...data[0], amount: c.amount, creditor: c.creditor, debtor: c.debtor } : c));
+          setChecks(prev => {
+            const next = prev.map(c => c.id === tempId ? { ...data[0], amount: c.amount, creditor: c.creditor, debtor: c.debtor } : c);
+            setCachedChecks(targetOrgId, next, isTakasRoute);
+            return next;
+          });
         }
       });
     }
@@ -2484,14 +2493,22 @@ export function ChecksPage() {
 
     // 3. Apply updates to local state immediately
     if (shouldDelete) {
-      setChecks(prev => prev.filter(c => c.id !== check.id));
+      setChecks(prev => {
+        const next = prev.filter(c => c.id !== check.id);
+        setCachedChecks(orgId, next, isTakasRoute);
+        return next;
+      });
     } else {
-      setChecks(prev => prev.map(c => c.id === check.id ? { 
-        ...c, 
-        ozel_alan: updatedOzelAlan, 
-        status: updatedStatus,
-        debtor: updatedDebtor
-      } : c));
+      setChecks(prev => {
+        const next = prev.map(c => c.id === check.id ? { 
+          ...c, 
+          ozel_alan: updatedOzelAlan, 
+          status: updatedStatus,
+          debtor: updatedDebtor
+        } : c);
+        setCachedChecks(orgId, next, isTakasRoute);
+        return next;
+      });
     }
 
     // 4. Perform database update in the background
