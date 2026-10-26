@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { MobileAppBanner } from './MobileAppBanner';
 import { useAuth } from '../../lib/auth';
 import { useAutoRefresh } from '../../lib/useAutoRefresh';
 
@@ -865,6 +866,7 @@ export function AppLayout() {
           collapsed ? 'lg:pl-[72px]' : 'lg:pl-[260px]',
         ].join(' ')}
       >
+        <MobileAppBanner />
         <Topbar
           onToggleSidebar={toggleSidebar}
           onOpenMobileSidebar={() => setMobileOpen(true)}
