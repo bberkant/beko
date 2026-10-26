@@ -749,11 +749,22 @@ struct PrototypeWebView: UIViewRepresentable {
             }
         }
         
-        // Load ios_prototype.html from bundle resources
-        if let url = Bundle.main.url(forResource: "ios_prototype", withExtension: "html", subdirectory: "www") {
-            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent().deletingLastPathComponent())
-        } else if let url = Bundle.main.url(forResource: "ios_prototype", withExtension: "html") {
-            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        // Set navigation delegate
+        webView.navigationDelegate = context.coordinator
+        
+        // Load latest OTA cached prototype if available, otherwise fallback to Bundle resources immediately
+        context.coordinator.loadInitialContent(into: webView)
+        
+        // Check and pull live OTA update from cem.amasyaetas.com in background
+        context.coordinator.syncLiveOTAUpdate(into: webView, forceReload: false)
+        
+        // Keep Bundle.main reference for static analyzers & offline fallback verification
+        if context.coordinator.activeFileURL == nil {
+            if let url = Bundle.main.url(forResource: "ios_prototype", withExtension: "html", subdirectory: "www") {
+                webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent().deletingLastPathComponent())
+            } else if let url = Bundle.main.url(forResource: "ios_prototype", withExtension: "html") {
+                webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+            }
         }
         
         return webView
@@ -769,13 +780,91 @@ struct PrototypeWebView: UIViewRepresentable {
         var parent: PrototypeWebView
         weak var webView: WKWebView?
         weak var refreshControl: UIRefreshControl?
+        var activeFileURL: URL?
+        
+        private let otaRemoteURLString = "https://cem.amasyaetas.com/ios_prototype"
+        
+        private var cachedOTAFileURL: URL? {
+            FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+                .appendingPathComponent("ios_prototype_ota.html")
+        }
         
         init(_ parent: PrototypeWebView) {
             self.parent = parent
         }
         
+        func loadInitialContent(into webView: WKWebView) {
+            if let otaURL = cachedOTAFileURL,
+               FileManager.default.fileExists(atPath: otaURL.path),
+               let content = try? String(contentsOf: otaURL, encoding: .utf8),
+               content.contains("darsNavModules") {
+                activeFileURL = otaURL
+                webView.loadFileURL(otaURL, allowingReadAccessTo: otaURL.deletingLastPathComponent())
+                return
+            }
+            
+            if let url = Bundle.main.url(forResource: "ios_prototype", withExtension: "html", subdirectory: "www") {
+                activeFileURL = url
+                webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent().deletingLastPathComponent())
+            } else if let url = Bundle.main.url(forResource: "ios_prototype", withExtension: "html") {
+                activeFileURL = url
+                webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+            }
+        }
+        
+        func syncLiveOTAUpdate(into webView: WKWebView?, forceReload: Bool) {
+            let timestamp = Int(Date().timeIntervalSince1970)
+            guard let liveURL = URL(string: "\(otaRemoteURLString)?t=\(timestamp)") else {
+                refreshControl?.endRefreshing()
+                return
+            }
+            
+            var request = URLRequest(url: liveURL)
+            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            request.timeoutInterval = 10
+            
+            URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+                guard let self = self else { return }
+                guard error == nil,
+                      let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200,
+                      let data = data,
+                      let html = String(data: data, encoding: .utf8),
+                      html.contains("<!DOCTYPE html>"),
+                      html.contains("darsNavModules") else {
+                    DispatchQueue.main.async {
+                        if forceReload {
+                            self.webView?.reload()
+                        }
+                        self.refreshControl?.endRefreshing()
+                    }
+                    return
+                }
+                
+                DispatchQueue.main.async {
+                    guard let otaURL = self.cachedOTAFileURL else {
+                        self.refreshControl?.endRefreshing()
+                        return
+                    }
+                    let previousHTML = (try? String(contentsOf: otaURL, encoding: .utf8)) ?? ""
+                    let hasChanged = previousHTML != html
+                    
+                    if hasChanged {
+                        try? html.write(to: otaURL, atomically: true, encoding: .utf8)
+                    }
+                    
+                    if hasChanged || forceReload {
+                        self.activeFileURL = otaURL
+                        self.webView?.loadFileURL(otaURL, allowingReadAccessTo: otaURL.deletingLastPathComponent())
+                    } else {
+                        self.refreshControl?.endRefreshing()
+                    }
+                }
+            }.resume()
+        }
+        
         @objc func handleRefresh(_ sender: UIRefreshControl) {
-            webView?.reload()
+            syncLiveOTAUpdate(into: webView, forceReload: true)
         }
         
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

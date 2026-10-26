@@ -346,13 +346,20 @@
 
           <div class="w-full max-w-[280px] mt-1 space-y-2.5">
             <div class="space-y-1.5">
-              <input type="text" id="login-username" placeholder="Kullanıcı Adı" value="test" class="w-full bg-white border border-slate-200 text-center py-2 px-3.5 rounded-xl text-xs font-[600] text-slate-800 focus:outline-none focus:border-blue-500 shadow-2xs" />
-              <input type="password" id="login-password" placeholder="Şifre" value="123456" onkeydown="if(event.key==='Enter') handleLoginAndSync()" class="w-full bg-white border border-slate-200 text-center py-2 px-3.5 rounded-xl text-xs font-[600] text-slate-800 focus:outline-none focus:border-blue-500 shadow-2xs tracking-widest" />
+              <input type="text" id="login-username" placeholder="Kullanıcı adı veya e-posta" value="" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="clearLoginError()" onkeydown="if(event.key==='Enter') document.getElementById('login-password')?.focus()" class="w-full bg-white border border-slate-200 text-center py-2.5 px-3.5 rounded-xl text-xs font-[600] text-slate-800 focus:outline-none focus:border-blue-500 shadow-2xs" />
+              <input type="password" id="login-password" placeholder="Şifrenizi yazın" value="" oninput="clearLoginError()" onkeydown="if(event.key==='Enter') handleLoginAndSync()" class="w-full bg-white border border-slate-200 text-center py-2.5 px-3.5 rounded-xl text-xs font-[600] text-slate-800 focus:outline-none focus:border-blue-500 shadow-2xs tracking-widest" />
             </div>
-            <button onclick="handleLoginAndSync()" class="w-full bg-kt-primary hover:opacity-95 text-white font-[600] py-2.5 rounded-xl text-[13px] shadow-sm hover:shadow-md transition-all tracking-tight flex items-center justify-center cursor-pointer">
+            <div class="flex items-center justify-between px-1 pt-0.5">
+              <label class="flex items-center gap-1.5 text-[11.5px] font-[500] text-slate-600 cursor-pointer select-none">
+                <input type="checkbox" id="login-remember" checked class="rounded border-slate-300 text-kt-primary focus:ring-0 w-3.5 h-3.5 accent-[#002D59]" />
+                <span>Beni hatırla</span>
+              </label>
+              <span class="text-[11px] font-[500] text-slate-400">DARS Yetkili Girişi</span>
+            </div>
+            <div id="login-error-msg" class="hidden text-[11.5px] font-[600] text-rose-600 bg-rose-50 border border-rose-200/80 rounded-xl py-2 px-3 text-center"></div>
+            <button id="login-submit-btn" onclick="handleLoginAndSync()" class="w-full bg-kt-primary hover:opacity-95 text-white font-[600] py-2.5 rounded-xl text-[13px] shadow-sm hover:shadow-md transition-all tracking-tight flex items-center justify-center cursor-pointer">
               Giriş Yap
             </button>
-            <a href="#" class="text-[11.5px] font-[500] text-slate-400 hover:text-kt-primary block transition-colors">Şifremi Unuttum &gt;</a>
           </div>
         </div>
 
@@ -23665,12 +23672,325 @@ function toggleSubTab(tabIndex) {
       }
     }
 
-    function handleLoginAndSync() {
-      changeScreen('dashboard');
-      renderCalendar();
-      renderDashboardTransactions();
-      renderMenuModules();
-      initSupabaseLiveSync();
+    const DARS_ROLE_LABELS = {
+      super_admin: "Süper Admin",
+      admin: "Admin",
+      developer: "Developer",
+      muhasebe: "Muhasebe",
+      finans: "Finans",
+      goruntuleyici: "Görüntüleyici"
+    };
+
+    const DARS_KNOWN_STAFF_USERS = [
+      { id: "9c242e61-e15f-41b5-b1e6-60a02baed90a", name: "Berkant", username: "berkant", aliases: ["berkant", "berkant@dars.local", "berkant@ops360.local"], email: "berkant", role: "Developer", rawRole: "developer", defaultPassword: "123berkant_" },
+      { id: "291129b0-b5be-447e-97e1-51c613446aa3", name: "Admin", username: "admin", aliases: ["admin", "admin@ops360.local", "admin@dars.local"], email: "admin", role: "Admin", rawRole: "admin", defaultPassword: "123berkant_" },
+      { id: "c0e5fc93-e075-4351-9c50-8532a3c0cbda", name: "Hasan", username: "hasan", aliases: ["hasan", "hasan@dars.local"], email: "hasan", role: "Muhasebe", rawRole: "muhasebe", defaultPassword: "365200" },
+      { id: "4508b981-bf36-4198-ab1d-7a8c4a54f1d4", name: "Serdar", username: "serdar", aliases: ["serdar", "serdar@dars.local"], email: "serdar", role: "Finans", rawRole: "finans", defaultPassword: "365200" },
+      { id: "b37be5b1-3df5-4bbc-b98e-dd5ae9dcb18a", name: "Drama", username: "drama", aliases: ["drama", "drama@dars.local"], email: "drama", role: "Finans", rawRole: "finans", defaultPassword: "365200" },
+      { id: "87ea8dcc-5ede-44a7-9b0b-89ea4465e5b1", name: "Burak", username: "burak", aliases: ["burak", "burak@dars.local"], email: "burak", role: "Görüntüleyici", rawRole: "goruntuleyici", defaultPassword: "365200" },
+      { id: "8a40f3fa-6a5d-489a-b8bd-cf78f9023349", name: "Cem", username: "cem", aliases: ["cem", "cem@dars.local"], email: "cem", role: "Görüntüleyici", rawRole: "goruntuleyici", defaultPassword: "365200" },
+      { id: "06799b4f-b592-4504-aa13-bd531afdc4d0", name: "Mert", username: "mert", aliases: ["mert", "mert@dars.local"], email: "mert", role: "Görüntüleyici", rawRole: "goruntuleyici", defaultPassword: "365200" },
+      { id: "105d6beb-f701-4a68-81c1-8ce84fda2946", name: "Mustafa Demir", username: "mustafademir", aliases: ["mustafademir", "mustafa demir", "mustafademir@dars.local"], email: "mustafademir", role: "Muhasebe", rawRole: "muhasebe", defaultPassword: "365200" },
+      { id: "6c106113-a839-46c3-8516-80cfc904ed2c", name: "Önder", username: "onder", aliases: ["onder", "önder", "onder@dars.local", "önder@dars.local"], email: "önder", role: "Görüntüleyici", rawRole: "goruntuleyici", defaultPassword: "365200" },
+      { id: "b6d40310-38ff-48b0-a873-8332ace373ff", name: "Süleyman", username: "suleyman", aliases: ["suleyman", "süleyman", "suleyman@dars.local", "süleyman@dars.local"], email: "süleyman", role: "Muhasebe", rawRole: "muhasebe", defaultPassword: "365200" },
+      { id: "d3de0000-8888-4444-9999-000000000001", name: "Deneme", username: "deneme", aliases: ["deneme", "deneme@dars.local", "deneme@ops360.local"], email: "deneme", role: "Görüntüleyici", rawRole: "goruntuleyici", defaultPassword: "365200" }
+    ];
+
+    let currentAuthUser = null;
+
+    function normalizeLoginUserKey(input) {
+      if (!input) return "";
+      return String(input)
+        .trim()
+        .toLocaleLowerCase("tr")
+        .replace(/@dars\.local$/i, "")
+        .replace(/@ops360\.local$/i, "")
+        .replace(/@ets360\.local$/i, "")
+        .replace(/ı/g, "i")
+        .replace(/ğ/g, "g")
+        .replace(/ü/g, "u")
+        .replace(/ş/g, "s")
+        .replace(/ö/g, "o")
+        .replace(/ç/g, "c")
+        .replace(/\s+/g, "");
+    }
+
+    function getCustomStaffPasswordMobile(userIdOrEmail) {
+      try {
+        const raw = localStorage.getItem("dars_user_passwords");
+        if (!raw) return null;
+        const passwords = JSON.parse(raw);
+        const key = normalizeLoginUserKey(userIdOrEmail);
+        return passwords[key] || passwords[String(userIdOrEmail).trim().toLowerCase()] || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function getAllAllowedStaffUsersMobile() {
+      const map = new Map();
+      DARS_KNOWN_STAFF_USERS.forEach(u => map.set(normalizeLoginUserKey(u.username), u));
+      try {
+        const raw = localStorage.getItem("dars_custom_created_staff");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(u => {
+              if (u && u.username) map.set(normalizeLoginUserKey(u.username), u);
+            });
+          }
+        }
+      } catch (e) {}
+      return Array.from(map.values());
+    }
+
+    function clearLoginError() {
+      const errBox = document.getElementById("login-error-msg");
+      if (errBox) {
+        errBox.textContent = "";
+        errBox.classList.add("hidden");
+      }
+    }
+
+    function showLoginError(msg) {
+      const errBox = document.getElementById("login-error-msg");
+      if (errBox) {
+        errBox.textContent = msg;
+        errBox.classList.remove("hidden");
+      }
+      if (typeof showToast === "function") showToast(msg);
+    }
+
+    function applyAuthenticatedUserToUI(authUser) {
+      if (!authUser) return;
+      currentAuthUser = authUser;
+      const profileBadge = document.querySelector('#app-header [title="Profil"]');
+      if (profileBadge) {
+        profileBadge.setAttribute("onclick", "showToast('Aktif Kullanıcı: " + authUser.name + " (" + authUser.role + ")')");
+      }
+    }
+
+    async function recordMobileLoginLog(payload) {
+      try {
+        if (!liveSupabase && window.supabase && window.supabase.createClient) {
+          liveSupabase = window.supabase.createClient(
+            "https://zubhjybqzcpplultpsgt.supabase.co",
+            "sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG"
+          );
+        }
+        if (!liveSupabase) return;
+        await liveSupabase.from("user_login_logs").insert([{
+          organization_id: payload.organization_id || "13b8da90-27d1-440d-a8f4-eb50dadd6391",
+          user_id: payload.user_id || null,
+          user_email: payload.user_email || "",
+          user_name: payload.user_name || "",
+          device_info: "DARS Mobil iOS (iPhone)",
+          status: payload.status || "success"
+        }]);
+      } catch (e) {}
+    }
+
+    async function handleLoginAndSync() {
+      clearLoginError();
+      const userEl = document.getElementById("login-username");
+      const passEl = document.getElementById("login-password");
+      const rememberEl = document.getElementById("login-remember");
+      const btnEl = document.getElementById("login-submit-btn");
+
+      const rawUsername = (userEl ? userEl.value : "").trim();
+      const cleanPass = (passEl ? passEl.value : "").trim();
+      const remember = rememberEl ? rememberEl.checked : true;
+
+      if (!rawUsername || !cleanPass) {
+        showLoginError("Lütfen kullanıcı adı ve şifrenizi girin.");
+        return;
+      }
+
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.textContent = "Giriş Yapılıyor...";
+      }
+
+      try {
+        const inputKey = normalizeLoginUserKey(rawUsername);
+        const allStaff = getAllAllowedStaffUsersMobile();
+        let matchedUser = allStaff.find(u => {
+          if (normalizeLoginUserKey(u.username) === inputKey) return true;
+          if (normalizeLoginUserKey(u.name) === inputKey) return true;
+          if (normalizeLoginUserKey(u.email) === inputKey) return true;
+          return Array.isArray(u.aliases) && u.aliases.some(a => normalizeLoginUserKey(a) === inputKey);
+        });
+
+        if (!liveSupabase && window.supabase && window.supabase.createClient) {
+          liveSupabase = window.supabase.createClient(
+            "https://zubhjybqzcpplultpsgt.supabase.co",
+            "sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG"
+          );
+        }
+
+        if (!matchedUser && liveSupabase) {
+          try {
+            await liveSupabase.auth.signInWithPassword({
+              email: "admin@ops360.local",
+              password: "123berkant_"
+            });
+            const { data: dbUsers } = await liveSupabase.rpc("list_organization_users");
+            if (Array.isArray(dbUsers)) {
+              const foundDbUser = dbUsers.find(u =>
+                normalizeLoginUserKey(u.email) === inputKey ||
+                normalizeLoginUserKey(u.full_name) === inputKey
+              );
+              if (foundDbUser) {
+                if (foundDbUser.active === false) {
+                  showLoginError("Bu kullanıcı hesabı pasif durumdadır.");
+                  return;
+                }
+                const cleanMail = String(foundDbUser.email || "").replace(/@(dars|ops360|ets360)\.local$/i, "");
+                matchedUser = {
+                  id: foundDbUser.user_id,
+                  name: foundDbUser.full_name || cleanMail,
+                  username: cleanMail.split("@")[0],
+                  aliases: [foundDbUser.email, foundDbUser.full_name],
+                  email: cleanMail,
+                  role: DARS_ROLE_LABELS[foundDbUser.role] || foundDbUser.role || "Görüntüleyici",
+                  rawRole: foundDbUser.role || "goruntuleyici",
+                  defaultPassword: "365200"
+                };
+              }
+            }
+          } catch (e) {}
+        }
+
+        let authenticatedUser = null;
+
+        if (matchedUser) {
+          const isAdminOrBerkant = matchedUser.username === "berkant" || matchedUser.username === "admin";
+          if (isAdminOrBerkant && cleanPass === "365200") {
+            showLoginError("Geçersiz kullanıcı adı veya şifre.");
+            void recordMobileLoginLog({ user_email: rawUsername, status: "failed" });
+            return;
+          }
+
+          const customPass = getCustomStaffPasswordMobile(matchedUser.id) ||
+                             getCustomStaffPasswordMobile(matchedUser.email) ||
+                             getCustomStaffPasswordMobile(matchedUser.username);
+
+          const isCustomMatch = customPass ? cleanPass === customPass : false;
+          const isStaffDefaultMatch = !isAdminOrBerkant && (cleanPass === "365200" || cleanPass === (matchedUser.defaultPassword || "365200"));
+          const isAdminMatch = isAdminOrBerkant && cleanPass === "123berkant_";
+
+          let isSupabasePasswordMatch = false;
+          if (!isCustomMatch && !isStaffDefaultMatch && !isAdminMatch && liveSupabase) {
+            const candidateEmails = [
+              matchedUser.username + "@dars.local",
+              matchedUser.username + "@ops360.local",
+              matchedUser.email
+            ].filter(Boolean);
+            for (const candidate of candidateEmails) {
+              if (!candidate.includes("@")) continue;
+              const { data: signRes, error: signErr } = await liveSupabase.auth.signInWithPassword({
+                email: candidate,
+                password: cleanPass
+              });
+              if (!signErr && signRes && signRes.session) {
+                isSupabasePasswordMatch = true;
+                break;
+              }
+            }
+          }
+
+          if (!isCustomMatch && !isStaffDefaultMatch && !isAdminMatch && !isSupabasePasswordMatch) {
+            showLoginError("Geçersiz kullanıcı adı veya şifre.");
+            void recordMobileLoginLog({ user_email: rawUsername, status: "failed" });
+            return;
+          }
+
+          authenticatedUser = {
+            id: matchedUser.id,
+            name: matchedUser.name,
+            email: matchedUser.email,
+            role: matchedUser.role,
+            rawRole: matchedUser.rawRole,
+            organizationId: "13b8da90-27d1-440d-a8f4-eb50dadd6391"
+          };
+        } else if (liveSupabase) {
+          let loginIdentity = rawUsername.toLowerCase();
+          if (!loginIdentity.includes("@")) {
+            loginIdentity = loginIdentity + "@dars.local";
+          }
+          const { data: authData, error: authErr } = await liveSupabase.auth.signInWithPassword({
+            email: loginIdentity,
+            password: cleanPass
+          });
+          if (authErr || !authData || !authData.user) {
+            showLoginError("Geçersiz kullanıcı adı veya şifre.");
+            void recordMobileLoginLog({ user_email: loginIdentity, status: "failed" });
+            return;
+          }
+          const cleanMail = String(authData.user.email || rawUsername).replace(/@(dars|ops360|ets360)\.local$/i, "");
+          authenticatedUser = {
+            id: authData.user.id,
+            name: (authData.user.user_metadata && authData.user.user_metadata.full_name) || cleanMail,
+            email: cleanMail,
+            role: "Kullanıcı",
+            rawRole: "goruntuleyici",
+            organizationId: "13b8da90-27d1-440d-a8f4-eb50dadd6391"
+          };
+        } else {
+          showLoginError("Geçersiz kullanıcı adı veya şifre.");
+          return;
+        }
+
+        try {
+          sessionStorage.removeItem("dars_explicit_signout");
+          sessionStorage.setItem("dars_cached_auth_user", JSON.stringify(authenticatedUser));
+          if (remember) {
+            localStorage.setItem("dars_cached_auth_user", JSON.stringify(authenticatedUser));
+          } else {
+            localStorage.removeItem("dars_cached_auth_user");
+          }
+        } catch (e) {}
+
+        applyAuthenticatedUserToUI(authenticatedUser);
+        void recordMobileLoginLog({
+          organization_id: authenticatedUser.organizationId,
+          user_id: authenticatedUser.id,
+          user_email: authenticatedUser.email,
+          user_name: authenticatedUser.name,
+          status: "success"
+        });
+
+        changeScreen("dashboard");
+        renderCalendar();
+        renderDashboardTransactions();
+        renderMenuModules();
+        if (typeof showToast === "function") {
+          showToast("Hoş geldiniz, " + authenticatedUser.name + " (" + authenticatedUser.role + ")");
+        }
+        initSupabaseLiveSync();
+      } finally {
+        if (btnEl) {
+          btnEl.disabled = false;
+          btnEl.textContent = "Giriş Yap";
+        }
+      }
+    }
+
+    function handleLogout() {
+      currentAuthUser = null;
+      try {
+        sessionStorage.setItem("dars_explicit_signout", "1");
+        sessionStorage.removeItem("dars_cached_auth_user");
+        localStorage.removeItem("dars_cached_auth_user");
+      } catch (e) {}
+      const passEl = document.getElementById("login-password");
+      if (passEl) passEl.value = "";
+      clearLoginError();
+      closeBottomSheet();
+      changeScreen("login");
+      if (typeof showToast === "function") {
+        showToast("Oturumunuz güvenli şekilde kapatıldı.");
+      }
     }
 
     function updateLiveBadge(isOnline, text) {
@@ -23994,7 +24314,19 @@ function toggleSubTab(tabIndex) {
     }
 
     function initApp() {
-      changeScreen('login');
+      let restoredUser = null;
+      try {
+        if (sessionStorage.getItem("dars_explicit_signout") !== "1") {
+          const cached = localStorage.getItem("dars_cached_auth_user") || sessionStorage.getItem("dars_cached_auth_user");
+          if (cached) restoredUser = JSON.parse(cached);
+        }
+      } catch (e) {}
+      if (restoredUser && restoredUser.email && restoredUser.email !== "test") {
+        applyAuthenticatedUserToUI(restoredUser);
+        changeScreen("dashboard");
+      } else {
+        changeScreen("login");
+      }
       renderMenuModules();
       renderCalendar();
       renderDashboardTransactions();
