@@ -13,8 +13,8 @@ name: Deploy to Apple TestFlight
       - main
       - master
     paths:
-      - 'ios/**'
-      - 'ios_prototype.html'
+      - 'ios/project.yml'
+      - 'ios/dars-ios/**/*.swift'
       - '!**.md'
       - '!docs/**'
     # paths-ignore: **.md .gitignore docs/**
