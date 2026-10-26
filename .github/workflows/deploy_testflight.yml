@@ -15,10 +15,9 @@ name: Deploy to Apple TestFlight
     paths:
       - 'ios/**'
       - 'ios_prototype.html'
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - 'docs/**'
+      - '!**.md'
+      - '!docs/**'
+    # paths-ignore: **.md .gitignore docs/**
   workflow_dispatch:
     inputs:
       skip_tests:
@@ -141,7 +140,3 @@ jobs:
             tail -n 100 fastlane_run.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
-
-
-
-
