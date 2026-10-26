@@ -1764,7 +1764,11 @@ export function ChecksPage() {
     const activeUnpaidKesilen = checks.filter(c => {
       if (c.check_type !== 'kesilen') return false;
       const status = cleanStatus(c.status);
-      if (isCheckPaid(c.status) || !['tahsilde', 'beklemede', 'ödenmedi'].includes(status)) {
+      const isExplicitNonTakas = (c.ozel_alan || '').toUpperCase().includes('TAKASTA OLMAYAN');
+      const allowedStatuses = isExplicitNonTakas
+        ? ['tahsilde', 'beklemede', 'ödenmedi', 'geri alındı', 'geri alindi']
+        : ['tahsilde', 'beklemede', 'ödenmedi'];
+      if (isCheckPaid(c.status) || !allowedStatuses.includes(status)) {
         return false;
       }
       if (!c.due_date) return false;
