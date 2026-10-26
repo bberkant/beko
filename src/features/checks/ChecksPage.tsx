@@ -77,6 +77,8 @@ import {
   isCektenCheck, 
   createCektenPaymentPayload,
   syncCektenIntoChecksList,
+  applyPendingCektenOps,
+  flushPendingCektenOps,
   type CektenDbSyncAction
 } from './utils/cektenTakasSync';
 
@@ -284,9 +286,9 @@ const CEKTEN_CACHE_KEY = 'dars_cekten_hesabi_cache';
 function getCachedCektenRows(orgId: string): any[] {
   try {
     const raw = localStorage.getItem(`${CEKTEN_CACHE_KEY}_${orgId}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    const base = Array.isArray(parsed) ? parsed : [];
+    return applyPendingCektenOps(orgId, base);
   } catch {
     return [];
   }
@@ -295,7 +297,8 @@ function getCachedCektenRows(orgId: string): any[] {
 function setCachedCektenRows(orgId: string, rows: any[]) {
   try {
     if (Array.isArray(rows)) {
-      localStorage.setItem(`${CEKTEN_CACHE_KEY}_${orgId}`, JSON.stringify(rows));
+      const merged = applyPendingCektenOps(orgId, rows);
+      localStorage.setItem(`${CEKTEN_CACHE_KEY}_${orgId}`, JSON.stringify(merged));
     }
   } catch {}
 }
@@ -1081,16 +1084,24 @@ export function ChecksPage() {
 
   const refreshCektenSync = async () => {
     const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+    const cachedRows = getCachedCektenRows(orgId);
+    if (cachedRows.length > 0) {
+      setChecks(prevChecks =>
+        syncCektenIntoChecksList(prevChecks, cachedRows, handleCektenDbSync)
+      );
+    }
     try {
+      await flushPendingCektenOps(orgId, supabase);
       const { data: cektenRows, error: cektenErr } = await supabase
         .from('cekten_hesabi')
         .select('*')
         .eq('organization_id', orgId);
 
       if (!cektenErr && cektenRows) {
-        setCachedCektenRows(orgId, cektenRows);
+        const merged = applyPendingCektenOps(orgId, cektenRows);
+        setCachedCektenRows(orgId, merged);
         setChecks(prevChecks =>
-          syncCektenIntoChecksList(prevChecks, cektenRows, handleCektenDbSync)
+          syncCektenIntoChecksList(prevChecks, merged, handleCektenDbSync)
         );
       }
     } catch (err) {

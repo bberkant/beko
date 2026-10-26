@@ -10,7 +10,24 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => await fn(),
+  },
+  global: {
+    fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+      const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const timeoutMs = urlStr.includes('/storage/v1/') ? 60000 : 12000;
+      if (init?.signal) {
+        return fetch(input, init);
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(new Error('Sunucu yanıt süresi aşıldı (Timeout)')), timeoutMs);
+      return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+    },
+  },
 });
 
 export function normalizeFileName(fileName: string): string {
@@ -45,4 +62,3 @@ export function normalizeFileName(fileName: string): string {
   const cleanExt = ext.toLowerCase();
   return `${normalized}${cleanExt}`;
 }
-

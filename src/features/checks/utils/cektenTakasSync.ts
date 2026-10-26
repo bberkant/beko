@@ -265,3 +265,124 @@ export function notifyCektenDataChanged() {
   }
 }
 
+export function generateCektenUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export type PendingCektenOp =
+  | { opId: string; type: 'insert'; record: Record<string, any> }
+  | { opId: string; type: 'update'; id: string; payload: Record<string, any> }
+  | { opId: string; type: 'delete'; id: string }
+  | { opId: string; type: 'rename_supplier'; oldName: string; newName: string };
+
+const PENDING_OPS_KEY_PREFIX = 'dars_cekten_pending_ops_';
+
+export function loadPendingCektenOps(orgId: string): PendingCektenOp[] {
+  try {
+    const raw = localStorage.getItem(`${PENDING_OPS_KEY_PREFIX}${orgId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function savePendingCektenOps(orgId: string, ops: PendingCektenOp[]) {
+  try {
+    localStorage.setItem(`${PENDING_OPS_KEY_PREFIX}${orgId}`, JSON.stringify(ops));
+  } catch {}
+}
+
+export function enqueuePendingCektenOp(orgId: string, op: PendingCektenOp) {
+  const ops = loadPendingCektenOps(orgId);
+  ops.push(op);
+  savePendingCektenOps(orgId, ops);
+}
+
+export function applyPendingCektenOps<T extends Record<string, any>>(orgId: string, baseRows: T[]): T[] {
+  const ops = loadPendingCektenOps(orgId);
+  if (ops.length === 0) return baseRows;
+  let result = [...baseRows];
+  for (const op of ops) {
+    if (op.type === 'insert') {
+      const existsIdx = result.findIndex(r => r.id === op.record.id);
+      if (existsIdx >= 0) {
+        result[existsIdx] = { ...result[existsIdx], ...op.record } as T;
+      } else {
+        result = [op.record as T, ...result];
+      }
+    } else if (op.type === 'update') {
+      result = result.map(r => (r.id === op.id ? ({ ...r, ...op.payload } as T) : r));
+    } else if (op.type === 'delete') {
+      result = result.filter(r => r.id !== op.id);
+    } else if (op.type === 'rename_supplier') {
+      result = result.map(r => (r.supplier === op.oldName ? ({ ...r, supplier: op.newName } as T) : r));
+    }
+  }
+  return result;
+}
+
+let isFlushingCektenOps = false;
+
+export async function flushPendingCektenOps(orgId: string, supabaseClient: any): Promise<boolean> {
+  if (isFlushingCektenOps) return false;
+  const ops = loadPendingCektenOps(orgId);
+  if (ops.length === 0) return true;
+
+  isFlushingCektenOps = true;
+  try {
+    const remaining: PendingCektenOp[] = [...ops];
+    while (remaining.length > 0) {
+      const op = remaining[0];
+      let opError: any = null;
+
+      if (op.type === 'insert') {
+        const { created_at, updated_at, ...insertPayload } = op.record;
+        const { error } = await supabaseClient
+          .from('cekten_hesabi')
+          .upsert(insertPayload, { onConflict: 'id' });
+        opError = error;
+      } else if (op.type === 'update') {
+        const { error } = await supabaseClient
+          .from('cekten_hesabi')
+          .update(op.payload)
+          .eq('id', op.id);
+        opError = error;
+      } else if (op.type === 'delete') {
+        const { error } = await supabaseClient
+          .from('cekten_hesabi')
+          .delete()
+          .eq('id', op.id);
+        opError = error;
+      } else if (op.type === 'rename_supplier') {
+        const { error } = await supabaseClient
+          .from('cekten_hesabi')
+          .update({ supplier: op.newName })
+          .eq('organization_id', orgId)
+          .eq('supplier', op.oldName);
+        opError = error;
+      }
+
+      if (opError) {
+        savePendingCektenOps(orgId, remaining);
+        return false;
+      }
+
+      remaining.shift();
+      savePendingCektenOps(orgId, remaining);
+    }
+    return true;
+  } catch {
+    return false;
+  } finally {
+    isFlushingCektenOps = false;
+  }
+}

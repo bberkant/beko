@@ -21,10 +21,17 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../lib/toast';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../lib/auth';
+import { useAuth, ensureSupabaseBackendSession } from '../../lib/auth';
 import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
-import { notifyCektenDataChanged } from '../checks/utils/cektenTakasSync';
+import {
+  notifyCektenDataChanged,
+  generateCektenUUID,
+  enqueuePendingCektenOp,
+  applyPendingCektenOps,
+  flushPendingCektenOps,
+  loadPendingCektenOps,
+} from '../checks/utils/cektenTakasSync';
 
 interface CektenRecord {
   id: string;
@@ -332,17 +339,16 @@ export function CektenHesabiPage() {
   const [records, setRecords] = useState<CektenRecord[]>(() => {
     try {
       const raw = localStorage.getItem(`dars_cekten_hesabi_cache_${orgId}`);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((r: any) => ({
+      const parsed = raw ? JSON.parse(raw) : [];
+      const base = Array.isArray(parsed)
+        ? parsed.map((r: any) => ({
             ...r,
             total_amount: Number(r.total_amount || 0),
             paid_amount: Number(r.paid_amount || 0),
             remaining_amount: Number(r.remaining_amount || 0)
-          }));
-        }
-      }
+          }))
+        : [];
+      return applyPendingCektenOps(orgId, base);
     } catch {}
     return [];
   });
@@ -469,6 +475,9 @@ export function CektenHesabiPage() {
       setLoading(true);
     }
     try {
+      void ensureSupabaseBackendSession().catch(() => {});
+      await flushPendingCektenOps(user.organizationId, supabase);
+
       let query = supabase
         .from('cekten_hesabi')
         .select('*')
@@ -492,18 +501,33 @@ export function CektenHesabiPage() {
         paid_amount: Number(r.paid_amount || 0),
         remaining_amount: Number(r.remaining_amount || 0)
       }));
-      setRecords(mapped);
+      const merged = applyPendingCektenOps(user.organizationId, mapped);
+      setRecords(merged);
       if (!startDate && !endDate) {
         try {
-          localStorage.setItem(`dars_cekten_hesabi_cache_${user.organizationId}`, JSON.stringify(mapped));
+          localStorage.setItem(`dars_cekten_hesabi_cache_${user.organizationId}`, JSON.stringify(merged));
         } catch {}
       }
     } catch (e: any) {
-      notify('Çekten hesabı verileri yüklenirken hata oluştu: ' + e.message, 'error');
+      if (records.length === 0) {
+        notify('Çekten hesabı verileri yüklenirken hata oluştu: ' + e.message, 'error');
+      } else {
+        console.warn('[CektenHesabi] Background fetch deferred, using cached + optimistic records:', e?.message);
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const targetOrgId = user?.organizationId || orgId;
+    const interval = setInterval(() => {
+      if (loadPendingCektenOps(targetOrgId).length > 0) {
+        void flushPendingCektenOps(targetOrgId, supabase);
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [user?.organizationId, orgId]);
 
   useEffect(() => {
     if (!startDate && !endDate && records.length > 0 && user?.organizationId) {
@@ -714,68 +738,63 @@ export function CektenHesabiPage() {
 
   // CRUD Operations
   const handleSaveField = async (recordId: string, field: string, value: any) => {
-    setActionLoading(true);
-    try {
-      const record = records.find(r => r.id === recordId);
-      if (!record) return;
+    const targetOrgId = user?.organizationId || orgId;
+    const record = records.find(r => r.id === recordId);
+    if (!record) return;
 
-      const cleanVal = field === 'notes' ? (value ? String(value).trim() : null) : value;
-      const updatedRecord = { ...record, [field]: cleanVal };
-      const totalVal = Number(updatedRecord.total_amount) || 0;
-      const paidVal = Number(updatedRecord.paid_amount) || 0;
-      const remVal = totalVal - paidVal;
+    const cleanVal = field === 'notes' ? (value ? String(value).trim() : null) : value;
+    const updatedRecord = { ...record, [field]: cleanVal };
+    const totalVal = Number(updatedRecord.total_amount) || 0;
+    const paidVal = Number(updatedRecord.paid_amount) || 0;
+    const remVal = totalVal - paidVal;
 
-      const payload: Record<string, any> = {
-        [field]: cleanVal
-      };
+    const payload: Record<string, any> = {
+      [field]: cleanVal
+    };
 
-      if (['total_amount', 'paid_amount'].includes(field)) {
-        payload.remaining_amount = remVal;
-      }
-
-      // Optimistic update
-      setRecords(prev => prev.map(r => r.id === recordId ? {
-        ...r,
-        ...payload
-      } : r));
-
-      const { error } = await supabase
-        .from('cekten_hesabi')
-        .update(payload)
-        .eq('id', recordId);
-
-      if (error) throw error;
-      notify('Kayıt başarıyla güncellendi.', 'success');
-      notifyCektenDataChanged();
-    } catch (e: any) {
-      notify('Güncelleme hatası: ' + e.message, 'error');
-      void fetchRecords(); // rollback
-    } finally {
-      setActionLoading(false);
+    if (['total_amount', 'paid_amount'].includes(field)) {
+      payload.remaining_amount = remVal;
     }
+
+    // Optimistic update + persistent queue
+    setRecords(prev => {
+      const next = prev.map(r => r.id === recordId ? { ...r, ...payload } : r);
+      try {
+        localStorage.setItem(`dars_cekten_hesabi_cache_${targetOrgId}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    enqueuePendingCektenOp(targetOrgId, {
+      opId: generateCektenUUID(),
+      type: 'update',
+      id: recordId,
+      payload,
+    });
+    notify('Kayıt başarıyla güncellendi.', 'success');
+    notifyCektenDataChanged();
+    void flushPendingCektenOps(targetOrgId, supabase);
   };
 
   const handleDelete = async (recordId: string) => {
     if (!confirm('Bu kaydı silmek istediğinize emin misiniz?')) return;
-    setActionLoading(true);
-    try {
-      // Optimistic delete
-      setRecords(prev => prev.filter(r => r.id !== recordId));
+    const targetOrgId = user?.organizationId || orgId;
 
-      const { error } = await supabase
-        .from('cekten_hesabi')
-        .delete()
-        .eq('id', recordId);
-
-      if (error) throw error;
-      notify('Kayıt başarıyla silindi.', 'success');
-      notifyCektenDataChanged();
-    } catch (e: any) {
-      notify('Silme hatası: ' + e.message, 'error');
-      void fetchRecords(); // rollback
-    } finally {
-      setActionLoading(false);
-    }
+    // Optimistic delete + persistent queue
+    setRecords(prev => {
+      const next = prev.filter(r => r.id !== recordId);
+      try {
+        localStorage.setItem(`dars_cekten_hesabi_cache_${targetOrgId}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    enqueuePendingCektenOp(targetOrgId, {
+      opId: generateCektenUUID(),
+      type: 'delete',
+      id: recordId,
+    });
+    notify('Kayıt başarıyla silindi.', 'success');
+    notifyCektenDataChanged();
+    void flushPendingCektenOps(targetOrgId, supabase);
   };
 
   const handleOpenEdit = (r: CektenRecord) => {
@@ -808,56 +827,70 @@ export function CektenHesabiPage() {
       return;
     }
 
-    setActionLoading(true);
-    try {
-      const payload = {
-        organization_id: user?.organizationId,
-        date: newRecord.date,
-        supplier: newRecord.supplier.trim(),
-        total_amount: isBorc ? amount : 0,
-        paid_amount: isBorc ? 0 : amount,
-        remaining_amount: isBorc ? amount : -amount,
-        notes: newRecord.notes.trim() || null,
-        payment_date: isBorc ? (newRecord.payment_date || 'CARİ') : formatDateForDB(newRecord.date)
-      };
+    const targetOrgId = user?.organizationId || orgId;
+    const nowIso = new Date().toISOString();
+    const payload = {
+      organization_id: targetOrgId,
+      date: newRecord.date,
+      supplier: newRecord.supplier.trim(),
+      total_amount: isBorc ? amount : 0,
+      paid_amount: isBorc ? 0 : amount,
+      remaining_amount: isBorc ? amount : -amount,
+      notes: newRecord.notes.trim() || null,
+      payment_date: isBorc ? (newRecord.payment_date || 'CARİ') : formatDateForDB(newRecord.date)
+    };
 
-      if (editingRecordId) {
-        // Edit Mode
-        const { error } = await supabase
-          .from('cekten_hesabi')
-          .update(payload)
-          .eq('id', editingRecordId);
-
-        if (error) throw error;
-        notify('Kayıt başarıyla güncellendi.', 'success');
-        notifyCektenDataChanged();
-      } else {
-        // Create Mode
-        const { error } = await supabase
-          .from('cekten_hesabi')
-          .insert(payload);
-
-        if (error) throw error;
-        notify('Yeni kayıt başarıyla eklendi.', 'success');
-        notifyCektenDataChanged();
-      }
-
-      setIsModalOpen(false);
-      setEditingRecordId(null);
-      setNewRecord({
-        date: new Date().toISOString().split('T')[0],
-        supplier: '',
-        total_amount: '',
-        paid_amount: '',
-        payment_date: 'CARİ',
-        notes: ''
+    if (editingRecordId) {
+      setRecords(prev => {
+        const next = prev.map(r => r.id === editingRecordId ? { ...r, ...payload, updated_at: nowIso } : r);
+        try {
+          localStorage.setItem(`dars_cekten_hesabi_cache_${targetOrgId}`, JSON.stringify(next));
+        } catch {}
+        return next;
       });
-      void fetchRecords();
-    } catch (e: any) {
-      notify('Kayıt kaydetme hatası: ' + e.message, 'error');
-    } finally {
-      setActionLoading(false);
+      enqueuePendingCektenOp(targetOrgId, {
+        opId: generateCektenUUID(),
+        type: 'update',
+        id: editingRecordId,
+        payload,
+      });
+      notify('Kayıt başarıyla güncellendi.', 'success');
+    } else {
+      const newId = generateCektenUUID();
+      const newRow: CektenRecord = {
+        id: newId,
+        ...payload,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+      setRecords(prev => {
+        const next = [newRow, ...prev.filter(r => r.id !== newId)];
+        try {
+          localStorage.setItem(`dars_cekten_hesabi_cache_${targetOrgId}`, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+      enqueuePendingCektenOp(targetOrgId, {
+        opId: newId,
+        type: 'insert',
+        record: newRow,
+      });
+      notify('Yeni kayıt başarıyla eklendi.', 'success');
     }
+
+    notifyCektenDataChanged();
+    setIsModalOpen(false);
+    setEditingRecordId(null);
+    setNewRecord({
+      date: new Date().toISOString().split('T')[0],
+      supplier: '',
+      total_amount: '',
+      paid_amount: '',
+      payment_date: 'CARİ',
+      notes: ''
+    });
+    setActionLoading(false);
+    void flushPendingCektenOps(targetOrgId, supabase);
   };
 
   const handleCloseModal = () => {
@@ -874,38 +907,40 @@ export function CektenHesabiPage() {
   };
 
   const handleUpdateSupplierName = async (newName: string) => {
-    if (!user?.organizationId || !selectedSupplierDetail) return;
-    if (!newName.trim()) {
+    if (!selectedSupplierDetail) return;
+    const cleanNewName = newName.trim();
+    if (!cleanNewName) {
       notify('Cari hesap adı boş olamaz.', 'error');
       return;
     }
 
-    setActionLoading(true);
-    try {
-      const oldName = selectedSupplierDetail;
-      const { error } = await supabase
-        .from('cekten_hesabi')
-        .update({ supplier: newName.trim() })
-        .eq('organization_id', user.organizationId)
-        .eq('supplier', oldName);
+    const targetOrgId = user?.organizationId || orgId;
+    const oldName = selectedSupplierDetail;
 
-      if (error) throw error;
-      
-      notify('Cari kart adı başarıyla güncellendi.', 'success');
-      notifyCektenDataChanged();
-      setSelectedSupplierDetail(newName.trim());
-      setIsSupplierEditModalOpen(false);
-      await fetchRecords();
-    } catch (e: any) {
-      notify('Güncelleme hatası: ' + e.message, 'error');
-    } finally {
-      setActionLoading(false);
-    }
+    setRecords(prev => {
+      const next = prev.map(r => r.supplier === oldName ? { ...r, supplier: cleanNewName } : r);
+      try {
+        localStorage.setItem(`dars_cekten_hesabi_cache_${targetOrgId}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    enqueuePendingCektenOp(targetOrgId, {
+      opId: generateCektenUUID(),
+      type: 'rename_supplier',
+      oldName,
+      newName: cleanNewName,
+    });
+    notify('Cari kart adı başarıyla güncellendi.', 'success');
+    notifyCektenDataChanged();
+    setSelectedSupplierDetail(cleanNewName);
+    setIsSupplierEditModalOpen(false);
+    setActionLoading(false);
+    void flushPendingCektenOps(targetOrgId, supabase);
   };
 
   const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.organizationId || !selectedSupplierDetail) return;
+    if (!selectedSupplierDetail) return;
     
     const amount = parseFormattedNumber(paymentFormAmount);
     if (amount <= 0) {
@@ -913,36 +948,44 @@ export function CektenHesabiPage() {
       return;
     }
 
-    setActionLoading(true);
-    try {
-      const isBorc = paymentFormTxType === 'borc';
-      const payload = {
-        organization_id: user.organizationId,
-        date: paymentFormDate,
-        supplier: selectedSupplierDetail,
-        total_amount: isBorc ? amount : 0,
-        paid_amount: isBorc ? 0 : amount,
-        remaining_amount: isBorc ? amount : -amount,
-        notes: paymentFormNotes.trim() || null,
-        payment_date: isBorc ? 'CARİ' : formatDateForDB(paymentFormDate)
-      };
+    const targetOrgId = user?.organizationId || orgId;
+    const isBorc = paymentFormTxType === 'borc';
+    const newId = generateCektenUUID();
+    const nowIso = new Date().toISOString();
+    const newRow: CektenRecord = {
+      id: newId,
+      organization_id: targetOrgId,
+      date: paymentFormDate,
+      supplier: selectedSupplierDetail,
+      total_amount: isBorc ? amount : 0,
+      paid_amount: isBorc ? 0 : amount,
+      remaining_amount: isBorc ? amount : -amount,
+      notes: paymentFormNotes.trim() || null,
+      payment_date: isBorc ? 'CARİ' : formatDateForDB(paymentFormDate),
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
 
-      const { error } = await supabase
-        .from('cekten_hesabi')
-        .insert(payload);
+    setRecords(prev => {
+      const next = [newRow, ...prev.filter(r => r.id !== newId)];
+      try {
+        localStorage.setItem(`dars_cekten_hesabi_cache_${targetOrgId}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    enqueuePendingCektenOp(targetOrgId, {
+      opId: newId,
+      type: 'insert',
+      record: newRow,
+    });
 
-      if (error) throw error;
-      notify(isBorc ? 'Borç kaydı başarıyla eklendi.' : 'Ödeme kaydı başarıyla eklendi.', 'success');
-      notifyCektenDataChanged();
-      setIsPaymentModalOpen(false);
-      setPaymentFormAmount('');
-      setPaymentFormNotes('');
-      void fetchRecords();
-    } catch (err: any) {
-      notify('İşlem kaydedilirken hata oluştu: ' + err.message, 'error');
-    } finally {
-      setActionLoading(false);
-    }
+    setIsPaymentModalOpen(false);
+    setPaymentFormAmount('');
+    setPaymentFormNotes('');
+    setActionLoading(false);
+    notify(isBorc ? 'Borç kaydı başarıyla eklendi.' : 'Ödeme kaydı başarıyla eklendi.', 'success');
+    notifyCektenDataChanged();
+    void flushPendingCektenOps(targetOrgId, supabase);
   };
 
   const handleExportExcel = () => {
