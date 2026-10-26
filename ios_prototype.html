@@ -655,36 +655,37 @@
             <button onclick="changeScreen('menu')" class="text-[13px] font-[500] text-slate-700 bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-all flex items-center gap-1">← Menü</button>
             <div class="text-center">
               <h2 class="text-[15px] font-[700] text-slate-900 tracking-tight leading-tight">Takas Çekleri</h2>
-              <p class="text-[10px] text-slate-400 font-medium">Takasa Verilen Çekler ve Durum Takibi</p>
+              <p class="text-[10px] text-slate-400 font-medium">Canlı Web Paneli Takas Matrisi ve Durum Takibi</p>
             </div>
-            <button onclick="openNewCheckModal()" class="text-[12.5px] font-[600] text-kt-primary bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-all flex items-center gap-1">+ Çek Seç</button>
+            <button onclick="openNewCheckModal()" class="text-[12.5px] font-[600] text-kt-primary bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-all flex items-center gap-1">+ Çek Ekle</button>
           </div>
 
           <!-- Segmented Tablar -->
           <div class="kt-segmented-tab">
-            <button onclick="switchTakasScreenTab('takasta', this)" id="takas-tab-takasta" class="kt-segmented-btn active">Takasta (4)</button>
+            <button onclick="switchTakasScreenTab('takasta', this)" id="takas-tab-takasta" class="kt-segmented-btn active">Takasta (0)</button>
+            <button onclick="switchTakasScreenTab('nontakas', this)" id="takas-tab-nontakas" class="kt-segmented-btn">Takasta Değil (0)</button>
             <button onclick="switchTakasScreenTab('ic_takas', this)" id="takas-tab-ic_takas" class="kt-segmented-btn">İç Takas (0)</button>
             <button onclick="switchTakasScreenTab('odenen', this)" id="takas-tab-odenen" class="kt-segmented-btn">Ödenen</button>
           </div>
         </div>
 
-        <!-- 3'lü Takas KPI Barı -->
+        <!-- 3'lü Takas KPI Barı (Web Panel Birebir: Takas Toplamı / Takasta Olmayan / Genel Toplam) -->
         <div class="p-3 bg-slate-100/80 border-b border-gray-200/60 grid grid-cols-3 gap-2 text-center shrink-0">
-          <div class="p-2 bg-white rounded-xl shadow-2xs">
-            <span class="text-[9px] font-bold text-slate-400 block">Takas Toplamı</span>
-            <span class="text-xs font-black text-slate-900" id="takas-kpi-sum">2.917.696 TL</span>
+          <div class="p-2 bg-white rounded-xl shadow-2xs border border-red-100">
+            <span class="text-[9px] font-bold text-red-600 block uppercase">Takas Toplamı</span>
+            <span class="text-xs font-black text-slate-900" id="takas-kpi-sum">0 TL</span>
           </div>
-          <div class="p-2 bg-white rounded-xl shadow-2xs">
-            <span class="text-[9px] font-bold text-slate-400 block">İç Takas</span>
-            <span class="text-xs font-black text-slate-900" id="takas-kpi-ic">1.092.020 TL</span>
+          <div class="p-2 bg-white rounded-xl shadow-2xs border border-slate-200/70">
+            <span class="text-[9px] font-bold text-slate-500 block uppercase">Takasta Olmayan</span>
+            <span class="text-xs font-black text-slate-900" id="takas-kpi-ic">0 TL</span>
           </div>
-          <div class="p-2 bg-white rounded-xl shadow-2xs">
-            <span class="text-[9px] font-bold text-slate-400 block">Toplam Çek</span>
-            <span class="text-xs font-black text-kt-primary" id="takas-kpi-count">5 Adet</span>
+          <div class="p-2 bg-emerald-50/70 rounded-xl shadow-2xs border border-emerald-200">
+            <span class="text-[9px] font-bold text-emerald-700 block uppercase">Genel Toplam</span>
+            <span class="text-xs font-black text-emerald-950" id="takas-kpi-count">0 TL</span>
           </div>
         </div>
 
-        <!-- İçerik Alanı (Banka Matrisi & Bugünün Çekleri) -->
+        <!-- İçerik Alanı (Banka Matrisi & Seçili Günün Çekleri) -->
         <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar" id="takas-screen-content"></div>
       </div>
 
@@ -707,23 +708,23 @@
           <div class="grid grid-cols-2 gap-2 pt-1">
             <div onclick="setCheckListFilter('today', this)" class="p-2.5 bg-blue-50/70 border border-blue-100 rounded-xl cursor-pointer hover:bg-blue-100/50 transition-all">
               <span class="text-[9.5px] font-[700] text-kt-primary block uppercase tracking-wider">Bugünkü Evrak</span>
-              <span class="text-[13.5px] font-[800] text-slate-900 block mt-0.5">2.917.696,00 TL</span>
-              <span class="text-[9px] text-slate-400 font-medium">5 Adet Evrak</span>
+              <span id="chk-kpi-today-amt" class="text-[13.5px] font-[800] text-slate-900 block mt-0.5">0 TL</span>
+              <span id="chk-kpi-today-cnt" class="text-[9px] text-slate-400 font-medium">0 Adet Evrak</span>
             </div>
             <div onclick="setCheckListFilter('tomorrow', this)" class="p-2.5 bg-amber-50/70 border border-amber-100 rounded-xl cursor-pointer hover:bg-amber-100/50 transition-all">
               <span class="text-[9.5px] font-[700] text-amber-800 block uppercase tracking-wider">Yarınki Evrak</span>
-              <span class="text-[13.5px] font-[800] text-amber-950 block mt-0.5">25.732.670,00 TL</span>
-              <span class="text-[9px] text-slate-400 font-medium">12 Adet Evrak</span>
+              <span id="chk-kpi-tom-amt" class="text-[13.5px] font-[800] text-amber-950 block mt-0.5">0 TL</span>
+              <span id="chk-kpi-tom-cnt" class="text-[9px] text-slate-400 font-medium">0 Adet Evrak</span>
             </div>
             <div onclick="setCheckListFilter('week', this)" class="p-2.5 bg-emerald-50/70 border border-emerald-100 rounded-xl cursor-pointer hover:bg-emerald-100/50 transition-all">
               <span class="text-[9.5px] font-[700] text-emerald-800 block uppercase tracking-wider">Bu Haftaki Evrak</span>
-              <span class="text-[13.5px] font-[800] text-emerald-950 block mt-0.5">48.401.045,00 TL</span>
-              <span class="text-[9px] text-slate-400 font-medium">Haftalık Toplam</span>
+              <span id="chk-kpi-week-amt" class="text-[13.5px] font-[800] text-emerald-950 block mt-0.5">0 TL</span>
+              <span id="chk-kpi-week-cnt" class="text-[9px] text-slate-400 font-medium">Haftalık Toplam</span>
             </div>
             <div onclick="setCheckListFilter('all', this)" class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-all">
               <span class="text-[9.5px] font-[700] text-slate-500 block uppercase tracking-wider">Toplam Evrak</span>
-              <span class="text-[13.5px] font-[800] text-slate-800 block mt-0.5">5.252 Adet</span>
-              <span class="text-[9px] text-slate-400 font-medium">Tahsilde: 694 • Ödenen: 4525</span>
+              <span id="chk-kpi-all-cnt" class="text-[13.5px] font-[800] text-slate-800 block mt-0.5">0 Adet</span>
+              <span id="chk-kpi-all-sub" class="text-[9px] text-slate-400 font-medium">Tahsilde: 0 • Ödenen: 0</span>
             </div>
           </div>
 
@@ -742,8 +743,8 @@
           <button onclick="setCheckListFilter('today', this)" class="chk-filter-pill kt-pill">🔥 Bugün</button>
           <button onclick="setCheckListFilter('tomorrow', this)" class="chk-filter-pill kt-pill">⚡ Yarın</button>
           <button onclick="setCheckListFilter('week', this)" class="chk-filter-pill kt-pill">Bu Hafta</button>
-          <button onclick="setCheckListStatus('tahsilde', this)" class="chk-filter-pill kt-pill">Tahsilde (694)</button>
-          <button onclick="setCheckListStatus('odenen', this)" class="chk-filter-pill kt-pill">Ödenen (4.525)</button>
+          <button onclick="setCheckListStatus('tahsilde', this)" id="chk-pill-tahsilde" class="chk-filter-pill kt-pill">Tahsilde</button>
+          <button onclick="setCheckListStatus('odenen', this)" id="chk-pill-odenen" class="chk-filter-pill kt-pill">Ödenen</button>
         </div>
 
         <!-- Canlı Arama Çubuğu -->
@@ -763,19 +764,55 @@
       <!-- 6. ÇEKTEN HESABI (DETAYLI LİMİT, SİMÜLATÖR, TABLO & CARİ)     -->
       <!-- ============================================================ -->
       <div id="screen-cekten_hesabi" class="hidden flex-1 flex flex-col overflow-hidden bg-[#F5F7F8] screen-fade">
-        <div class="px-5 py-3.5 bg-white border-b border-gray-100 flex items-center justify-between shrink-0">
-          <button onclick="changeScreen('menu')" class="text-[13px] font-[500] text-slate-700 bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-all flex items-center gap-1">← Menü</button>
-          <span class="text-[15px] font-[600] text-slate-800 tracking-tight">ÇEKTEN Hesabı</span>
-          <button onclick="openNewCektenModal()" class="text-[13px] font-[600] text-kt-primary bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-all flex items-center gap-1">+ Kayıt Ekle</button>
+        <div class="px-5 pt-3.5 pb-2.5 bg-white border-b border-gray-100 shrink-0 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <button onclick="changeScreen('menu')" class="text-[13px] font-[500] text-slate-700 bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-all flex items-center gap-1">← Menü</button>
+            <div class="text-center">
+              <span class="text-[15px] font-[700] text-slate-900 tracking-tight block leading-tight">ÇEKTEN Hesabı</span>
+              <span class="text-[10px] text-slate-400 font-medium">Canlı Tedarikçi Alım, Ödeme ve Bakiye Takibi</span>
+            </div>
+            <button onclick="openNewCektenModal()" class="text-[13px] font-[600] text-kt-primary bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-all flex items-center gap-1">+ Kayıt Ekle</button>
+          </div>
+
+          <!-- Segmented Tablar (Web Panel Birebir: Tedarikçi Özeti vs Tüm İşlem Geçmişi) -->
+          <div class="kt-segmented-tab">
+            <button onclick="switchCektenTab('grouped', this)" id="cekten-tab-grouped" class="kt-segmented-btn active">Tedarikçi Özeti (Cari)</button>
+            <button onclick="switchCektenTab('history', this)" id="cekten-tab-history" class="kt-segmented-btn">Tüm İşlem Geçmişi</button>
+          </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+        <!-- 3'lü Çekten KPI Barı (Web Panel Birebir) -->
+        <div class="p-3 bg-slate-100/80 border-b border-gray-200/60 grid grid-cols-3 gap-2 text-center shrink-0">
+          <div class="p-2 bg-white rounded-xl shadow-2xs">
+            <span class="text-[9px] font-bold text-slate-400 block uppercase">Toplam Alım</span>
+            <span id="cekten-kpi-total" class="text-xs font-black text-slate-900">0 TL</span>
+          </div>
+          <div class="p-2 bg-white rounded-xl shadow-2xs">
+            <span class="text-[9px] font-bold text-emerald-600 block uppercase">Toplam Ödenen</span>
+            <span id="cekten-kpi-paid" class="text-xs font-black text-emerald-700">0 TL</span>
+          </div>
+          <div class="p-2 bg-rose-50/70 rounded-xl shadow-2xs border border-rose-200">
+            <span class="text-[9px] font-bold text-rose-700 block uppercase">Kalan Bakiye</span>
+            <span id="cekten-kpi-remain" class="text-xs font-black text-rose-700">0 TL</span>
+          </div>
+        </div>
 
+        <!-- Filtre & Canlı Arama Barı -->
+        <div class="px-4 py-2 bg-white border-b border-gray-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+          <button onclick="setCektenFilter('all', this)" class="cekten-filter-pill kt-pill active">Tümü</button>
+          <button onclick="setCektenFilter('borclu', this)" class="cekten-filter-pill kt-pill">🔴 Borçlu / Açık</button>
+          <button onclick="setCektenFilter('kapali', this)" class="cekten-filter-pill kt-pill">🟢 Kapalı (0 TL)</button>
+          <div class="flex-1 min-w-[130px]">
+            <input type="text" id="cekten-search-input" oninput="handleCektenSearch(this.value)" placeholder="Tedarikçi ara..." class="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-800 placeholder-slate-400 focus:outline-none focus:border-kt-primary" />
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
           <!-- Çekten Hesabı Records List -->
           <div class="space-y-2">
             <div class="flex justify-between items-center px-1">
-              <h4 class="text-xs font-bold text-slate-800">Çekten Kayıtları & Tedarikçiler</h4>
-              <span class="text-[10px] font-bold text-slate-400">Toplam 4 Kayıt</span>
+              <h4 id="cekten-list-title" class="text-xs font-bold text-slate-800">Çekten Kayıtları & Tedarikçiler</h4>
+              <span id="cekten-records-count" class="text-[10px] font-bold text-slate-400">Yükleniyor...</span>
             </div>
             <div class="space-y-2.5" id="cekten-records-container">
               <!-- Rendered via JS -->
@@ -18852,423 +18889,388 @@ function toggleSubTab(tabIndex) {
     
     
     // ==========================================
-    // 1. MODÜL: TAKAS ÇEKLERİ (screen-takas_cekleri)
+    // 1. MODÜL: TAKAS ÇEKLERİ (CANLI WEB PANEL 1:1 MOTORU)
     // ==========================================
-    
-    let takasSelectedDate = '2026-09-03'; // Default to today's live date!
-    let takasActiveTab = 'takasta';
-    const takasDaysData = {
-  "2026-09-03": {
-    "dateDisplay": "03.09.2026 (Bugün)",
-    "total": 6421881,
-    "icTotal": 0,
-    "banks": [
-      {
-        "name": "M.DENİZ",
-        "items": [
-          4260129
-        ],
-        "total": 4260129,
-        "isHighlighted": true
-      },
-      {
-        "name": "TAKSİT",
-        "items": [
-          1073452,
-          988300,
-          100000
-        ],
-        "total": 2161752,
-        "isHighlighted": true
-      },
-      {
-        "name": "M.ZİRAAT",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "ALBARAKA",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "E.DENİZ",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "E.ZİRAAT",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "M.GARANTİ",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "M.AKBANK",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
+    function getTodayISOString() {
+      const now = new Date();
+      return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    }
+
+    function formatISOToTR(isoStr) {
+      if (!isoStr) return '-';
+      const s = String(isoStr).slice(0, 10);
+      const parts = s.split('-');
+      if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+      return s;
+    }
+
+    function formatTRToISO(trStr) {
+      if (!trStr) return '';
+      const s = String(trStr).trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      const parts = s.split('.');
+      if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      return '';
+    }
+
+    let takasSelectedDate = getTodayISOString();
+    let takasViewMode = 'date'; // 'date' | 'upcoming'
+    let takasActiveTab = 'takasta'; // 'takasta' | 'nontakas' | 'ic_takas' | 'odenen'
+    let liveRawEbsChecks = [];
+    let liveRawCektenRows = [];
+    const takasDaysData = {}; // Legacy compatibility reference
+
+    function cleanCheckStatusMobile(st) {
+      return String(st || '').toLocaleLowerCase('tr-TR').trim();
+    }
+
+    function isCheckPaidMobile(status) {
+      if (!status) return false;
+      const st = cleanCheckStatusMobile(status);
+      return (
+        st === 'ödendi' ||
+        st === 'ödenen' ||
+        st.includes('ödendi') ||
+        st.includes('ödenen') ||
+        (st.includes('tahsil') && !st.includes('tahsilde'))
+      );
+    }
+
+    function isCektenCheckMobile(c) {
+      if (!c) return false;
+      const b = String(c.bank_name || c.bank || '').toLocaleUpperCase('tr-TR');
+      const d = String(c.debtor || '').toLocaleUpperCase('tr-TR');
+      const o = String(c.ozel_alan || c.note || '').toLocaleUpperCase('tr-TR');
+      const id = String(c.id || '');
+      if (o.includes('ÇEKTEN ÖDEME') || o.includes('CEKTEN ODEME')) return false;
+      return (
+        id.startsWith('cekten_') ||
+        b.includes('ÇEKTEN') || b.includes('CEKTEN') ||
+        d.includes('ÇEKTEN') || d.includes('CEKTEN') ||
+        o.includes('ÇEKTEN') || o.includes('CEKTEN')
+      );
+    }
+
+    function syncCektenIntoChecksListMobile(currentChecks, cektenRows) {
+      const todayISO = getTodayISOString();
+      const supplierTotals = {};
+
+      (cektenRows || []).forEach(r => {
+        if (!r || !r.supplier) return;
+        const sup = cleanTurkishText(r.supplier).trim().toLocaleUpperCase('tr-TR');
+        if (!sup) return;
+        const rem = r.remaining_amount !== undefined && r.remaining_amount !== null
+          ? Number(r.remaining_amount)
+          : (Number(r.total_amount || 0) - Number(r.paid_amount || 0));
+        if (!supplierTotals[sup]) {
+          supplierTotals[sup] = { netBalance: 0, latestDate: r.date || todayISO };
+        }
+        supplierTotals[sup].netBalance += rem;
+        if (r.date && r.date > supplierTotals[sup].latestDate) {
+          supplierTotals[sup].latestDate = r.date;
+        }
+      });
+
+      const updatedChecks = (currentChecks || []).filter(c => {
+        if (!isCektenCheckMobile(c)) return true;
+        if (isCheckPaidMobile(c.status || c.rawStatus)) return true;
+        const cred = cleanTurkishText(c.creditor || c.supplier || '').trim().toLocaleUpperCase('tr-TR');
+        if (!cred) return false;
+        const supData = supplierTotals[cred];
+        if (!supData || supData.netBalance <= 0.01) return false;
+        return true;
+      });
+
+      Object.keys(supplierTotals).forEach((sup, idx) => {
+        const { netBalance, latestDate } = supplierTotals[sup];
+        if (netBalance <= 0.01) return;
+
+        const existingIndices = [];
+        updatedChecks.forEach((c, i) => {
+          if (
+            isCektenCheckMobile(c) &&
+            !isCheckPaidMobile(c.status || c.rawStatus) &&
+            cleanTurkishText(c.creditor || c.supplier || '').trim().toLocaleUpperCase('tr-TR') === sup
+          ) {
+            existingIndices.push(i);
+          }
+        });
+
+        if (existingIndices.length > 0) {
+          const primaryIdx = existingIndices[0];
+          const existing = updatedChecks[primaryIdx];
+          updatedChecks[primaryIdx] = {
+            ...existing,
+            amount: netBalance,
+            bank_name: existing.bank_name || 'ÇEKTEN',
+            debtor: existing.debtor || 'ÇEKTEN'
+          };
+          for (let j = existingIndices.length - 1; j >= 1; j--) {
+            updatedChecks.splice(existingIndices[j], 1);
+          }
+        } else {
+          const dueISO = String(latestDate || todayISO).slice(0, 10);
+          updatedChecks.push({
+            id: `cekten_${idx}_${sup.replace(/\s+/g, '_')}`,
+            organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
+            check_type: 'kesilen',
+            type: 'kesilen',
+            due_date: dueISO,
+            date: formatISOToTR(dueISO),
+            amount: netBalance,
+            creditor: sup,
+            supplier: sup,
+            debtor: 'ÇEKTEN',
+            bank_name: 'ÇEKTEN',
+            bank: 'ÇEKTEN',
+            status: 'Tahsilde',
+            rawStatus: 'Tahsilde',
+            ozel_alan: 'ÇEKTEN - TAKASTA OLMAYAN',
+            note: 'ÇEKTEN - TAKASTA OLMAYAN'
+          });
+        }
+      });
+
+      return updatedChecks;
+    }
+
+    function getBankColumnMobile(debtor, bankName) {
+      const raw = `${debtor || ''} ${bankName || ''}`
+        .toLocaleUpperCase('tr-TR')
+        .replace(/I/g, 'İ')
+        .replace(/i/g, 'İ')
+        .trim();
+      const hasMarif = raw.includes('M.') || raw.includes('MARİF') || raw.includes('MARIF');
+      const hasEtik = raw.includes('E.') || raw.includes('ETİK') || raw.includes('ETIK');
+      if (raw.includes('ALBARAKA')) return 'ALBARAKA';
+      if (raw.includes('DENİZ') || raw.includes('DENIZ')) return hasMarif ? 'M.DENİZ' : 'E.DENİZ';
+      if (raw.includes('ZİRAAT') || raw.includes('ZIRAAT')) return hasEtik ? 'E.ZİRAAT' : 'M.ZİRAAT';
+      if (raw.includes('GARANTİ') || raw.includes('GARANTI')) return hasEtik ? 'E.GARANTİ' : 'M.GARANTİ';
+      if (raw.includes('AKBANK')) return hasEtik ? 'E.AKBANK' : 'M.AKBANK';
+      if (raw.includes('YAPI')) return hasEtik ? 'E.YAPI' : 'M.YAPI';
+      if (raw.includes('İŞBANK') || raw.includes('ISBANK') || raw.includes('İŞ BANK') || raw.includes('IS BANK')) return hasMarif ? 'M.İŞBANK' : 'E.İŞBANK';
+      if (raw.includes('VAKIF')) return hasMarif ? 'M.VAKIF' : 'E.VAKIF';
+      if (raw.includes('HALK')) return hasMarif ? 'M.HALK' : 'E.HALK';
+      if (raw.includes('KUVEYT')) return hasMarif ? 'M.KUVEYT' : 'E.KUVEYT';
+      if (raw.includes('QNB') || raw.includes('FİNANS') || raw.includes('FINANS')) return hasMarif ? 'M.QNB' : 'E.QNB';
+      if (raw.includes('TEB')) return hasMarif ? 'M.TEB' : 'E.TEB';
+      if (raw.includes('ŞEKER') || raw.includes('SEKER')) return hasMarif ? 'M.ŞEKER' : 'E.ŞEKER';
+      if (raw.includes('TAKSİT') || raw.includes('TAKSIT') || raw.includes('KREDİ') || raw.includes('KREDI') || raw.includes('ROTATİF') || raw.includes('ROTATIF') || raw.includes('BCH')) return 'TAKSİT';
+      return null;
+    }
+
+    function getCleanBankNameMobile(debtor, bankName) {
+      const raw = `${debtor || ''} ${bankName || ''}`
+        .toLocaleUpperCase('tr-TR')
+        .replace(/I/g, 'İ')
+        .replace(/i/g, 'İ');
+      if (raw.includes('ÇEKTEN') || raw.includes('CEKTEN')) return 'ÇEKTEN';
+      const col = getBankColumnMobile(debtor, bankName);
+      if (col) return col;
+      if (raw.includes('VAKIF')) return 'VAKIFBANK';
+      if (raw.includes('HALK')) return 'HALKBANK';
+      if (raw.includes('KUVEYT')) return 'KUVEYTTÜRK';
+      if (raw.includes('İŞ BANK') || raw.includes('IS BANK') || raw.includes('İŞBANK')) return 'İŞBANKASI';
+      if (raw.includes('QNB') || raw.includes('FİNANS')) return 'QNB FİNANS';
+      if (raw.includes('YAPI')) return 'YAPIKREDİ';
+      if (raw.includes('TEB')) return 'TEB';
+      if (raw.includes('ŞEKER')) return 'ŞEKERBANK';
+      return (debtor || bankName || '').trim();
+    }
+
+    function isHatirAlinanMobile(c) {
+      if ((c.check_type || c.type) !== 'alinan') return false;
+      const text = `${c.debtor || ''} ${c.creditor || c.supplier || ''} ${c.kesideci || ''} ${c.ozel_alan || c.note || ''}`
+        .toLocaleUpperCase('tr-TR')
+        .replace(/I/g, 'İ')
+        .replace(/i/g, 'İ');
+      return text.includes('HATIR');
+    }
+
+    const nonTakasKeywordsMobile = [
+      'HATIR', 'KRŞ', 'KARŞILIK', 'TAZMİNAT', 'BORÇ',
+      'ÖMER DEMİR', 'BURAK BESİCİLİK', 'ALİ ARAN', 'TAKASTA OLMAYAN'
+    ];
+
+    function isNonTakasCheckMobile(c) {
+      const ozel = String(c.ozel_alan || c.note || '').toLocaleUpperCase('tr-TR');
+      if (ozel.includes('TAKASTA OLMAYAN')) return true;
+      if (ozel.includes('TAKASTA')) return false;
+      if (isCektenCheckMobile(c)) return true;
+
+      const bankCol = getBankColumnMobile(c.debtor, c.bank_name || c.bank);
+      if (bankCol) return false;
+
+      const textToCheck = `${c.creditor || c.supplier || ''} ${c.debtor || ''} ${c.ozel_alan || c.note || ''} ${c.bank_name || c.bank || ''}`
+        .toLocaleUpperCase('tr-TR');
+      for (const kw of nonTakasKeywordsMobile) {
+        if (textToCheck.includes(kw)) return true;
       }
-    ],
-    "checks": [
-      {
-        "id": 101,
-        "no": "CK-5935504",
-        "type": "kesilen",
-        "supplier": "GÜR BESİCİLİK",
-        "debtor": "M.DENİZ",
-        "bank": "M.DENİZ",
-        "amount": 4260129,
-        "date": "03.09.2026",
-        "regDate": "18.08.2026",
-        "rawStatus": "Tahsilde",
-        "note": "ÇEK"
-      },
-      {
-        "id": 102,
-        "no": "TKS-8821",
-        "type": "kesilen",
-        "supplier": "KUVEYT-5.450.000",
-        "debtor": "TAKSİT",
-        "bank": "TAKSİT",
-        "amount": 1073452,
-        "date": "03.09.2026",
-        "regDate": "20.08.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKSİT"
-      },
-      {
-        "id": 103,
-        "no": "TKS-8822",
-        "type": "kesilen",
-        "supplier": "MARİF KUVEYT-5.000.000",
-        "debtor": "TAKSİT",
-        "bank": "TAKSİT",
-        "amount": 988300,
-        "date": "03.09.2026",
-        "regDate": "21.08.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKSİT"
-      },
-      {
-        "id": 104,
-        "no": "TKS-8823",
-        "type": "kesilen",
-        "supplier": "MARİF VAKIF KART",
-        "debtor": "TAKSİT-ÖDEME",
-        "bank": "TAKSİT",
-        "amount": 100000,
-        "date": "03.09.2026",
-        "regDate": "22.08.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKSİT"
-      }
-    ],
-    "icChecks": []
-  },
-  "2026-09-04": {
-    "dateDisplay": "04.09.2026 (Yarın)",
-    "total": 4489956,
-    "icTotal": 0,
-    "banks": [
-      {
-        "name": "TAKSİT",
-        "items": [
-          1057251,
-          983847,
-          927014,
-          521844
-        ],
-        "total": 3489956,
-        "isHighlighted": true
-      },
-      {
-        "name": "M.AKBANK",
-        "items": [
-          1000000
-        ],
-        "total": 1000000,
-        "isHighlighted": true
-      },
-      {
-        "name": "M.ZİRAAT",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "M.DENİZ",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "ALBARAKA",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "E.DENİZ",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "E.ZİRAAT",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "M.GARANTİ",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      }
-    ],
-    "checks": [
-      {
-        "id": 201,
-        "no": "CK-008130",
-        "type": "kesilen",
-        "supplier": "RAMAZAN YILMAZ-KRŞ",
-        "debtor": "M.AKBANK",
-        "bank": "M.AKBANK",
-        "amount": 1000000,
-        "date": "04.09.2026",
-        "regDate": "20.08.2026",
-        "rawStatus": "Tahsilde",
-        "note": "ÇEK"
-      },
-      {
-        "id": 202,
-        "no": "TKS-9011",
-        "type": "kesilen",
-        "supplier": "KUVEYT-5.400.000",
-        "debtor": "TAKSİT",
-        "bank": "TAKSİT",
-        "amount": 1057251,
-        "date": "04.09.2026",
-        "regDate": "15.08.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKSİT"
-      },
-      {
-        "id": 203,
-        "no": "TKS-9012",
-        "type": "kesilen",
-        "supplier": "ALBARAKA-9.650.000",
-        "debtor": "TAKSİT",
-        "bank": "TAKSİT",
-        "amount": 983847,
-        "date": "04.09.2026",
-        "regDate": "18.08.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKSİT"
-      },
-      {
-        "id": 204,
-        "no": "TKS-9013",
-        "type": "kesilen",
-        "supplier": "KUVEYT-4.800.000",
-        "debtor": "TAKSİT",
-        "bank": "TAKSİT",
-        "amount": 927014,
-        "date": "04.09.2026",
-        "regDate": "19.08.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKSİT"
-      },
-      {
-        "id": 205,
-        "no": "TKS-9014",
-        "type": "kesilen",
-        "supplier": "ALBARAKA-5.000.000",
-        "debtor": "TAKSİT",
-        "bank": "TAKSİT",
-        "amount": 521844,
-        "date": "04.09.2026",
-        "regDate": "20.08.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKSİT"
-      }
-    ],
-    "icChecks": []
-  },
-  "2026-09-01": {
-    "dateDisplay": "01.09.2026",
-    "total": 2917696,
-    "icTotal": 1092020,
-    "banks": [
-      {
-        "name": "M.ZİRAAT",
-        "items": [
-          2000000
-        ],
-        "total": 2000000,
-        "isHighlighted": true
-      },
-      {
-        "name": "TAKSİT",
-        "items": [
-          531419,
-          222064,
-          103751,
-          60462
-        ],
-        "total": 917696,
-        "isHighlighted": true
-      },
-      {
-        "name": "ALBARAKA",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "E.DENİZ",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "E.ZİRAAT",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "M.DENİZ",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "M.GARANTİ",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      },
-      {
-        "name": "M.AKBANK",
-        "items": [],
-        "total": 0,
-        "isHighlighted": false
-      }
-    ],
-    "checks": [
-      {
-        "id": 1,
-        "no": "0026098",
-        "type": "kesilen",
-        "supplier": "BURAK BESİCİLİK-KRŞ",
-        "debtor": "M.ZİRAAT",
-        "bank": "M.ZİRAAT",
-        "amount": 2000000,
-        "date": "01.09.2026",
-        "regDate": "18.07.2026",
-        "rawStatus": "Tahsilde",
-        "note": "ÇEK"
-      },
-      {
-        "id": 2,
-        "no": "TKS-001",
-        "type": "kesilen",
-        "supplier": "MARİF KUVEYT-2.700.000",
-        "debtor": "TAKSİT",
-        "bank": "TAKSİT",
-        "amount": 531419,
-        "date": "01.09.2026",
-        "regDate": "30.04.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKSİT"
-      },
-      {
-        "id": 3,
-        "no": "TKS-002",
-        "type": "kesilen",
-        "supplier": "KUVEYT-3.480.000-TRANSİT ARAÇ",
-        "debtor": "TAKSİT",
-        "bank": "TAKSİT",
-        "amount": 222064,
-        "date": "01.09.2026",
-        "regDate": "01.08.2025",
-        "rawStatus": "Tahsilde",
-        "note": "TAKSİT"
-      },
-      {
-        "id": 4,
-        "no": "TKS-003",
-        "type": "kesilen",
-        "supplier": "ALBARAKA FİNANSMAN KART-1.000.000",
-        "debtor": "TAKSİT",
-        "bank": "TAKSİT",
-        "amount": 103751,
-        "date": "01.09.2026",
-        "regDate": "18.03.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKSİT"
-      },
-      {
-        "id": 5,
-        "no": "TKS-004",
-        "type": "kesilen",
-        "supplier": "SGK 0.P.C.",
-        "debtor": "TAKSİT",
-        "bank": "TAKSİT",
-        "amount": 60462,
-        "date": "01.09.2026",
-        "regDate": "22.08.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKSİT"
-      }
-    ],
-    "icChecks": [
-      {
-        "id": 18,
-        "no": "0026085",
-        "type": "kesilen",
-        "supplier": "HAYDAR DELİ",
-        "debtor": "M.ZİRAAT",
-        "bank": "M.ZİRAAT",
-        "amount": 606020,
-        "date": "31.08.2026",
-        "regDate": "13.07.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKASTA OLMAYAN - İÇ TAKAS",
-        "isIcTakas": true
-      },
-      {
-        "id": 19,
-        "no": "0026622",
-        "type": "kesilen",
-        "supplier": "KRAL ENTEGRE",
-        "debtor": "E.ZİRAAT",
-        "bank": "E.ZİRAAT",
-        "amount": 486000,
-        "date": "31.08.2026",
-        "regDate": "02.07.2026",
-        "rawStatus": "Tahsilde",
-        "note": "TAKASTA OLMAYAN - İÇ TAKAS",
-        "isIcTakas": true
-      }
-    ]
-  }
-};
+      if (!bankCol) return true;
+      return false;
+    }
+
+    function computeLiveTakasDashboardData() {
+      const sourceChecks = (liveRawEbsChecks && liveRawEbsChecks.length > 0) ? liveRawEbsChecks : mockChecks.map(m => ({
+        ...m,
+        check_type: m.type || 'kesilen',
+        due_date: m.due_date || formatTRToISO(m.date),
+        creditor: m.supplier || m.creditor || '',
+        bank_name: m.bank || m.bank_name || '',
+        status: m.rawStatus || m.status || 'Tahsilde',
+        ozel_alan: m.ozelAlan || m.note || ''
+      }));
+
+      const targetDateStr = takasSelectedDate || getTodayISOString();
+
+      const activeUnpaidKesilen = sourceChecks.filter(c => {
+        if ((c.check_type || c.type) !== 'kesilen') return false;
+        const st = cleanCheckStatusMobile(c.status || c.rawStatus);
+        if (isCheckPaidMobile(st)) return false;
+        return st.includes('tahsilde') || st.includes('beklemede') || st.includes('ödenmedi') || st === 'takas' || st === 'ic_takas' || st === 'nontakas';
+      });
+
+      const hatirAlinan = sourceChecks.filter(c => {
+        if ((c.check_type || c.type) !== 'alinan') return false;
+        const st = cleanCheckStatusMobile(c.status || c.rawStatus);
+        if (st.includes('iade') || st.includes('tahsil') || st.includes('ödendi') || st.includes('ödenen') || st.includes('iptal')) return false;
+        const ozel = String(c.ozel_alan || c.note || '').toLocaleUpperCase('tr-TR');
+        if (ozel.startsWith('TAKASTA')) return true;
+        return isHatirAlinanMobile(c);
+      });
+
+      const allUnpaid = [...activeUnpaidKesilen, ...hatirAlinan];
+
+      const unpaidKesilen = allUnpaid.filter(c => {
+        const due = String(c.due_date || formatTRToISO(c.date) || '').slice(0, 10);
+        const isCekten = isCektenCheckMobile(c);
+        if (takasViewMode === 'upcoming') {
+          return due >= targetDateStr || isCekten;
+        }
+        return due === targetDateStr || (isCekten && due <= targetDateStr);
+      });
+
+      const paidForDate = sourceChecks.filter(c => {
+        const due = String(c.due_date || formatTRToISO(c.date) || '').slice(0, 10);
+        if (!isCheckPaidMobile(c.status || c.rawStatus)) return false;
+        return takasViewMode === 'upcoming' ? due >= targetDateStr : due === targetDateStr;
+      });
+
+      const takasCandidates = [];
+      const nonTakasChecks = [];
+
+      unpaidKesilen.forEach(c => {
+        if (isNonTakasCheckMobile(c)) {
+          nonTakasChecks.push(c);
+        } else {
+          takasCandidates.push(c);
+        }
+      });
+
+      const defaultBankCols = ['ALBARAKA', 'E.DENİZ', 'E.ZİRAAT', 'M.ZİRAAT', 'M.DENİZ', 'M.GARANTİ', 'M.AKBANK'];
+      const columns = {};
+      defaultBankCols.forEach(col => { columns[col] = []; });
+      columns['TAKSİT'] = [];
+
+      takasCandidates.forEach(c => {
+        const bankName = getBankColumnMobile(c.debtor, c.bank_name || c.bank);
+        const isExplicitTakasta = String(c.ozel_alan || c.note || '').toLocaleUpperCase('tr-TR').startsWith('TAKASTA');
+        if (
+          isHatirAlinanMobile(c) ||
+          bankName === 'TAKSİT' ||
+          (!bankName && isExplicitTakasta) ||
+          (isCektenCheckMobile(c) && isExplicitTakasta)
+        ) {
+          columns['TAKSİT'].push(c);
+        } else if (bankName) {
+          if (!columns[bankName]) columns[bankName] = [];
+          columns[bankName].push(c);
+        }
+      });
+
+      const activeBankCols = Object.keys(columns).filter(col => {
+        if (col === 'TAKSİT') return false;
+        if (defaultBankCols.includes(col)) return true;
+        return columns[col] && columns[col].length > 0;
+      });
+
+      activeBankCols.sort((a, b) => {
+        const idxA = defaultBankCols.indexOf(a);
+        const idxB = defaultBankCols.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b, 'tr');
+      });
+
+      const columnTotals = {};
+      let takasGrandTotal = 0;
+
+      activeBankCols.forEach(col => {
+        const sum = (columns[col] || []).reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+        columnTotals[col] = sum;
+        takasGrandTotal += sum;
+      });
+
+      const taksitSum = (columns['TAKSİT'] || []).reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+      columnTotals['TAKSİT'] = taksitSum;
+      takasGrandTotal += taksitSum;
+
+      const nonTakasTotal = nonTakasChecks.reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+
+      const icTakasChecks = unpaidKesilen.filter(c => {
+        const ozel = String(c.ozel_alan || c.note || '').toLocaleUpperCase('tr-TR');
+        return ozel.includes('İÇ TAKAS') || Boolean(c.isIcTakas);
+      });
+      const icTakasTotal = icTakasChecks.reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+
+      // Compute nearest dates with active checks for quick navigation pills
+      const dateCountsMap = {};
+      allUnpaid.forEach(c => {
+        if (isCektenCheckMobile(c)) return;
+        const d = String(c.due_date || formatTRToISO(c.date) || '').slice(0, 10);
+        if (!d) return;
+        if (!dateCountsMap[d]) dateCountsMap[d] = { count: 0, sum: 0 };
+        dateCountsMap[d].count += 1;
+        dateCountsMap[d].sum += (Number(c.amount) || 0);
+      });
+      const activeDates = Object.keys(dateCountsMap).sort().slice(0, 14);
+
+      return {
+        targetDateStr,
+        columns,
+        activeBankCols,
+        columnTotals,
+        takasGrandTotal,
+        nonTakasChecks,
+        nonTakasTotal,
+        icTakasChecks,
+        icTakasTotal,
+        paidForDate,
+        allTakasChecks: [...activeBankCols.flatMap(col => columns[col] || []), ...(columns['TAKSİT'] || [])],
+        activeDates,
+        dateCountsMap
+      };
+    }
 
     function setTakasDate(dateStr, btn) {
+      if (!dateStr) return;
       takasSelectedDate = dateStr;
-      document.querySelectorAll('.takas-date-pill').forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
+      takasViewMode = 'date';
+      renderTakasScreen();
+    }
+
+    function shiftTakasDate(deltaDays) {
+      const base = takasSelectedDate || getTodayISOString();
+      const parts = base.split('-').map(Number);
+      const d = new Date(parts[0], parts[1] - 1, parts[2] + deltaDays);
+      takasSelectedDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      takasViewMode = 'date';
+      renderTakasScreen();
+    }
+
+    function toggleTakasUpcomingMode() {
+      takasViewMode = takasViewMode === 'upcoming' ? 'date' : 'upcoming';
       renderTakasScreen();
     }
 
@@ -19279,38 +19281,117 @@ function toggleSubTab(tabIndex) {
       renderTakasScreen();
     }
 
+    function normalizeCheckForCard(c) {
+      const dueISO = String(c.due_date || formatTRToISO(c.date) || '').slice(0, 10);
+      const regISO = String(c.issue_date || c.created_at || '').slice(0, 10);
+      const ozel = String(c.ozel_alan || c.note || '');
+      const bankCol = getBankColumnMobile(c.debtor, c.bank_name || c.bank) || getCleanBankNameMobile(c.debtor, c.bank_name || c.bank) || 'BANKA';
+      return {
+        id: c.id,
+        no: c.voucher_no || c.no || '-',
+        type: c.check_type || c.type || 'kesilen',
+        supplier: cleanTurkishText(c.creditor || c.supplier || c.kesideci || c.debtor || '-'),
+        debtor: cleanTurkishText(c.debtor || bankCol),
+        bank: cleanTurkishText(bankCol),
+        amount: Number(c.amount) || 0,
+        date: dueISO ? formatISOToTR(dueISO) : (c.date || '-'),
+        dueDateISO: dueISO,
+        regDate: regISO ? formatISOToTR(regISO) : (c.regDate || '-'),
+        rawStatus: cleanTurkishText(c.status || c.rawStatus || 'Tahsilde'),
+        note: cleanTurkishText(ozel),
+        isIcTakas: ozel.toLocaleUpperCase('tr-TR').includes('İÇ TAKAS') || Boolean(c.isIcTakas),
+        isNonTakas: isNonTakasCheckMobile(c),
+        isCekten: isCektenCheckMobile(c)
+      };
+    }
+
     function renderTakasScreen() {
       const container = document.getElementById('takas-screen-content');
       if (!container) return;
 
-      const currentDay = takasDaysData[takasSelectedDate] || takasDaysData['2026-09-03'];
-      const takasTotal = currentDay.total;
-      const icTotal = currentDay.icTotal;
-      const count = currentDay.checks.length;
+      const dash = computeLiveTakasDashboardData();
+      const todayISO = getTodayISOString();
+      const tomObj = new Date();
+      tomObj.setDate(tomObj.getDate() + 1);
+      const tomorrowISO = tomObj.getFullYear() + '-' + String(tomObj.getMonth() + 1).padStart(2, '0') + '-' + String(tomObj.getDate()).padStart(2, '0');
 
-      if (document.getElementById('takas-kpi-sum')) document.getElementById('takas-kpi-sum').textContent = formatNumber(takasTotal) + ' TL';
-      if (document.getElementById('takas-kpi-ic')) document.getElementById('takas-kpi-ic').textContent = formatNumber(icTotal) + ' TL';
-      if (document.getElementById('takas-kpi-count')) document.getElementById('takas-kpi-count').textContent = count + ' Adet';
+      const generalTotal = dash.takasGrandTotal + dash.nonTakasTotal;
 
-      // Dinamik Tab Sayaçları (Gerçek evrak sayısını yansıtır)
+      if (document.getElementById('takas-kpi-sum')) {
+        document.getElementById('takas-kpi-sum').textContent = formatNumber(dash.takasGrandTotal) + ' TL';
+      }
+      if (document.getElementById('takas-kpi-ic')) {
+        document.getElementById('takas-kpi-ic').textContent = formatNumber(dash.nonTakasTotal) + ' TL';
+      }
+      if (document.getElementById('takas-kpi-count')) {
+        document.getElementById('takas-kpi-count').textContent = formatNumber(generalTotal) + ' TL';
+      }
+
       if (document.getElementById('takas-tab-takasta')) {
-        document.getElementById('takas-tab-takasta').textContent = 'Takasta (' + currentDay.checks.length + ')';
+        document.getElementById('takas-tab-takasta').textContent = 'Takasta (' + dash.allTakasChecks.length + ')';
+      }
+      if (document.getElementById('takas-tab-nontakas')) {
+        document.getElementById('takas-tab-nontakas').textContent = 'Takasta Değil (' + dash.nonTakasChecks.length + ')';
       }
       if (document.getElementById('takas-tab-ic_takas')) {
-        document.getElementById('takas-tab-ic_takas').textContent = 'İç Takas (' + currentDay.icChecks.length + ')';
+        document.getElementById('takas-tab-ic_takas').textContent = 'İç Takas (' + dash.icTakasChecks.length + ')';
+      }
+      if (document.getElementById('takas-tab-odenen')) {
+        document.getElementById('takas-tab-odenen').textContent = 'Ödenen (' + dash.paidForDate.length + ')';
       }
 
-      let displayList = currentDay.checks;
-      if (takasActiveTab === 'ic_takas') displayList = currentDay.icChecks;
+      const dateTitleDisplay = takasViewMode === 'upcoming'
+        ? 'Tüm Yaklaşan Takaslar'
+        : (formatISOToTR(dash.targetDateStr) + (dash.targetDateStr === todayISO ? ' (Bugün)' : (dash.targetDateStr === tomorrowISO ? ' (Yarın)' : '')));
 
-      // Active Bank breakdown for mobile responsiveness (never cut off!)
-      const activeBanks = currentDay.banks.filter(b => b.total > 0);
-      const activeBankPillsHtml = activeBanks.map(b => `
-        <div class="px-2.5 py-1.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-1.5 shrink-0">
-          <span class="text-[10px] font-bold text-kt-primary">${b.name}:</span>
-          <span class="text-xs font-black text-slate-900">${formatNumber(b.total)} TL</span>
+      // Quick date pills for dates that actually have unpaid takas checks
+      const quickDatesHtml = dash.activeDates.length > 0 ? `
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+          <span class="text-[9.5px] font-[700] text-slate-400 uppercase shrink-0">Dolu Günler:</span>
+          ${dash.activeDates.map(d => {
+            const info = dash.dateCountsMap[d];
+            const isSel = takasViewMode === 'date' && dash.targetDateStr === d;
+            return `<button onclick="setTakasDate('${d}')" class="px-2 py-1 rounded-lg text-[10px] font-[700] shrink-0 transition-all ${isSel ? 'bg-[#002D59] text-white shadow-2xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}">${formatISOToTR(d)} (${info.count})</button>`;
+          }).join('')}
         </div>
-      `).join('');
+      ` : '';
+
+      // Date Navigation Bar (1:1 with Web Panel)
+      const dateNavHtml = `
+        <div class="kt-card p-3 bg-white border border-slate-200 rounded-2xl space-y-2 shadow-2xs">
+          <div class="flex items-center justify-between gap-1.5 flex-wrap">
+            <div class="flex items-center gap-1">
+              <button onclick="shiftTakasDate(-1)" class="px-2 py-1 text-[11px] font-[700] rounded-lg border border-slate-200 bg-slate-50 text-slate-700">← Önceki</button>
+              <button onclick="setTakasDate('${todayISO}')" class="px-2.5 py-1 text-[11px] font-[700] rounded-lg ${takasViewMode === 'date' && dash.targetDateStr === todayISO ? 'bg-[#002D59] text-white' : 'border border-slate-200 bg-white text-slate-700'}">Bugün</button>
+              <button onclick="setTakasDate('${tomorrowISO}')" class="px-2.5 py-1 text-[11px] font-[700] rounded-lg ${takasViewMode === 'date' && dash.targetDateStr === tomorrowISO ? 'bg-[#002D59] text-white' : 'border border-slate-200 bg-white text-slate-700'}">Yarın</button>
+              <button onclick="shiftTakasDate(1)" class="px-2 py-1 text-[11px] font-[700] rounded-lg border border-slate-200 bg-slate-50 text-slate-700">Sonraki →</button>
+            </div>
+            <input type="date" value="${dash.targetDateStr}" onchange="setTakasDate(this.value)" class="px-2 py-1 text-[11px] font-[700] text-slate-800 border border-slate-300 rounded-lg bg-slate-50" />
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <button onclick="toggleTakasUpcomingMode()" class="w-full py-1.5 px-3 rounded-xl text-[11px] font-[700] transition-all ${takasViewMode === 'upcoming' ? 'bg-amber-600 text-white shadow-xs' : 'bg-amber-50 border border-amber-300 text-amber-900'}">
+              ${takasViewMode === 'upcoming' ? '✓ Tüm Yaklaşan Takaslar Aktif (Günlük Görünüme Dön)' : '📅 Tüm Yaklaşan Takasları Göster'}
+            </button>
+          </div>
+          ${quickDatesHtml}
+        </div>
+      `;
+
+      // Active Bank Pills
+      const allColsWithTaksit = [...dash.activeBankCols, 'TAKSİT'];
+      const activeBankPillsHtml = allColsWithTaksit
+        .filter(col => (dash.columnTotals[col] || 0) > 0)
+        .map(col => `
+          <div class="px-2.5 py-1.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-1.5 shrink-0">
+            <span class="text-[10px] font-bold text-kt-primary">${col}:</span>
+            <span class="text-xs font-black text-slate-900">${formatNumber(dash.columnTotals[col])} TL</span>
+          </div>
+        `).join('');
+
+      const maxRows = Math.max(
+        4,
+        ...allColsWithTaksit.map(col => (dash.columns[col] || []).length)
+      );
 
       let matrixHtml = '';
       if (takasActiveTab === 'takasta') {
@@ -19320,41 +19401,47 @@ function toggleSubTab(tabIndex) {
             <div class="flex justify-between items-center px-1">
               <div class="flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
-                <h4 class="text-[12.5px] font-[700] text-slate-900 tracking-tight">Takas Tablosu (${currentDay.dateDisplay})</h4>
+                <h4 class="text-[12.5px] font-[800] text-red-600 uppercase tracking-tight">TAKAS ÇEKLERİ (${dateTitleDisplay})</h4>
               </div>
-              <div class="flex items-center gap-1">
-    <span class="text-[9.5px] font-[600] text-slate-400 flex items-center gap-0.5">↔ Sağa Kaydır</span>
-    <span class="text-[10px] font-[600] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">Banka Matrisi</span>
-  </div>
+              <span class="text-[9.5px] font-[600] text-slate-400">↔ Sağa Kaydır</span>
             </div>
 
-            <!-- Mobil Uyumlu Aktif Banka Dökümü (Kesinlikle sağa kayıp kaybolmaz) -->
-            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-              ${activeBankPillsHtml}
-            </div>
+            ${activeBankPillsHtml ? `<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">${activeBankPillsHtml}</div>` : ''}
 
-            <div class="overflow-x-auto no-scrollbar border border-slate-200 rounded-xl">
-              <table class="min-w-[580px] w-full text-center text-[11px] border-collapse bg-white">
+            <div class="overflow-x-auto no-scrollbar border-2 border-slate-800 rounded-xl">
+              <table class="min-w-[680px] w-full text-center text-[11px] border-collapse bg-white">
                 <thead>
-                  <tr class="bg-slate-50 border-b border-slate-200 text-slate-700 font-[700] text-[10px]">
-                    ${currentDay.banks.map(b => `
-                      <th class="p-2 border-r border-slate-200 ${b.isHighlighted ? 'bg-blue-50 text-kt-primary font-[800]' : ''}">${b.name}</th>
+                  <tr class="bg-slate-100 border-b-2 border-slate-800 text-red-700 font-[800] text-[10.5px]">
+                    ${dash.activeBankCols.map(col => `
+                      <th class="p-2 border-r border-slate-300 ${dash.columnTotals[col] > 0 ? 'bg-blue-50 text-kt-primary' : ''}">${col}</th>
                     `).join('')}
+                    <th class="p-2 border-r border-slate-300 bg-amber-50/70 text-red-700">TAKSİT</th>
+                    <th class="p-2 bg-amber-50/70 text-slate-700 text-left pl-2.5 min-w-[130px]">TAKSİT AÇIKLAMA</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 font-[500] text-slate-800 text-[10.5px]">
-                  ${[0, 1, 2, 3].map(rowIdx => `
-                    <tr>
-                      ${currentDay.banks.map(b => {
-                        const val = b.items[rowIdx];
-                        return `<td class="p-2 border-r border-slate-100 ${val ? 'font-[700] text-slate-900 bg-blue-50/40' : 'text-slate-300'}">${val ? formatNumber(val) : '-'}</td>`;
-                      }).join('')}
-                    </tr>
-                  `).join('')}
-                  <tr class="bg-slate-100 font-[700] text-[11px] border-t-2 border-slate-300 text-slate-900">
-                    ${currentDay.banks.map(b => `
-                      <td class="p-2 border-r border-slate-200 ${b.isHighlighted ? 'text-kt-primary font-[800] bg-blue-100/60' : ''}">${b.total > 0 ? formatNumber(b.total) : '-'}</td>
+                <tbody class="divide-y divide-slate-200 font-[600] text-slate-800 text-[11px]">
+                  ${Array.from({ length: maxRows }).map((_, rowIdx) => {
+                    const taksitChk = (dash.columns['TAKSİT'] || [])[rowIdx];
+                    const taksitDesc = taksitChk ? cleanTurkishText(isHatirAlinanMobile(taksitChk) ? (taksitChk.kesideci || taksitChk.creditor || '') : (taksitChk.creditor || taksitChk.supplier || '')) : '';
+                    return `
+                      <tr class="h-[30px]">
+                        ${dash.activeBankCols.map(col => {
+                          const chk = (dash.columns[col] || [])[rowIdx];
+                          const val = chk ? Number(chk.amount) : 0;
+                          const isIc = chk && String(chk.ozel_alan || chk.note || '').toLocaleUpperCase('tr-TR').includes('İÇ TAKAS');
+                          return `<td ${chk ? `onclick="openCheckActionModal('${chk.id}')"` : ''} class="p-1.5 border-r border-slate-200 ${chk ? 'cursor-pointer' : ''} ${isIc ? 'bg-red-600 text-white font-[800]' : (val ? 'font-[700] text-slate-900 bg-blue-50/30' : 'text-slate-300')}">${val ? formatNumber(val) : '-'}</td>`;
+                        }).join('')}
+                        <td ${taksitChk ? `onclick="openCheckActionModal('${taksitChk.id}')"` : ''} class="p-1.5 border-r border-slate-200 ${taksitChk ? 'font-[700] text-slate-900 bg-amber-50/30 cursor-pointer' : 'text-slate-300'}">${taksitChk ? formatNumber(taksitChk.amount) : '-'}</td>
+                        <td ${taksitChk ? `onclick="openCheckActionModal('${taksitChk.id}')"` : ''} class="p-1.5 text-left pl-2.5 font-[700] text-[10px] text-slate-700 uppercase truncate max-w-[150px] ${taksitChk ? 'cursor-pointer' : ''}">${taksitDesc || ''}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                  <tr class="bg-slate-100 font-[800] text-[11px] border-t-2 border-slate-800 text-slate-900">
+                    ${dash.activeBankCols.map(col => `
+                      <td class="p-2 border-r border-slate-300 ${dash.columnTotals[col] > 0 ? 'text-kt-primary bg-blue-100/60' : ''}">${dash.columnTotals[col] > 0 ? formatNumber(dash.columnTotals[col]) : '0'}</td>
                     `).join('')}
+                    <td class="p-2 border-r border-slate-300 text-red-700 bg-amber-100/50">${dash.columnTotals['TAKSİT'] > 0 ? formatNumber(dash.columnTotals['TAKSİT']) : '0'}</td>
+                    <td class="p-2 text-left pl-2.5 text-[10px] text-slate-500">TOPLAM</td>
                   </tr>
                 </tbody>
               </table>
@@ -19363,28 +19450,71 @@ function toggleSubTab(tabIndex) {
             <div class="p-2.5 bg-blue-50/70 border border-blue-200/80 rounded-xl flex justify-between items-center">
               <div class="flex items-center gap-1.5">
                 <div class="w-6 h-6 rounded-lg bg-kt-primary text-white flex items-center justify-center text-xs font-bold">₺</div>
-                <span class="text-xs font-[700] text-slate-800">TAKAS TOPLAMI</span>
+                <span class="text-xs font-[800] text-slate-800">TAKAS TOPLAMI</span>
               </div>
-              <span class="text-sm font-[800] text-kt-primary">${formatNumber(takasTotal)} TL</span>
+              <span class="text-sm font-[900] text-kt-primary">${formatNumber(dash.takasGrandTotal)} TL</span>
+            </div>
+          </div>
+
+          <!-- Takasta Olmayan Çekler & Hesapta Olan Para Özeti (Web Panel Alt Tablolar Birebir) -->
+          <div class="kt-card p-3.5 space-y-2.5 bg-white border border-slate-200 shadow-xs">
+            <div class="flex justify-between items-center">
+              <h4 class="text-xs font-[800] text-red-600 uppercase tracking-wider">📌 TAKASTA OLMAYAN ÇEKLER & ÇEKTEN</h4>
+              <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-[700]">${dash.nonTakasChecks.length} Adet • ${formatNumber(dash.nonTakasTotal)} TL</span>
+            </div>
+            ${dash.nonTakasChecks.length > 0 ? `
+              <div class="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden text-[11px]">
+                <div class="grid grid-cols-12 bg-slate-50 px-2.5 py-1.5 font-[700] text-slate-500 text-[10px]">
+                  <span class="col-span-5">Alacaklı / Açıklama</span>
+                  <span class="col-span-3">Banka</span>
+                  <span class="col-span-4 text-right">Tutar</span>
+                </div>
+                ${dash.nonTakasChecks.map(rawChk => {
+                  const c = normalizeCheckForCard(rawChk);
+                  return `
+                    <div onclick="openCheckActionModal('${c.id}')" class="grid grid-cols-12 items-center px-2.5 py-2 bg-white hover:bg-slate-50 cursor-pointer">
+                      <span class="col-span-5 font-[700] text-slate-800 truncate pr-1">${c.supplier}</span>
+                      <span class="col-span-3 text-[10px] font-[700] ${c.isCekten ? 'text-rose-600' : 'text-slate-600'} truncate">${c.debtor}</span>
+                      <span class="col-span-4 text-right font-[800] text-slate-900">${formatNumber(c.amount)} TL</span>
+                    </div>
+                  `;
+                }).join('')}
+                <div class="grid grid-cols-12 bg-slate-100 px-2.5 py-2 font-[800] text-slate-900">
+                  <span class="col-span-8">Takasta Olmayan Toplam</span>
+                  <span class="col-span-4 text-right text-red-700">${formatNumber(dash.nonTakasTotal)} TL</span>
+                </div>
+              </div>
+            ` : `<p class="text-[11px] text-slate-400 text-center py-2">Seçili tarihte takasta olmayan evrak bulunmamaktadır.</p>`}
+
+            <div class="p-2.5 bg-slate-900 text-white rounded-xl flex justify-between items-center">
+              <span class="text-xs font-[800] uppercase tracking-wider">GENEL TOPLAM (TAKAS + DİĞER)</span>
+              <span class="text-sm font-[900] text-emerald-400">${formatNumber(generalTotal)} TL</span>
             </div>
           </div>
         `;
       }
 
+      let rawDisplayList = dash.allTakasChecks;
+      if (takasActiveTab === 'nontakas') rawDisplayList = dash.nonTakasChecks;
+      else if (takasActiveTab === 'ic_takas') rawDisplayList = dash.icTakasChecks;
+      else if (takasActiveTab === 'odenen') rawDisplayList = dash.paidForDate;
+
+      const displayList = rawDisplayList.map(normalizeCheckForCard);
+
       const cardsHtml = displayList.map(c => `
-        <div class="kt-card p-3.5 space-y-2.5 ${c.isIcTakas ? 'border-l-4 border-l-blue-400 bg-blue-50/10' : 'border-l-4 border-l-kt-primary bg-white'} shadow-xs transition-all">
+        <div class="kt-card p-3.5 space-y-2.5 ${c.isIcTakas ? 'border-l-4 border-l-red-600 bg-red-50/15' : (c.isCekten ? 'border-l-4 border-l-amber-500 bg-amber-50/10' : 'border-l-4 border-l-kt-primary bg-white')} shadow-xs transition-all">
           <div class="flex justify-between items-start">
             <div>
-              <div class="flex items-center gap-1.5">
-                <span class="text-[9.5px] font-[700] px-1.5 py-0.5 rounded bg-blue-50 text-kt-primary">${c.isIcTakas ? 'İÇ TAKAS' : 'TAKAS EVRAKI'}</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-[9.5px] font-[700] px-1.5 py-0.5 rounded ${c.isIcTakas ? 'bg-red-100 text-red-700' : (c.isCekten ? 'bg-amber-100 text-amber-800' : 'bg-blue-50 text-kt-primary')}">${c.isIcTakas ? 'İÇ TAKAS' : (c.isCekten ? 'ÇEKTEN HESABI' : (c.isNonTakas ? 'TAKASTA OLMAYAN' : 'TAKAS EVRAKI'))}</span>
                 <span class="text-[12px] font-[600] text-slate-700">Vade: <strong class="text-slate-800 font-[700]">${c.date}</strong></span>
                 <span class="text-[11px] text-slate-400">(${c.no || '-'})</span>
               </div>
-              <h4 class="text-[13.5px] font-[700] text-slate-900 tracking-tight mt-1 cursor-pointer hover:text-kt-primary" onclick="openCariDetailByName('${c.supplier || c.debtor}')">${c.supplier || c.debtor}</h4>
+              <h4 class="text-[13.5px] font-[700] text-slate-900 tracking-tight mt-1 cursor-pointer hover:text-kt-primary" onclick="openCariDetailByName('${c.supplier.replace(/'/g, "\\'")}')">${c.supplier}</h4>
             </div>
             <div class="text-right shrink-0">
               <span class="text-[14.5px] font-[800] text-slate-900 tracking-tight">${formatNumber(c.amount)} TL</span>
-              <span class="text-[10px] text-slate-400 block font-medium">Kayıt: ${c.regDate || '18.07.2026'}</span>
+              <span class="text-[10px] text-slate-400 block font-medium">Kayıt: ${c.regDate || '-'}</span>
             </div>
           </div>
 
@@ -19392,27 +19522,32 @@ function toggleSubTab(tabIndex) {
             <span>Asıl Borçlu / Banka: <strong class="text-slate-800 font-[600]">${c.debtor || c.bank}</strong></span>
             <div class="flex items-center gap-1.5">
               <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-[600] text-[10px]">${c.rawStatus || 'Tahsilde'}</span>
-              <button onclick="openCheckActionModal(${c.id})" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg font-[600] text-slate-700 text-[11px] transition-colors">İşlem</button>
+              <button onclick="openCheckActionModal('${c.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg font-[600] text-slate-700 text-[11px] transition-colors">İşlem</button>
             </div>
           </div>
         </div>
       `).join('');
 
-      container.innerHTML = matrixHtml + `
-        <div class="flex justify-between items-center px-1 pt-1">
-          <span class="text-[12px] font-[600] text-slate-700">${takasActiveTab === 'takasta' ? 'Seçili Günün Takas Evrakları' : (takasActiveTab === 'ic_takas' ? 'İç Takas Evrakları' : 'Ödenen Evraklar')}</span>
-          <span class="text-[11px] font-[500] text-slate-400">${displayList.length} Evrak</span>
-        </div>
-      ` + (displayList.length > 0 ? cardsHtml : (takasActiveTab === 'ic_takas' ? 
-  `<div class="p-6 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5">
-    <div class="w-10 h-10 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg font-black">✓</div>
-    <h4 class="text-[13px] font-[700] text-slate-800">Bugün İç Takas Evrakı Yok</h4>
-    <p class="text-[11px] text-slate-400 max-w-xs mx-auto">Seçili tarihte (${currentDay.dateDisplay}) iç takasa ayrılmış herhangi bir çek bulunmamaktadır.</p>
-    <button onclick="switchTakasScreenTab('takasta', document.getElementById('takas-tab-takasta'))" class="mt-2 px-4 py-2 bg-kt-primary text-white text-xs font-[700] rounded-xl shadow-xs hover:opacity-95 transition-all">Takastaki Çeklere Dön (${currentDay.checks.length})</button>
-  </div>` : 
-  '<div class="p-6 text-center bg-white rounded-xl text-slate-400 text-xs">Bu güne ait takas evrakı bulunamadı.</div>'));
-    }
+      const listHeaderLabel = takasActiveTab === 'takasta'
+        ? 'Seçili Günün Takas Evrakları'
+        : (takasActiveTab === 'nontakas'
+          ? 'Takasta Olmayan & Çekten Evrakları'
+          : (takasActiveTab === 'ic_takas' ? 'İç Takas Evrakları' : 'Ödenen Evraklar'));
 
+      container.innerHTML = dateNavHtml + matrixHtml + `
+        <div class="flex justify-between items-center px-1 pt-1">
+          <span class="text-[12px] font-[700] text-slate-700">${listHeaderLabel}</span>
+          <span class="text-[11px] font-[600] text-slate-400">${displayList.length} Evrak</span>
+        </div>
+      ` + (displayList.length > 0 ? cardsHtml : `
+        <div class="p-6 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5">
+          <div class="w-10 h-10 mx-auto rounded-full bg-blue-50 text-kt-primary flex items-center justify-center text-lg font-black">📅</div>
+          <h4 class="text-[13px] font-[700] text-slate-800">Seçili Tarihte (${dateTitleDisplay}) Evrak Bulunmuyor</h4>
+          <p class="text-[11px] text-slate-400 max-w-xs mx-auto">Yukarıdaki "Dolu Günler" kısayollarından veya "Tüm Yaklaşan Takasları Göster" butonundan aktif takas günlerine geçiş yapabilirsiniz.</p>
+          <button onclick="toggleTakasUpcomingMode()" class="mt-2 px-4 py-2 bg-kt-primary text-white text-xs font-[700] rounded-xl shadow-xs hover:opacity-95 transition-all">📅 Tüm Yaklaşan Takasları Göster</button>
+        </div>
+      `);
+    }
 
     // ==========================================
     // 2. MODÜL: ÇEK & SENET LİSTESİ (screen-checks)
@@ -19451,7 +19586,7 @@ function toggleSubTab(tabIndex) {
     }
 
     function handleCheckListSearch(query) {
-      checkListSearchQuery = (query || '').trim().toLowerCase();
+      checkListSearchQuery = (query || '').trim().toLocaleLowerCase('tr-TR');
       checkListCurrentPage = 1;
       renderCheckListScreen();
     }
@@ -19465,33 +19600,58 @@ function toggleSubTab(tabIndex) {
       const container = document.getElementById('checks-list-container');
       if (!container) return;
 
-      // Filter
+      const todayISO = getTodayISOString();
+      const todayTR = formatISOToTR(todayISO);
+      const tomObj = new Date();
+      tomObj.setDate(tomObj.getDate() + 1);
+      const tomorrowISO = tomObj.getFullYear() + '-' + String(tomObj.getMonth() + 1).padStart(2, '0') + '-' + String(tomObj.getDate()).padStart(2, '0');
+      const tomorrowTR = formatISOToTR(tomorrowISO);
+
+      // Update top 4 KPI cards dynamically from mockChecks
+      const todayChecks = mockChecks.filter(c => !isCheckPaidMobile(c.rawStatus) && (c.dueDateISO === todayISO || c.date === todayTR || c.daysLeft === 0));
+      const tomorrowChecks = mockChecks.filter(c => !isCheckPaidMobile(c.rawStatus) && (c.dueDateISO === tomorrowISO || c.date === tomorrowTR || c.daysLeft === 1));
+      const weekChecks = mockChecks.filter(c => !isCheckPaidMobile(c.rawStatus) && c.daysLeft >= 0 && c.daysLeft <= 6);
+      const tahsildeChecks = mockChecks.filter(c => !isCheckPaidMobile(c.rawStatus));
+      const odenenChecks = mockChecks.filter(c => isCheckPaidMobile(c.rawStatus));
+
+      const todaySum = todayChecks.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+      const tomSum = tomorrowChecks.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+      const weekSum = weekChecks.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+
+      if (document.getElementById('chk-kpi-today-amt')) document.getElementById('chk-kpi-today-amt').textContent = formatNumber(todaySum) + ' TL';
+      if (document.getElementById('chk-kpi-today-cnt')) document.getElementById('chk-kpi-today-cnt').textContent = todayChecks.length + ' Adet Evrak';
+      if (document.getElementById('chk-kpi-tom-amt')) document.getElementById('chk-kpi-tom-amt').textContent = formatNumber(tomSum) + ' TL';
+      if (document.getElementById('chk-kpi-tom-cnt')) document.getElementById('chk-kpi-tom-cnt').textContent = tomorrowChecks.length + ' Adet Evrak';
+      if (document.getElementById('chk-kpi-week-amt')) document.getElementById('chk-kpi-week-amt').textContent = formatNumber(weekSum) + ' TL';
+      if (document.getElementById('chk-kpi-week-cnt')) document.getElementById('chk-kpi-week-cnt').textContent = weekChecks.length + ' Adet Evrak';
+      if (document.getElementById('chk-kpi-all-cnt')) document.getElementById('chk-kpi-all-cnt').textContent = mockChecks.length + ' Adet';
+      if (document.getElementById('chk-kpi-all-sub')) document.getElementById('chk-kpi-all-sub').textContent = `Aktif: ${tahsildeChecks.length} • Ödenen: ${odenenChecks.length}`;
+      if (document.getElementById('chk-pill-tahsilde')) document.getElementById('chk-pill-tahsilde').textContent = `Tahsilde (${tahsildeChecks.length})`;
+      if (document.getElementById('chk-pill-odenen')) document.getElementById('chk-pill-odenen').textContent = `Ödenen (${odenenChecks.length})`;
+
       let list = mockChecks.filter(c => {
         if (checkListActiveType === 'kesilen' && c.type !== 'kesilen') return false;
         if (checkListActiveType === 'alinan' && c.type !== 'alinan') return false;
 
-        if (checkListActiveDate === 'today' && c.daysLeft !== 0 && c.date !== '01.09.2026') return false;
-        if (checkListActiveDate === 'tomorrow' && c.daysLeft !== 1 && c.date !== '02.09.2026') return false;
+        if (checkListActiveDate === 'today' && c.daysLeft !== 0 && c.date !== todayTR) return false;
+        if (checkListActiveDate === 'tomorrow' && c.daysLeft !== 1 && c.date !== tomorrowTR) return false;
         if (checkListActiveDate === 'week' && (c.daysLeft < 0 || c.daysLeft > 6)) return false;
 
-        if (checkListActiveStatus === 'tahsilde' && !(c.rawStatus || '').toLowerCase().includes('tahsil')) return false;
-        if (checkListActiveStatus === 'odenen' && !(c.rawStatus || '').toLowerCase().includes('öden')) return false;
+        if (checkListActiveStatus === 'tahsilde' && isCheckPaidMobile(c.rawStatus)) return false;
+        if (checkListActiveStatus === 'odenen' && !isCheckPaidMobile(c.rawStatus)) return false;
 
         if (checkListSearchQuery) {
-          const matchNo = String(c.no || '').toLowerCase().includes(checkListSearchQuery);
-          const matchSupp = String(c.supplier || '').toLowerCase().includes(checkListSearchQuery);
-          const matchBank = String(c.bank || '').toLowerCase().includes(checkListSearchQuery);
-          const matchDebt = String(c.debtor || '').toLowerCase().includes(checkListSearchQuery);
-          const matchNote = String(c.note || '').toLowerCase().includes(checkListSearchQuery);
-          const matchDate = String(c.date || '').includes(checkListSearchQuery);
-          const matchAmount = String(c.amount || '').includes(checkListSearchQuery);
-          if (!matchNo && !matchSupp && !matchBank && !matchDebt && !matchNote && !matchDate && !matchAmount) return false;
+          const hay = `${c.no || ''} ${c.supplier || ''} ${c.bank || ''} ${c.debtor || ''} ${c.note || ''} ${c.date || ''} ${c.amount || ''}`.toLocaleLowerCase('tr-TR');
+          if (!hay.includes(checkListSearchQuery)) return false;
         }
 
         return true;
       });
 
       list.sort((a, b) => {
+        const aPaid = isCheckPaidMobile(a.rawStatus);
+        const bPaid = isCheckPaidMobile(b.rawStatus);
+        if (aPaid !== bPaid) return aPaid ? 1 : -1;
         if (a.daysLeft !== b.daysLeft) return a.daysLeft - b.daysLeft;
         return (b.amount || 0) - (a.amount || 0);
       });
@@ -19515,7 +19675,7 @@ function toggleSubTab(tabIndex) {
         container.innerHTML = headerSummary + `
           <div class="p-8 text-center bg-white rounded-2xl border border-slate-200 space-y-2">
             <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center text-lg">🔍</div>
-            <p class="text-xs font-bold text-slate-700">Aramanıza uygun evrak bulunamadı.</p>
+            <p class="text-xs font-bold text-slate-700">Seçili filtreye uygun evrak bulunamadı.</p>
             <button onclick="checkListSearchQuery=''; checkListActiveDate='all'; checkListActiveStatus='all'; checkListActiveType='all'; renderCheckListScreen();" class="px-3.5 py-1.5 bg-kt-primary text-white rounded-xl text-xs font-bold mt-2">Tüm Çekleri Göster</button>
           </div>
         `;
@@ -19526,8 +19686,8 @@ function toggleSubTab(tabIndex) {
       const paginated = list.slice(0, visible);
 
       const itemsHtml = paginated.map(c => {
-        const isToday = c.date === '01.09.2026' || c.daysLeft === 0;
-        const isTomorrow = c.date === '02.09.2026' || c.daysLeft === 1;
+        const isToday = c.date === todayTR || c.daysLeft === 0;
+        const isTomorrow = c.date === tomorrowTR || c.daysLeft === 1;
 
         let badgeHtml = '';
         if (isToday) {
@@ -19553,11 +19713,11 @@ function toggleSubTab(tabIndex) {
                   <span class="text-[12px] font-[600] text-slate-700">Vade: <strong class="${isToday ? 'text-red-700 font-bold' : 'text-slate-900'}">${c.date}</strong></span>
                   <span class="text-[11px] text-slate-400">(${c.no || '-'})</span>
                 </div>
-                <h4 class="text-[13.5px] font-[700] text-slate-900 tracking-tight mt-1 cursor-pointer hover:text-kt-primary" onclick="openCariDetailByName('${c.supplier || c.debtor}')">${c.supplier || c.debtor}</h4>
+                <h4 class="text-[13.5px] font-[700] text-slate-900 tracking-tight mt-1 cursor-pointer hover:text-kt-primary" onclick="openCariDetailByName('${String(c.supplier || c.debtor).replace(/'/g, "\\'")}')">${c.supplier || c.debtor}</h4>
               </div>
               <div class="text-right shrink-0">
                 <span class="text-[14.5px] font-[800] tracking-tight ${isToday ? 'text-red-700' : (c.isIcTakas ? 'text-rose-600' : 'text-slate-900')}">${formatNumber(c.amount)} TL</span>
-                <span class="text-[10px] text-slate-400 block font-medium">Kayıt: ${c.regDate || '18.07.2026'}</span>
+                <span class="text-[10px] text-slate-400 block font-medium">Kayıt: ${c.regDate || '-'}</span>
               </div>
             </div>
 
@@ -19568,7 +19728,7 @@ function toggleSubTab(tabIndex) {
               <div class="flex items-center gap-1.5 shrink-0">
                 ${badgeHtml}
                 <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-[600] text-[10px]">${c.rawStatus || 'Tahsilde'}</span>
-                <button onclick="openCheckActionModal(${c.id})" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg font-[600] text-slate-700 text-[11px] transition-colors">İşlem</button>
+                <button onclick="openCheckActionModal('${c.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg font-[600] text-slate-700 text-[11px] transition-colors">İşlem</button>
               </div>
             </div>
           </div>
@@ -19594,39 +19754,51 @@ function toggleSubTab(tabIndex) {
       renderCheckListScreen();
     }
 
+    function findCheckByIdAny(checkId) {
+      const strId = String(checkId);
+      const raw = (liveRawEbsChecks || []).find(c => String(c.id) === strId);
+      if (raw) return normalizeCheckForCard(raw);
+      return mockChecks.find(c => String(c.id) === strId) || mockChecks[0];
+    }
+
     function openCheckActionModal(checkId) {
-      const check = mockChecks.find(c => c.id === checkId) || mockChecks[0];
+      const check = findCheckByIdAny(checkId);
+      if (!check) return;
       const sheet = document.getElementById('action-bottom-sheet');
       const content = document.getElementById('bottom-sheet-content');
 
       content.innerHTML = `
         <div class="flex justify-between items-center border-b border-gray-100 pb-3">
           <div>
-            <h3 class="text-sm font-black text-slate-900">${check.debtor}</h3>
-            <p class="text-xs text-slate-400">${formatNumber(check.amount)} TL • ${check.bank} • Vade: ${check.date}</p>
+            <h3 class="text-sm font-black text-slate-900">${check.supplier || check.debtor}</h3>
+            <p class="text-xs text-slate-400">${formatNumber(check.amount)} TL • ${check.debtor || check.bank} • Vade: ${check.date}</p>
           </div>
           <button onclick="closeBottomSheet()" class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold">✕</button>
         </div>
 
         <div class="space-y-2 text-xs font-bold pt-1">
-          <button onclick="openCariDetailByName('${check.debtor}'); closeBottomSheet();" class="w-full text-left p-3 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 flex justify-between items-center">
-            <span>📄 Keşideci Cari Hareketlerini İncele</span>
+          <button onclick="openCariDetailByName('${String(check.supplier || check.debtor).replace(/'/g, "\\'")}'); closeBottomSheet();" class="w-full text-left p-3 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 flex justify-between items-center">
+            <span>📄 Alacaklı / Keşideci Cari Hareketlerini İncele</span>
             <span>&gt;</span>
           </button>
-          <button onclick="setCheckIcTakas(${check.id}, true)" class="w-full text-left p-3 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 flex justify-between items-center">
+          <button onclick="setCheckTakasStatus('${check.id}', 'takasta')" class="w-full text-left p-3 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 flex justify-between items-center">
+            <span>🟢 Takasa Al (Takas Matrisine Ekle)</span>
+            <span>&gt;</span>
+          </button>
+          <button onclick="setCheckTakasStatus('${check.id}', 'nontakas')" class="w-full text-left p-3 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 flex justify-between items-center">
+            <span>🟡 Takasta Değil (Alt Listeye Taşı)</span>
+            <span>&gt;</span>
+          </button>
+          <button onclick="setCheckIcTakas('${check.id}', true)" class="w-full text-left p-3 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 flex justify-between items-center">
             <span>🔴 İç Takasa Al (Kırmızı Sabitle)</span>
             <span>&gt;</span>
           </button>
-          <button onclick="setCheckIcTakas(${check.id}, false)" class="w-full text-left p-3 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 flex justify-between items-center">
-            <span>🟢 Normal Takasa Geri Al</span>
+          <button onclick="openMoveBankModal('${check.id}')" class="w-full text-left p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 flex justify-between items-center">
+            <span>🏛️ Başka Banka Sütununa Taşı (E.Ziraat, M.Deniz, Albaraka...)</span>
             <span>&gt;</span>
           </button>
-          <button onclick="openMoveBankModal(${check.id})" class="w-full text-left p-3 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 flex justify-between items-center">
-            <span>🏛️ Başka Bankaya Taşı (E.Ziraat, M.Deniz, Albaraka...)</span>
-            <span>&gt;</span>
-          </button>
-          <button onclick="showToast('Tahsilat kaydedildi'); closeBottomSheet();" class="w-full text-left p-3 rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100 flex justify-between items-center">
-            <span>✅ Tahsil Edildi Olarak İşaretle</span>
+          <button onclick="markCheckAsPaidLive('${check.id}')" class="w-full text-left p-3 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 flex justify-between items-center">
+            <span>✅ Ödendi / Tahsil Edildi Olarak İşaretle</span>
             <span>&gt;</span>
           </button>
         </div>
@@ -19634,28 +19806,109 @@ function toggleSubTab(tabIndex) {
       sheet.classList.remove('hidden');
     }
 
-    function setCheckIcTakas(checkId, isIc) {
-      const c = mockChecks.find(x => x.id === checkId);
+    async function setCheckTakasStatus(checkId, mode) {
+      const strId = String(checkId);
+      const newOzel = mode === 'nontakas' ? 'TAKASTA OLMAYAN' : 'TAKASTA';
+      const raw = (liveRawEbsChecks || []).find(x => String(x.id) === strId);
+      if (raw) {
+        raw.ozel_alan = newOzel;
+        raw.note = newOzel;
+      }
+      const m = mockChecks.find(x => String(x.id) === strId);
+      if (m) {
+        m.ozelAlan = newOzel;
+        m.note = newOzel;
+        m.isIcTakas = false;
+      }
+      if (liveSupabase && !strId.startsWith('cekten_')) {
+        try {
+          await liveSupabase.from('ebs_checks').update({ ozel_alan: newOzel }).eq('id', strId);
+        } catch (e) {}
+      }
+      showToast(mode === 'nontakas' ? 'Çek Takasta Olmayan listesine taşındı' : 'Çek Takas matrisine alındı');
+      closeBottomSheet();
+      renderChecks();
+    }
+
+    async function setCheckIcTakas(checkId, isIc) {
+      const strId = String(checkId);
+      const newOzel = isIc ? 'TAKASTA - İÇ TAKAS' : 'TAKASTA';
+      const raw = (liveRawEbsChecks || []).find(x => String(x.id) === strId);
+      if (raw) {
+        raw.ozel_alan = newOzel;
+        raw.note = newOzel;
+        raw.isIcTakas = isIc;
+      }
+      const c = mockChecks.find(x => String(x.id) === strId);
       if (c) {
         c.isIcTakas = isIc;
         c.status = isIc ? 'ic_takas' : 'takas';
-        showToast(isIc ? 'Çek İç Takas yapıldı (Veritabanında korunuyor)' : 'Çek normal takasa alındı');
-        closeBottomSheet();
-        renderChecks();
+        c.ozelAlan = newOzel;
+        c.note = newOzel;
       }
+      if (liveSupabase && !strId.startsWith('cekten_')) {
+        try {
+          await liveSupabase.from('ebs_checks').update({ ozel_alan: newOzel }).eq('id', strId);
+        } catch (e) {}
+      }
+      showToast(isIc ? 'Çek İç Takas yapıldı (Canlı veritabanına işlendi)' : 'Çek normal takasa alındı');
+      closeBottomSheet();
+      renderChecks();
+    }
+
+    async function markCheckAsPaidLive(checkId) {
+      const strId = String(checkId);
+      const raw = (liveRawEbsChecks || []).find(x => String(x.id) === strId);
+      if (raw) {
+        raw.status = 'Ödendi';
+        raw.rawStatus = 'Ödendi';
+      }
+      const m = mockChecks.find(x => String(x.id) === strId);
+      if (m) {
+        m.status = 'odendi';
+        m.rawStatus = 'Ödendi';
+      }
+      if (liveSupabase) {
+        try {
+          if (strId.startsWith('cekten_') && raw) {
+            const amt = Number(raw.amount) || 0;
+            const sup = cleanTurkishText(raw.creditor || raw.supplier || '').trim().toLocaleUpperCase('tr-TR');
+            if (sup && amt > 0) {
+              await liveSupabase.from('cekten_hesabi').insert([{
+                organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
+                date: getTodayISOString(),
+                supplier: sup,
+                total_amount: 0,
+                paid_amount: amt,
+                remaining_amount: -amt,
+                due_date: 'CARİ',
+                notes: 'Takas ekranından ödeme yapıldı'
+              }]);
+              await syncLiveCektenHesabi();
+            }
+          } else {
+            await liveSupabase.from('ebs_checks').update({ status: 'Ödendi' }).eq('id', strId);
+          }
+        } catch (e) {}
+      }
+      showToast('Evrak Ödendi olarak işaretlendi');
+      closeBottomSheet();
+      renderChecks();
+      updateLiveDashboardStats();
     }
 
     function openMoveBankModal(checkId) {
-      const c = mockChecks.find(x => x.id === checkId);
+      const c = findCheckByIdAny(checkId);
+      if (!c) return;
       const content = document.getElementById('bottom-sheet-content');
       content.innerHTML = `
         <div class="flex justify-between items-center border-b border-gray-100 pb-3">
-          <h3 class="text-sm font-black text-slate-900">Bankaya Taşı: ${c.debtor}</h3>
+          <h3 class="text-sm font-black text-slate-900">Bankaya Taşı: ${c.supplier || c.debtor}</h3>
           <button onclick="closeBottomSheet()" class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold">✕</button>
         </div>
         <div class="grid grid-cols-2 gap-2 text-xs font-bold pt-1">
-          ${['E.ZİRAAT', 'M.ZİRAAT', 'E.DENİZ', 'M.DENİZ', 'ALBARAKA', 'KUVEYTTÜRK', 'HALKBANK', 'TAKSİT'].map(b => `
-            <button onclick="moveCheckToBank(${checkId}, '${b}')" class="p-2.5 bg-slate-50 hover:bg-blue-50 hover:text-kt-primary border border-slate-200 rounded-xl text-left">
+          ${['ALBARAKA', 'E.DENİZ', 'E.ZİRAAT', 'M.ZİRAAT', 'M.DENİZ', 'M.GARANTİ', 'M.AKBANK', 'TAKSİT'].map(b => `
+            <button onclick="moveCheckToBank('${checkId}', '${b}')" class="p-2.5 bg-slate-50 hover:bg-blue-50 hover:text-kt-primary border border-slate-200 rounded-xl text-left">
               ${b}
             </button>
           `).join('')}
@@ -19663,26 +19916,40 @@ function toggleSubTab(tabIndex) {
       `;
     }
 
-    function moveCheckToBank(checkId, bank) {
-      const c = mockChecks.find(x => x.id === checkId);
+    async function moveCheckToBank(checkId, bank) {
+      const strId = String(checkId);
+      const raw = (liveRawEbsChecks || []).find(x => String(x.id) === strId);
+      if (raw) {
+        raw.debtor = bank;
+        raw.bank_name = bank;
+        raw.ozel_alan = 'TAKASTA';
+      }
+      const c = mockChecks.find(x => String(x.id) === strId);
       if (c) {
         c.bank = bank;
-        showToast(`Çek ${bank} bankasına taşındı`);
-        closeBottomSheet();
-        renderChecks();
+        c.debtor = bank;
       }
+      if (liveSupabase && !strId.startsWith('cekten_')) {
+        try {
+          await liveSupabase.from('ebs_checks').update({ debtor: bank, bank_name: bank, ozel_alan: 'TAKASTA' }).eq('id', strId);
+        } catch (e) {}
+      }
+      showToast(`Çek ${bank} sütununa taşındı`);
+      closeBottomSheet();
+      renderChecks();
     }
 
     function openNewCheckModal() {
       const content = document.getElementById('bottom-sheet-content');
+      const defaultDate = takasSelectedDate || getTodayISOString();
       content.innerHTML = `
         <div class="flex justify-between items-center border-b border-gray-100 pb-3">
-          <h3 class="text-sm font-black text-slate-900">+ Yeni Çek Girişi</h3>
+          <h3 class="text-sm font-black text-slate-900">+ Yeni Takas / Çek Girişi</h3>
           <button onclick="closeBottomSheet()" class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold">✕</button>
         </div>
         <div class="space-y-3 text-xs">
           <div>
-            <label class="font-bold text-slate-600 block mb-1">Keşideci / Borçlu Cari</label>
+            <label class="font-bold text-slate-600 block mb-1">Alacaklı / Tedarikçi Cari</label>
             <input type="text" id="new-chk-debtor" placeholder="Örn: DİVAN HAYVANCILIK" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
           </div>
           <div class="grid grid-cols-2 gap-2">
@@ -19692,87 +19959,306 @@ function toggleSubTab(tabIndex) {
             </div>
             <div>
               <label class="font-bold text-slate-600 block mb-1">Vade Tarihi</label>
-              <input type="date" id="new-chk-date" value="2026-09-30" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
+              <input type="date" id="new-chk-date" value="${defaultDate}" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
             </div>
           </div>
           <div>
-            <label class="font-bold text-slate-600 block mb-1">Takas Bankası</label>
+            <label class="font-bold text-slate-600 block mb-1">Takas Sütunu / Banka</label>
             <select id="new-chk-bank" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold">
-              <option value="KUVEYTTÜRK">KUVEYTTÜRK</option>
+              <option value="ALBARAKA">ALBARAKA</option>
+              <option value="E.DENİZ">E.DENİZ</option>
               <option value="E.ZİRAAT">E.ZİRAAT</option>
               <option value="M.ZİRAAT">M.ZİRAAT</option>
-              <option value="HALKBANK">HALKBANK</option>
-              <option value="DENİZBANK">DENİZBANK</option>
+              <option value="M.DENİZ">M.DENİZ</option>
+              <option value="M.GARANTİ">M.GARANTİ</option>
+              <option value="M.AKBANK">M.AKBANK</option>
+              <option value="TAKSİT">TAKSİT</option>
+              <option value="TAKASTA OLMAYAN">TAKASTA OLMAYAN</option>
             </select>
           </div>
-          <button onclick="saveNewCheck()" class="w-full py-2.5 bg-kt-primary text-white font-bold rounded-xl shadow-md">Kaydet</button>
+          <button onclick="saveNewCheck()" class="w-full py-2.5 bg-kt-primary text-white font-bold rounded-xl shadow-md">Canlı Veritabanına Kaydet</button>
         </div>
       `;
       document.getElementById('action-bottom-sheet').classList.remove('hidden');
     }
 
-    function saveNewCheck() {
-      const debtor = document.getElementById('new-chk-debtor').value.trim();
-      const amount = parseFloat(document.getElementById('new-chk-amount').value) || 0;
-      const date = document.getElementById('new-chk-date').value;
-      const bank = document.getElementById('new-chk-bank').value;
+    async function saveNewCheck() {
+      const creditor = (document.getElementById('new-chk-debtor')?.value || '').trim().toLocaleUpperCase('tr-TR');
+      const amount = parseFloat(document.getElementById('new-chk-amount')?.value) || 0;
+      const dueISO = document.getElementById('new-chk-date')?.value || getTodayISOString();
+      const bank = document.getElementById('new-chk-bank')?.value || 'M.ZİRAAT';
 
-      if (!debtor || !amount) {
-        showToast('Lütfen keşideci ve tutar giriniz');
+      if (!creditor || !amount) {
+        showToast('Lütfen cari adı ve tutar giriniz');
         return;
+      }
+
+      const isNonTakas = bank === 'TAKASTA OLMAYAN';
+      const payload = {
+        organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
+        check_type: 'kesilen',
+        voucher_no: `CK-${Math.floor(10000 + Math.random() * 90000)}`,
+        issue_date: getTodayISOString(),
+        due_date: dueISO,
+        amount: amount,
+        creditor: creditor,
+        debtor: isNonTakas ? 'ÇEK' : bank,
+        bank_name: isNonTakas ? 'ÇEK' : bank,
+        status: 'Tahsilde',
+        ozel_alan: isNonTakas ? 'TAKASTA OLMAYAN' : 'TAKASTA'
+      };
+
+      if (liveSupabase) {
+        try {
+          const { data } = await liveSupabase.from('ebs_checks').insert([payload]).select('*').single();
+          if (data) {
+            liveRawEbsChecks.unshift(data);
+          }
+        } catch (e) {}
       }
 
       mockChecks.unshift({
         id: Date.now(),
-        debtor,
-        supplier: debtor,
-        amount,
-        date,
-        bank,
-        no: `CK-${Math.floor(10000 + Math.random() * 90000)}`,
+        type: 'kesilen',
+        debtor: payload.debtor,
+        supplier: creditor,
+        amount: amount,
+        date: formatISOToTR(dueISO),
+        dueDateISO: dueISO,
+        regDate: formatISOToTR(getTodayISOString()),
+        bank: payload.bank_name,
+        no: payload.voucher_no,
         status: 'takas',
-        daysLeft: 30,
+        rawStatus: 'Tahsilde',
+        daysLeft: 0,
         isIcTakas: false
       });
 
-      showToast('Yeni çek portföye eklendi');
+      showToast('Yeni çek canlı veritabanına eklendi');
       closeBottomSheet();
+      await syncLiveChecks();
       renderChecks();
+      updateLiveDashboardStats();
     }
 
     function closeBottomSheet() {
       document.getElementById('action-bottom-sheet').classList.add('hidden');
     }
 
-    // ==================== 2. ÇEKTEN HESABI ====================
+    // ==================== 2. ÇEKTEN HESABI (CANLI WEB PANEL 1:1 MOTORU) ====================
+    let cektenActiveTab = 'grouped'; // 'grouped' | 'history'
+    let cektenActiveFilter = 'all'; // 'all' | 'borclu' | 'kapali'
+    let cektenSearchQuery = '';
+
+    function switchCektenTab(tab, btn) {
+      cektenActiveTab = tab;
+      document.querySelectorAll('#screen-cekten_hesabi .kt-segmented-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderCektenScreen();
+    }
+
+    function setCektenFilter(filter, btn) {
+      cektenActiveFilter = filter;
+      document.querySelectorAll('.cekten-filter-pill').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderCektenScreen();
+    }
+
+    function handleCektenSearch(val) {
+      cektenSearchQuery = (val || '').trim().toLocaleLowerCase('tr-TR');
+      renderCektenScreen();
+    }
+
     function renderCektenScreen() {
       calculateCekten();
       const container = document.getElementById('cekten-records-container');
-      container.innerHTML = mockCektenRecords.map(r => `
-        <div class="kt-card p-4 space-y-2.5 border-l-4 ${r.remain > 0 ? 'border-l-rose-500 bg-rose-50/10' : 'border-l-slate-300 bg-white'} cursor-pointer hover:border-blue-400 transition-all shadow-xs" onclick="openCariDetailByName('${r.supplier}')">
-          <div class="flex justify-between items-start">
-            <div>
-              <span class="text-[10px] font-[600] text-kt-primary bg-blue-50 px-2 py-0.5 rounded-md">ÇEKTEN Carisi</span>
-              <h4 class="text-[13.5px] font-[700] text-slate-900 tracking-tight mt-1">${r.supplier}</h4>
-              <p class="text-[11.5px] text-slate-400 font-[400] mt-0.5">Kullanım: ${r.date} • Vade: <strong class="text-slate-700 font-[500]">${r.dueDate}</strong></p>
+      if (!container) return;
+
+      // Update 3-card KPI header
+      const totalVal = mockCektenRecords.reduce((s, r) => s + (Number(r.total) || 0), 0);
+      const totalPaid = mockCektenRecords.reduce((s, r) => s + (Number(r.paid) || 0), 0);
+      const totalRem = mockCektenRecords.reduce((s, r) => s + (Number(r.remain) || 0), 0);
+
+      if (document.getElementById('cekten-kpi-total')) document.getElementById('cekten-kpi-total').textContent = formatNumber(totalVal) + ' TL';
+      if (document.getElementById('cekten-kpi-paid')) document.getElementById('cekten-kpi-paid').textContent = formatNumber(totalPaid) + ' TL';
+      if (document.getElementById('cekten-kpi-remain')) document.getElementById('cekten-kpi-remain').textContent = formatNumber(totalRem) + ' TL';
+
+      if (cektenActiveTab === 'history') {
+        const rawList = (liveRawCektenRows && liveRawCektenRows.length > 0)
+          ? liveRawCektenRows
+          : mockCektenRecords.map(r => ({
+              id: r.id,
+              date: formatTRToISO(r.date) || getTodayISOString(),
+              supplier: r.supplier,
+              total_amount: r.total,
+              paid_amount: r.paid,
+              remaining_amount: r.remain,
+              due_date: r.dueDate || 'CARİ',
+              notes: r.notes || ''
+            }));
+
+        const filteredRaw = rawList.filter(r => {
+          const rem = r.remaining_amount != null ? Number(r.remaining_amount) : (Number(r.total_amount || 0) - Number(r.paid_amount || 0));
+          if (cektenActiveFilter === 'borclu' && rem <= 0.01) return false;
+          if (cektenActiveFilter === 'kapali' && rem > 0.01) return false;
+          if (cektenSearchQuery) {
+            const hay = `${r.supplier || ''} ${r.notes || ''} ${r.due_date || ''}`.toLocaleLowerCase('tr-TR');
+            if (!hay.includes(cektenSearchQuery)) return false;
+          }
+          return true;
+        });
+
+        if (document.getElementById('cekten-list-title')) document.getElementById('cekten-list-title').textContent = 'Tüm Çekten İşlem Geçmişi';
+        if (document.getElementById('cekten-records-count')) document.getElementById('cekten-records-count').textContent = `Toplam ${filteredRaw.length} İşlem`;
+
+        if (filteredRaw.length === 0) {
+          container.innerHTML = `<div class="p-6 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-400">Kriterlere uygun işlem kaydı bulunamadı.</div>`;
+          return;
+        }
+
+        container.innerHTML = filteredRaw.map(r => {
+          const tot = Number(r.total_amount || 0);
+          const pd = Number(r.paid_amount || 0);
+          const isPayment = pd > 0 && tot === 0;
+          const sup = cleanTurkishText(r.supplier || '-');
+          return `
+            <div class="kt-card p-3.5 bg-white border-l-4 ${isPayment ? 'border-l-emerald-500' : 'border-l-kt-primary'} space-y-1.5 shadow-2xs">
+              <div class="flex justify-between items-start">
+                <div>
+                  <span class="text-[9.5px] font-[700] px-2 py-0.5 rounded ${isPayment ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-kt-primary'}">${isPayment ? 'ÖDEME / TAHSİLAT' : 'ÇEKTEN ALIM / BORÇ'}</span>
+                  <h4 class="text-[13px] font-[700] text-slate-900 mt-1">${sup}</h4>
+                  <p class="text-[11px] text-slate-400">Tarih: <strong>${formatISOToTR(r.date)}</strong> • Vade: <strong>${cleanTurkishText(r.due_date || 'CARİ')}</strong></p>
+                </div>
+                <div class="text-right">
+                  ${tot > 0 ? `<span class="text-[13px] font-[800] text-rose-600 block">+${formatNumber(tot)} TL Borç</span>` : ''}
+                  ${pd > 0 ? `<span class="text-[13px] font-[800] text-emerald-600 block">-${formatNumber(pd)} TL Ödenen</span>` : ''}
+                </div>
+              </div>
+              ${r.notes ? `<p class="text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg">${cleanTurkishText(r.notes)}</p>` : ''}
             </div>
-            <div class="text-right">
-              <!-- Borçluysak (kalan > 0) Kırmızı, Alacaklıysak / Sıfırsa Kırmızı Olmayan Koyu Renk -->
-              <span class="text-[14px] font-[700] tracking-tight ${r.remain > 0 ? 'text-rose-600 font-[800]' : 'text-slate-900 font-[700]'}">${formatNumber(r.remain)} TL Kalan</span>
-              <p class="text-[11px] text-slate-400 font-[400] mt-0.5">Toplam: ${formatNumber(r.total)} TL</p>
+          `;
+        }).join('');
+        return;
+      }
+
+      // Grouped Supplier View (Default — matches Web Panel Tedarikçi Özeti)
+      const filteredSuppliers = mockCektenRecords.filter(r => {
+        if (cektenActiveFilter === 'borclu' && (Number(r.remain) || 0) <= 0.01) return false;
+        if (cektenActiveFilter === 'kapali' && (Number(r.remain) || 0) > 0.01) return false;
+        if (cektenSearchQuery) {
+          const hay = `${r.supplier || ''} ${r.notes || ''} ${r.dueDate || ''}`.toLocaleLowerCase('tr-TR');
+          if (!hay.includes(cektenSearchQuery)) return false;
+        }
+        return true;
+      });
+
+      if (document.getElementById('cekten-list-title')) document.getElementById('cekten-list-title').textContent = 'Çekten Kayıtları & Tedarikçiler';
+      if (document.getElementById('cekten-records-count')) document.getElementById('cekten-records-count').textContent = `Toplam ${filteredSuppliers.length} Tedarikçi`;
+
+      if (filteredSuppliers.length === 0) {
+        container.innerHTML = `<div class="p-6 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-400">Aramanıza uygun Çekten tedarikçisi bulunamadı.</div>`;
+        return;
+      }
+
+      container.innerHTML = filteredSuppliers.map(r => {
+        const safeSup = String(r.supplier || '').replace(/'/g, "\\'");
+        const hasDebt = (Number(r.remain) || 0) > 0.01;
+        return `
+          <div class="kt-card p-4 space-y-2.5 border-l-4 ${hasDebt ? 'border-l-rose-500 bg-rose-50/10' : 'border-l-emerald-500 bg-white'} cursor-pointer hover:border-blue-400 transition-all shadow-xs" onclick="openCektenSupplierDetailModal('${safeSup}')">
+            <div class="flex justify-between items-start">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] font-[700] text-kt-primary bg-blue-50 px-2 py-0.5 rounded-md">ÇEKTEN Carisi</span>
+                  ${r.recordCount ? `<span class="text-[10px] font-[600] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">${r.recordCount} İşlem</span>` : ''}
+                </div>
+                <h4 class="text-[13.5px] font-[800] text-slate-900 tracking-tight mt-1">${r.supplier}</h4>
+                <p class="text-[11px] text-slate-400 font-[500] mt-0.5">Son İşlem: <strong class="text-slate-700">${r.date}</strong> • Vade: <strong class="text-slate-700">${r.dueDate || 'CARİ'}</strong></p>
+                ${r.notes ? `<p class="text-[10.5px] text-slate-500 mt-0.5 truncate max-w-[210px]">${r.notes}</p>` : ''}
+              </div>
+              <div class="text-right shrink-0">
+                <span class="text-[14px] font-[800] tracking-tight ${hasDebt ? 'text-rose-600' : 'text-emerald-700'} block">${formatNumber(r.remain)} TL Kalan</span>
+                <p class="text-[10.5px] text-slate-500 font-[500] mt-0.5">Alım: ${formatNumber(r.total)} TL</p>
+                <p class="text-[10.5px] text-emerald-600 font-[600]">Ödenen: ${formatNumber(r.paid)} TL</p>
+              </div>
+            </div>
+            <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-[12px]" onclick="event.stopPropagation()">
+              <button onclick="openCektenSupplierDetailModal('${safeSup}')" class="font-[600] text-kt-primary flex items-center gap-0.5 hover:underline">
+                <span>Hesap Ekstresi & Detay</span>
+                <span class="text-[10px]">&gt;</span>
+              </button>
+              <div class="flex items-center gap-1.5">
+                <button onclick="openCektenPaymentModal('${r.id}')" class="px-3 py-1 bg-blue-50 text-kt-primary font-[700] rounded-lg hover:bg-blue-100 text-[11.5px]">Ödeme Yap</button>
+              </div>
             </div>
           </div>
-          <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-[12px]" onclick="event.stopPropagation()">
-            <button onclick="openCariDetailByName('${r.supplier}')" class="font-[500] text-kt-primary flex items-center gap-0.5 hover:underline">
-              <span>Hesap Ekstresi & Detay</span>
-              <span class="text-[10px]">&gt;</span>
-            </button>
-            <div class="flex items-center gap-1.5">
-              <button onclick="openCektenPaymentModal(${r.id})" class="px-3 py-1 bg-blue-50 text-kt-primary font-[600] rounded-lg hover:bg-blue-100 text-[11.5px]">Ödeme Yap</button>
-            </div>
+        `;
+      }).join('');
+    }
+
+    function openCektenSupplierDetailModal(supplierName) {
+      const targetKey = cleanTurkishText(supplierName || '').trim().toLocaleUpperCase('tr-TR');
+      const rec = mockCektenRecords.find(r => cleanTurkishText(r.supplier || '').trim().toLocaleUpperCase('tr-TR') === targetKey);
+      if (!rec) {
+        openCariDetailByName(supplierName);
+        return;
+      }
+
+      const movements = (rec.movements && rec.movements.length > 0)
+        ? rec.movements
+        : (liveRawCektenRows || []).filter(row => cleanTurkishText(row.supplier || '').trim().toLocaleUpperCase('tr-TR') === targetKey);
+
+      const content = document.getElementById('bottom-sheet-content');
+      content.innerHTML = `
+        <div class="flex justify-between items-center border-b border-gray-100 pb-3">
+          <div>
+            <span class="text-[10px] font-[700] text-kt-primary bg-blue-50 px-2 py-0.5 rounded">ÇEKTEN CARİ EKSTRESİ</span>
+            <h3 class="text-sm font-black text-slate-900 mt-0.5">${rec.supplier}</h3>
+          </div>
+          <button onclick="closeBottomSheet()" class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold">✕</button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center py-2">
+          <div class="p-2 bg-slate-50 rounded-xl">
+            <span class="text-[9px] font-bold text-slate-400 block">TOPLAM ALIM</span>
+            <span class="text-xs font-black text-slate-900">${formatNumber(rec.total)} TL</span>
+          </div>
+          <div class="p-2 bg-emerald-50 rounded-xl">
+            <span class="text-[9px] font-bold text-emerald-700 block">ÖDENEN</span>
+            <span class="text-xs font-black text-emerald-700">${formatNumber(rec.paid)} TL</span>
+          </div>
+          <div class="p-2 bg-rose-50 rounded-xl">
+            <span class="text-[9px] font-bold text-rose-700 block">KALAN BORÇ</span>
+            <span class="text-xs font-black text-rose-700">${formatNumber(rec.remain)} TL</span>
           </div>
         </div>
-      `).join('');
+
+        <div class="space-y-2 max-h-[260px] overflow-y-auto no-scrollbar py-1">
+          ${movements.length > 0 ? movements.map(m => {
+            const tot = Number(m.total_amount || 0);
+            const pd = Number(m.paid_amount || 0);
+            const rem = m.remaining_amount != null ? Number(m.remaining_amount) : (tot - pd);
+            return `
+              <div class="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs space-y-1">
+                <div class="flex justify-between items-center">
+                  <span class="font-[700] text-slate-800">📅 ${formatISOToTR(m.date)} (${cleanTurkishText(m.due_date || 'CARİ')})</span>
+                  <span class="font-[800] ${rem > 0 ? 'text-rose-600' : 'text-emerald-700'}">Fark: ${formatNumber(rem)} TL</span>
+                </div>
+                <div class="flex justify-between text-[11px] text-slate-500">
+                  <span>Alım: <strong>${formatNumber(tot)} TL</strong></span>
+                  <span>Ödenen: <strong class="text-emerald-700">${formatNumber(pd)} TL</strong></span>
+                </div>
+                ${m.notes ? `<p class="text-[10.5px] text-slate-500 italic">${cleanTurkishText(m.notes)}</p>` : ''}
+              </div>
+            `;
+          }).join('') : `<p class="text-xs text-slate-400 text-center py-4">Hareket detayı bulunamadı.</p>`}
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 pt-2">
+          <button onclick="openCektenPaymentModal('${rec.id}')" class="py-2.5 bg-kt-primary text-white text-xs font-bold rounded-xl shadow-xs">💳 Ödeme Gir</button>
+          <button onclick="openCariDetailByName('${String(rec.supplier).replace(/'/g, "\\'")}'); closeBottomSheet();" class="py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl">📄 Genel Cari Kartı</button>
+        </div>
+      `;
+      document.getElementById('action-bottom-sheet').classList.remove('hidden');
     }
 
     function calculateCekten() {
@@ -19785,7 +20271,8 @@ function toggleSubTab(tabIndex) {
     }
 
     function openCektenPaymentModal(recId) {
-      const r = mockCektenRecords.find(x => x.id === recId);
+      const r = mockCektenRecords.find(x => String(x.id) === String(recId)) || mockCektenRecords[0];
+      if (!r) return;
       const content = document.getElementById('bottom-sheet-content');
       content.innerHTML = `
         <div class="flex justify-between items-center border-b border-gray-100 pb-3">
@@ -19793,35 +20280,55 @@ function toggleSubTab(tabIndex) {
           <button onclick="closeBottomSheet()" class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold">✕</button>
         </div>
         <div class="space-y-3 text-xs">
-          <p class="text-slate-500">Kalan Bakiye: <strong class="text-rose-600">${formatNumber(r.remain)} TL</strong></p>
+          <p class="text-slate-500">Güncel Kalan Bakiye: <strong class="text-rose-600">${formatNumber(r.remain)} TL</strong></p>
           <div>
             <label class="font-bold text-slate-600 block mb-1">Ödenecek Tutar (TL)</label>
-            <input type="number" id="pay-cekten-amount" value="${r.remain}" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
+            <input type="number" id="pay-cekten-amount" value="${r.remain > 0 ? r.remain : 0}" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
           </div>
           <div>
-            <label class="font-bold text-slate-600 block mb-1">Ödeme Yöntemi</label>
-            <select class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold">
-              <option>Kuveyt Türk Ticari Hesaptan</option>
-              <option>Vadeli Çek İle</option>
-              <option>Merkez Kasa Nakit</option>
-            </select>
+            <label class="font-bold text-slate-600 block mb-1">Açıklama / Ödeme Yöntemi</label>
+            <input type="text" id="pay-cekten-note" value="Mobil Çekten Ödeme Girişi" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
           </div>
-          <button onclick="saveCektenPayment(${recId})" class="w-full py-2.5 bg-kt-primary text-white font-bold rounded-xl shadow-md">Ödemeyi Onayla</button>
+          <button onclick="saveCektenPayment('${r.id}')" class="w-full py-2.5 bg-kt-primary text-white font-bold rounded-xl shadow-md">Ödemeyi Canlı Veritabanına Kaydet</button>
         </div>
       `;
       document.getElementById('action-bottom-sheet').classList.remove('hidden');
     }
 
-    function saveCektenPayment(recId) {
-      const r = mockCektenRecords.find(x => x.id === recId);
-      const amt = parseFloat(document.getElementById('pay-cekten-amount').value) || 0;
-      if (r) {
-        r.paid += amt;
-        r.remain = Math.max(0, r.total - r.paid);
-        showToast('Ödeme kaydedildi');
-        closeBottomSheet();
-        renderCektenScreen();
+    async function saveCektenPayment(recId) {
+      const r = mockCektenRecords.find(x => String(x.id) === String(recId));
+      const amt = parseFloat(document.getElementById('pay-cekten-amount')?.value) || 0;
+      const note = (document.getElementById('pay-cekten-note')?.value || 'Mobil Ödeme').trim();
+      if (!r || amt <= 0) {
+        showToast('Lütfen geçerli bir ödeme tutarı girin');
+        return;
       }
+
+      if (liveSupabase) {
+        try {
+          await liveSupabase.from('cekten_hesabi').insert([{
+            organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
+            date: getTodayISOString(),
+            supplier: r.supplier,
+            total_amount: 0,
+            paid_amount: amt,
+            remaining_amount: -amt,
+            due_date: 'CARİ',
+            notes: note
+          }]);
+          await syncLiveCektenHesabi();
+          await syncLiveChecks();
+        } catch (e) {}
+      } else {
+        r.paid += amt;
+        r.remain = r.total - r.paid;
+      }
+
+      showToast('Çekten ödemesi canlı veritabanına kaydedildi');
+      closeBottomSheet();
+      renderCektenScreen();
+      renderChecks();
+      updateLiveDashboardStats();
     }
 
     function openNewCektenModal() {
@@ -19833,46 +20340,84 @@ function toggleSubTab(tabIndex) {
         </div>
         <div class="space-y-3 text-xs">
           <div>
-            <label class="font-bold text-slate-600 block mb-1">Tedarikçi / Cari</label>
-            <input type="text" id="new-cekten-sup" placeholder="Örn: Kral Entegre" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
+            <label class="font-bold text-slate-600 block mb-1">Tedarikçi / Cari Adı</label>
+            <input type="text" id="new-cekten-sup" placeholder="Örn: TEKİN GÖNEK" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="font-bold text-slate-600 block mb-1">Tutar (TL)</label>
+              <label class="font-bold text-slate-600 block mb-1">Toplam Alım / Borç (TL)</label>
               <input type="number" id="new-cekten-amt" placeholder="0.00" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
             </div>
             <div>
-              <label class="font-bold text-slate-600 block mb-1">Vade</label>
-              <input type="text" id="new-cekten-due" value="CARİ" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
+              <label class="font-bold text-slate-600 block mb-1">Ödenen Tutar (TL)</label>
+              <input type="number" id="new-cekten-paid" value="0" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
             </div>
           </div>
-          <button onclick="saveNewCekten()" class="w-full py-2.5 bg-kt-primary text-white font-bold rounded-xl shadow-md">Kaydet</button>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="font-bold text-slate-600 block mb-1">Vade / Tür</label>
+              <input type="text" id="new-cekten-due" value="CARİ" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
+            </div>
+            <div>
+              <label class="font-bold text-slate-600 block mb-1">Açıklama / Not</label>
+              <input type="text" id="new-cekten-note" placeholder="Açıklama..." class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
+            </div>
+          </div>
+          <button onclick="saveNewCekten()" class="w-full py-2.5 bg-kt-primary text-white font-bold rounded-xl shadow-md">Canlı Veritabanına Kaydet</button>
         </div>
       `;
       document.getElementById('action-bottom-sheet').classList.remove('hidden');
     }
 
-    function saveNewCekten() {
-      const sup = document.getElementById('new-cekten-sup').value.trim();
-      const amt = parseFloat(document.getElementById('new-cekten-amt').value) || 0;
-      const due = document.getElementById('new-cekten-due').value.trim();
-      if (!sup || !amt) {
+    async function saveNewCekten() {
+      const sup = (document.getElementById('new-cekten-sup')?.value || '').trim().toLocaleUpperCase('tr-TR');
+      const amt = parseFloat(document.getElementById('new-cekten-amt')?.value) || 0;
+      const paid = parseFloat(document.getElementById('new-cekten-paid')?.value) || 0;
+      const due = (document.getElementById('new-cekten-due')?.value || 'CARİ').trim();
+      const note = (document.getElementById('new-cekten-note')?.value || 'Mobil Çekten Kaydı').trim();
+
+      if (!sup || (amt <= 0 && paid <= 0)) {
         showToast('Lütfen tedarikçi ve tutar giriniz');
         return;
       }
-      mockCektenRecords.unshift({
-        id: Date.now(),
-        date: '31.08.2026',
-        supplier: sup,
-        total: amt,
-        paid: 0,
-        remain: amt,
-        dueDate: due,
-        notes: 'Yeni çekten kullanımı'
-      });
-      showToast('Kayıt başarıyla eklendi');
+
+      const rem = amt - paid;
+
+      if (liveSupabase) {
+        try {
+          await liveSupabase.from('cekten_hesabi').insert([{
+            organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
+            date: getTodayISOString(),
+            supplier: sup,
+            total_amount: amt,
+            paid_amount: paid,
+            remaining_amount: rem,
+            due_date: due,
+            notes: note
+          }]);
+          await syncLiveCektenHesabi();
+          await syncLiveChecks();
+        } catch (e) {}
+      } else {
+        mockCektenRecords.unshift({
+          id: Date.now(),
+          date: formatISOToTR(getTodayISOString()),
+          supplier: sup,
+          total: amt,
+          paid: paid,
+          remain: rem,
+          dueDate: due,
+          notes: note,
+          recordCount: 1,
+          movements: []
+        });
+      }
+
+      showToast('Çekten kaydı canlı veritabanına eklendi');
       closeBottomSheet();
       renderCektenScreen();
+      renderChecks();
+      updateLiveDashboardStats();
     }
 
     // ==================== 3. CHECK VALUATION (1:1 WEB PORTAL ENGINE) ====================
@@ -24159,9 +24704,10 @@ function toggleSubTab(tabIndex) {
         isLiveConnected = true;
         updateLiveBadge(true, 'Canlı Veritabanı Bağlandı');
 
-        // Fetch Live Data in parallel (including Web Calendar Notes & Credit Card Statements)
+        // Fetch Live Data in parallel (including Web Calendar Notes, Credit Cards, Takas Checks & Çekten Hesabı)
         await Promise.allSettled([
           syncLiveCaris(),
+          syncLiveCektenHesabi(),
           syncLiveChecks(),
           syncLiveVehicles(),
           syncLiveSlaughters(),
@@ -24176,6 +24722,7 @@ function toggleSubTab(tabIndex) {
 
         // Re-render UI with live data
         renderCaris(mockCaris);
+        renderCektenScreen();
         renderChecks();
         renderVehicles();
         renderSlaughters();
@@ -24583,19 +25130,175 @@ function toggleSubTab(tabIndex) {
       }
     }
 
-    async function syncLiveChecks() {
-      // Data is perfectly synced with EBS portal takas matrix (2.917.696 TL)
+    async function syncLiveCektenHesabi() {
       if (!liveSupabase) return;
       try {
+        const orgId = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
         const { data, error } = await liveSupabase
-          .from('ebs_checks')
+          .from('cekten_hesabi')
           .select('*')
-          .gte('due_date', '2026-08-20')
-          .lte('due_date', '2026-09-05')
-          .order('due_date', { ascending: true });
+          .eq('organization_id', orgId)
+          .order('date', { ascending: false })
+          .order('created_at', { ascending: false });
 
-        if (!error && data && data.length > 0) {
-          // Keep the exact verified takas dataset
+        if (!error && Array.isArray(data)) {
+          liveRawCektenRows = data;
+          const map = new Map();
+          data.forEach(r => {
+            const key = cleanTurkishText(r.supplier || '').trim().toLocaleUpperCase('tr-TR');
+            if (!key) return;
+            const tot = Number(r.total_amount || 0);
+            const pd = Number(r.paid_amount || 0);
+            const rem = r.remaining_amount != null ? Number(r.remaining_amount) : (tot - pd);
+            if (!map.has(key)) {
+              map.set(key, {
+                id: r.id,
+                supplier: key,
+                total: 0,
+                paid: 0,
+                remain: 0,
+                latestDateISO: r.date || getTodayISOString(),
+                dueDate: cleanTurkishText(r.due_date || 'CARİ'),
+                notes: cleanTurkishText(r.notes || ''),
+                recordCount: 0,
+                movements: []
+              });
+            }
+            const g = map.get(key);
+            g.total += tot;
+            g.paid += pd;
+            g.remain += rem;
+            g.recordCount += 1;
+            g.movements.push(r);
+            if (r.date && r.date > g.latestDateISO) {
+              g.latestDateISO = r.date;
+            }
+            if (!g.notes && r.notes) {
+              g.notes = cleanTurkishText(r.notes);
+            }
+          });
+
+          const grouped = Array.from(map.values()).map((g, idx) => ({
+            id: g.id || (idx + 1),
+            date: formatISOToTR(g.latestDateISO),
+            latestDateISO: g.latestDateISO,
+            supplier: g.supplier,
+            total: g.total,
+            paid: g.paid,
+            remain: g.remain,
+            dueDate: g.dueDate || 'CARİ',
+            notes: g.notes || '',
+            recordCount: g.recordCount,
+            movements: g.movements
+          }));
+
+          grouped.sort((a, b) => {
+            const aActive = Math.abs(a.remain) > 0.01 ? 1 : 0;
+            const bActive = Math.abs(b.remain) > 0.01 ? 1 : 0;
+            if (aActive !== bActive) return bActive - aActive;
+            if (b.remain !== a.remain) return b.remain - a.remain;
+            return (b.latestDateISO || '').localeCompare(a.latestDateISO || '');
+          });
+
+          mockCektenRecords = grouped;
+
+          if (liveRawEbsChecks && liveRawEbsChecks.length > 0) {
+            liveRawEbsChecks = syncCektenIntoChecksListMobile(liveRawEbsChecks, liveRawCektenRows);
+          }
+        }
+      } catch (e) {
+        console.warn('Cekten hesabi sync error:', e);
+      }
+    }
+
+    async function syncLiveChecks() {
+      if (!liveSupabase) return;
+      try {
+        const orgId = '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+        const [kesilenRes, alinanRes, paidRes, cektenRes] = await Promise.all([
+          liveSupabase
+            .from('ebs_checks')
+            .select('*')
+            .eq('organization_id', orgId)
+            .eq('check_type', 'kesilen')
+            .neq('status', 'Ödendi')
+            .order('due_date', { ascending: true })
+            .range(0, 999),
+          liveSupabase
+            .from('ebs_checks')
+            .select('*')
+            .eq('organization_id', orgId)
+            .eq('check_type', 'alinan')
+            .neq('status', 'Ödendi')
+            .order('due_date', { ascending: true })
+            .range(0, 999),
+          liveSupabase
+            .from('ebs_checks')
+            .select('*')
+            .eq('organization_id', orgId)
+            .eq('status', 'Ödendi')
+            .order('due_date', { ascending: false })
+            .limit(200),
+          liveSupabase
+            .from('cekten_hesabi')
+            .select('*')
+            .eq('organization_id', orgId)
+            .order('date', { ascending: false })
+            .order('created_at', { ascending: false })
+        ]);
+
+        const combinedMap = new Map();
+        [...(kesilenRes.data || []), ...(alinanRes.data || []), ...(paidRes.data || [])].forEach(c => {
+          if (c && c.id) combinedMap.set(c.id, c);
+        });
+
+        let allRows = Array.from(combinedMap.values());
+        if (Array.isArray(cektenRes.data) && cektenRes.data.length > 0) {
+          liveRawCektenRows = cektenRes.data;
+        }
+        allRows = syncCektenIntoChecksListMobile(allRows, liveRawCektenRows);
+
+        if (allRows.length > 0) {
+          liveRawEbsChecks = allRows;
+          const todayMidnight = new Date();
+          todayMidnight.setHours(0, 0, 0, 0);
+
+          mockChecks = allRows.map(c => {
+            const dueISO = String(c.due_date || '').slice(0, 10);
+            const regISO = String(c.issue_date || c.created_at || '').slice(0, 10);
+            let daysLeft = 0;
+            if (dueISO) {
+              const parts = dueISO.split('-').map(Number);
+              if (parts.length === 3 && !isNaN(parts[0])) {
+                const dueObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                dueObj.setHours(0, 0, 0, 0);
+                daysLeft = Math.ceil((dueObj.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
+              }
+            }
+            const ozel = String(c.ozel_alan || '');
+            const bankCol = getBankColumnMobile(c.debtor, c.bank_name) || getCleanBankNameMobile(c.debtor, c.bank_name) || 'BANKA';
+            const isIc = ozel.toLocaleUpperCase('tr-TR').includes('İÇ TAKAS');
+            const isPaid = isCheckPaidMobile(c.status);
+
+            return {
+              id: c.id,
+              type: c.check_type || 'kesilen',
+              supplier: cleanTurkishText(c.creditor || c.kesideci || c.debtor || '-'),
+              debtor: cleanTurkishText(c.debtor || bankCol),
+              amount: Number(c.amount) || 0,
+              date: dueISO ? formatISOToTR(dueISO) : '-',
+              dueDateISO: dueISO,
+              regDate: regISO ? formatISOToTR(regISO) : '-',
+              bank: cleanTurkishText(bankCol),
+              no: c.voucher_no || '-',
+              status: isPaid ? 'odendi' : (isIc ? 'ic_takas' : (isNonTakasCheckMobile(c) ? 'nontakas' : 'takas')),
+              rawStatus: cleanTurkishText(c.status || 'Tahsilde'),
+              isIcTakas: isIc,
+              daysLeft: daysLeft,
+              note: cleanTurkishText(ozel),
+              ozelAlan: cleanTurkishText(ozel)
+            };
+          });
         }
       } catch (e) {
         console.warn('Checks sync error:', e);
@@ -24852,7 +25555,7 @@ function toggleSubTab(tabIndex) {
         .filter(c => Number(c.used) > 0 || Number(c.limit) > 0)
         .map(c => ({
           id: 'card-' + (c.rawId || c.id),
-          date: c.dueDateISO || '2026-10-26',
+          date: c.dueDateISO || getTodayISOString(),
           code: '•••• ' + (c.last4 || String(c.no || '').slice(-4) || '1000'),
           title: c.bank + ' (' + c.name + ') Son Ödeme',
           subtitle: 'Asgari Ödeme: ' + formatNumber(c.minPay || 0) + ' TL',
@@ -24865,8 +25568,28 @@ function toggleSubTab(tabIndex) {
           statusClass: 'bg-red-50 text-red-700 border border-red-200'
         }));
 
-      const nonCardEvents = (mockCalendarEvents || []).filter(e => !String(e.id).startsWith('card-'));
-      mockCalendarEvents = [...liveCardEvents, ...nonCardEvents];
+      const liveCheckEvents = (mockChecks || [])
+        .filter(c => c.status !== 'Ödendi' && c.dueISO && Number(c.amount) > 0)
+        .slice(0, 60)
+        .map(c => ({
+          id: 'chk-' + (c.rawId || c.id),
+          date: c.dueISO,
+          code: c.no || 'ÇEK',
+          title: c.party + ' (' + (c.type === 'Alınan Çek' ? 'Alınan' : 'Verilen') + ')',
+          subtitle: c.bank + ' • ' + (c.takasDurumu || c.status),
+          institution: c.bank,
+          detail: c.desc || 'Canlı Çek & Takas Kaydı',
+          type: 'check',
+          to: 'takas_cekleri',
+          amount: formatNumber(c.amount || 0) + ' TL',
+          statusLabel: c.status || 'Tahsilde',
+          statusClass: c.type === 'Alınan Çek'
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            : 'bg-amber-50 text-amber-700 border border-amber-200'
+        }));
+
+      const otherEvents = (mockCalendarEvents || []).filter(e => !String(e.id).startsWith('card-') && !String(e.id).startsWith('chk-'));
+      mockCalendarEvents = [...liveCardEvents, ...liveCheckEvents, ...otherEvents];
     }
 
     let liveRealtimeChannel = null;
@@ -24899,6 +25622,23 @@ function toggleSubTab(tabIndex) {
             renderNotifications();
             renderSettings();
             syncNativeMorningNotifications(false);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'ebs_checks' }, async () => {
+            await syncLiveChecks();
+            rebuildLiveCalendarEvents();
+            renderChecks();
+            renderCalendar();
+            renderNotifications();
+            updateLiveDashboardStats();
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'cekten_hesabi' }, async () => {
+            await syncLiveCektenHesabi();
+            await syncLiveChecks();
+            rebuildLiveCalendarEvents();
+            renderCektenScreen();
+            renderChecks();
+            renderCalendar();
+            updateLiveDashboardStats();
           })
           .subscribe();
       } catch (e) {
