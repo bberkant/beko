@@ -165,7 +165,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [orgId]);
 
   useEffect(() => {
-    const isCardRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/finans/kredi-kartlari');
+    const isCardRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/finans/kredi-kartlari') || window.location.pathname.startsWith('/cekler/takas'));
     if (isCardRoute) {
       void refresh().catch(console.error);
       return;

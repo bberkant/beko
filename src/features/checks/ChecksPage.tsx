@@ -28,6 +28,8 @@ import {
 import * as XLSX from 'xlsx';
 import { Modal } from '../../components/ui/Modal';
 import { fixCorruptedTurkishText } from '../../lib/turkishTextFixer';
+import { useStore } from '../credit-cards/data/store';
+import type { CreditCard, Statement } from '../credit-cards/types';
 
 const statusCache = new Map<string, string>();
 const cleanStatus = (status: string | null | undefined): string => {
@@ -516,8 +518,102 @@ function withQueryTimeout<T>(promise: PromiseLike<T>, ms = 5000, errorMsg = 'Ver
   ]);
 }
 
+const CREDIT_CARD_HOLIDAY_KEYS = new Set(['01-01', '04-23', '05-01', '05-19', '07-15', '08-30', '10-29']);
+const formatCardDateKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+function isCardBusinessDay(date: Date) {
+  const day = date.getDay();
+  return day !== 0 && day !== 6 && !CREDIT_CARD_HOLIDAY_KEYS.has(formatCardDateKey(date).slice(5));
+}
+
+function moveCardToBusinessDay(value: Date, direction: -1 | 1) {
+  const date = new Date(value);
+  while (!isCardBusinessDay(date)) date.setDate(date.getDate() + direction);
+  return date;
+}
+
+function getCreditCardTaksitLabel(card: CreditCard): string {
+  let bankClean = fixCorruptedText(card.bank || '')
+    .replace(/\s*BUS[İI]NESS\s*/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleUpperCase('tr-TR');
+  if (!bankClean.includes('KART')) {
+    bankClean = `${bankClean} KART`;
+  }
+  return bankClean;
+}
+
+function getCardCycleDueDates(card: CreditCard, statements: Statement[], referenceDateStr: string): string[] {
+  const [ry, rm, rd] = (referenceDateStr || '').slice(0, 10).split('-').map(Number);
+  const ref = new Date(ry || new Date().getFullYear(), (rm || 1) - 1, rd || 1);
+  const dueSet = new Set<string>();
+
+  for (const offset of [-1, 0, 1, 2]) {
+    const targetMonthDate = new Date(ref.getFullYear(), ref.getMonth() + offset, 1);
+    const y = targetMonthDate.getFullYear();
+    const m = targetMonthDate.getMonth();
+    const ymPrefix = `${y}-${String(m + 1).padStart(2, '0')}`;
+
+    const matchingStmt = (statements || [])
+      .filter(s => s.cardId === card.id && s.paymentStatus !== 'odendi' && s.dueDate && s.dueDate.slice(0, 7) === ymPrefix)
+      .sort((a, b) => b.statementDate.localeCompare(a.statementDate))[0];
+
+    if (matchingStmt?.dueDate) {
+      dueSet.add(matchingStmt.dueDate.slice(0, 10));
+      continue;
+    }
+
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const clampedDueDay = Math.min(Math.max(1, Number(card.dueDay) || 1), daysInMonth);
+    const nominalDue = new Date(y, m, clampedDueDay);
+    const adjustedDue = moveCardToBusinessDay(nominalDue, 1);
+    dueSet.add(formatCardDateKey(adjustedDue));
+  }
+
+  return Array.from(dueSet).sort();
+}
+
+const CARD_BANK_KEYWORDS = [
+  'KUVEYT', 'VAKIF', 'ZİRAAT', 'ZIRAAT', 'DENİZ', 'DENIZ',
+  'GARANTİ', 'GARANTI', 'AKBANK', 'İŞBANK', 'ISBANK', 'YAPI',
+  'ALBARAKA', 'ŞEKER', 'SEKER', 'HALK', 'QNB', 'TEB'
+];
+
+function doesCheckMatchCreditCardOnDate(
+  c: EbsCheck,
+  card: CreditCard,
+  dueDateStr: string,
+  cardLabel: string,
+  cardLimit: number
+): boolean {
+  const ccTag = `CC_${card.id}_${dueDateStr}`;
+  if (String(c.id || '') === `cc_${card.id}_${dueDateStr}`) return true;
+  if ((c.ozel_alan || '').includes(ccTag)) return true;
+
+  const cDue = (c.due_date || '').substring(0, 10);
+  if (cDue !== dueDateStr) return false;
+
+  const cCred = fixCorruptedText(c.creditor || '')
+    .replace(/\s*BUS[İI]NESS\s*/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleUpperCase('tr-TR');
+  if (!cCred.includes('KART')) return false;
+  if (cCred === cardLabel) return true;
+
+  const cAmt = Math.round(Number(c.amount || 0));
+  if (Math.abs(cAmt - cardLimit) <= 1) {
+    const matchedBank = CARD_BANK_KEYWORDS.some(kw => cCred.includes(kw) && cardLabel.includes(kw));
+    if (matchedBank) return true;
+  }
+  return false;
+}
+
 export function ChecksPage() {
   const { user } = useAuth();
+  const { cards: creditCards, statements: creditCardStatements } = useStore();
   const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
   const pendingInserts = useRef<Record<string, boolean>>({});
   const insertPromises = useRef<Record<string, Promise<any> | undefined>>({});
@@ -971,7 +1067,7 @@ export function ChecksPage() {
 
       if (isTakasRoute) {
         // FAST SINGLE-ROUNDTRIP PARALLEL FETCH FOR TAKAS (~780 active rows instead of 9,300 historical rows)
-        const [kesilenRes, alinanTakasRes, accountsResult, cektenResult] = await withQueryTimeout(
+        const [kesilenRes, alinanTakasRes, paidCardTakasRes, accountsResult, cektenResult] = await withQueryTimeout(
           Promise.all([
             supabase
               .from('ebs_checks')
@@ -988,6 +1084,14 @@ export function ChecksPage() {
               .neq('status', 'Ödendi')
               .or('ozel_alan.ilike.%TAKASTA%,debtor.ilike.%HATIR%,creditor.ilike.%HATIR%,kesideci.ilike.%HATIR%,ozel_alan.ilike.%HATIR%,status.ilike.%KAYIP%,status.ilike.%kayıp%')
               .range(0, 999),
+            supabase
+              .from('ebs_checks')
+              .select('*')
+              .eq('organization_id', orgId)
+              .eq('check_type', 'kesilen')
+              .eq('status', 'Ödendi')
+              .or('creditor.ilike.%KART%,ozel_alan.ilike.%CC_%')
+              .range(0, 499),
             supabase
               .from('bank_accounts')
               .select('*')
@@ -1025,6 +1129,7 @@ export function ChecksPage() {
         const dedupMap = new Map<string, EbsCheck>();
         for (const row of kesilenData) dedupMap.set(row.id, row);
         for (const row of (alinanTakasRes.data || [])) dedupMap.set(row.id, row);
+        for (const row of (paidCardTakasRes?.data || [])) dedupMap.set(row.id, row);
         let allData = normalizeUnpaidEbsCarryOvers(Array.from(dedupMap.values()), orgId);
 
         if (!cektenResult.error && cektenResult.data) {
@@ -1944,7 +2049,59 @@ export function ChecksPage() {
       return isForced || isHatirAlinan(c);
     });
 
-    const activeUnpaid = [...activeUnpaidKesilen, ...hatirAlinan];
+    const creditCardDueChecks: EbsCheck[] = [];
+    for (const card of (creditCards || [])) {
+      if (card.status === 'pasif') continue;
+      const cardLimit = Math.round(Number(card.limit || 0));
+      if (cardLimit <= 1) continue;
+
+      const cardLabel = getCreditCardTaksitLabel(card);
+      const dueDates = getCardCycleDueDates(card, creditCardStatements || [], targetDateStr);
+      const matchingDueDates = takasViewMode === 'upcoming'
+        ? (() => {
+            const nextDue = dueDates.find(d => d >= targetDateStr);
+            return nextDue ? [nextDue] : [];
+          })()
+        : dueDates.filter(d => d === targetDateStr);
+
+      for (const dueDateStr of matchingDueDates) {
+        const alreadyInChecks = checks.some(c =>
+          doesCheckMatchCreditCardOnDate(c, card, dueDateStr, cardLabel, cardLimit)
+        );
+        if (alreadyInChecks) continue;
+
+        const syntheticCardCheck: EbsCheck = {
+          id: `cc_${card.id}_${dueDateStr}`,
+          local_id: 0,
+          check_type: 'kesilen',
+          document_type: 'cek',
+          issue_date: dueDateStr,
+          due_date: dueDateStr,
+          amount: cardLimit,
+          para_birimi: 'TRY',
+          check_no: null,
+          debtor: 'TAKSİT',
+          creditor: cardLabel,
+          bank_name: 'TAKSİT',
+          bank_branch: null,
+          status: 'Tahsilde',
+          ozel_alan: `TAKASTA - CC_${card.id}_${dueDateStr}`,
+          kesideci: null,
+          keside_yeri: null,
+          tahsildar_banka: null,
+          ciro_edilen: null,
+          created_at: `${dueDateStr}T00:00:00.000Z`
+        };
+
+        if (isMarkedPaidLocally(orgId, syntheticCardCheck) || isPaidBySignature(syntheticCardCheck)) {
+          continue;
+        }
+
+        creditCardDueChecks.push(syntheticCardCheck);
+      }
+    }
+
+    const activeUnpaid = [...activeUnpaidKesilen, ...creditCardDueChecks, ...hatirAlinan];
 
     // 2. Durumu 'Kayıp' olan tüm çekler (Kayıp Çekler)
     const kayipChecks = checks.filter(c => cleanStatus(c.status).includes('kayıp'));
@@ -2205,7 +2362,7 @@ export function ChecksPage() {
       bankBalances,
       totalBankBalance
     };
-  }, [checks, bankAccounts, takasDate, takasViewMode]);
+  }, [checks, bankAccounts, takasDate, takasViewMode, creditCards, creditCardStatements, orgId]);
 
   const formatExcelNumber = (num: number) => {
     if (!num || num === 0 || num === 0.01) return '';
@@ -2401,10 +2558,56 @@ export function ChecksPage() {
       if (shouldDelete) {
         setChecks(prev => prev.filter(c => c.id !== check.id));
       } else {
-        setChecks(prev => prev.map(c => c.id === check.id ? { ...c, [field]: parsedValue } : c));
+        setChecks(prev => {
+          const exists = prev.some(c => c.id === check.id);
+          return exists
+            ? prev.map(c => c.id === check.id ? { ...c, [field]: parsedValue } : c)
+            : [...prev, { ...check, [field]: parsedValue }];
+        });
       }
 
       if (check.id.startsWith('cekten_')) {
+        return;
+      }
+
+      if (check.id.startsWith('cc_')) {
+        const targetOrgId = user.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+        const localId = Math.floor(Date.now() % 10000000);
+        const dueStr = (check.due_date || takasDate || new Date().toISOString().split('T')[0]).substring(0, 10);
+        const insertPayload: any = {
+          organization_id: targetOrgId,
+          check_type: 'kesilen',
+          status: shouldDelete ? 'Ödendi' : 'Tahsilde',
+          due_date: dueStr,
+          issue_date: dueStr,
+          local_id: localId,
+          amount: field === 'amount' ? parsedValue : Number(check.amount || 0),
+          para_birimi: 'TRY',
+          creditor: field === 'creditor' ? parsedValue : check.creditor,
+          debtor: field === 'debtor' ? parsedValue : (check.debtor || 'TAKSİT'),
+          bank_name: field === 'bank_name' ? parsedValue : (check.bank_name || 'TAKSİT'),
+          ozel_alan: shouldDelete
+            ? `SİLİNDİ - TAKASTAN KALDIRILDI - ${check.ozel_alan || ''}`
+            : (check.ozel_alan || 'TAKASTA')
+        };
+        supabase
+          .from('ebs_checks')
+          .insert([insertPayload])
+          .select()
+          .then(({ data, error }) => {
+            if (error) {
+              console.error('Supabase cc insert error:', error);
+            } else if (data && data[0]) {
+              setChecks(prev => {
+                const exists = prev.some(c => c.id === check.id);
+                const next = exists
+                  ? prev.map(c => c.id === check.id ? data[0] : c)
+                  : [...prev, data[0]];
+                setCachedChecks(targetOrgId, next, isTakasRoute);
+                return next;
+              });
+            }
+          });
         return;
       }
 
@@ -2566,6 +2769,7 @@ export function ChecksPage() {
 
     const isCekten = isCektenCheck(check);
     const isDynamicCekten = Boolean(check.id && String(check.id).startsWith('cekten_'));
+    const isDynamicCreditCard = Boolean(check.id && String(check.id).startsWith('cc_'));
     const targetDateStr = takasDate || new Date().toISOString().split('T')[0];
 
     // 1. Calculate new values optimistically
@@ -2659,12 +2863,16 @@ export function ChecksPage() {
       });
     } else {
       setChecks(prev => {
-        const next = prev.map(c => c.id === check.id ? { 
-          ...c, 
-          ozel_alan: updatedOzelAlan, 
+        const exists = prev.some(c => c.id === check.id);
+        const updatedItem = {
+          ...check,
+          ozel_alan: updatedOzelAlan,
           status: updatedStatus,
           debtor: updatedDebtor
-        } : c);
+        };
+        const next = exists
+          ? prev.map(c => c.id === check.id ? updatedItem : c)
+          : [...prev, updatedItem];
         setCachedChecks(orgId, next, isTakasRoute);
         return next;
       });
@@ -2685,9 +2893,40 @@ export function ChecksPage() {
         }
       }
 
-      if (statusOption === 'sil') {
-      lastMutationAtRef.current = Date.now();
-      markCheckPaidLocally(orgId, check);
+      if (isDynamicCreditCard) {
+        const localId = Math.floor(Date.now() % 10000000);
+        const dueStr = (check.due_date || targetDateStr).substring(0, 10);
+        const ccInsertPayload: any = {
+          organization_id: orgId,
+          check_type: 'kesilen',
+          status: (statusOption === 'sil' || statusOption === 'odendi') ? 'Ödendi' : (updatedStatus || 'Tahsilde'),
+          due_date: dueStr,
+          issue_date: dueStr,
+          local_id: localId,
+          amount: Number(check.amount || 0),
+          para_birimi: 'TRY',
+          creditor: check.creditor,
+          debtor: updatedDebtor || check.debtor || 'TAKSİT',
+          bank_name: check.bank_name || 'TAKSİT',
+          ozel_alan: statusOption === 'sil'
+            ? `SİLİNDİ - TAKASTAN KALDIRILDI - ${check.ozel_alan || ''}`
+            : (updatedOzelAlan || check.ozel_alan || 'TAKASTA')
+        };
+        const { data: insertedCc } = await supabase
+          .from('ebs_checks')
+          .insert([ccInsertPayload])
+          .select();
+        if (insertedCc && insertedCc[0]) {
+          setChecks(prev => {
+            const withoutOld = prev.filter(c => c.id !== check.id);
+            const next = [...withoutOld, insertedCc[0]];
+            setCachedChecks(orgId, next, isTakasRoute);
+            return next;
+          });
+        }
+      } else if (statusOption === 'sil') {
+        lastMutationAtRef.current = Date.now();
+        markCheckPaidLocally(orgId, check);
         if (!isDynamicCekten) {
           if (hasLocalId) {
             await supabase
@@ -2796,8 +3035,32 @@ export function ChecksPage() {
 
     try {
       const uuidTargetIds = targets
-        .filter(t => t.id && !String(t.id).startsWith('cekten_') && !String(t.id).startsWith('temp-'))
+        .filter(t => t.id && !String(t.id).startsWith('cekten_') && !String(t.id).startsWith('temp-') && !String(t.id).startsWith('cc_'))
         .map(t => t.id);
+      const ccTargets = targets.filter(t => t.id && String(t.id).startsWith('cc_'));
+      if (ccTargets.length > 0) {
+        const ccPayloads = ccTargets.map((t, idx) => {
+          const dueStr = (t.due_date || takasDate || new Date().toISOString().split('T')[0]).substring(0, 10);
+          return {
+            organization_id: orgId,
+            check_type: 'kesilen',
+            status: 'Ödendi',
+            due_date: dueStr,
+            issue_date: dueStr,
+            local_id: Math.floor(Date.now() % 10000000) + idx,
+            amount: Number(t.amount || 0),
+            para_birimi: 'TRY',
+            creditor: t.creditor,
+            debtor: t.debtor || 'TAKSİT',
+            bank_name: t.bank_name || 'TAKSİT',
+            ozel_alan: t.ozel_alan || 'TAKASTA'
+          };
+        });
+        const { data: insertedCcRows } = await supabase.from('ebs_checks').insert(ccPayloads).select();
+        if (insertedCcRows && insertedCcRows.length > 0) {
+          setChecks(prev => [...prev, ...insertedCcRows]);
+        }
+      }
       const tempTargets = targets
         .filter(t => t.id && String(t.id).startsWith('temp-') && t.local_id);
 
