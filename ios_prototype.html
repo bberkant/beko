@@ -42658,6 +42658,29 @@ function toggleSubTab(tabIndex) {
       return dates;
     }
 
+    let morningNotificationSyncTimer = null;
+
+    function formatCreditCardSeparateNotice(card) {
+      const debtVal = Number(card.used) || 0;
+      const minPayVal = Number(card.minPay) || (debtVal * 0.2);
+      const limitVal = Number(card.limit) || 0;
+      const cardNo = card.no || ('•••• ' + (card.last4 || ''));
+      const dueStr = card.dueDate || card.dueDateISO || '';
+      const daysLeftNum = (card.daysLeft !== undefined && card.daysLeft !== null) ? Number(card.daysLeft) : 99;
+      const urgencyTag = daysLeftNum <= 0
+        ? '🚨 BUGÜN SON GÜN'
+        : (daysLeftNum === 1 ? '⚠️ YARIN SON GÜN' : ('Son Ödeme: ' + dueStr));
+
+      const financialDetail = debtVal > 0
+        ? ('Güncel Borç: ' + formatNumber(debtVal) + ' TL • Asgari: ' + formatNumber(minPayVal) + ' TL')
+        : ('Son Ödeme: ' + dueStr + ' • Limit: ' + formatNumber(limitVal) + ' TL');
+
+      return {
+        title: '💳 ' + String(card.bank || 'Kredi Kartı') + ' (' + String(card.name || '') + ')',
+        body: urgencyTag + ' (' + cardNo + ') • ' + financialDetail
+      };
+    }
+
     function syncNativeMorningNotifications(showFeedbackToast) {
       const prefs = getNotificationSettings();
       const hour = Number.isFinite(prefs.morningHour) ? prefs.morningHour : 9;
@@ -42665,7 +42688,7 @@ function toggleSubTab(tabIndex) {
       const timeLabel = String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
       const todayNow = new Date();
       const todayISO = todayNow.getFullYear() + '-' + String(todayNow.getMonth() + 1).padStart(2, '0') + '-' + String(todayNow.getDate()).padStart(2, '0');
-      const upcomingMornings = getUpcomingMorningDatesISO(hour, minute, 10);
+      const upcomingMornings = getUpcomingMorningDatesISO(hour, minute, 7);
       const nextMorningISO = upcomingMornings[0] || todayISO;
 
       if (!prefs.masterEnabled) {
@@ -42675,202 +42698,198 @@ function toggleSubTab(tabIndex) {
       }
 
       postToNativeNotificationBridge({ action: 'requestPermission' });
+      // Önceki birleşik/toplu bildirimleri temizle ki sadece ayrı ayrı bildirimler kalsın
+      postToNativeNotificationBridge({ action: 'clearAll' });
 
-      const eventsToSchedule = [];
       const activeNotes = (prefs.notesEnabled && Array.isArray(userCalendarNotes))
         ? userCalendarNotes.filter(n => n && !n.completed && stripMobileOwnerTag(n.content))
         : [];
+
+      // Kartları son ödeme günü yakınlığına göre sırala (M.AKBANK 0 gün, KUVEYT FİNANSMAN 1 gün vb. en başta)
       const sortedCards = (prefs.creditCardsEnabled && Array.isArray(mockCreditCards))
         ? [...mockCreditCards].sort((a, b) => {
-            const aActive = Number(a.used) > 0 ? 0 : 1;
-            const bActive = Number(b.used) > 0 ? 0 : 1;
-            if (aActive !== bActive) return aActive - bActive;
-            return (Number(a.daysLeft) || 99) - (Number(b.daysLeft) || 99);
+            const da = (a.daysLeft !== undefined && a.daysLeft !== null) ? Number(a.daysLeft) : 99;
+            const db = (b.daysLeft !== undefined && b.daysLeft !== null) ? Number(b.daysLeft) : 99;
+            if (da !== db) return da - db;
+            return (Number(b.used) || 0) - (Number(a.used) || 0);
           })
         : [];
 
-      // 1. HER SABAH 09:00 KULLANICININ AKTİF NOTLARI & SON GÜN KREDİ KARTI GÜNLÜK HATIRLATMASI (Önümüzdeki 10 Sabah)
-      upcomingMornings.forEach((morningISO, dayIdx) => {
-        const dueTodayCards = sortedCards.filter(c => {
-          const cISO = c.dueDateISO || (c.dueDate && c.dueDate.includes('.') ? c.dueDate.split('.').reverse().join('-') : '');
-          return cISO === morningISO || (dayIdx === 0 && (Number(c.daysLeft) || 99) <= 1 && Number(c.used) > 0);
-        });
+      const scheduleSeparateItems = () => {
+        const eventsToSchedule = [];
 
-        // A) Kullanıcının aktif notları her sabah saat 09:00'da bildirim olarak hatırlatılır
-        if (activeNotes.length > 0) {
-          activeNotes.slice(0, 3).forEach((note, nIdx) => {
-            const cleanText = stripMobileOwnerTag(note.content);
+        // 1. HER SABAH 09:00 KULLANICININ AKTİF NOTLARI — HER NOT TEKER TEKER AYRI BİLDİRİM!
+        upcomingMornings.forEach((morningISO, dayIdx) => {
+          if (activeNotes.length > 0) {
+            activeNotes.slice(0, 5).forEach((note, nIdx) => {
+              const cleanText = stripMobileOwnerTag(note.content);
+              postToNativeNotificationBridge({
+                action: 'scheduleDate',
+                id: 'sep_daily_note_' + morningISO + '_' + nIdx,
+                title: '📝 Notlarım (' + (nIdx + 1) + '/' + activeNotes.length + ') • ' + timeLabel,
+                body: cleanText,
+                date: morningISO,
+                advanceDays: 0,
+                hour: hour,
+                minute: minute,
+                targetScreen: 'takvim'
+              });
+            });
+          }
+
+          // O sabah son günü olan veya son gününe <= 2 gün kalan kredi kartlarının HER BİRİ AYRI BİLDİRİM!
+          const morningCards = sortedCards.filter(c => {
+            const cISO = c.dueDateISO || (c.dueDate && c.dueDate.includes('.') ? c.dueDate.split('.').reverse().join('-') : '');
+            if (cISO === morningISO) return true;
+            if (dayIdx === 0 && (c.daysLeft !== undefined ? Number(c.daysLeft) : 99) <= 2) return true;
+            return false;
+          });
+
+          morningCards.forEach((card, cIdx) => {
+            const formatted = formatCreditCardSeparateNotice(card);
             postToNativeNotificationBridge({
               action: 'scheduleDate',
-              id: 'daily_note_' + morningISO + '_' + nIdx,
-              title: '📝 Notlarım Sabah ' + timeLabel + ' Hatırlatması',
-              body: cleanText,
+              id: 'sep_daily_cc_' + morningISO + '_' + String(card.rawId || card.id || cIdx),
+              title: formatted.title,
+              body: formatted.body,
               date: morningISO,
               advanceDays: 0,
               hour: hour,
               minute: minute,
-              targetScreen: 'takvim'
+              targetScreen: 'credit_cards'
             });
           });
-        }
+        });
 
-        // B) Son gün olan veya bugün/yarın vadesi gelen kredi kartı + aktif notlar toplu sabah 09:00 özeti
-        if (dueTodayCards.length > 0 || activeNotes.length > 0) {
-          const summaryParts = [];
-          if (dueTodayCards.length > 0) {
-            const c0 = dueTodayCards[0];
-            summaryParts.push('💳 Son Gün: ' + c0.bank + ' ' + c0.name + ' (' + formatNumber(c0.used) + ' TL)');
-          }
-          if (activeNotes.length > 0) {
-            summaryParts.push('📝 Notlar (' + activeNotes.length + '): ' + activeNotes.map(n => stripMobileOwnerTag(n.content)).join(' • '));
-          }
-          postToNativeNotificationBridge({
-            action: 'scheduleDate',
-            id: 'daily_morning_summary_' + morningISO,
-            title: '☀️ Sabah ' + timeLabel + ' Notlarım & Kredi Kartı Son Gün',
-            body: summaryParts.join(' | '),
-            date: morningISO,
+        // 2. NOTLARIM TEKER TEKER AYRI BİLDİRİMLER
+        activeNotes.forEach((note, idx) => {
+          const rawNoteDate = (note.date && /^\d{4}-\d{2}-\d{2}$/.test(note.date)) ? note.date : nextMorningISO;
+          const effectiveNoteDate = rawNoteDate >= nextMorningISO ? rawNoteDate : nextMorningISO;
+          const noteIdClean = String(note.id || idx).replace(/^note-/, '');
+          const cleanText = stripMobileOwnerTag(note.content);
+
+          eventsToSchedule.push({
+            id: 'note_' + noteIdClean,
+            type: 'note',
+            title: '📝 Notlarım (' + (idx + 1) + '/' + activeNotes.length + ')',
+            body: cleanText,
+            date: effectiveNoteDate,
             advanceDays: 0,
             hour: hour,
             minute: minute,
-            targetScreen: dueTodayCards.length > 0 ? 'credit_cards' : 'takvim'
+            targetScreen: 'takvim'
           });
-        }
-      });
-
-      // 2. NOTLARIM SABAH 09:00 BİLDİRİMLERİ (eventsToSchedule içinde İLK SIRADA - 32 limitine takılmaz!)
-      activeNotes.forEach((note, idx) => {
-        const rawNoteDate = (note.date && /^\d{4}-\d{2}-\d{2}$/.test(note.date)) ? note.date : nextMorningISO;
-        const effectiveNoteDate = rawNoteDate >= nextMorningISO ? rawNoteDate : nextMorningISO;
-        const noteIdClean = String(note.id || idx).replace(/^note-/, '');
-        const cleanText = stripMobileOwnerTag(note.content);
-
-        eventsToSchedule.push({
-          id: 'note_' + noteIdClean,
-          type: 'note',
-          title: '📝 Notlarım Hatırlatması (' + timeLabel + ')',
-          body: cleanText,
-          date: effectiveNoteDate,
-          advanceDays: 0,
-          hour: hour,
-          minute: minute,
-          targetScreen: 'takvim'
         });
 
-        postToNativeNotificationBridge({
-          action: 'scheduleDate',
-          id: 'live_note_due_' + noteIdClean,
-          title: '📝 Notlarım Hatırlatması (' + timeLabel + ')',
-          body: cleanText,
-          date: effectiveNoteDate,
-          advanceDays: 0,
-          hour: hour,
-          minute: minute,
-          targetScreen: 'takvim'
-        });
-      });
+        // 3. KREDİ KARTLARI SON GÜN — HER KART KENDİ ADIYLA AYRI BİLDİRİM!
+        sortedCards.forEach((card, idx) => {
+          const debtVal = Number(card.used) || 0;
+          const rawDueISO = card.dueDateISO || (card.dueDate && card.dueDate.includes('.') ? card.dueDate.split('.').reverse().join('-') : nextMorningISO);
+          const effectiveDueISO = rawDueISO >= nextMorningISO ? rawDueISO : nextMorningISO;
+          const dueDayNum = Number(card.dueDay) || parseInt((rawDueISO.split('-')[2] || '15'), 10) || 15;
+          const formatted = formatCreditCardSeparateNotice(card);
 
-      // 3. KREDİ KARTLARI SON GÜN SABAH 09:00 BİLDİRİMLERİ (Canlı Site Verisi)
-      sortedCards.forEach((card, idx) => {
-        const debtVal = Number(card.used) || 0;
-        const minPayVal = Number(card.minPay) || (debtVal * 0.2);
-        const rawDueISO = card.dueDateISO || (card.dueDate && card.dueDate.includes('.') ? card.dueDate.split('.').reverse().join('-') : nextMorningISO);
-        const effectiveDueISO = rawDueISO >= nextMorningISO ? rawDueISO : nextMorningISO;
-        const dueDayNum = Number(card.dueDay) || parseInt((rawDueISO.split('-')[2] || '15'), 10) || 15;
-
-        eventsToSchedule.push({
-          id: String(card.rawId || card.id || ('cc_' + idx)),
-          type: 'credit-card',
-          bank: String(card.bank || 'Banka'),
-          title: String(card.bank || '') + ' ' + String(card.name || 'Kredi Kartı'),
-          body: 'Son Ödeme Günü: ' + (card.dueDate || rawDueISO) + ' • Güncel Borç: ' + formatNumber(debtVal) + ' TL (Asgari: ' + formatNumber(minPayVal) + ' TL)',
-          date: effectiveDueISO,
-          dueDay: dueDayNum,
-          amount: formatNumber(debtVal) + ' TL',
-          advanceDays: prefs.creditCardsAdvance2Days ? 2 : 0,
-          hour: hour,
-          minute: minute,
-          targetScreen: 'credit_cards'
-        });
-
-        if (idx < 15) {
-          postToNativeNotificationBridge({
-            action: 'scheduleDate',
-            id: 'live_cc_due_' + String(card.rawId || card.id || idx),
-            title: '💳 Kredi Kartı Son Ödeme Günü (' + timeLabel + ')',
-            body: card.bank + ' ' + card.name + ' (' + (card.no || '') + ') son ödeme günü! Borç: ' + formatNumber(debtVal) + ' TL • Asgari: ' + formatNumber(minPayVal) + ' TL',
+          eventsToSchedule.push({
+            id: String(card.rawId || card.id || ('cc_' + idx)),
+            type: 'credit-card',
+            bank: String(card.bank || 'Banka'),
+            title: String(card.bank || '') + ' ' + String(card.name || 'Kredi Kartı'),
+            body: formatted.body,
             date: effectiveDueISO,
-            advanceDays: 0,
+            dueDay: dueDayNum,
+            amount: formatNumber(debtVal) + ' TL',
+            advanceDays: prefs.creditCardsAdvance2Days ? 2 : 0,
             hour: hour,
             minute: minute,
             targetScreen: 'credit_cards'
           });
 
-          if (prefs.creditCardsAdvance2Days) {
+          if (idx < 14) {
             postToNativeNotificationBridge({
               action: 'scheduleDate',
-              id: 'live_cc_adv_' + String(card.rawId || card.id || idx),
-              title: '💳 Kredi Kartı Son Gün Uyarısı (2 Gün Kaldı)',
-              body: card.bank + ' ' + card.name + ' son ödemesine 2 gün kaldı (' + (card.dueDate || rawDueISO) + '). Borç: ' + formatNumber(debtVal) + ' TL',
+              id: 'live_cc_due_' + String(card.rawId || card.id || idx),
+              title: formatted.title,
+              body: formatted.body,
               date: effectiveDueISO,
-              advanceDays: 2,
+              advanceDays: 0,
               hour: hour,
               minute: minute,
               targetScreen: 'credit_cards'
             });
+
+            if (prefs.creditCardsAdvance2Days) {
+              postToNativeNotificationBridge({
+                action: 'scheduleDate',
+                id: 'live_cc_adv_' + String(card.rawId || card.id || idx),
+                title: formatted.title + ' (2 Gün Kaldı)',
+                body: formatted.body,
+                date: effectiveDueISO,
+                advanceDays: 2,
+                hour: hour,
+                minute: minute,
+                targetScreen: 'credit_cards'
+              });
+            }
           }
+        });
+
+        // 4. ÇEK & ARAÇ BİLDİRİMLERİ (Sabah 09:00 - Ayrı Ayrı)
+        if (prefs.checksEnabled && Array.isArray(mockCalendarEvents)) {
+          mockCalendarEvents.filter(e => e.type === 'check').slice(0, 5).forEach(ev => {
+            eventsToSchedule.push({
+              id: String(ev.id),
+              type: 'check',
+              title: ev.title,
+              body: (ev.institution || '') + ' • ' + (ev.amount || ''),
+              date: ev.date,
+              amount: ev.amount || '',
+              advanceDays: 2,
+              hour: hour,
+              minute: minute,
+              targetScreen: 'checks'
+            });
+          });
         }
-      });
 
-      // 4. ÇEK & ARAÇ BİLDİRİMLERİ (Sabah 09:00)
-      if (prefs.checksEnabled && Array.isArray(mockCalendarEvents)) {
-        mockCalendarEvents.filter(e => e.type === 'check').slice(0, 6).forEach(ev => {
-          eventsToSchedule.push({
-            id: String(ev.id),
-            type: 'check',
-            title: ev.title,
-            body: (ev.institution || '') + ' • ' + (ev.amount || ''),
-            date: ev.date,
-            amount: ev.amount || '',
-            advanceDays: 2,
-            hour: hour,
-            minute: minute,
-            targetScreen: 'checks'
+        if (prefs.vehiclesEnabled && Array.isArray(mockCalendarEvents)) {
+          mockCalendarEvents.filter(e => e.type === 'inspection' || e.type === 'insurance').slice(0, 5).forEach(ev => {
+            eventsToSchedule.push({
+              id: String(ev.id),
+              type: ev.type,
+              title: ev.title,
+              body: (ev.code || '') + ' • ' + (ev.detail || ''),
+              date: ev.date,
+              plate: ev.code || '',
+              advanceDays: 2,
+              hour: hour,
+              minute: minute,
+              targetScreen: 'vehicles'
+            });
           });
-        });
-      }
+        }
 
-      if (prefs.vehiclesEnabled && Array.isArray(mockCalendarEvents)) {
-        mockCalendarEvents.filter(e => e.type === 'inspection' || e.type === 'insurance').slice(0, 6).forEach(ev => {
-          eventsToSchedule.push({
-            id: String(ev.id),
-            type: ev.type,
-            title: ev.title,
-            body: (ev.code || '') + ' • ' + (ev.detail || ''),
-            date: ev.date,
-            plate: ev.code || '',
-            advanceDays: 2,
-            hour: hour,
-            minute: minute,
-            targetScreen: 'vehicles'
-          });
+        postToNativeNotificationBridge({
+          action: 'syncAllEvents',
+          events: eventsToSchedule
         });
-      }
+      };
 
-      postToNativeNotificationBridge({
-        action: 'syncAllEvents',
-        events: eventsToSchedule
-      });
+      if (morningNotificationSyncTimer) clearTimeout(morningNotificationSyncTimer);
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.darsNotification) {
+        morningNotificationSyncTimer = setTimeout(scheduleSeparateItems, 120);
+      } else {
+        scheduleSeparateItems();
+      }
 
       if (showFeedbackToast) {
         const ccCount = prefs.creditCardsEnabled ? mockCreditCards.length : 0;
         const noteCount = activeNotes.length;
-        showToast('Sabah ' + timeLabel + ' bildirimleri kuruldu (' + ccCount + ' Kart Son Gün, ' + noteCount + ' Not)');
+        showToast('Sabah ' + timeLabel + ' bildirimleri tek tek ayrı kuruldu (' + ccCount + ' Kart, ' + noteCount + ' Not)');
       }
     }
 
     async function manualSyncNotificationsNow() {
-      showToast('Canlı site verileri çekiliyor ve 09:00 bildirimleri eşitleniyor...');
+      showToast('Canlı site verileri çekiliyor ve 09:00 ayrı bildirimleri eşitleniyor...');
       await Promise.allSettled([
         syncLiveCards(),
         syncLiveCalendarNotes()
@@ -42887,34 +42906,54 @@ function toggleSubTab(tabIndex) {
       const prefs = getNotificationSettings();
       const timeLabel = String(prefs.morningHour || 9).padStart(2, '0') + ':' + String(prefs.morningMinute || 0).padStart(2, '0');
       const sortedCards = [...mockCreditCards].sort((a, b) => {
-        const aAct = Number(a.used) > 0 ? 0 : 1;
-        const bAct = Number(b.used) > 0 ? 0 : 1;
-        if (aAct !== bAct) return aAct - bAct;
-        return (Number(a.daysLeft) || 99) - (Number(b.daysLeft) || 99);
-      });
-      const topCard = sortedCards[0];
-      const activeNotes = userCalendarNotes.filter(n => !n.completed && stripMobileOwnerTag(n.content));
-      const notesListText = activeNotes.length > 0
-        ? activeNotes.map(n => stripMobileOwnerTag(n.content)).join(' • ')
-        : 'Aktif notlarınız her sabah 09:00\'da hatırlatılır';
-
-      const cardSummary = topCard
-        ? ('💳 Son Gün: ' + topCard.bank + ' ' + topCard.name + ' (' + formatNumber(topCard.used) + ' TL - ' + topCard.dueDate + ')')
-        : '💳 Kredi kartı son gün takibi aktif';
-      const noteSummary = '📝 Notlarım (' + activeNotes.length + '): ' + notesListText;
-
-      const sentNative = postToNativeNotificationBridge({
-        action: 'scheduleReminder',
-        id: 'test_morning_0900_' + Date.now(),
-        title: '☀️ Sabah ' + timeLabel + ' Kredi Kartları Son Gün & Notlarım',
-        body: cardSummary + ' | ' + noteSummary,
-        delay: 2
+        const da = (a.daysLeft !== undefined && a.daysLeft !== null) ? Number(a.daysLeft) : 99;
+        const db = (b.daysLeft !== undefined && b.daysLeft !== null) ? Number(b.daysLeft) : 99;
+        if (da !== db) return da - db;
+        return (Number(b.used) || 0) - (Number(a.used) || 0);
       });
 
-      if (sentNative) {
-        showToast('Test bildirimi gönderildi! (2 sn içinde ekran üstünde görünecek)');
+      // Son ödeme günü bugün/yarın olan kartlar (M.AKBANK, ETİK KUVEYT FİNANSMAN, MARİF KUVEYT FİNANSMAN vb.)
+      const urgentCards = sortedCards.filter(c => (c.daysLeft !== undefined ? Number(c.daysLeft) : 99) <= 2);
+      const cardsToSend = urgentCards.length > 0 ? urgentCards : sortedCards.slice(0, 3);
+      const activeNotes = userCalendarNotes.filter(n => n && !n.completed && stripMobileOwnerTag(n.content));
+
+      let delaySec = 2;
+      let sentAnyNative = false;
+      const nowStamp = Date.now();
+
+      // 1) Her Kredi Kartı Ayrı Ayrı Bildirim Olarak Gönderilir
+      cardsToSend.forEach((card, cIdx) => {
+        const formatted = formatCreditCardSeparateNotice(card);
+        const ok = postToNativeNotificationBridge({
+          action: 'scheduleReminder',
+          id: 'test_sep_cc_' + nowStamp + '_' + cIdx,
+          title: formatted.title,
+          body: formatted.body,
+          delay: delaySec
+        });
+        if (ok) sentAnyNative = true;
+        delaySec += 1;
+      });
+
+      // 2) Her Not Teker Teker Ayrı Bildirim Olarak Gönderilir
+      activeNotes.forEach((note, nIdx) => {
+        const cleanText = stripMobileOwnerTag(note.content);
+        const ok = postToNativeNotificationBridge({
+          action: 'scheduleReminder',
+          id: 'test_sep_note_' + nowStamp + '_' + nIdx,
+          title: '📝 Notlarım (' + (nIdx + 1) + '/' + activeNotes.length + ') • ' + timeLabel,
+          body: cleanText,
+          delay: delaySec
+        });
+        if (ok) sentAnyNative = true;
+        delaySec += 1;
+      });
+
+      const totalSeparate = cardsToSend.length + activeNotes.length;
+      if (sentAnyNative) {
+        showToast(totalSeparate + ' adet ayrı bildirim gönderildi! (' + cardsToSend.length + ' Kart + ' + activeNotes.length + ' Not teker teker gelecek)');
       } else {
-        showToast('🔔 [' + timeLabel + ' Önizleme] ' + cardSummary + ' | ' + noteSummary);
+        showToast('🔔 ' + cardsToSend.length + ' Kredi Kartı ve ' + activeNotes.length + ' Not ayrı ayrı bildirim olarak hazırlandı');
       }
     }
 
@@ -42924,7 +42963,11 @@ function toggleSubTab(tabIndex) {
       const prefs = getNotificationSettings();
       const timeLabel = String(prefs.morningHour || 9).padStart(2, '0') + ':' + String(prefs.morningMinute || 0).padStart(2, '0');
       const activeNotes = userCalendarNotes.filter(n => !n.completed && n.content);
-      const sortedCards = [...mockCreditCards].sort((a, b) => (a.daysLeft || 99) - (b.daysLeft || 99));
+      const sortedCards = [...mockCreditCards].sort((a, b) => {
+        const da = (a.daysLeft !== undefined && a.daysLeft !== null) ? Number(a.daysLeft) : 99;
+        const db = (b.daysLeft !== undefined && b.daysLeft !== null) ? Number(b.daysLeft) : 99;
+        return da - db;
+      });
 
       let htmlItems = `
         <div class="kt-card p-3.5 bg-gradient-to-r from-[#002D59] to-[#0A467E] text-white rounded-2xl space-y-2 shadow-xs">
