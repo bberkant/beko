@@ -350,11 +350,9 @@ function setCachedChecks(orgId: string, data: EbsCheck[], isTakas = false) {
     const activeChecks = realChecks.filter(
       c => !isCheckPaid(c.status) || cleanStatus(c.status).includes('kayıp')
     );
-    if (activeChecks.length > 0) {
-      try {
-        localStorage.setItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(activeChecks));
-      } catch {}
-    }
+    try {
+      localStorage.setItem(`${TAKAS_CHECKS_CACHE_KEY}_${orgId}`, JSON.stringify(activeChecks));
+    } catch {}
 
     // 2. Update full checks cache (prioritize all unpaid checks + recent paid checks so quota is never exceeded)
     if (!isTakas || !localStorage.getItem(`${CHECKS_CACHE_KEY}_${orgId}`)) {
@@ -1193,10 +1191,10 @@ export function ChecksPage() {
     window.addEventListener('focus', handleRefreshAll);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // 5. Heartbeat sync every 60 seconds while open to guarantee data is always 100% current
+    // 5. Heartbeat sync every 30 seconds while open to guarantee data is always 100% current
     const interval = setInterval(() => {
       handleRefreshAll();
-    }, 60000);
+    }, 30000);
 
     return () => {
       if (realtimeDebounceTimer) clearTimeout(realtimeDebounceTimer);
@@ -1752,10 +1750,45 @@ export function ChecksPage() {
       return clean.includes('ödendi') || 
              clean.includes('ödenen') || 
              clean.includes('tahsil edildi') || 
+             clean.includes('portföyden tahsil') ||
+             clean.includes('bankadan tahsil') ||
+             clean.includes('icradan tahsil') ||
              clean.includes('tahsilat') || 
              clean.includes('ciro') ||
              clean.includes('iade') || 
              clean.includes('iptal');
+    };
+
+    // EBS'de Ödendi olarak işaretlenmiş çeklerin imzasını çıkar (olası mükerrer/manuel kayıtların da takas tablosundan kalkması için)
+    const paidSignatures = new Set<string>();
+    for (const c of checks) {
+      if (isCheckPaid(c.status)) {
+        const due = (c.due_date || '').substring(0, 10);
+        const amt = Number(c.amount || 0).toFixed(2);
+        const cNo = (c.check_no || '').trim();
+        if (cNo && due) {
+          paidSignatures.add(`${c.check_type}_${cNo}_${due}_${amt}`);
+        } else if (due) {
+          const cred = (c.creditor || '').trim().toUpperCase();
+          if (cred) paidSignatures.add(`${c.check_type}_NOCNO_${cred}_${due}_${amt}`);
+        }
+      }
+    }
+
+    const isPaidBySignature = (c: EbsCheck): boolean => {
+      const due = (c.due_date || '').substring(0, 10);
+      const amt = Number(c.amount || 0).toFixed(2);
+      const cNo = (c.check_no || '').trim();
+      if (cNo && due && paidSignatures.has(`${c.check_type}_${cNo}_${due}_${amt}`)) {
+        return true;
+      }
+      if (!cNo && due) {
+        const cred = (c.creditor || '').trim().toUpperCase();
+        if (cred && paidSignatures.has(`${c.check_type}_NOCNO_${cred}_${due}_${amt}`)) {
+          return true;
+        }
+      }
+      return false;
     };
 
     // 1. Durumu 'Tahsilde', 'beklemede', 'ödenmedi' olan (yani Ödendi/İptal OLMAYAN), kesilen tipte:
@@ -1768,7 +1801,7 @@ export function ChecksPage() {
       const allowedStatuses = isExplicitNonTakas
         ? ['tahsilde', 'beklemede', 'ödenmedi', 'geri alındı', 'geri alindi']
         : ['tahsilde', 'beklemede', 'ödenmedi'];
-      if (isCheckPaid(c.status) || !allowedStatuses.includes(status)) {
+      if (isCheckPaid(c.status) || isPaidBySignature(c) || !allowedStatuses.includes(status)) {
         return false;
       }
       if (!c.due_date) return false;
@@ -1785,7 +1818,7 @@ export function ChecksPage() {
     // 2. Alınan çeklerde asıl alacaklı kısmında 'HATIR BİZİM BORCUMUZ' veya 'HATIR BİZİM BORÇ' yazanlar (Veya özel alanı 'TAKASTA' ile başlayanlar)
     const hatirAlinan = checks.filter(c => {
       if (c.check_type !== 'alinan') return false;
-      if (isCheckPaid(c.status)) return false;
+      if (isCheckPaid(c.status) || isPaidBySignature(c)) return false;
       if (!c.due_date) return false;
       
       const due = c.due_date.substring(0, 10);

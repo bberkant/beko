@@ -5,6 +5,7 @@
 
 const firebird = require('node-firebird');
 const { createClient } = require('@supabase/supabase-js');
+const iconv = require('iconv-lite');
 const fs = require('fs');
 const path = require('path');
 
@@ -38,7 +39,11 @@ for (const envPath of envLocations) {
 }
 
 const clientKey = serviceKey || supabaseKey;
-const supabase = createClient(supabaseUrl, clientKey);
+const supabase = createClient(supabaseUrl, clientKey, {
+  global: {
+    fetch: (url, opts) => fetch(url, { ...opts, signal: AbortSignal.timeout(20000) })
+  }
+});
 
 // 2. EBS Ayarlarını Oku (.ini dosyaları)
 let remoteHost = 'DRAMA'; // Serdar'ın bilgisayarı (DRAMA)
@@ -175,7 +180,149 @@ function getEffectiveDebtor(existingOzel, existingDebtor, fbDebtor) {
   return newDebtor;
 }
 
+const LOCK_FILE = path.resolve(__dirname, '../.ebs_sync.lock');
+const SUPA_CACHE_FILE = path.resolve(__dirname, '../.ebs_supabase_cache.json');
+const FULL_SYNC_TTL_MS = 6 * 60 * 60 * 1000; // 6 saatte bir tam tarama, aralarda hızlı aktif tarama
+
+function acquireLock() {
+  try {
+    if (fs.existsSync(LOCK_FILE)) {
+      const stat = fs.statSync(LOCK_FILE);
+      if (Date.now() - stat.mtimeMs < 3 * 60 * 1000) {
+        return false;
+      }
+    }
+    fs.writeFileSync(LOCK_FILE, String(process.pid), 'utf8');
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+function releaseLock() {
+  try {
+    if (fs.existsSync(LOCK_FILE)) fs.unlinkSync(LOCK_FILE);
+  } catch {}
+}
+
+async function fetchSupabaseChecksSmart() {
+  const selectCols = 'id, organization_id, check_type, check_no, due_date, amount, status, local_id, debtor, creditor, bank_name, bank_branch, ciro_edilen, tahsildar_banka, document_type, ozel_alan, kesideci, keside_yeri, para_birimi';
+  let cachedList = [];
+  let cacheValid = false;
+
+  try {
+    if (fs.existsSync(SUPA_CACHE_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(SUPA_CACHE_FILE, 'utf8'));
+      if (raw && Array.isArray(raw.items) && raw.items.length > 0) {
+        cachedList = raw.items;
+        if (raw.timestamp && (Date.now() - raw.timestamp < FULL_SYNC_TTL_MS)) {
+          cacheValid = true;
+        }
+      }
+    }
+  } catch {}
+
+  // Hızlı mod: Önbellek taze ise sadece ödenmemiş (aktif) kayıtları çekip önbellekle birleştir
+  if (cacheValid && cachedList.length > 0) {
+    const unpaidRows = [];
+    let from = 0;
+    const pageSize = 1000;
+    let fastOk = true;
+    while (true) {
+      const { data, error } = await supabase
+        .from('ebs_checks')
+        .select(selectCols)
+        .eq('organization_id', organizationId)
+        .neq('status', 'Ödendi')
+        .order('id', { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (error) {
+        fastOk = false;
+        break;
+      }
+      unpaidRows.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+      from += pageSize;
+    }
+
+    if (fastOk) {
+      const unpaidIds = new Set(unpaidRows.map(r => r.id));
+      const merged = [];
+      for (const c of cachedList) {
+        if (unpaidIds.has(c.id)) continue;
+        // Eğer önbellekte eskiden ödenmemiş görünüyorsa ama artık unpaid listesinde yoksa Ödendi olmuştur
+        if (c.status !== 'Ödendi') {
+          merged.push({ ...c, status: 'Ödendi' });
+        } else {
+          merged.push(c);
+        }
+      }
+      merged.push(...unpaidRows);
+      return { items: merged, isPartialUnpaidOnly: false };
+    }
+  }
+
+  // Tam tarama modu (Sadece aktif 2026 yılı kayıtları: local_id < 1000000 veya null)
+  let existingChecks = [];
+  let from = 0;
+  const pageSize = 1000;
+  try {
+    while (true) {
+      const { data, error } = await supabase
+        .from('ebs_checks')
+        .select(selectCols)
+        .eq('organization_id', organizationId)
+        .or('local_id.lt.1000000,local_id.is.null')
+        .order('due_date', { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      existingChecks = existingChecks.concat(data || []);
+      if (!data || data.length < pageSize) break;
+      from += pageSize;
+    }
+    try {
+      fs.writeFileSync(SUPA_CACHE_FILE, JSON.stringify({ timestamp: Date.now(), items: existingChecks }), 'utf8');
+    } catch {}
+    return { items: existingChecks, isPartialUnpaidOnly: false };
+  } catch (err) {
+    // Tam tarama zaman aşımına uğrarsa sadece aktif (ödenmemiş) kayıtları çekerek eşitlemeye devam et
+    console.warn('      [!] Tam liste okunurken zaman aşımı, aktif kayıtlar üzerinden devam ediliyor:', err.message);
+    const { data, error } = await supabase
+      .from('ebs_checks')
+      .select(selectCols)
+      .eq('organization_id', organizationId)
+      .neq('status', 'Ödendi')
+      .order('due_date', { ascending: true })
+      .limit(1500);
+    if (error) {
+      if (cachedList.length > 0) return { items: cachedList, isPartialUnpaidOnly: false };
+      throw new Error('Supabase kayıt okuma hatası: ' + error.message);
+    }
+    if (cachedList.length > 0) {
+      const byId = new Map(cachedList.map(c => [c.id, c]));
+      for (const row of (data || [])) byId.set(row.id, row);
+      return { items: Array.from(byId.values()), isPartialUnpaidOnly: false };
+    }
+    return { items: data || [], isPartialUnpaidOnly: true };
+  }
+}
+
 async function main() {
+  if (!acquireLock()) {
+    console.log('[EBS SYNC] Başka bir eşitleme işlemi şu anda çalışıyor, atlanıyor.');
+    return;
+  }
+  try {
+    await runMainSync();
+  } finally {
+    releaseLock();
+  }
+}
+
+async function runMainSync() {
   console.log('====================================================');
   console.log('   DARS PLATFORMU - EBS ÇEK BULUT EŞİTLEME SİSTEMİ   ');
   console.log('====================================================\n');
@@ -186,24 +333,9 @@ async function main() {
 
   // 1. Supabase'deki mevcut çekleri hafızaya al
   console.log(`\n[2/5] Supabase üzerindeki mevcut kayıtlar çekiliyor...`);
-  let existingChecks = [];
-  let from = 0;
-  const pageSize = 1000;
-
-  while (true) {
-    const { data, error } = await supabase
-      .from('ebs_checks')
-      .select('id, organization_id, check_type, check_no, due_date, amount, status, local_id, debtor, creditor, bank_name, bank_branch, ciro_edilen, tahsildar_banka, document_type, ozel_alan, kesideci, keside_yeri, para_birimi')
-      .eq('organization_id', organizationId)
-      .range(from, from + pageSize - 1);
-
-    if (error) {
-      throw new Error('Supabase kayıt okuma hatası: ' + error.message);
-    }
-    existingChecks = existingChecks.concat(data);
-    if (data.length < pageSize) break;
-    from += pageSize;
-  }
+  const supaFetchResult = await fetchSupabaseChecksSmart();
+  let existingChecks = supaFetchResult.items;
+  const isPartialUnpaidOnly = supaFetchResult.isPartialUnpaidOnly;
 
   console.log(`      Bulutta bulunan toplam kayıt: ${existingChecks.length} adet.`);
 
@@ -222,15 +354,24 @@ async function main() {
 
   // Hızlı Arama Haritaları (Önce local_id + check_type, sonra yedek anahtar)
   const existingMap = new Map();
+  const existingListByKey = new Map();
   const localIdByTypeMap = new Map();
 
   existingChecks.forEach(c => {
-    if (isWebCektenRow(c)) return;
+    const o = String(c.ozel_alan || '').toUpperCase();
+    const d = String(c.debtor || '').toUpperCase();
+    const b = String(c.bank_name || '').toUpperCase();
+    const isPureCekten = d.includes('ÇEKTEN') || d.includes('CEKTEN') || b.includes('ÇEKTEN') || b.includes('CEKTEN') || o.includes('ÇEKTEN') || o.includes('CEKTEN') || o.includes('WEB_MANUEL_SENET') || o.includes('WEB_MANUEL_KASADA');
+    if (isPureCekten) return;
+
     const checkNo = (c.check_no || '').trim();
     const dueDate = c.due_date;
     const amountStr = parseFloat(c.amount || 0).toFixed(2);
     const key = `${c.check_type}_${checkNo}_${dueDate}_${amountStr}`;
     existingMap.set(key, c);
+    if (!existingListByKey.has(key)) existingListByKey.set(key, []);
+    existingListByKey.get(key).push(c);
+
     if (c.local_id !== null && c.local_id !== undefined && c.local_id < 1000000) {
       localIdByTypeMap.set(`${c.check_type}_${c.local_id}`, c);
     }
@@ -368,8 +509,17 @@ async function main() {
           } else {
             unchangedCount++;
           }
+          if (finalStatus === 'Ödendi') {
+            const dups = existingListByKey.get(recordKey) || [];
+            for (const dup of dups) {
+              if (dup.id !== existing.id && dup.status !== 'Ödendi') {
+                toUpdate.push({ id: dup.id, status: 'Ödendi', updated_at: checkData.updated_at });
+                dup.status = 'Ödendi';
+              }
+            }
+          }
         }
-      } else {
+      } else if (!isPartialUnpaidOnly || finalStatus !== 'Ödendi') {
         checkData.created_at = new Date().toISOString();
         toInsert.push(checkData);
         existingMap.set(recordKey, checkData);
@@ -435,6 +585,8 @@ async function main() {
         } else {
           finalStatus = existing.status;
         }
+      } else if (existing && /takasta olmayan/i.test(finalOzelAlan || '') && status === 'Geri Alındı' && existing.status === 'Tahsilde') {
+        finalStatus = 'Tahsilde';
       }
 
       const checkData = {
@@ -484,8 +636,17 @@ async function main() {
           } else {
             unchangedCount++;
           }
+          if (finalStatus === 'Ödendi') {
+            const dups = existingListByKey.get(recordKey) || [];
+            for (const dup of dups) {
+              if (dup.id !== existing.id && dup.status !== 'Ödendi') {
+                toUpdate.push({ id: dup.id, status: 'Ödendi', updated_at: checkData.updated_at });
+                dup.status = 'Ödendi';
+              }
+            }
+          }
         }
-      } else {
+      } else if (!isPartialUnpaidOnly || finalStatus !== 'Ödendi') {
         checkData.created_at = new Date().toISOString();
         toInsert.push(checkData);
         existingMap.set(recordKey, checkData);
@@ -546,6 +707,18 @@ async function main() {
       process.stdout.write(`      [*] ${Math.min(i + updateBatchSize, toUpdate.length)} / ${toUpdate.length} çek güncellendi...\r`);
     }
     console.log(`\n      ${updatedSuccess} adet çek başarıyla güncellendi.`);
+  }
+
+  // Yerel önbelleği güncellenen durumlarla senkronize et
+  if (toUpdate.length > 0 || toReplace.length > 0) {
+    try {
+      const updateMap = new Map(toUpdate.map(u => [u.id, u]));
+      const replacedSet = new Set(toReplace.map(r => r.deleteId));
+      const nextCache = existingChecks
+        .filter(c => !replacedSet.has(c.id))
+        .map(c => updateMap.has(c.id) ? { ...c, ...updateMap.get(c.id) } : c);
+      fs.writeFileSync(SUPA_CACHE_FILE, JSON.stringify({ timestamp: Date.now(), items: nextCache }), 'utf8');
+    } catch {}
   }
 
   console.log('\n====================================================');

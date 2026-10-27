@@ -33,6 +33,9 @@ export const isCheckPaid = (status: string | null | undefined): boolean => {
   return clean.includes('ödendi') || 
          clean.includes('ödenen') || 
          clean.includes('tahsil edildi') || 
+         clean.includes('portföyden tahsil') ||
+         clean.includes('bankadan tahsil') ||
+         clean.includes('icradan tahsil') ||
          clean.includes('tahsilat') || 
          clean.includes('ciro') ||
          clean.includes('iade') || 
