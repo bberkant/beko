@@ -221,12 +221,29 @@
     .hidden {
       display: none !important;
     }
+    @keyframes ptr-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .ptr-spin {
+      animation: ptr-spin 0.8s linear infinite !important;
+    }
   </style>
 </head>
 <body class="bg-[#F8FAFC] w-full h-full select-none overflow-hidden">
 
   <!-- ==================== MAIN MOBILE VIEWPORT ==================== -->
   <div class="iphone-viewport text-slate-800 flex flex-col">
+
+    <!-- Pull to Refresh Floating Indicator -->
+    <div id="pull-refresh-indicator" class="pointer-events-none absolute left-1/2 -translate-x-1/2 z-50 transition-all duration-200" style="top: 0px; transform: translate(-50%, -60px); opacity: 0;">
+      <div class="w-10 h-10 rounded-full bg-white shadow-md border border-slate-200/90 flex items-center justify-center text-[#002D59]">
+        <svg id="ptr-spinner-svg" class="w-5 h-5 text-[#002D59]" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+          <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    </div>
 
     <!-- ==================== SCREEN CONTAINER ==================== -->
 
@@ -464,13 +481,13 @@
                 <p id="dash-quick-slaughters-sub" class="text-[11px] text-slate-400 font-[400] mt-0.5">60 Kesim Kaydı</p>
               </div>
             </button>
-            <button onclick="changeScreen('cekten_hesabi')" class="kt-card p-3.5 flex items-center gap-3 hover:bg-slate-50 transition-all text-left">
+            <button onclick="changeScreen('checks')" class="kt-card p-3.5 flex items-center gap-3 hover:bg-slate-50 transition-all text-left">
               <div class="w-8 h-8 rounded-xl bg-[#EEF4FF] text-kt-primary flex items-center justify-center shrink-0">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.5M4.5 21V10.5M3 21h18" /></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>
               </div>
               <div class="truncate">
-                <h4 class="text-[13px] font-[600] text-slate-800 tracking-tight">ÇEKTEN Hesabı</h4>
-                <p id="dash-quick-cekten-sub" class="text-[11px] text-slate-400 font-[400] mt-0.5">Açık Mal Ödemeleri</p>
+                <h4 class="text-[13px] font-[600] text-slate-800 tracking-tight">Çek & Senet Listesi</h4>
+                <p id="dash-quick-checks-list-sub" class="text-[11px] text-slate-400 font-[400] mt-0.5">Yükleniyor...</p>
               </div>
             </button>
           </div>
@@ -42272,24 +42289,51 @@ function toggleSubTab(tabIndex) {
                 <span class="font-[700] text-slate-900 truncate">📋 Yapılacaklar & Notlar (${activeUserLabel})</span>
                 <span class="font-[600] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full text-[10px] shrink-0">⏰ 09:00 • ${activeNoteCount} Not</span>
               </div>
-              <form onsubmit="event.preventDefault(); handleGeneralMobileNoteAdd('dash-quick-note-input');" class="flex gap-1.5 items-center">
-                <input
-                  type="text"
-                  id="dash-quick-note-input"
-                  placeholder="Bilgisayar ve telefonla eşzamanlı not ekle..."
-                  class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-[500] text-slate-800 focus:outline-none focus:bg-white focus:border-[#002D59]"
-                />
-                <button type="submit" class="px-3 py-1.5 bg-[#002D59] text-white rounded-xl text-xs font-[700] shrink-0">+</button>
+              <form onsubmit="event.preventDefault(); handleGeneralMobileNoteAdd('dash-quick-note-input', 'dash-quick-note-date');" class="space-y-2">
+                <div class="flex gap-1.5 items-center">
+                  <input
+                    type="text"
+                    id="dash-quick-note-input"
+                    placeholder="Bilgisayar ve telefonla eşzamanlı not ekle..."
+                    class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-[500] text-slate-800 focus:outline-none focus:bg-white focus:border-[#002D59]"
+                  />
+                  <button type="submit" class="px-3 py-1.5 bg-[#002D59] text-white rounded-xl text-xs font-[700] shrink-0 active:scale-95 transition-transform">+</button>
+                </div>
+                <div class="flex items-center justify-between px-1">
+                  <div class="flex items-center gap-1.5">
+                    <label for="dash-quick-note-date" class="text-[10.5px] text-slate-500 font-medium flex items-center gap-1 cursor-pointer">
+                      <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+                      <span>Tarih (opsiyonel):</span>
+                    </label>
+                    <input
+                      type="date"
+                      id="dash-quick-note-date"
+                      class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-[11px] font-[500] text-slate-700 focus:outline-none focus:bg-white focus:border-[#002D59]"
+                    />
+                  </div>
+                  <span class="text-[9.5px] text-slate-400 italic">Boşsa her sabah 09:00</span>
+                </div>
               </form>
-              ${userCalendarNotes.length > 0 ? `<div class="space-y-1.5 max-h-48 overflow-y-auto">${[...userCalendarNotes].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(n => `
+              ${userCalendarNotes.length > 0 ? `<div class="space-y-1.5">${[...userCalendarNotes].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(n => `
                 <div class="p-2 rounded-xl border ${n.completed ? 'bg-slate-50/60 border-slate-100 opacity-60' : 'bg-white border-slate-200/80'} flex items-center justify-between gap-2">
-                  <button type="button" onclick="toggleCalendarNote('${n.id}')" class="flex items-center gap-2 min-w-0 flex-1 text-left">
+                  <div onclick="toggleCalendarNote('${n.id}')" class="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer">
                     <span class="w-4 h-4 rounded border ${n.completed ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white'} flex items-center justify-center text-[10px] shrink-0">${n.completed ? '✓' : ''}</span>
                     <div class="min-w-0 flex-1">
                       <span class="text-xs font-[600] block ${n.completed ? 'line-through text-slate-400' : 'text-slate-800'} break-words">${stripMobileOwnerTag(n.content)}</span>
-                      <span class="text-[9.5px] font-[500] text-slate-400">${n.date ? formatISOToTR(n.date) + ' • 09:00' : 'Her Sabah 09:00 Hatırlatma'}</span>
+                      <label onclick="event.stopPropagation();" class="relative inline-flex items-center gap-1 cursor-pointer text-[9.5px] font-[600] text-slate-500 hover:text-kt-primary bg-slate-100/90 hover:bg-blue-50 px-2 py-0.5 rounded-md mt-1 transition-colors select-none">
+                        <svg class="w-2.5 h-2.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+                        <span>${n.date ? (formatISOToTR(n.date) + ' • 09:00') : '📅 Tarih Belirle (09:00)'}</span>
+                        <input
+                          type="date"
+                          value="${n.date || ''}"
+                          onchange="updateCalendarNoteDate('${n.id}', this.value)"
+                          onclick="event.stopPropagation();"
+                          class="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                          title="Tarihi değiştir"
+                        />
+                      </label>
                     </div>
-                  </button>
+                  </div>
                   <button type="button" onclick="deleteCalendarNote('${n.id}')" class="text-rose-500 text-[10px] font-[700] px-1.5 py-0.5 shrink-0">Sil</button>
                 </div>
               `).join('')}</div>` : `<p class="text-[11px] text-slate-400 py-1 text-center">Henüz kişisel not veya görev eklenmemiş.</p>`}
@@ -42353,17 +42397,35 @@ function toggleSubTab(tabIndex) {
           </div>
 
           <!-- Quick Inline Note Adder -->
-          <div class="kt-card p-3.5 border border-slate-200/90 rounded-2xl bg-white shadow-2xs">
-            <form onsubmit="event.preventDefault(); handleInlineAddNote();" class="flex gap-2 items-center">
-              <input 
-                type="text" 
-                id="calendar-quick-note-input"
-                placeholder="${selFormatted} için hatırlatıcı veya görev yazın..." 
-                class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-[500] text-slate-800 focus:outline-none focus:bg-white focus:border-[#002D59]"
-              />
-              <button type="submit" class="px-4 py-2.5 bg-[#002D59] text-white rounded-xl text-xs font-[600] shrink-0 shadow-xs hover:opacity-90 transition-opacity">
-                + Ekle
-              </button>
+          <div class="kt-card p-3.5 space-y-2 border border-slate-200/90 rounded-2xl bg-white shadow-xs">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-[700] text-slate-900">⚡ Hızlı Hatırlatıcı / Not Ekle</span>
+              <span class="font-[600] text-kt-primary bg-blue-50 px-2 py-0.5 rounded-full text-[10.5px]">${selFormatted}</span>
+            </div>
+            <form onsubmit="event.preventDefault(); handleInlineAddNote();" class="space-y-2">
+              <div class="flex gap-1.5 items-center">
+                <input 
+                  type="text" 
+                  id="calendar-quick-note-input"
+                  placeholder="${selFormatted} için hatırlatıcı veya görev yazın..." 
+                  class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-[500] text-slate-800 focus:outline-none focus:bg-white focus:border-[#002D59]"
+                />
+                <button type="submit" class="px-4 py-2.5 bg-[#002D59] text-white rounded-xl text-xs font-[600] shrink-0 shadow-xs hover:opacity-90 active:scale-95 transition-all">
+                  + Ekle
+                </button>
+              </div>
+              <div class="flex items-center justify-between px-1">
+                <div class="flex items-center gap-1.5">
+                  <label for="calendar-quick-note-date" class="text-[10.5px] text-slate-500 font-medium">Hedef Tarih:</label>
+                  <input 
+                    type="date" 
+                    id="calendar-quick-note-date" 
+                    value="${selectedCalDay}"
+                    class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-[11px] font-[500] text-slate-700 focus:outline-none focus:bg-white focus:border-[#002D59]"
+                  />
+                </div>
+                <button type="button" onclick="document.getElementById('calendar-quick-note-date').value = '';" class="text-[10px] text-slate-400 hover:text-slate-600 underline">Tarihsiz Yap</button>
+              </div>
             </form>
           </div>
 
@@ -42376,14 +42438,25 @@ function toggleSubTab(tabIndex) {
               </div>
               <span class="text-[10.5px] font-[700] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">${activeNoteCount} Aktif Not</span>
             </div>
-            <div class="space-y-2 max-h-[260px] overflow-y-auto no-scrollbar">
+            <div class="space-y-2">
               ${userCalendarNotes.length > 0 ? userCalendarNotes.map(n => `
                 <div class="p-2.5 rounded-xl border ${n.completed ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-emerald-50/30 border-emerald-200/80'} flex items-center justify-between gap-2">
                   <div class="flex items-start gap-2 min-w-0 flex-1 cursor-pointer" onclick="toggleCalendarNote('note-${n.id}')">
                     <span class="mt-0.5 w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${n.completed ? 'bg-emerald-600 text-white' : 'border border-slate-300 bg-white text-transparent'}">✓</span>
                     <div class="min-w-0 flex-1">
                       <p class="text-xs font-[700] ${n.completed ? 'line-through text-slate-400' : 'text-slate-800'} leading-snug">${stripMobileOwnerTag(n.content)}</p>
-                      <span class="text-[10px] font-[600] text-slate-400">${n.date ? formatISOToTR(n.date) : 'Genel Hatırlatıcı (Her Sabah 09:00)'}</span>
+                      <label onclick="event.stopPropagation();" class="relative inline-flex items-center gap-1 cursor-pointer text-[9.5px] font-[600] text-slate-500 hover:text-kt-primary bg-slate-100/90 hover:bg-blue-50 px-2 py-0.5 rounded-md mt-1 transition-colors select-none">
+                        <svg class="w-2.5 h-2.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+                        <span>${n.date ? (formatISOToTR(n.date) + ' • 09:00') : '📅 Tarih Belirle (09:00)'}</span>
+                        <input
+                          type="date"
+                          value="${n.date || ''}"
+                          onchange="updateCalendarNoteDate('${n.id}', this.value)"
+                          onclick="event.stopPropagation();"
+                          class="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                          title="Tarihi değiştir"
+                        />
+                      </label>
                     </div>
                   </div>
                   <button onclick="deleteCalendarNote('note-${n.id}')" class="px-2 py-1 text-[10px] font-[700] text-rose-600 hover:bg-rose-50 rounded-lg shrink-0">Sil</button>
@@ -42465,6 +42538,43 @@ function toggleSubTab(tabIndex) {
       }
     }
 
+    function updateCalendarNoteDate(noteId, newDateStr) {
+      const rawId = String(noteId).replace(/^note-/, '');
+      const note = userCalendarNotes.find(n => String(n.id) === rawId || String(n.id) === String(noteId));
+      if (!note) return;
+      const normDate = normalizeMobileNoteDate(newDateStr);
+      note.date = normDate;
+      note.rawDate = normDate;
+      saveMobileUserNotesCache();
+
+      void postMobileEdgeNoteAction({
+        action: 'upsert',
+        note: {
+          id: rawId,
+          content: note.content,
+          completed: note.completed,
+          date: normDate,
+          created_by: note.created_by || (currentAuthUser ? currentAuthUser.id : null)
+        }
+      });
+
+      if (liveSupabase && /^[0-9a-f-]{36}$/i.test(rawId)) {
+        liveSupabase
+          .from('calendar_notes')
+          .update({ date: normDate || '1970-01-01' })
+          .eq('id', rawId)
+          .then(() => {});
+      }
+
+      showToast(normDate ? ('Not tarihi güncellendi: ' + formatISOToTR(normDate)) : 'Tarih kaldırıldı (Her sabah 09:00 hatırlatması)');
+      renderCalendar();
+      renderNotifications();
+      renderSettings();
+      if (typeof syncNativeMorningNotifications === 'function') {
+        syncNativeMorningNotifications(false);
+      }
+    }
+
     async function pushMobileNoteToSupabase(tempId, cleanText, targetDate) {
       const normDate = normalizeMobileNoteDate(targetDate);
       const createdByUuid = (currentAuthUser && currentAuthUser.id && /^[0-9a-f-]{36}$/i.test(currentAuthUser.id) && !String(currentAuthUser.id).startsWith('d3de0000-'))
@@ -42521,7 +42631,7 @@ function toggleSubTab(tabIndex) {
       } catch (e) {}
     }
 
-    function handleGeneralMobileNoteAdd(inputId) {
+    function handleGeneralMobileNoteAdd(inputId, dateInputId) {
       const input = document.getElementById(inputId || 'dash-quick-note-input');
       if (!input) return;
       const text = input.value.trim();
@@ -42529,23 +42639,33 @@ function toggleSubTab(tabIndex) {
         showToast('Lütfen not içeriği yazınız');
         return;
       }
+      const dateInput = document.getElementById(dateInputId || 'dash-quick-note-date');
+      const chosenDate = dateInput && dateInput.value ? dateInput.value.trim() : null;
+      const normDate = normalizeMobileNoteDate(chosenDate);
+
       const tempId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('note-' + Date.now());
       const newNote = {
         id: tempId,
         content: text,
-        date: null,
-        rawDate: null,
+        date: normDate,
+        rawDate: normDate,
         completed: false,
         created_by: currentAuthUser ? currentAuthUser.id : null
       };
       userCalendarNotes.push(newNote);
       saveMobileUserNotesCache();
       input.value = '';
-      showToast('Not eklendi • Her sabah 09:00 hatırlatması kuruldu');
+      if (dateInput) dateInput.value = '';
+
+      if (normDate) {
+        showToast('Not eklendi • ' + formatISOToTR(normDate) + ' tarihine kaydedildi');
+      } else {
+        showToast('Not eklendi • Her sabah 09:00 hatırlatması kuruldu');
+      }
       renderCalendar();
       renderNotifications();
       renderSettings();
-      void pushMobileNoteToSupabase(tempId, text, null);
+      void pushMobileNoteToSupabase(tempId, text, normDate);
       if (typeof syncNativeMorningNotifications === 'function') {
         syncNativeMorningNotifications(false);
       }
@@ -42559,6 +42679,10 @@ function toggleSubTab(tabIndex) {
         showToast('Lütfen not içeriği yazınız');
         return;
       }
+      const dateInput = document.getElementById('calendar-quick-note-date');
+      const chosenDateStr = dateInput ? dateInput.value : selectedCalDay;
+      const targetDate = normalizeMobileNoteDate(chosenDateStr);
+
       const tempId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('note-' + Date.now());
       const newNote = {
         id: tempId,
@@ -42568,14 +42692,18 @@ function toggleSubTab(tabIndex) {
         completed: false,
         created_by: currentAuthUser ? currentAuthUser.id : null
       };
+      if (dateInput) {
+        newNote.date = targetDate;
+        newNote.rawDate = targetDate;
+      }
       userCalendarNotes.push(newNote);
       saveMobileUserNotesCache();
       input.value = '';
-      showToast('Not eklendi ve sabah 09:00 bildirimi kuruldu');
+      showToast(targetDate ? ('Not eklendi • ' + formatISOToTR(targetDate)) : 'Not eklendi ve sabah 09:00 bildirimi kuruldu');
       renderCalendar();
       renderNotifications();
       renderSettings();
-      void pushMobileNoteToSupabase(tempId, text, selectedCalDay);
+      void pushMobileNoteToSupabase(tempId, text, newNote.date);
       if (typeof syncNativeMorningNotifications === 'function') {
         syncNativeMorningNotifications(false);
       }
@@ -44518,7 +44646,22 @@ function toggleSubTab(tabIndex) {
       if (checkSumElem) checkSumElem.textContent = `${formatNumber(totalChecks)} TL`;
 
       const qChecks = document.getElementById('dash-quick-checks-sub');
-      if (qChecks) qChecks.textContent = `${formatNumber(totalChecks)} TL`;
+      if (qChecks) {
+        try {
+          if (typeof computeLiveTakasDashboardData === 'function') {
+            const takasData = computeLiveTakasDashboardData();
+            if (takasData && typeof takasData.takasGrandTotal === 'number' && takasData.takasGrandTotal > 0) {
+              qChecks.textContent = `${formatNumber(takasData.takasGrandTotal)} TL`;
+            } else {
+              qChecks.textContent = `${formatNumber(totalChecks)} TL`;
+            }
+          } else {
+            qChecks.textContent = `${formatNumber(totalChecks)} TL`;
+          }
+        } catch (_) {
+          qChecks.textContent = `${formatNumber(totalChecks)} TL`;
+        }
+      }
 
       const qCaris = document.getElementById('dash-quick-caris-sub');
       if (qCaris) qCaris.textContent = `${mockCaris.length} Cari • ${formatNumber(totalBorc)} TL`;
@@ -44526,9 +44669,307 @@ function toggleSubTab(tabIndex) {
       const qSlaughters = document.getElementById('dash-quick-slaughters-sub');
       if (qSlaughters) qSlaughters.textContent = `${mockSlaughters.length} Kesim Kaydı`;
 
-      const qCekten = document.getElementById('dash-quick-cekten-sub');
-      if (qCekten) qCekten.textContent = `${formatNumber(totalCekten)} TL`;
+      const qChecksList = document.getElementById('dash-quick-checks-list-sub') || document.getElementById('dash-quick-cekten-sub');
+      if (qChecksList) {
+        qChecksList.textContent = `${mockChecks.length} Evrak • ${formatNumber(totalChecks)} TL`;
+      }
     }
+
+    // ==================== MOBILE BANKING PULL-TO-REFRESH ENGINE (R1) ====================
+    let isPullToRefreshRefreshing = false;
+    let ptrTouchStartX = 0;
+    let ptrTouchStartY = 0;
+    let isPtrPulling = false;
+    let currentPtrDistance = 0;
+    let ptrInitialized = false;
+    let activeRefreshPromise = null;
+
+    function getActiveScrollContainer() {
+      if (typeof document === 'undefined') return null;
+      const screen = document.getElementById('screen-' + currentScreen);
+      if (!screen || screen.classList.contains('hidden')) return null;
+      if (screen.classList.contains('overflow-y-auto')) {
+        return screen;
+      }
+      if (typeof getComputedStyle === 'function') {
+        try {
+          const style = getComputedStyle(screen);
+          if (style && (style.overflowY === 'auto' || style.overflowY === 'scroll')) {
+            return screen;
+          }
+        } catch (_) {}
+      }
+      return screen.querySelector('.overflow-y-auto') || screen;
+    }
+
+    function reRenderActiveScreen() {
+      if (!currentScreen || currentScreen === 'login') return;
+
+      if (currentScreen === 'dashboard') {
+        if (typeof renderCalendar === 'function') renderCalendar();
+        if (typeof renderDashboardTransactions === 'function') renderDashboardTransactions();
+        if (typeof updateLiveDashboardStats === 'function') updateLiveDashboardStats();
+      } else if (currentScreen === 'checks') {
+        if (typeof renderCheckListScreen === 'function') renderCheckListScreen();
+        else if (typeof renderChecks === 'function') renderChecks();
+      } else if (currentScreen === 'takas_cekleri') {
+        if (typeof renderTakasScreen === 'function') renderTakasScreen();
+      } else if (currentScreen === 'cekten_hesabi') {
+        if (typeof renderCektenScreen === 'function') renderCektenScreen();
+      } else if (currentScreen === 'check_valuation') {
+        if (typeof renderValuationScreen === 'function') renderValuationScreen();
+      } else if (currentScreen === 'credit_cards') {
+        if (typeof renderCreditCards === 'function') renderCreditCards();
+      } else if (currentScreen === 'pos_tracking') {
+        if (typeof renderPosScreen === 'function') renderPosScreen();
+      } else if (currentScreen === 'pos_differences') {
+        if (typeof renderPosDifferencesScreen === 'function') renderPosDifferencesScreen();
+      } else if (currentScreen === 'bills') {
+        if (typeof renderBillsScreen === 'function') renderBillsScreen();
+      } else if (currentScreen === 'findeks') {
+        if (typeof renderFindeksScreen === 'function') renderFindeksScreen();
+      } else if (currentScreen === 'caris') {
+        if (typeof renderCaris === 'function') renderCaris(typeof mockCaris !== 'undefined' ? mockCaris : []);
+      } else if (currentScreen === 'cari_detail') {
+        if (typeof renderCariDetailScreen === 'function') renderCariDetailScreen();
+      } else if (currentScreen === 'takvim') {
+        if (typeof renderTakvimScreen === 'function') renderTakvimScreen();
+        else if (typeof renderCalendar === 'function') renderCalendar();
+      } else if (currentScreen === 'bank_accounts') {
+        if (typeof renderBankAccounts === 'function') renderBankAccounts();
+      } else if (currentScreen === 'transactions_history') {
+        if (typeof renderTransactions === 'function') renderTransactions();
+      } else if (currentScreen === 'menu') {
+        if (typeof renderMenuModules === 'function') renderMenuModules();
+      } else if (currentScreen === 'slaughters') {
+        if (typeof renderSlaughters === 'function') renderSlaughters();
+      } else if (currentScreen === 'vehicles') {
+        if (typeof renderVehicles === 'function') renderVehicles();
+      } else if (currentScreen === 'tenders') {
+        if (typeof renderTendersScreen === 'function') renderTendersScreen();
+        else if (typeof renderTenders === 'function') renderTenders();
+      } else if (currentScreen === 'real_estates') {
+        if (typeof renderRealEstates === 'function') renderRealEstates();
+      } else if (currentScreen === 'personnel') {
+        if (typeof renderPersonnel === 'function') renderPersonnel();
+      } else if (currentScreen === 'stocks') {
+        if (typeof renderStocks === 'function') renderStocks();
+      } else if (currentScreen === 'e_invoices') {
+        if (typeof renderInvoices === 'function') renderInvoices();
+      } else if (currentScreen === 'branches') {
+        if (typeof renderSubelerScreen === 'function') renderSubelerScreen();
+        else if (typeof renderBranches === 'function') renderBranches();
+      } else if (currentScreen === 'dis_muhasebe') {
+        if (typeof renderDisMuhasebeScreen === 'function') renderDisMuhasebeScreen();
+        else if (typeof renderDisMuhasebe === 'function') renderDisMuhasebe();
+        else if (typeof renderExternalAccounting === 'function') renderExternalAccounting();
+      } else if (currentScreen === 'legal_cases' || currentScreen === 'hukuk') {
+        if (typeof renderHukukScreen === 'function') renderHukukScreen();
+        else if (typeof renderLegalCases === 'function') renderLegalCases();
+      } else if (currentScreen === 'cashbox') {
+        if (typeof renderCashbox === 'function') renderCashbox();
+      } else if (currentScreen === 'bildirimler') {
+        if (typeof renderNotifications === 'function') renderNotifications();
+      } else if (currentScreen === 'ayarlar') {
+        if (typeof renderSettings === 'function') renderSettings();
+      } else if (currentScreen === 'reporting') {
+        if (typeof renderReporting === 'function') renderReporting();
+      } else if (currentScreen === 'month_end') {
+        if (typeof renderMonthEnd === 'function') renderMonthEnd();
+      } else if (currentScreen === 'documents') {
+        if (typeof renderDocuments === 'function') renderDocuments();
+      } else if (currentScreen === 'users') {
+        if (typeof renderUsers === 'function') renderUsers();
+      } else if (currentScreen === 'whatsapp_chat') {
+        if (typeof renderWhatsAppChatScreen === 'function') renderWhatsAppChatScreen();
+      } else if (currentScreen === 'whatsapp_media') {
+        if (typeof renderWhatsAppMediaScreen === 'function') renderWhatsAppMediaScreen();
+      } else if (currentScreen === 'whatsapp_tasks') {
+        if (typeof renderWhatsAppTasksScreen === 'function') renderWhatsAppTasksScreen();
+      } else if (currentScreen === 'vehicle_prices') {
+        if (typeof renderVehiclePricesScreen === 'function') renderVehiclePricesScreen();
+      } else if (currentScreen === 'vehicle_fines') {
+        if (typeof renderVehicleFinesScreen === 'function') renderVehicleFinesScreen();
+      } else if (currentScreen === 'vehicle_fuel') {
+        if (typeof renderVehicleFuelScreen === 'function') renderVehicleFuelScreen();
+      } else if (currentScreen === 'vehicle_drivers') {
+        if (typeof renderVehicleDriversScreen === 'function') renderVehicleDriversScreen();
+      } else if (currentScreen === 'vehicle_maintenance') {
+        if (typeof renderVehicleMaintenanceScreen === 'function') renderVehicleMaintenanceScreen();
+      } else if (currentScreen === 'acik_mal') {
+        if (typeof renderAcikMalScreen === 'function') renderAcikMalScreen();
+      } else if (currentScreen === 'kesim_cari') {
+        if (typeof renderKesimCariScreen === 'function') renderKesimCariScreen();
+      } else if (currentScreen === 'main_cashbox_io') {
+        if (typeof renderMainCashboxIoScreen === 'function') renderMainCashboxIoScreen();
+      }
+
+      if (typeof updateLiveDashboardStats === 'function') {
+        updateLiveDashboardStats();
+      }
+    }
+
+    function resetPullIndicator(animate = true) {
+      const indicator = document.getElementById('pull-refresh-indicator');
+      const spinnerSvg = document.getElementById('ptr-spinner-svg');
+      if (indicator) {
+        if (animate) {
+          indicator.style.transition = 'all 0.25s cubic-bezier(0.25, 1, 0.5, 1)';
+        } else {
+          indicator.style.transition = 'none';
+        }
+        indicator.style.transform = 'translate(-50%, -60px)';
+        indicator.style.opacity = '0';
+      }
+      if (spinnerSvg) {
+        setTimeout(() => {
+          spinnerSvg.style.animation = 'none';
+          spinnerSvg.classList.remove('ptr-spin');
+          spinnerSvg.style.transform = 'rotate(0deg)';
+        }, animate ? 250 : 0);
+      }
+    }
+
+    async function executePullToRefresh() {
+      if (isPullToRefreshRefreshing) return activeRefreshPromise;
+      isPullToRefreshRefreshing = true;
+
+      const indicator = document.getElementById('pull-refresh-indicator');
+      const spinnerSvg = document.getElementById('ptr-spinner-svg');
+
+      if (indicator) {
+        indicator.style.transition = 'all 0.25s cubic-bezier(0.25, 1, 0.5, 1)';
+        indicator.style.transform = 'translate(-50%, 20px)';
+        indicator.style.opacity = '1';
+      }
+      if (spinnerSvg) {
+        spinnerSvg.classList.add('ptr-spin');
+        spinnerSvg.style.animation = 'ptr-spin 0.8s linear infinite';
+      }
+
+      activeRefreshPromise = (async () => {
+        try {
+          await Promise.allSettled([
+            typeof initSupabaseLiveSync === 'function' ? initSupabaseLiveSync() : Promise.resolve(),
+            typeof syncLiveCalendarNotes === 'function' ? syncLiveCalendarNotes() : Promise.resolve()
+          ]);
+
+          reRenderActiveScreen();
+
+          if (typeof showToast === 'function') {
+            showToast('Veriler güncellendi');
+          }
+        } catch (err) {
+          console.warn('Pull-to-refresh execution error:', err);
+        } finally {
+          resetPullIndicator(true);
+          isPullToRefreshRefreshing = false;
+          activeRefreshPromise = null;
+        }
+      })();
+
+      return activeRefreshPromise;
+    }
+
+    function handlePtrTouchStart(e) {
+      isPtrPulling = false;
+      if (isPullToRefreshRefreshing) return;
+      if (currentScreen === 'login') return;
+
+      const bottomSheet = document.getElementById('action-bottom-sheet');
+      if (bottomSheet && !bottomSheet.classList.contains('hidden') && bottomSheet.style.display !== 'none') return;
+
+      const container = getActiveScrollContainer();
+      if (!container) return;
+      if (container.scrollTop > 0) return;
+
+      if (!e.touches || !e.touches[0]) return;
+      const touch = e.touches[0];
+      ptrTouchStartX = touch.clientX;
+      ptrTouchStartY = touch.clientY;
+      isPtrPulling = true;
+      currentPtrDistance = 0;
+    }
+
+    function handlePtrTouchMove(e) {
+      if (!isPtrPulling || isPullToRefreshRefreshing) return;
+
+      const container = getActiveScrollContainer();
+      if (!container || container.scrollTop > 0) {
+        if (isPtrPulling) resetPullIndicator(false);
+        isPtrPulling = false;
+        return;
+      }
+
+      if (!e.touches || !e.touches[0]) return;
+      const touch = e.touches[0];
+      const deltaX = Math.abs(touch.clientX - ptrTouchStartX);
+      const deltaY = touch.clientY - ptrTouchStartY;
+
+      if (deltaX > deltaY) {
+        return;
+      }
+
+      if (deltaY > 0 && container.scrollTop <= 0) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        const indicator = document.getElementById('pull-refresh-indicator');
+        const spinnerSvg = document.getElementById('ptr-spinner-svg');
+        if (!indicator) return;
+
+        currentPtrDistance = Math.min(80, deltaY * 0.45);
+        const indicatorY = -60 + (currentPtrDistance * 1.35);
+        indicator.style.transition = 'none';
+        indicator.style.transform = `translate(-50%, ${indicatorY}px)`;
+        indicator.style.opacity = String(Math.min(1, currentPtrDistance / 35));
+
+        if (spinnerSvg) {
+          spinnerSvg.style.animation = 'none';
+          const deg = (currentPtrDistance / 60) * 360;
+          spinnerSvg.style.transform = `rotate(${deg}deg)`;
+        }
+      } else if (deltaY <= 0) {
+        currentPtrDistance = 0;
+        const indicator = document.getElementById('pull-refresh-indicator');
+        if (indicator) {
+          indicator.style.transform = 'translate(-50%, -60px)';
+          indicator.style.opacity = '0';
+        }
+      }
+    }
+
+    function handlePtrTouchEnd(e) {
+      if (!isPtrPulling) return;
+      isPtrPulling = false;
+
+      if (currentPtrDistance >= 60 && !isPullToRefreshRefreshing) {
+        executePullToRefresh();
+      } else {
+        resetPullIndicator(true);
+      }
+      currentPtrDistance = 0;
+    }
+
+    function initPullToRefresh() {
+      if (ptrInitialized) return;
+      const viewport = document.querySelector('.iphone-viewport');
+      if (!viewport) return;
+      ptrInitialized = true;
+
+      viewport.addEventListener('touchstart', handlePtrTouchStart, { passive: true });
+      viewport.addEventListener('touchmove', handlePtrTouchMove, { passive: false });
+      viewport.addEventListener('touchend', handlePtrTouchEnd, { passive: true });
+      viewport.addEventListener('touchcancel', handlePtrTouchEnd, { passive: true });
+    }
+
+    window.getActiveScrollContainer = getActiveScrollContainer;
+    window.reRenderActiveScreen = reRenderActiveScreen;
+    window.executePullToRefresh = executePullToRefresh;
+    window.triggerPullToRefresh = executePullToRefresh;
+    window.initPullToRefresh = initPullToRefresh;
+    window.isPulling = () => isPtrPulling;
+    window.isRefreshing = () => isPullToRefreshRefreshing;
 
     function initApp() {
       let restoredUser = null;
@@ -44562,6 +45003,7 @@ function toggleSubTab(tabIndex) {
       renderSettings();
       updateLiveDashboardStats();
       syncNativeMorningNotifications(false);
+      initPullToRefresh();
       // Auto connect to live DB in background
       initSupabaseLiveSync();
 
