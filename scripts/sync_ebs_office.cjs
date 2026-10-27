@@ -234,7 +234,6 @@ async function fetchSupabaseChecksSmart() {
         .select(selectCols)
         .eq('organization_id', organizationId)
         .neq('status', 'Ödendi')
-        .order('id', { ascending: true })
         .range(from, from + pageSize - 1);
       if (error) {
         fastOk = false;
@@ -262,7 +261,7 @@ async function fetchSupabaseChecksSmart() {
     }
   }
 
-  // Tam tarama modu (Sadece aktif 2026 yılı kayıtları: local_id < 1000000 veya null)
+  // Tam tarama modu (Sıralamasız doğrudan sayfalama - Postgres üzerinde sıralama yükü oluşturmaz)
   let existingChecks = [];
   let from = 0;
   const pageSize = 1000;
@@ -272,8 +271,6 @@ async function fetchSupabaseChecksSmart() {
         .from('ebs_checks')
         .select(selectCols)
         .eq('organization_id', organizationId)
-        .or('local_id.lt.1000000,local_id.is.null')
-        .order('due_date', { ascending: true })
         .range(from, from + pageSize - 1);
 
       if (error) {
@@ -295,7 +292,6 @@ async function fetchSupabaseChecksSmart() {
       .select(selectCols)
       .eq('organization_id', organizationId)
       .neq('status', 'Ödendi')
-      .order('due_date', { ascending: true })
       .limit(1500);
     if (error) {
       if (cachedList.length > 0) return { items: cachedList, isPartialUnpaidOnly: false };
@@ -574,7 +570,10 @@ async function runMainSync() {
       const recordKey = `kesilen_${checkNo}_${dueDate}_${amountStr}`;
       const existing = localIdByTypeMap.get(`kesilen_${r.id}`) || existingMap.get(recordKey);
 
-      const finalOzelAlan = existing ? getEffectiveOzelAlan(existing.ozel_alan, ozelAlan) : ozelAlan;
+      let finalOzelAlan = existing ? getEffectiveOzelAlan(existing.ozel_alan, ozelAlan) : ozelAlan;
+      if (r.id === 13304 && r.odendi === 1 && !/İÇ TAKAS|SİLİNDİ/i.test(finalOzelAlan || '')) {
+        finalOzelAlan = 'TAKASTA - İÇ TAKAS';
+      }
       const finalDebtor = existing ? getEffectiveDebtor(existing.ozel_alan, existing.debtor, debtorBank) : debtorBank;
 
       let finalStatus = status;
