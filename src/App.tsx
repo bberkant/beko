@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { AuthProvider, useAuth, isSuleymanOrMustafaDemir, isStrictAdminOrBerkant } from './lib/auth';
+import { AuthProvider, useAuth, isSuleymanOrMustafaDemir, isStrictAdminOrBerkant, isStrictAdminOnly } from './lib/auth';
 import { ToastProvider } from './lib/toast';
 import { StoreProvider } from './features/credit-cards/data/store';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
@@ -84,6 +84,17 @@ function NonExcludedRoute() {
   return <Outlet />;
 }
 
+function StrictAdminOnlyRoute() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center text-sm text-gray-550">Oturum kontrol ediliyor...</div>;
+  }
+  if (!isStrictAdminOnly(user)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Outlet />;
+}
+
 function AdminOrBerkantRoute() {
   const { user, loading } = useAuth();
   if (loading) {
@@ -130,19 +141,19 @@ export default function App() {
                 <Route path="/kesim-listesi/acik-mal-odemeleri" element={<AcikMalOdemeleriPage />} />
                 <Route path="/finans/cekten-hesabi" element={<CektenHesabiPage />} />
                 
-                {/* Findeks Alt Modülü Sadece Admin ve Berkant Kullanıcılara Özeldir */}
-                <Route element={<AdminOrBerkantRoute />}>
+                {/* Findeks Alt Modülü Sadece Admin Kullanıcısına Özeldir */}
+                <Route element={<StrictAdminOnlyRoute />}>
                   <Route path="/finans/findeks" element={<FindeksPage />} />
                 </Route>
-                <Route path="/finans" element={<Navigate to="/finans/cekten-hesabi" replace />} />
+                <Route path="/finans" element={<Navigate to="/finans/kredi-kartlari" replace />} />
+                <Route path="/finans/banka-hesaplari" element={<BankAccountListPage />} />
+                <Route path="/finans/banka-hesaplari/yeni" element={<BankAccountFormPage />} />
+                <Route path="/finans/banka-hesaplari/:id" element={<BankAccountDetailPage />} />
+                <Route path="/finans/banka-hesaplari/:id/duzenle" element={<BankAccountFormPage />} />
                 
-                {/* Banka Hesapları ve Hareketleri Sadece Süper Admin & Developer'a Özeldir */}
+                {/* Banka Hesap Hareketleri Sadece Süper Admin & Developer'a Özeldir */}
                 <Route element={<SuperAdminRoute />}>
                   <Route path="/finans/banka-hesap-hareketleri" element={<BankAccountTransactionsPage />} />
-                  <Route path="/finans/banka-hesaplari" element={<BankAccountListPage />} />
-                  <Route path="/finans/banka-hesaplari/yeni" element={<BankAccountFormPage />} />
-                  <Route path="/finans/banka-hesaplari/:id" element={<BankAccountDetailPage />} />
-                  <Route path="/finans/banka-hesaplari/:id/duzenle" element={<BankAccountFormPage />} />
                 </Route>
                 <Route path="/muhasebe/cariler" element={<VegaArctosCarilerPage />} />
                 <Route path="/muhasebe/personel" element={<VegaArctosPersonelPage />} />

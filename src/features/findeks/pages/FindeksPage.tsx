@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Settings as SettingsIcon
 } from 'lucide-react';
-import { useAuth, isStrictAdminOrBerkant } from '../../../lib/auth';
+import { useAuth, isStrictAdminOnly } from '../../../lib/auth';
 import { useToast } from '../../../lib/toast';
 import { FindeksCheckInquiry, ParsedCheckQR, FindeksSettings } from '../types';
 import { CheckScannerModal } from '../components/CheckScannerModal';
@@ -24,7 +24,7 @@ export const FindeksPage: React.FC = () => {
   const { user } = useAuth();
   const { notify } = useToast();
 
-  const isAdmin = isStrictAdminOrBerkant(user);
+  const isAdmin = isStrictAdminOnly(user);
 
   const [inquiries, setInquiries] = useState<FindeksCheckInquiry[]>([]);
   const [activeReport, setActiveReport] = useState<FindeksCheckInquiry | null>(null);
@@ -69,7 +69,7 @@ export const FindeksPage: React.FC = () => {
         <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center shadow-sm">
           <ShieldCheck className="mx-auto h-12 w-12 text-red-500 mb-3" />
           <h2 className="text-lg font-bold text-red-800">Yetkisiz Erişim</h2>
-          <p className="mt-1 text-sm text-red-600">Findeks Karekodlu Çek Sorgulama modülünü yalnızca Admin ve Berkant kullanıcıları görüntüleyebilir.</p>
+          <p className="mt-1 text-sm text-red-600">Findeks Karekodlu Çek Sorgulama modülünü yalnızca Admin kullanıcısı görüntüleyebilir.</p>
         </div>
       </div>
     );

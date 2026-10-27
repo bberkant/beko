@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { navItems } from '../../types/navigation';
 import { Logo } from '../ui/Logo';
-import { useAuth, isSuleymanOrMustafaDemir, isStrictAdminOrBerkant } from '../../lib/auth';
+import { useAuth, isSuleymanOrMustafaDemir, isStrictAdminOrBerkant, isStrictAdminOnly } from '../../lib/auth';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -81,6 +81,7 @@ const getIconBgColor = (label: string, isActive: boolean) => {
     case 'Çek Vade Hesaplama':
       return 'bg-indigo-50 text-indigo-555 border border-indigo-100';
     case 'POS Fark Hesaplama':
+    case 'Pos Fark Hesaplama':
       return 'bg-orange-50 text-orange-500 border border-orange-100';
     case 'Gayrimenkul Listesi':
       return 'bg-teal-50 text-teal-500 border border-teal-100';
@@ -170,12 +171,13 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
                     (user?.name || '').toLowerCase().includes('berkant');
   const isAdminOrBerkant = isYonetici || isBerkant;
   const isStrictAdminBerkant = isStrictAdminOrBerkant(user);
+  const isOnlyAdmin = isStrictAdminOnly(user);
   const isWhatsAppOperasyonAllowed = (user?.role === 'Admin' || user?.role === 'Süper Admin' || user?.role === 'Süper Yönetici' || user?.role === 'Yönetici' || user?.rawRole === 'admin' || user?.rawRole === 'super_admin' || user?.email === 'admin@dars.local' || user?.email === 'admin@ets360.local' || user?.email === 'admin') && !isDeveloper;
   const isExcludedUser = isSuleymanOrMustafaDemir(user);
 
   const isChildVisible = (child: { to: string }) => {
     if (child.to === '/muhasebe/vega-son-islemler' && !isYonetici) return false;
-    if (child.to === '/finans/findeks' && !isStrictAdminBerkant) return false;
+    if (child.to === '/finans/findeks' && !isOnlyAdmin) return false;
     if (child.to === '/ayarlar/yedekler' && !isAdminOrBerkant) return false;
     if (child.to === '/kullanicilar' && !isStrictAdminBerkant) return false;
     return true;
@@ -502,7 +504,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
       const filteredChildren = item.children.filter(child => {
         if (!isChildVisible(child)) return false;
         if (
-          (child.to === '/finans/banka-hesaplari' || child.to === '/finans/banka-hesap-hareketleri') && 
+          child.to === '/finans/banka-hesap-hareketleri' && 
           !isSuper
         ) {
           return false;
@@ -539,7 +541,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
       }
       return null;
     }).filter(Boolean) as typeof navItems;
-  }, [customItems, searchQuery, isSearching, user?.role, user?.rawRole, user?.email, isYonetici, isSuper, isExcludedUser]);
+  }, [customItems, searchQuery, isSearching, user?.role, user?.rawRole, user?.email, isYonetici, isSuper, isExcludedUser, isOnlyAdmin, isStrictAdminBerkant]);
 
   const asideCls = [
     'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-gray-200 transition-all duration-300',

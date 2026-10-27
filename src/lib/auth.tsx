@@ -86,6 +86,26 @@ export function isSuleymanOrMustafaDemir(user?: { email?: string; name?: string;
   return false;
 }
 
+export function isStrictAdminOnly(user?: { email?: string; name?: string; role?: string; rawRole?: string | null; id?: string } | null): boolean {
+  if (!user) return false;
+  if (user.id === '291129b0-b5be-447e-97e1-51c613446aa3') {
+    return true;
+  }
+  const rawKey = (user.email || '').toLowerCase().trim().replace(/@.*$/, '');
+  const rawName = (user.name || '').toLowerCase().trim();
+  const fullEmail = (user.email || '').toLowerCase().trim();
+  if (
+    rawKey === 'admin' ||
+    rawName === 'admin' ||
+    fullEmail === 'admin@dars.local' ||
+    fullEmail === 'admin@ops360.local' ||
+    fullEmail === 'admin@ets360.local'
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function isStrictAdminOrBerkant(user?: { email?: string; name?: string; role?: string; rawRole?: string | null; id?: string } | null): boolean {
   if (!user) return false;
   const rawKey = (user.email || '').toLowerCase().trim().replace(/@.*$/, '');
