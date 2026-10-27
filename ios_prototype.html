@@ -1450,8 +1450,37 @@
       "c3a360f7-7945-451e-b534-f2e9df09085c",
       "9193b56e-a5b4-4b2e-8104-e15745e105a1",
       "d550e1c2-55d7-41eb-9499-cd7cba9f8b79",
-      "c8266daf-3c0e-43a3-b218-3d46cf4cc6b5"
+      "c8266daf-3c0e-43a3-b218-3d46cf4cc6b5",
+      "8d1593d8-09d9-4cbb-ad28-31ba73558037",
+      "98597b72-8492-4227-bc04-d4e941d7554b",
+      "29bc7d9e-4111-45c3-8959-11f23049fda4",
+      "95dbfb79-e598-4050-9bea-2fc1a83b4fff",
+      "23b0a2f7-9280-41c9-b11d-ad6d577cb873",
+      "8210d95f-0d5a-4485-a8f8-a796789a0bc0",
+      "416dc471-a2a6-4dfd-b1b0-23e2c29eb039",
+      "bc78736e-87f4-4198-a363-4a37ac9345b4",
+      "49082f93-9704-41dd-8bb8-27806c6d402f",
+      "4c44c50c-a319-4c74-96e7-1424649dc999",
+      "7dfc7541-c15f-4e30-b4ec-a04824aa7792",
+      "2359702e-63dd-4b31-8ee1-56c39e6eddfc",
+      "84ae8024-3746-4856-8c95-59e0febf310a",
+      "3adba871-eff7-4b18-910f-c88bed3bbe65",
+      "339601a6-04fa-43f8-8375-6d2a8ed854e9",
+      "196fa290-6434-406c-ae8f-d0ec3cb469e8",
+      "6f57f4c0-4c47-412f-ad99-58caea5a0745",
+      "1361d628-04fa-46be-a874-d2e730d1915a",
+      "0cf13db2-3dc6-47d5-a97f-c7ef321659ff",
+      "0588e14e-43a4-4fe0-8197-1e3fb455b225",
+      "5f0aade7-b28e-4468-9e3a-9392f25fa531",
+      "cb672a20-d9a9-4085-a1e1-66b4ab5b92d6",
+      "ef55b332-5078-4ad1-8f7a-7fb0cf9b6fbc",
+      "d0991686-9f14-4bfa-bf00-fa4da3dface4",
+      "1a64c2a4-a44e-4a17-bc4d-d1bd7f92e50a"
     ]);
+    function isObsoleteSampleMobileNote(text) {
+      const s = String(text || "").trim();
+      return /^Stres Notu #\d+|Tarih döngüsü test notu|Tıklama ve Event Bubbling Testi|Takvimden Tarihsiz Not|Tarihsiz calendar notu|İleri tarihli teftiş notu|Günlük Rutin Görev|Kritik Vergi Ödemesi|Maaş ödemeleri ve BES kesintisi|Sabah rutini döviz kurlarını kontrol et/i.test(s);
+    }
     const DEFAULT_WEB_CALENDAR_NOTES = [
       {
         "id": "3eb3aecd-4d4e-4670-9271-ad9a770b7569",
@@ -1475,7 +1504,7 @@
       DEFAULT_WEB_CALENDAR_NOTES.forEach(n => noteMap.set(String(n.id), { ...n }));
       if (Array.isArray(savedNotes)) {
         savedNotes.forEach(n => {
-          if (n && n.id && n.content && !OBSOLETE_GLOBAL_NOTE_IDS_MOBILE.has(String(n.id))) {
+          if (n && n.id && n.content && !OBSOLETE_GLOBAL_NOTE_IDS_MOBILE.has(String(n.id)) && !isObsoleteSampleMobileNote(n.content)) {
             noteMap.set(String(n.id), n);
           }
         });
@@ -41960,7 +41989,7 @@ function toggleSubTab(tabIndex) {
             date: normalizeMobileNoteDate(n.date),
             created_by: n.created_by || (currentAuthUser ? currentAuthUser.id : null)
           }))
-          .filter(n => Boolean(n.content));
+          .filter(n => Boolean(n.content) && !isObsoleteSampleMobileNote(n.content));
         userCalendarNotes = cleanList;
         localStorage.setItem('dars_calendar_notes', JSON.stringify(cleanList));
         const uKey = getMobileNoteUserKey();
@@ -41989,7 +42018,7 @@ function toggleSubTab(tabIndex) {
           if (OBSOLETE_GLOBAL_NOTE_IDS_MOBILE.has(idStr) || deletedSet.has(idStr)) return;
           if (!doesMobileNoteBelongToUser(item)) return;
           const cleanContent = stripMobileOwnerTag(item.content);
-          if (!cleanContent) return;
+          if (!cleanContent || isObsoleteSampleMobileNote(cleanContent)) return;
           const normDate = normalizeMobileNoteDate(item.date);
           const sig = cleanContent.toLocaleLowerCase('tr-TR') + '|' + (normDate || '');
           if (noteMap.has(idStr) || seenSigs.has(sig)) return;
@@ -42289,7 +42318,7 @@ function toggleSubTab(tabIndex) {
                 <span class="font-[700] text-slate-900 truncate">📋 Yapılacaklar & Notlar (${activeUserLabel})</span>
                 <span class="font-[600] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full text-[10px] shrink-0">⏰ 09:00 • ${activeNoteCount} Not</span>
               </div>
-              <form onsubmit="event.preventDefault(); handleGeneralMobileNoteAdd('dash-quick-note-input', 'dash-quick-note-date');" class="space-y-2">
+              <form onsubmit="event.preventDefault(); handleGeneralMobileNoteAdd('dash-quick-note-input', 'dash-quick-note-date');" class="space-y-1">
                 <div class="flex gap-1.5 items-center">
                   <input
                     type="text"
@@ -42297,44 +42326,30 @@ function toggleSubTab(tabIndex) {
                     placeholder="Bilgisayar ve telefonla eşzamanlı not ekle..."
                     class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-[500] text-slate-800 focus:outline-none focus:bg-white focus:border-[#002D59]"
                   />
+                  <input type="hidden" id="dash-quick-note-date" value="" />
+                  <button
+                    type="button"
+                    id="dash-quick-note-date-btn"
+                    onclick="openQuickAddDateSheet('dash-quick-note-date', 'dash-quick-note-date-btn')"
+                    class="px-2 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-[600] flex items-center gap-1 shrink-0 transition-colors"
+                    title="Tarih Seç (Opsiyonel)"
+                  >📅</button>
                   <button type="submit" class="px-3 py-1.5 bg-[#002D59] text-white rounded-xl text-xs font-[700] shrink-0 active:scale-95 transition-transform">+</button>
                 </div>
-                <div class="flex items-center justify-between px-1">
-                  <div class="flex items-center gap-1.5">
-                    <label for="dash-quick-note-date" class="text-[10.5px] text-slate-500 font-medium flex items-center gap-1 cursor-pointer">
-                      <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
-                      <span>Tarih (opsiyonel):</span>
-                    </label>
-                    <input
-                      type="date"
-                      id="dash-quick-note-date"
-                      class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-[11px] font-[500] text-slate-700 focus:outline-none focus:bg-white focus:border-[#002D59]"
-                    />
-                  </div>
-                  <span class="text-[9.5px] text-slate-400 italic">Boşsa her sabah 09:00</span>
-                </div>
               </form>
-              ${userCalendarNotes.length > 0 ? `<div class="space-y-1.5">${[...userCalendarNotes].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(n => `
-                <div class="p-2 rounded-xl border ${n.completed ? 'bg-slate-50/60 border-slate-100 opacity-60' : 'bg-white border-slate-200/80'} flex items-center justify-between gap-2">
+              ${userCalendarNotes.length > 0 ? `<div class="space-y-1.5 ${userCalendarNotes.length > 10 ? 'max-h-[440px] overflow-y-auto pr-1' : ''}">${[...userCalendarNotes].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(n => `
+                <div class="p-2 rounded-xl border ${n.completed ? 'bg-slate-50/60 border-slate-100 opacity-60' : 'bg-white border-slate-200/80'} flex items-center justify-between gap-1.5">
                   <div onclick="toggleCalendarNote('${n.id}')" class="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer">
                     <span class="w-4 h-4 rounded border ${n.completed ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white'} flex items-center justify-center text-[10px] shrink-0">${n.completed ? '✓' : ''}</span>
                     <div class="min-w-0 flex-1">
                       <span class="text-xs font-[600] block ${n.completed ? 'line-through text-slate-400' : 'text-slate-800'} break-words">${stripMobileOwnerTag(n.content)}</span>
-                      <label onclick="event.stopPropagation();" class="relative inline-flex items-center gap-1 cursor-pointer text-[9.5px] font-[600] text-slate-500 hover:text-kt-primary bg-slate-100/90 hover:bg-blue-50 px-2 py-0.5 rounded-md mt-1 transition-colors select-none">
-                        <svg class="w-2.5 h-2.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
-                        <span>${n.date ? (formatISOToTR(n.date) + ' • 09:00') : '📅 Tarih Belirle (09:00)'}</span>
-                        <input
-                          type="date"
-                          value="${n.date || ''}"
-                          onchange="updateCalendarNoteDate('${n.id}', this.value)"
-                          onclick="event.stopPropagation();"
-                          class="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                          title="Tarihi değiştir"
-                        />
-                      </label>
+                      <span class="text-[9.5px] font-[500] text-slate-400 block">${n.date ? (formatISOToTR(n.date) + ' • 09:00') : 'Her Sabah 09:00 Hatırlatma'}</span>
                     </div>
                   </div>
-                  <button type="button" onclick="deleteCalendarNote('${n.id}')" class="text-rose-500 text-[10px] font-[700] px-1.5 py-0.5 shrink-0">Sil</button>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button type="button" onclick="openMobileNoteDateSheet('${n.id}')" class="px-1.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-[#002D59] text-[10px] font-[600]" title="Tarih Belirle / Değiştir">📅</button>
+                    <button type="button" onclick="deleteCalendarNote('${n.id}')" class="text-rose-500 text-[10px] font-[700] px-1.5 py-1 rounded-lg hover:bg-rose-50">Sil</button>
+                  </div>
                 </div>
               `).join('')}</div>` : `<p class="text-[11px] text-slate-400 py-1 text-center">Henüz kişisel not veya görev eklenmemiş.</p>`}
             </div>
@@ -42402,29 +42417,25 @@ function toggleSubTab(tabIndex) {
               <span class="font-[700] text-slate-900">⚡ Hızlı Hatırlatıcı / Not Ekle</span>
               <span class="font-[600] text-kt-primary bg-blue-50 px-2 py-0.5 rounded-full text-[10.5px]">${selFormatted}</span>
             </div>
-            <form onsubmit="event.preventDefault(); handleInlineAddNote();" class="space-y-2">
+            <form onsubmit="event.preventDefault(); handleInlineAddNote();" class="space-y-1">
               <div class="flex gap-1.5 items-center">
                 <input 
                   type="text" 
                   id="calendar-quick-note-input"
                   placeholder="${selFormatted} için hatırlatıcı veya görev yazın..." 
-                  class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-[500] text-slate-800 focus:outline-none focus:bg-white focus:border-[#002D59]"
+                  class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-[500] text-slate-800 focus:outline-none focus:bg-white focus:border-[#002D59]"
                 />
-                <button type="submit" class="px-4 py-2.5 bg-[#002D59] text-white rounded-xl text-xs font-[600] shrink-0 shadow-xs hover:opacity-90 active:scale-95 transition-all">
+                <input type="hidden" id="calendar-quick-note-date" value="${selectedCalDay}" />
+                <button
+                  type="button"
+                  id="calendar-quick-note-date-btn"
+                  onclick="openQuickAddDateSheet('calendar-quick-note-date', 'calendar-quick-note-date-btn')"
+                  class="px-2.5 py-2 rounded-xl bg-blue-50 text-[#002D59] text-[11px] font-[700] flex items-center gap-1 shrink-0"
+                  title="Hedef Tarihi Değiştir"
+                >📅 ${formatISOToTR(selectedCalDay).slice(0, 5)}</button>
+                <button type="submit" class="px-3.5 py-2 bg-[#002D59] text-white rounded-xl text-xs font-[600] shrink-0 shadow-xs hover:opacity-90 active:scale-95 transition-all">
                   + Ekle
                 </button>
-              </div>
-              <div class="flex items-center justify-between px-1">
-                <div class="flex items-center gap-1.5">
-                  <label for="calendar-quick-note-date" class="text-[10.5px] text-slate-500 font-medium">Hedef Tarih:</label>
-                  <input 
-                    type="date" 
-                    id="calendar-quick-note-date" 
-                    value="${selectedCalDay}"
-                    class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-[11px] font-[500] text-slate-700 focus:outline-none focus:bg-white focus:border-[#002D59]"
-                  />
-                </div>
-                <button type="button" onclick="document.getElementById('calendar-quick-note-date').value = '';" class="text-[10px] text-slate-400 hover:text-slate-600 underline">Tarihsiz Yap</button>
               </div>
             </form>
           </div>
@@ -42438,28 +42449,20 @@ function toggleSubTab(tabIndex) {
               </div>
               <span class="text-[10.5px] font-[700] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">${activeNoteCount} Aktif Not</span>
             </div>
-            <div class="space-y-2">
+            <div class="space-y-2 ${userCalendarNotes.length > 10 ? 'max-h-[460px] overflow-y-auto pr-1' : ''}">
               ${userCalendarNotes.length > 0 ? userCalendarNotes.map(n => `
                 <div class="p-2.5 rounded-xl border ${n.completed ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-emerald-50/30 border-emerald-200/80'} flex items-center justify-between gap-2">
                   <div class="flex items-start gap-2 min-w-0 flex-1 cursor-pointer" onclick="toggleCalendarNote('note-${n.id}')">
                     <span class="mt-0.5 w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${n.completed ? 'bg-emerald-600 text-white' : 'border border-slate-300 bg-white text-transparent'}">✓</span>
                     <div class="min-w-0 flex-1">
                       <p class="text-xs font-[700] ${n.completed ? 'line-through text-slate-400' : 'text-slate-800'} leading-snug">${stripMobileOwnerTag(n.content)}</p>
-                      <label onclick="event.stopPropagation();" class="relative inline-flex items-center gap-1 cursor-pointer text-[9.5px] font-[600] text-slate-500 hover:text-kt-primary bg-slate-100/90 hover:bg-blue-50 px-2 py-0.5 rounded-md mt-1 transition-colors select-none">
-                        <svg class="w-2.5 h-2.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
-                        <span>${n.date ? (formatISOToTR(n.date) + ' • 09:00') : '📅 Tarih Belirle (09:00)'}</span>
-                        <input
-                          type="date"
-                          value="${n.date || ''}"
-                          onchange="updateCalendarNoteDate('${n.id}', this.value)"
-                          onclick="event.stopPropagation();"
-                          class="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                          title="Tarihi değiştir"
-                        />
-                      </label>
+                      <span class="text-[10px] font-[600] text-slate-400 block">${n.date ? (formatISOToTR(n.date) + ' • 09:00') : 'Genel Hatırlatıcı (Her Sabah 09:00)'}</span>
                     </div>
                   </div>
-                  <button onclick="deleteCalendarNote('note-${n.id}')" class="px-2 py-1 text-[10px] font-[700] text-rose-600 hover:bg-rose-50 rounded-lg shrink-0">Sil</button>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button type="button" onclick="openMobileNoteDateSheet('${n.id}')" class="px-2 py-1 text-[10px] font-[700] text-slate-600 bg-white border border-slate-200 hover:bg-blue-50 rounded-lg" title="Tarih Değiştir">📅</button>
+                    <button onclick="deleteCalendarNote('note-${n.id}')" class="px-2 py-1 text-[10px] font-[700] text-rose-600 hover:bg-rose-50 rounded-lg shrink-0">Sil</button>
+                  </div>
                 </div>
               `).join('') : '<p class="text-xs text-slate-400 text-center py-2">Kayıtlı not bulunmuyor.</p>'}
             </div>
@@ -42536,6 +42539,89 @@ function toggleSubTab(tabIndex) {
       if (typeof syncNativeMorningNotifications === 'function') {
         syncNativeMorningNotifications(false);
       }
+    }
+
+    function openQuickAddDateSheet(inputId, btnId) {
+      const dateEl = document.getElementById(inputId);
+      const currentVal = (dateEl && dateEl.value) ? dateEl.value : '';
+      const todayISO = getTodayISOString();
+      const tomObj = new Date();
+      tomObj.setDate(tomObj.getDate() + 1);
+      const tomorrowISO = tomObj.getFullYear() + '-' + String(tomObj.getMonth() + 1).padStart(2, '0') + '-' + String(tomObj.getDate()).padStart(2, '0');
+
+      const sheet = document.getElementById('action-bottom-sheet');
+      const content = document.getElementById('bottom-sheet-content');
+      if (!sheet || !content) return;
+
+      content.innerHTML = `
+        <div class="space-y-3">
+          <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+            <h4 class="text-xs font-[800] text-slate-900">📅 Yeni Not Tarihi Seçin</h4>
+            <button type="button" onclick="closeBottomSheet()" class="text-xs font-[700] text-slate-400 px-2 py-0.5">Kapat</button>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" onclick="applyQuickAddDate('${inputId}', '${btnId}', '${todayISO}')" class="py-2 px-2 rounded-xl bg-blue-50 text-[#002D59] text-[11px] font-[700]">Bugün</button>
+            <button type="button" onclick="applyQuickAddDate('${inputId}', '${btnId}', '${tomorrowISO}')" class="py-2 px-2 rounded-xl bg-amber-50 text-amber-800 text-[11px] font-[700]">Yarın</button>
+            <button type="button" onclick="applyQuickAddDate('${inputId}', '${btnId}', '')" class="py-2 px-2 rounded-xl bg-slate-100 text-slate-700 text-[11px] font-[700]">Tarihsiz (09:00)</button>
+          </div>
+          <div class="flex items-center gap-2 pt-1">
+            <input type="date" id="sheet-custom-quick-date" value="${currentVal || todayISO}" class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-[600] text-slate-800" />
+            <button type="button" onclick="applyQuickAddDate('${inputId}', '${btnId}', document.getElementById('sheet-custom-quick-date').value)" class="px-4 py-1.5 bg-[#002D59] text-white rounded-xl text-xs font-[700]">Seç</button>
+          </div>
+        </div>
+      `;
+      sheet.classList.remove('hidden');
+    }
+
+    function applyQuickAddDate(inputId, btnId, val) {
+      const dateEl = document.getElementById(inputId);
+      const btnEl = document.getElementById(btnId);
+      const norm = normalizeMobileNoteDate(val);
+      if (dateEl) dateEl.value = norm || '';
+      if (btnEl) {
+        if (norm) {
+          btnEl.textContent = '📅 ' + formatISOToTR(norm).slice(0, 5);
+          btnEl.className = 'px-2 py-1.5 rounded-xl bg-blue-50 text-[#002D59] border border-blue-200 text-[11px] font-[700] flex items-center gap-1 shrink-0';
+        } else {
+          btnEl.textContent = '📅';
+          btnEl.className = 'px-2 py-1.5 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-[600] flex items-center gap-1 shrink-0';
+        }
+      }
+      closeBottomSheet();
+    }
+
+    function openMobileNoteDateSheet(noteId) {
+      const rawId = String(noteId).replace(/^note-/, '');
+      const note = userCalendarNotes.find(n => String(n.id) === rawId || String(n.id) === String(noteId));
+      if (!note) return;
+      const todayISO = getTodayISOString();
+      const tomObj = new Date();
+      tomObj.setDate(tomObj.getDate() + 1);
+      const tomorrowISO = tomObj.getFullYear() + '-' + String(tomObj.getMonth() + 1).padStart(2, '0') + '-' + String(tomObj.getDate()).padStart(2, '0');
+
+      const sheet = document.getElementById('action-bottom-sheet');
+      const content = document.getElementById('bottom-sheet-content');
+      if (!sheet || !content) return;
+
+      content.innerHTML = `
+        <div class="space-y-3">
+          <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+            <h4 class="text-xs font-[800] text-slate-900 truncate pr-2">📅 Not Tarihini Düzenle</h4>
+            <button type="button" onclick="closeBottomSheet()" class="text-xs font-[700] text-slate-400 px-2 py-0.5 shrink-0">Kapat</button>
+          </div>
+          <p class="text-[11px] text-slate-600 font-[600] truncate">${stripMobileOwnerTag(note.content)}</p>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" onclick="updateCalendarNoteDate('${rawId}', '${todayISO}'); closeBottomSheet();" class="py-2 px-2 rounded-xl bg-blue-50 text-[#002D59] text-[11px] font-[700]">Bugün</button>
+            <button type="button" onclick="updateCalendarNoteDate('${rawId}', '${tomorrowISO}'); closeBottomSheet();" class="py-2 px-2 rounded-xl bg-amber-50 text-amber-800 text-[11px] font-[700]">Yarın</button>
+            <button type="button" onclick="updateCalendarNoteDate('${rawId}', ''); closeBottomSheet();" class="py-2 px-2 rounded-xl bg-slate-100 text-slate-700 text-[11px] font-[700]">Tarihsiz (09:00)</button>
+          </div>
+          <div class="flex items-center gap-2 pt-1">
+            <input type="date" id="sheet-edit-note-date" value="${note.date || todayISO}" class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-[600] text-slate-800" />
+            <button type="button" onclick="updateCalendarNoteDate('${rawId}', document.getElementById('sheet-edit-note-date').value); closeBottomSheet();" class="px-4 py-1.5 bg-[#002D59] text-white rounded-xl text-xs font-[700]">Kaydet</button>
+          </div>
+        </div>
+      `;
+      sheet.classList.remove('hidden');
     }
 
     function updateCalendarNoteDate(noteId, newDateStr) {
@@ -44424,7 +44510,7 @@ function toggleSubTab(tabIndex) {
         if (OBSOLETE_GLOBAL_NOTE_IDS_MOBILE.has(idStr) || deletedSet.has(idStr)) return;
         if (!skipOwnerCheck && !doesMobileNoteBelongToUser(row)) return;
         const cleanText = cleanTurkishText(stripMobileOwnerTag(row.content || ''));
-        if (!cleanText) return;
+        if (!cleanText || isObsoleteSampleMobileNote(cleanText)) return;
         const normDate = normalizeMobileNoteDate(row.date);
         const sig = cleanText.toLocaleLowerCase('tr-TR') + '|' + (normDate || '');
         if (seenIds.has(idStr) || seenSigs.has(sig)) return;

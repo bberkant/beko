@@ -26,6 +26,14 @@ const DEFAULT_BERKANT_NOTES = [
     date: null,
     created_by: '9c242e61-e15f-41b5-b1e6-60a02baed90a',
     updated_at: '2026-10-26T10:01:00.000Z'
+  },
+  {
+    id: '7f340d47-d533-4b62-9e0a-27de65e24db5',
+    content: 'Merzifon para geldi Tunalar 80k anakasa gir',
+    completed: false,
+    date: '2026-10-27',
+    created_by: '9c242e61-e15f-41b5-b1e6-60a02baed90a',
+    updated_at: '2026-10-27T10:00:00.000Z'
   }
 ];
 
@@ -41,8 +49,38 @@ const OBSOLETE_GLOBAL_NOTE_IDS = new Set([
   'e5a9f279-e39c-4dae-8fd8-7227a51aa5bd',
   '15b5c2c7-559e-4a03-a8e9-1b804e254b62',
   'ffe8f046-5882-4a49-b6f7-787ab0fdeb58',
-  '8dd7b42c-a6e3-43c4-8905-a6afb763452b'
+  '8dd7b42c-a6e3-43c4-8905-a6afb763452b',
+  '8d1593d8-09d9-4cbb-ad28-31ba73558037',
+  '98597b72-8492-4227-bc04-d4e941d7554b',
+  '29bc7d9e-4111-45c3-8959-11f23049fda4',
+  '95dbfb79-e598-4050-9bea-2fc1a83b4fff',
+  '23b0a2f7-9280-41c9-b11d-ad6d577cb873',
+  '8210d95f-0d5a-4485-a8f8-a796789a0bc0',
+  '416dc471-a2a6-4dfd-b1b0-23e2c29eb039',
+  'bc78736e-87f4-4198-a363-4a37ac9345b4',
+  '49082f93-9704-41dd-8bb8-27806c6d402f',
+  '4c44c50c-a319-4c74-96e7-1424649dc999',
+  '7dfc7541-c15f-4e30-b4ec-a04824aa7792',
+  '2359702e-63dd-4b31-8ee1-56c39e6eddfc',
+  '84ae8024-3746-4856-8c95-59e0febf310a',
+  '3adba871-eff7-4b18-910f-c88bed3bbe65',
+  '339601a6-04fa-43f8-8375-6d2a8ed854e9',
+  '196fa290-6434-406c-ae8f-d0ec3cb469e8',
+  '6f57f4c0-4c47-412f-ad99-58caea5a0745',
+  '1361d628-04fa-46be-a874-d2e730d1915a',
+  '0cf13db2-3dc6-47d5-a97f-c7ef321659ff',
+  '0588e14e-43a4-4fe0-8197-1e3fb455b225',
+  '5f0aade7-b28e-4468-9e3a-9392f25fa531',
+  'cb672a20-d9a9-4085-a1e1-66b4ab5b92d6',
+  'ef55b332-5078-4ad1-8f7a-7fb0cf9b6fbc',
+  'd0991686-9f14-4bfa-bf00-fa4da3dface4',
+  '1a64c2a4-a44e-4a17-bc4d-d1bd7f92e50a'
 ]);
+
+function isObsoleteSampleNoteContent(text) {
+  const s = String(text || '').trim();
+  return /^Stres Notu #\d+|Tarih döngüsü test notu|Tıklama ve Event Bubbling Testi|Takvimden Tarihsiz Not|Tarihsiz calendar notu|İleri tarihli teftiş notu|Günlük Rutin Görev|Kritik Vergi Ödemesi|Maaş ödemeleri ve BES kesintisi|Sabah rutini döviz kurlarını kontrol et/i.test(s);
+}
 
 function normalizeUserKey(raw) {
   if (!raw) return 'berkant';
@@ -75,10 +113,10 @@ function normalizeDate(rawDate) {
 }
 
 function getMemoryStore() {
-  if (!globalThis.__DARS_EDGE_USER_NOTES__) {
-    globalThis.__DARS_EDGE_USER_NOTES__ = new Map();
+  if (!globalThis.__DARS_EDGE_USER_NOTES_V3__) {
+    globalThis.__DARS_EDGE_USER_NOTES_V3__ = new Map();
   }
-  return globalThis.__DARS_EDGE_USER_NOTES__;
+  return globalThis.__DARS_EDGE_USER_NOTES_V3__;
 }
 
 async function readUserState(userKey) {
@@ -86,7 +124,7 @@ async function readUserState(userKey) {
   let state = mem.get(userKey);
 
   try {
-    const cacheKey = new Request(`https://edge-notes.amasyaetas.local/v2/user-notes/${encodeURIComponent(userKey)}`, { method: 'GET' });
+    const cacheKey = new Request(`https://edge-notes.amasyaetas.local/v3/user-notes/${encodeURIComponent(userKey)}`, { method: 'GET' });
     const cachedRes = await caches.default.match(cacheKey);
     if (cachedRes) {
       const parsed = await cachedRes.json();
@@ -123,7 +161,7 @@ async function writeUserState(userKey, state) {
   mem.set(userKey, nextState);
 
   try {
-    const cacheKey = new Request(`https://edge-notes.amasyaetas.local/v2/user-notes/${encodeURIComponent(userKey)}`, { method: 'GET' });
+    const cacheKey = new Request(`https://edge-notes.amasyaetas.local/v3/user-notes/${encodeURIComponent(userKey)}`, { method: 'GET' });
     const cacheRes = new Response(JSON.stringify(nextState), {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
@@ -148,7 +186,7 @@ function deduplicateAndFilterNotes(notesList, deletedSet) {
     if (deletedSet.has(idStr)) continue;
 
     const cleanContent = stripOwnerTag(item.content);
-    if (!cleanContent) continue;
+    if (!cleanContent || isObsoleteSampleNoteContent(cleanContent)) continue;
 
     const normDate = normalizeDate(item.rawDate !== undefined ? item.rawDate : item.date);
     const sig = `${cleanContent.toLowerCase()}|${normDate || ''}`;
@@ -178,7 +216,7 @@ export async function onRequest(context) {
   }
 
   const url = new URL(request.url);
-  const queryUser = url.searchParams.get('user');
+  const queryUser = url.searchParams.get('user') || url.searchParams.get('userKey');
 
   if (request.method === 'GET') {
     const userKey = normalizeUserKey(queryUser);
@@ -205,7 +243,7 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ ok: false, error: 'Invalid JSON' }), { status: 400, headers: CORS_HEADERS });
     }
 
-    const userKey = normalizeUserKey(body.user || queryUser);
+    const userKey = normalizeUserKey(body.user || body.userKey || queryUser);
     const action = body.action || 'sync';
     const state = await readUserState(userKey);
     const deletedSet = new Set(state.deletedIds || []);
@@ -216,8 +254,9 @@ export async function onRequest(context) {
       });
     }
 
-    if (action === 'delete' && body.noteId) {
-      const targetId = String(body.noteId).replace(/^note-/, '');
+    const deleteTargetRaw = body.noteId || body.id;
+    if (action === 'delete' && deleteTargetRaw) {
+      const targetId = String(deleteTargetRaw).replace(/^note-/, '');
       deletedSet.add(targetId);
       const filtered = (state.notes || []).filter(n => String(n.id).replace(/^note-/, '') !== targetId);
       const saved = await writeUserState(userKey, {
