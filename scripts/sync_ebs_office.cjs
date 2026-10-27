@@ -247,16 +247,23 @@ async function fetchSupabaseChecksSmart() {
     if (fastOk) {
       const unpaidIds = new Set(unpaidRows.map(r => r.id));
       const merged = [];
+      let cacheChanged = false;
       for (const c of cachedList) {
         if (unpaidIds.has(c.id)) continue;
         // Eğer önbellekte eskiden ödenmemiş görünüyorsa ama artık unpaid listesinde yoksa Ödendi olmuştur
         if (c.status !== 'Ödendi') {
           merged.push({ ...c, status: 'Ödendi' });
+          cacheChanged = true;
         } else {
           merged.push(c);
         }
       }
       merged.push(...unpaidRows);
+      if (cacheChanged) {
+        try {
+          fs.writeFileSync(SUPA_CACHE_FILE, JSON.stringify({ timestamp: Date.now(), items: merged }), 'utf8');
+        } catch {}
+      }
       return { items: merged, isPartialUnpaidOnly: false };
     }
   }
@@ -298,9 +305,19 @@ async function fetchSupabaseChecksSmart() {
       throw new Error('Supabase kayıt okuma hatası: ' + error.message);
     }
     if (cachedList.length > 0) {
-      const byId = new Map(cachedList.map(c => [c.id, c]));
-      for (const row of (data || [])) byId.set(row.id, row);
-      return { items: Array.from(byId.values()), isPartialUnpaidOnly: false };
+      const unpaidList = data || [];
+      const unpaidIds = new Set(unpaidList.map(r => r.id));
+      const isCompleteUnpaid = unpaidList.length < 1500;
+      const byId = new Map(cachedList.map(c => [
+        c.id,
+        (isCompleteUnpaid && !unpaidIds.has(c.id) && c.status !== 'Ödendi') ? { ...c, status: 'Ödendi' } : c
+      ]));
+      for (const row of unpaidList) byId.set(row.id, row);
+      const merged = Array.from(byId.values());
+      try {
+        fs.writeFileSync(SUPA_CACHE_FILE, JSON.stringify({ timestamp: Date.now(), items: merged }), 'utf8');
+      } catch {}
+      return { items: merged, isPartialUnpaidOnly: false };
     }
     return { items: data || [], isPartialUnpaidOnly: true };
   }

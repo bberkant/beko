@@ -306,12 +306,61 @@ function setCachedCektenRows(orgId: string, rows: any[]) {
 const EBS_CONFIRMED_PAID_LOCAL_IDS_OCT26 = new Set<number>([
   9189, 10777, 13104, 13136, 13142, 13148, 13209, 13215, 13216, 13222,
   13225, 13226, 13236, 13237, 13240, 13243, 13245, 13247, 13250, 13251,
-  13258, 13260, 13262, 13269, 13303
+  13258, 13260, 13262, 13269, 13303,
+  12311, 12336, 12512, 12522, 13081
 ]);
+
+const LOCALLY_PAID_CHECKS_KEY = 'dars_locally_paid_checks';
+const inMemoryPaidKeys = new Set<string>();
+
+function getLocallyPaidSet(orgId = '13b8da90-27d1-440d-a8f4-eb50dadd6391'): Set<string> {
+  try {
+    const raw = localStorage.getItem(`${LOCALLY_PAID_CHECKS_KEY}_${orgId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        for (const k of parsed) inMemoryPaidKeys.add(String(k));
+      }
+    }
+  } catch {}
+  return inMemoryPaidKeys;
+}
+
+function markCheckPaidLocally(orgId: string, check: Partial<EbsCheck> | undefined) {
+  if (!check) return;
+  const set = getLocallyPaidSet(orgId);
+  if (check.id) set.add(`id:${check.id}`);
+  if (check.local_id) set.add(`local:${check.check_type || 'kesilen'}_${check.local_id}`);
+  if (check.due_date && check.amount) {
+    const due = String(check.due_date).substring(0, 10);
+    const amt = Number(check.amount || 0).toFixed(2);
+    const cred = String(check.creditor || '').trim().toUpperCase();
+    if (cred) set.add(`sig:${check.check_type || 'kesilen'}_${cred}_${due}_${amt}`);
+  }
+  try {
+    localStorage.setItem(`${LOCALLY_PAID_CHECKS_KEY}_${orgId}`, JSON.stringify(Array.from(set).slice(-1000)));
+  } catch {}
+}
+
+function isMarkedPaidLocally(orgId: string | undefined, c: EbsCheck): boolean {
+  const set = getLocallyPaidSet(orgId);
+  if (c.id && set.has(`id:${c.id}`)) return true;
+  if (c.local_id && set.has(`local:${c.check_type}_${c.local_id}`)) return true;
+  if (c.due_date && c.amount) {
+    const due = String(c.due_date).substring(0, 10);
+    const amt = Number(c.amount || 0).toFixed(2);
+    const cred = String(c.creditor || '').trim().toUpperCase();
+    if (cred && set.has(`sig:${c.check_type}_${cred}_${due}_${amt}`)) return true;
+  }
+  return false;
+}
 
 function normalizeUnpaidEbsCarryOvers(list: EbsCheck[], _orgId?: string): EbsCheck[] {
   let has13304 = false;
   const normalized = list.map(c => {
+    if (isMarkedPaidLocally(_orgId, c)) {
+      return { ...c, status: 'Ödendi' };
+    }
     if (c.check_type === 'kesilen' && c.local_id && EBS_CONFIRMED_PAID_LOCAL_IDS_OCT26.has(Number(c.local_id))) {
       const ozelUpper = (c.ozel_alan || '').toUpperCase();
       if (!ozelUpper.includes('TAKASTA OLMAYAN') && !ozelUpper.includes('İÇ TAKAS')) {
@@ -850,6 +899,8 @@ export function ChecksPage() {
 
   const isFetchingRef = useRef(false);
   const lastFetchCompletedAtRef = useRef<number>(0);
+  const inFlightMutationsRef = useRef<number>(0);
+  const lastMutationAtRef = useRef<number>(0);
   const syncedCektenMapRef = useRef<Map<string, string>>(new Map());
   const hasHydratedAllAlinanForModalRef = useRef(false);
 
@@ -906,7 +957,7 @@ export function ChecksPage() {
   const fetchChecks = async (options?: { background?: boolean } | any) => {
     const isBackground = Boolean(options && typeof options === 'object' && 'background' in options && options.background);
     if (isFetchingRef.current) return;
-    if (isBackground && Date.now() - lastFetchCompletedAtRef.current < 2500) return;
+    if (isBackground && (inFlightMutationsRef.current > 0 || Date.now() - lastMutationAtRef.current < 3500 || Date.now() - lastFetchCompletedAtRef.current < 2500)) return;
 
     isFetchingRef.current = true;
     const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
@@ -2343,6 +2394,10 @@ export function ChecksPage() {
       }
 
       // Optimistic update of local state
+      lastMutationAtRef.current = Date.now();
+      if (shouldDelete) {
+        markCheckPaidLocally(user.organizationId, check);
+      }
       if (shouldDelete) {
         setChecks(prev => prev.filter(c => c.id !== check.id));
       } else {
@@ -2503,6 +2558,7 @@ export function ChecksPage() {
 
     if (statusOption === 'odendi') {
       const checkDesc = check.creditor || check.check_no ? ` (${check.creditor || ''} ${check.check_no ? 'No: ' + check.check_no : ''})` : '';
+      lastMutationAtRef.current = Date.now();
       if (!confirm(`Bu çeki/ödemeyi${checkDesc} "Ödendi" olarak işaretlemek istediğinize emin misiniz?`)) {
         return;
       }
@@ -2519,8 +2575,12 @@ export function ChecksPage() {
     let shouldDelete = false;
 
     if (statusOption === 'sil') {
+      lastMutationAtRef.current = Date.now();
+      markCheckPaidLocally(orgId, check);
       shouldDelete = true;
     } else if (statusOption === 'odendi') {
+      lastMutationAtRef.current = Date.now();
+      markCheckPaidLocally(orgId, check);
       updatedStatus = 'Ödendi';
     } else if (statusOption === 'ictakas') {
       const isCurrentlyIcTakas = (check.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
@@ -2611,6 +2671,8 @@ export function ChecksPage() {
     }
 
     // 4. Perform database update in the background
+    inFlightMutationsRef.current += 1;
+    lastMutationAtRef.current = Date.now();
     try {
       const isTempId = String(check.id).startsWith('temp-');
       const hasLocalId = Boolean(check.local_id);
@@ -2624,6 +2686,8 @@ export function ChecksPage() {
       }
 
       if (statusOption === 'sil') {
+      lastMutationAtRef.current = Date.now();
+      markCheckPaidLocally(orgId, check);
         if (!isDynamicCekten) {
           if (hasLocalId) {
             await supabase
@@ -2638,6 +2702,8 @@ export function ChecksPage() {
           }
         }
       } else if (statusOption === 'odendi') {
+      lastMutationAtRef.current = Date.now();
+      markCheckPaidLocally(orgId, check);
         if (!isDynamicCekten) {
           if (isTempId && hasLocalId) {
             await supabase
@@ -2700,6 +2766,9 @@ export function ChecksPage() {
     } catch (error) {
       console.error('Failed to update check status in background:', error);
       void fetchChecks(); // Revert/sync on error
+    } finally {
+      inFlightMutationsRef.current = Math.max(0, inFlightMutationsRef.current - 1);
+      lastMutationAtRef.current = Date.now();
     }
   };
 
@@ -2710,12 +2779,18 @@ export function ChecksPage() {
     const checksInCol = dashboardData.columns[colName] || [];
     const targets = checksInCol.filter(c => c.id && !(c.status || '').toLowerCase().includes('ödendi'));
     if (targets.length === 0) return;
+    lastMutationAtRef.current = Date.now();
+    if (targets.length === 0) return;
 
     if (!confirm(`${colName} sütunundaki tüm çekleri (${targets.length} adet) "Ödendi" olarak işaretlemek istediğinize emin misiniz?`)) {
       return;
     }
 
     const targetIds = targets.map(t => t.id);
+    lastMutationAtRef.current = Date.now();
+    for (const t of targets) {
+      markCheckPaidLocally(orgId, t);
+    }
 
     setChecks(prev => prev.map(c => targetIds.includes(c.id) ? { ...c, status: 'Ödendi' } : c));
 
