@@ -13,6 +13,104 @@ export interface CalendarNoteItem {
 export const UNDATED_SENTINEL_DATE = '1970-01-01';
 const OWNER_PREFIX_REGEX = /^\[owner:([^\]]+)\]\s*/i;
 
+const OBSOLETE_GLOBAL_NOTE_IDS = new Set([
+  'c3a360f7-7945-451e-b534-f2e9df09085c',
+  '9193b56e-a5b4-4b2e-8104-e15745e105a1',
+  'd550e1c2-55d7-41eb-9499-cd7cba9f8b79',
+  'c8266daf-3c0e-43a3-b218-3d46cf4cc6b5'
+]);
+
+function getEdgeUserNotesEndpoint(userKey: string): string {
+  const base =
+    typeof window !== 'undefined' &&
+    window.location &&
+    window.location.hostname &&
+    !window.location.hostname.includes('localhost') &&
+    !window.location.hostname.includes('127.0.0.1')
+      ? ''
+      : 'https://cem.amasyaetas.com';
+  return `${base}/api/user-notes?userKey=${encodeURIComponent(userKey || 'default')}`;
+}
+
+async function fetchEdgeUserNotes(user?: AuthUser | null): Promise<CalendarNoteItem[] | null> {
+  if (typeof fetch === 'undefined') return null;
+  const userKey = getCanonicalNoteUserKey(user);
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 3500) : null;
+  try {
+    const res = await fetch(getEdgeUserNotesEndpoint(userKey), {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller ? controller.signal : undefined
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (json && Array.isArray(json.notes)) {
+      return json.notes
+        .filter((n: any) => n && n.id && !OBSOLETE_GLOBAL_NOTE_IDS.has(String(n.id)))
+        .map((n: any) => ({
+          id: String(n.id),
+          content: extractNoteOwnerAndContent(n.content).cleanContent,
+          completed: Boolean(n.completed),
+          date: normalizeNoteDate(n.date),
+          created_by: n.created_by || user?.id || null,
+          created_at: n.created_at
+        }))
+        .filter((n: CalendarNoteItem) => Boolean(n.content));
+    }
+  } catch {
+    // Ignore network / offline errors
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+  return null;
+}
+
+async function postEdgeUserNotesAction(
+  user: AuthUser | null | undefined,
+  body: Record<string, any>
+): Promise<CalendarNoteItem[] | null> {
+  if (typeof fetch === 'undefined') return null;
+  const userKey = getCanonicalNoteUserKey(user);
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 3500) : null;
+  try {
+    const res = await fetch(getEdgeUserNotesEndpoint(userKey), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({
+        userKey,
+        userId: user?.id || null,
+        ...body
+      }),
+      signal: controller ? controller.signal : undefined
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (json && Array.isArray(json.notes)) {
+      return json.notes
+        .filter((n: any) => n && n.id && !OBSOLETE_GLOBAL_NOTE_IDS.has(String(n.id)))
+        .map((n: any) => ({
+          id: String(n.id),
+          content: extractNoteOwnerAndContent(n.content).cleanContent,
+          completed: Boolean(n.completed),
+          date: normalizeNoteDate(n.date),
+          created_by: n.created_by || user?.id || null,
+          created_at: n.created_at
+        }))
+        .filter((n: CalendarNoteItem) => Boolean(n.content));
+    }
+  } catch {
+    // Ignore network / offline errors
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+  return null;
+}
+
 export function isValidUuid(val?: string | null): boolean {
   if (!val) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
@@ -147,7 +245,7 @@ export function loadCachedUserNotes(user?: AuthUser | null): CalendarNoteItem[] 
       for (const item of parsed) {
         if (!item || !item.id) continue;
         const idStr = String(item.id);
-        if (deletedSet.has(idStr)) continue;
+        if (OBSOLETE_GLOBAL_NOTE_IDS.has(idStr) || deletedSet.has(idStr)) continue;
         const { ownerKey, cleanContent } = extractNoteOwnerAndContent(item.content);
         if (!cleanContent) continue;
         if (ownerKey && user && ownerKey !== getCanonicalNoteUserKey(user)) continue;
@@ -175,13 +273,15 @@ export function loadCachedUserNotes(user?: AuthUser | null): CalendarNoteItem[] 
 }
 
 export function saveCachedUserNotes(user: AuthUser | null | undefined, notes: CalendarNoteItem[]): void {
-  const cleanNotes = notes.map(n => ({
-    id: String(n.id),
-    content: extractNoteOwnerAndContent(n.content).cleanContent,
-    completed: Boolean(n.completed),
-    date: normalizeNoteDate(n.date),
-    created_by: n.created_by || user?.id || null
-  }));
+  const cleanNotes = notes
+    .filter(n => n && n.id && !OBSOLETE_GLOBAL_NOTE_IDS.has(String(n.id)))
+    .map(n => ({
+      id: String(n.id),
+      content: extractNoteOwnerAndContent(n.content).cleanContent,
+      completed: Boolean(n.completed),
+      date: normalizeNoteDate(n.date),
+      created_by: n.created_by || user?.id || null
+    }));
   const candidateKeys = getCandidateCacheKeys(user);
   for (const key of candidateKeys) {
     try {
@@ -263,7 +363,7 @@ export function removePendingNoteUpdate(user: AuthUser | null | undefined, noteI
 }
 
 /**
- * Inserts a note into Supabase `calendar_notes` with automatic fallback for:
+ * Inserts a note into Edge API (`/api/user-notes`) AND Supabase `calendar_notes` with automatic fallback for:
  * 1) `date: null` vs `NOT NULL` constraint (falls back to '1970-01-01')
  * 2) `created_by` foreign key constraint (falls back to omitting `created_by` and using `[owner:key]` tag)
  */
@@ -273,8 +373,6 @@ export async function insertNoteToSupabase(
   user: AuthUser | null | undefined,
   note: CalendarNoteItem
 ): Promise<CalendarNoteItem | null> {
-  await ensureSupabaseBackendSession();
-
   const ownerKey = getCanonicalNoteUserKey(user);
   const cleanText = extractNoteOwnerAndContent(note.content).cleanContent;
   const taggedContent = encodeContentWithOwner(cleanText, ownerKey);
@@ -282,69 +380,84 @@ export async function insertNoteToSupabase(
   const noteId = isValidUuid(note.id) ? note.id : generateNoteUuid();
   const userUuid = isValidUuid(user?.id) && !String(user?.id).startsWith('d3de0000-') ? user!.id : undefined;
 
-  const tryInsert = async (payload: Record<string, any>) => {
-    return supabase
-      .from('calendar_notes')
-      .insert(payload)
-      .select('id,content,completed,date,created_by,created_at')
-      .single();
-  };
-
-  const basePayload: Record<string, any> = {
+  const normalizedNote: CalendarNoteItem = {
     id: noteId,
-    organization_id: orgId,
-    content: taggedContent,
+    content: cleanText,
     completed: Boolean(note.completed),
-    date: normalizedDate
+    date: normalizedDate,
+    created_by: userUuid || null,
+    created_at: note.created_at || new Date().toISOString()
   };
-  if (userUuid) {
-    basePayload.created_by = userUuid;
-  }
 
-  let res = await tryInsert(basePayload);
+  // Immediately push to Cloudflare Edge API so mobile app sees it in <30ms
+  void postEdgeUserNotesAction(user, {
+    action: 'upsert',
+    note: normalizedNote
+  });
 
-  // If already exists by primary key id, return normalized note
-  if (res.error && (res.error.code === '23505' || String(res.error.message || '').includes('duplicate key'))) {
-    return {
-      id: noteId,
-      content: cleanText,
-      completed: Boolean(note.completed),
-      date: normalizedDate,
-      created_by: userUuid || null
+  try {
+    await ensureSupabaseBackendSession();
+
+    const tryInsert = async (payload: Record<string, any>) => {
+      return supabase
+        .from('calendar_notes')
+        .insert(payload)
+        .select('id,content,completed,date,created_by,created_at')
+        .single();
     };
-  }
 
-  // Attempt 2: If date=null violated NOT NULL constraint, use UNDATED_SENTINEL_DATE
-  if (res.error && normalizedDate === null) {
-    res = await tryInsert({
-      ...basePayload,
-      date: UNDATED_SENTINEL_DATE
-    });
-  }
+    const basePayload: Record<string, any> = {
+      id: noteId,
+      organization_id: orgId,
+      content: taggedContent,
+      completed: Boolean(note.completed),
+      date: normalizedDate
+    };
+    if (userUuid) {
+      basePayload.created_by = userUuid;
+    }
 
-  // Attempt 3: If created_by violated FK constraint, omit created_by so DB default auth.uid() is used
-  if (res.error && basePayload.created_by) {
-    const withoutCreatedBy = { ...basePayload };
-    delete withoutCreatedBy.created_by;
-    res = await tryInsert(withoutCreatedBy);
+    let res = await tryInsert(basePayload);
 
+    // If already exists by primary key id, return normalized note
+    if (res.error && (res.error.code === '23505' || String(res.error.message || '').includes('duplicate key'))) {
+      return normalizedNote;
+    }
+
+    // Attempt 2: If date=null violated NOT NULL constraint, use UNDATED_SENTINEL_DATE
     if (res.error && normalizedDate === null) {
       res = await tryInsert({
-        ...withoutCreatedBy,
+        ...basePayload,
         date: UNDATED_SENTINEL_DATE
       });
     }
+
+    // Attempt 3: If created_by violated FK constraint, omit created_by so DB default auth.uid() is used
+    if (res.error && basePayload.created_by) {
+      const withoutCreatedBy = { ...basePayload };
+      delete withoutCreatedBy.created_by;
+      res = await tryInsert(withoutCreatedBy);
+
+      if (res.error && normalizedDate === null) {
+        res = await tryInsert({
+          ...withoutCreatedBy,
+          date: UNDATED_SENTINEL_DATE
+        });
+      }
+    }
+
+    if (!res.error && res.data) {
+      return normalizeDbNoteRow(res.data);
+    }
+  } catch {
+    // Fall through to normalizedNote
   }
 
-  if (!res.error && res.data) {
-    return normalizeDbNoteRow(res.data);
-  }
-
-  return null;
+  return normalizedNote;
 }
 
 /**
- * Updates a note in Supabase `calendar_notes` with automatic fallback for sentinel date and owner tag.
+ * Updates a note in Edge API (`/api/user-notes`) and Supabase `calendar_notes`.
  */
 export async function updateNoteInSupabase(
   supabase: SupabaseClient,
@@ -352,38 +465,52 @@ export async function updateNoteInSupabase(
   noteId: string,
   changes: { content?: string; completed?: boolean; date?: string | null }
 ): Promise<boolean> {
-  await ensureSupabaseBackendSession();
+  void postEdgeUserNotesAction(user, {
+    action: 'update',
+    id: noteId,
+    changes: {
+      ...(changes.content !== undefined ? { content: extractNoteOwnerAndContent(changes.content).cleanContent } : {}),
+      ...(changes.completed !== undefined ? { completed: Boolean(changes.completed) } : {}),
+      ...(changes.date !== undefined ? { date: normalizeNoteDate(changes.date) } : {})
+    }
+  });
 
-  const ownerKey = getCanonicalNoteUserKey(user);
-  const payload: Record<string, any> = {};
+  try {
+    await ensureSupabaseBackendSession();
 
-  if (changes.content !== undefined) {
-    const cleanText = extractNoteOwnerAndContent(changes.content).cleanContent;
-    payload.content = encodeContentWithOwner(cleanText, ownerKey);
-  }
-  if (changes.completed !== undefined) {
-    payload.completed = Boolean(changes.completed);
-  }
-  if (changes.date !== undefined) {
-    payload.date = normalizeNoteDate(changes.date);
-  }
+    const ownerKey = getCanonicalNoteUserKey(user);
+    const payload: Record<string, any> = {};
 
-  let { error } = await supabase
-    .from('calendar_notes')
-    .update(payload)
-    .eq('id', noteId);
+    if (changes.content !== undefined) {
+      const cleanText = extractNoteOwnerAndContent(changes.content).cleanContent;
+      payload.content = encodeContentWithOwner(cleanText, ownerKey);
+    }
+    if (changes.completed !== undefined) {
+      payload.completed = Boolean(changes.completed);
+    }
+    if (changes.date !== undefined) {
+      payload.date = normalizeNoteDate(changes.date);
+    }
 
-  if (error && changes.date === null) {
-    const retryRes = await supabase
+    let { error } = await supabase
       .from('calendar_notes')
-      .update({ ...payload, date: UNDATED_SENTINEL_DATE })
+      .update(payload)
       .eq('id', noteId);
-    error = retryRes.error;
-  }
 
-  if (!error) {
-    removePendingNoteUpdate(user, noteId);
-    return true;
+    if (error && changes.date === null) {
+      const retryRes = await supabase
+        .from('calendar_notes')
+        .update({ ...payload, date: UNDATED_SENTINEL_DATE })
+        .eq('id', noteId);
+      error = retryRes.error;
+    }
+
+    if (!error) {
+      removePendingNoteUpdate(user, noteId);
+      return true;
+    }
+  } catch {
+    // Queue pending update below
   }
 
   queuePendingNoteUpdate(user, { id: noteId, ...changes });
@@ -391,7 +518,7 @@ export async function updateNoteInSupabase(
 }
 
 /**
- * Deletes a note from Supabase `calendar_notes` and records it in deleted set until confirmed.
+ * Deletes a note from Edge API (`/api/user-notes`) and Supabase `calendar_notes`.
  */
 export async function deleteNoteFromSupabase(
   supabase: SupabaseClient,
@@ -400,17 +527,23 @@ export async function deleteNoteFromSupabase(
 ): Promise<boolean> {
   markNoteIdDeleted(user, noteId);
   removePendingNoteUpdate(user, noteId);
-  await ensureSupabaseBackendSession();
 
-  const { error } = await supabase
-    .from('calendar_notes')
-    .delete()
-    .eq('id', noteId);
+  void postEdgeUserNotesAction(user, {
+    action: 'delete',
+    id: noteId
+  });
 
-  if (!error) {
-    clearDeletedNoteId(user, noteId);
-    return true;
-  }
+  try {
+    await ensureSupabaseBackendSession();
+    const { error } = await supabase
+      .from('calendar_notes')
+      .delete()
+      .eq('id', noteId);
+
+    if (!error) {
+      return true;
+    }
+  } catch {}
   return false;
 }
 
@@ -425,150 +558,144 @@ export async function clearAllUserNotesInSupabase(
     removePendingNoteUpdate(user, n.id);
   }
   saveCachedUserNotes(user, []);
-  await ensureSupabaseBackendSession();
 
-  const ids = currentNotes.map(n => n.id).filter(isValidUuid);
-  if (ids.length > 0) {
-    const { error } = await supabase
-      .from('calendar_notes')
-      .delete()
-      .in('id', ids);
-    if (!error) {
-      ids.forEach(id => clearDeletedNoteId(user, id));
+  void postEdgeUserNotesAction(user, {
+    action: 'clear'
+  });
+
+  try {
+    await ensureSupabaseBackendSession();
+    const ids = currentNotes.map(n => n.id).filter(isValidUuid);
+    if (ids.length > 0) {
+      await supabase
+        .from('calendar_notes')
+        .delete()
+        .in('id', ids);
     }
-  }
-  if (user?.id && isValidUuid(user.id)) {
-    await supabase
-      .from('calendar_notes')
-      .delete()
-      .eq('organization_id', orgId)
-      .eq('created_by', user.id);
-  }
+    if (user?.id && isValidUuid(user.id)) {
+      await supabase
+        .from('calendar_notes')
+        .delete()
+        .eq('organization_id', orgId)
+        .eq('created_by', user.id);
+    }
+  } catch {}
 }
 
 /**
- * Full two-way synchronization between browser localStorage and Supabase `calendar_notes` for the current user:
- * 1) Flushes pending deletes & updates
- * 2) Fetches all remote notes belonging to this user
- * 3) Automatically uploads any local notes in localStorage that haven't been synced to Supabase yet
- * 4) Returns the merged, deduplicated list of notes for this user
+ * Full two-way synchronization between browser localStorage, Cloudflare Edge (`/api/user-notes`),
+ * and Supabase `calendar_notes` for the current user:
+ * 1) Fetches Edge notes (`/api/user-notes`) in <30ms
+ * 2) Flushes pending deletes & updates to Supabase (non-blocking if Supabase times out)
+ * 3) Merges Edge + Supabase + local notes for this user (respecting deletedIds)
+ * 4) Pushes merged list to Edge (`/api/user-notes`) so mobile & computer stay 100% in sync
  */
 export async function syncUserCalendarNotes(
   supabase: SupabaseClient,
   orgId: string,
   user: AuthUser | null | undefined
 ): Promise<CalendarNoteItem[] | null> {
-  await ensureSupabaseBackendSession();
-
   const localNotes = loadCachedUserNotes(user);
-  const deletedIds = loadDeletedNoteIds(user);
-  const pendingUpdates = loadPendingNoteUpdates(user);
-
-  // 1. Flush any pending deletes
-  if (deletedIds.size > 0) {
-    const idsToDelete = Array.from(deletedIds).filter(isValidUuid);
-    if (idsToDelete.length > 0) {
-      const { error: delErr } = await supabase
-        .from('calendar_notes')
-        .delete()
-        .in('id', idsToDelete);
-      if (!delErr) {
-        idsToDelete.forEach(id => clearDeletedNoteId(user, id));
-      }
-    }
-  }
-
-  // 2. Flush any pending updates
-  const pendingList = Object.values(pendingUpdates);
-  for (const upd of pendingList) {
-    if (isValidUuid(upd.id)) {
-      await updateNoteInSupabase(supabase, user, upd.id, upd);
-    }
-  }
-
-  // 3. Fetch all notes for this organization from Supabase and filter to this user
-  const { data, error } = await supabase
-    .from('calendar_notes')
-    .select('id,content,completed,date,created_by,created_at')
-    .eq('organization_id', orgId)
-    .order('created_at', { ascending: true });
-
-  if (error || !Array.isArray(data)) {
-    return null;
-  }
-
-  // Filter rows belonging to this user and not marked deleted locally
   const currentDeleted = loadDeletedNoteIds(user);
   const currentPending = loadPendingNoteUpdates(user);
-  const remoteUserNotes: CalendarNoteItem[] = [];
-  const remoteIds = new Set<string>();
-  const remoteSignatures = new Set<string>();
 
-  for (const row of data) {
-    if (!row || !row.id) continue;
-    const idStr = String(row.id);
-    if (currentDeleted.has(idStr)) continue;
-    if (!doesRowBelongToUser(row, user)) continue;
+  const edgeNotesPromise = fetchEdgeUserNotes(user);
 
-    let normalized = normalizeDbNoteRow(row);
+  const supabaseTask = (async (): Promise<any[] | null> => {
+    try {
+      await ensureSupabaseBackendSession();
+      if (currentDeleted.size > 0) {
+        const idsToDelete = Array.from(currentDeleted).filter(isValidUuid);
+        if (idsToDelete.length > 0) {
+          await supabase.from('calendar_notes').delete().in('id', idsToDelete);
+        }
+      }
+      const pendingList = Object.values(currentPending);
+      for (const upd of pendingList) {
+        if (isValidUuid(upd.id)) {
+          await updateNoteInSupabase(supabase, user, upd.id, upd);
+        }
+      }
+      const { data, error } = await supabase
+        .from('calendar_notes')
+        .select('id,content,completed,date,created_by,created_at')
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: true });
+      if (!error && Array.isArray(data)) return data;
+    } catch {}
+    return null;
+  })();
+
+  const timeoutPromise = new Promise<null>(resolve => setTimeout(() => resolve(null), 4000));
+  const [edgeNotes, dbRows] = await Promise.all([
+    edgeNotesPromise,
+    Promise.race([supabaseTask, timeoutPromise])
+  ]);
+
+  const mergedNotes: CalendarNoteItem[] = [];
+  const seenIds = new Set<string>();
+  const seenSignatures = new Set<string>();
+
+  const addCandidate = (item: CalendarNoteItem) => {
+    if (!item || !item.id) return;
+    const idStr = String(item.id);
+    if (OBSOLETE_GLOBAL_NOTE_IDS.has(idStr) || currentDeleted.has(idStr)) return;
+    let cleanText = extractNoteOwnerAndContent(item.content).cleanContent;
+    let completed = Boolean(item.completed);
+    let normDate = normalizeNoteDate(item.date);
+
     if (currentPending[idStr]) {
       const p = currentPending[idStr];
-      normalized = {
-        ...normalized,
-        content: p.content !== undefined ? extractNoteOwnerAndContent(p.content).cleanContent : normalized.content,
-        completed: p.completed !== undefined ? Boolean(p.completed) : normalized.completed,
-        date: p.date !== undefined ? normalizeNoteDate(p.date) : normalized.date
-      };
+      if (p.content !== undefined) cleanText = extractNoteOwnerAndContent(p.content).cleanContent;
+      if (p.completed !== undefined) completed = Boolean(p.completed);
+      if (p.date !== undefined) normDate = normalizeNoteDate(p.date);
     }
-    if (!normalized.content) continue;
+    if (!cleanText) return;
 
-    const sig = `${normalized.content.toLocaleLowerCase('tr-TR')}|${normalized.date || ''}`;
-    if (remoteIds.has(idStr) || remoteSignatures.has(sig)) continue;
-
-    remoteIds.add(idStr);
-    remoteSignatures.add(sig);
-    remoteUserNotes.push(normalized);
-  }
-
-  // 4. Auto-backfill: Any local note in this browser's localStorage that is not yet in Supabase gets uploaded!
-  const mergedNotes = [...remoteUserNotes];
-
-  for (const localNote of localNotes) {
-    const localId = String(localNote.id);
-    if (currentDeleted.has(localId)) continue;
-    const cleanText = extractNoteOwnerAndContent(localNote.content).cleanContent;
-    if (!cleanText) continue;
-
-    const normDate = normalizeNoteDate(localNote.date);
     const sig = `${cleanText.toLocaleLowerCase('tr-TR')}|${normDate || ''}`;
+    if (seenIds.has(idStr) || seenSignatures.has(sig)) return;
 
-    if (remoteIds.has(localId) || remoteSignatures.has(sig)) {
-      continue;
-    }
-
-    // Upload this unsynced local note to Supabase so all other browsers & mobile app receive it!
-    const inserted = await insertNoteToSupabase(supabase, orgId, user, {
-      ...localNote,
+    seenIds.add(idStr);
+    seenSignatures.add(sig);
+    mergedNotes.push({
+      id: idStr,
       content: cleanText,
-      date: normDate
+      completed,
+      date: normDate,
+      created_by: item.created_by || user?.id || null,
+      created_at: item.created_at
     });
+  };
 
-    if (inserted) {
-      remoteIds.add(inserted.id);
-      remoteSignatures.add(sig);
-      mergedNotes.push(inserted);
-    } else {
-      // Keep locally until next sync cycle succeeds
-      remoteIds.add(localId);
-      remoteSignatures.add(sig);
-      mergedNotes.push({
-        ...localNote,
-        content: cleanText,
-        date: normDate
-      });
+  // 1. Add Edge API notes first (most up-to-date cross-device store)
+  if (Array.isArray(edgeNotes)) {
+    for (const en of edgeNotes) {
+      addCandidate(en);
     }
   }
 
-  saveCachedUserNotes(user, mergedNotes);
-  return mergedNotes;
+  // 2. Add Supabase rows belonging to this user
+  if (Array.isArray(dbRows)) {
+    for (const row of dbRows) {
+      if (!row || !row.id) continue;
+      if (!doesRowBelongToUser(row, user)) continue;
+      addCandidate(normalizeDbNoteRow(row));
+    }
+  }
+
+  // 3. Add local cached notes and backfill any missing ones
+  for (const localNote of localNotes) {
+    addCandidate(localNote);
+  }
+
+  // 4. Sync merged state back to Edge API so iPhone and computer stay identical
+  const syncedEdge = await postEdgeUserNotesAction(user, {
+    action: 'sync',
+    notes: mergedNotes,
+    deletedIds: Array.from(currentDeleted)
+  });
+
+  const finalNotes = Array.isArray(syncedEdge) ? syncedEdge : mergedNotes;
+  saveCachedUserNotes(user, finalNotes);
+  return finalNotes;
 }
