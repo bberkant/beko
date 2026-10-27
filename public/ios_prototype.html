@@ -23738,14 +23738,78 @@ function toggleSubTab(tabIndex) {
       renderCalendar();
     }
 
+    function getMobileNoteUserKey() {
+      if (!currentAuthUser) return 'default';
+      return normalizeLoginUserKey(currentAuthUser.email || currentAuthUser.username || currentAuthUser.name || currentAuthUser.id || 'default') || 'default';
+    }
+
+    function saveMobileUserNotesCache() {
+      try {
+        localStorage.setItem('dars_calendar_notes', JSON.stringify(userCalendarNotes));
+        const uKey = getMobileNoteUserKey();
+        localStorage.setItem('dars_calendar_notes_' + uKey, JSON.stringify(userCalendarNotes));
+        if (currentAuthUser && currentAuthUser.id) {
+          localStorage.setItem('dars_calendar_notes_' + currentAuthUser.id, JSON.stringify(userCalendarNotes));
+        }
+      } catch(e) {}
+    }
+
+    function loadMobileUserNotesCache() {
+      try {
+        const uKey = getMobileNoteUserKey();
+        const rawUser = (currentAuthUser && currentAuthUser.id && localStorage.getItem('dars_calendar_notes_' + currentAuthUser.id))
+          || localStorage.getItem('dars_calendar_notes_' + uKey)
+          || localStorage.getItem('dars_calendar_notes');
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          if (Array.isArray(parsed)) {
+            userCalendarNotes = parsed;
+            return;
+          }
+        }
+      } catch(e) {}
+    }
+
+    function stripMobileOwnerTag(raw) {
+      return String(raw || '').replace(/^\[owner:[^\]]+\]\s*/i, '').trim();
+    }
+
+    function extractMobileOwnerKey(raw) {
+      const m = String(raw || '').match(/^\[owner:([^\]]+)\]\s*/i);
+      return m ? normalizeLoginUserKey(m[1]) : null;
+    }
+
+    function encodeMobileOwnerContent(text) {
+      const clean = stripMobileOwnerTag(text);
+      const uKey = getMobileNoteUserKey();
+      if (!uKey || uKey === 'default') return clean;
+      return '[owner:' + uKey + '] ' + clean;
+    }
+
+    function doesMobileNoteBelongToUser(row) {
+      if (!currentAuthUser) return true;
+      const uKey = getMobileNoteUserKey();
+      const ownerTag = extractMobileOwnerKey(row && row.content);
+      if (ownerTag) return ownerTag === uKey;
+      if (row && row.created_by && currentAuthUser.id) {
+        const cb = String(row.created_by).toLowerCase();
+        const uid = String(currentAuthUser.id).toLowerCase();
+        if (cb === uid) return true;
+        if ((uKey === 'berkant' || uKey === 'admin') && (cb === '9c242e61-e15f-41b5-b1e6-60a02baed90a' || cb === '291129b0-b5be-447e-97e1-51c613446aa3')) {
+          return true;
+        }
+        return false;
+      }
+      if (row && !row.created_by && (uKey === 'berkant' || uKey === 'admin')) return true;
+      return false;
+    }
+
     function toggleCalendarNote(noteId) {
       const rawId = String(noteId).replace('note-', '');
       const note = userCalendarNotes.find(n => String(n.id) === rawId);
       if (note) {
         note.completed = !note.completed;
-        try {
-          localStorage.setItem('dars_calendar_notes', JSON.stringify(userCalendarNotes));
-        } catch(e) {}
+        saveMobileUserNotesCache();
         if (liveSupabase && /^[0-9a-f-]{36}$/i.test(rawId)) {
           liveSupabase.from('calendar_notes').update({ completed: note.completed }).eq('id', rawId).then(() => {});
         }
@@ -23940,6 +24004,32 @@ function toggleSubTab(tabIndex) {
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
               </button>
             </div>
+
+            <!-- Kullanıcıya Özel Yapılacaklar & Notlar (Web + Mobil Senkron) -->
+            <div class="pt-2.5 border-t border-slate-100 space-y-2">
+              <div class="flex justify-between items-center text-xs">
+                <span class="font-[700] text-slate-900">📋 Yapılacaklar & Notlar</span>
+                <span class="font-[600] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full text-[10px]">${userCalendarNotes.length} Not</span>
+              </div>
+              <form onsubmit="event.preventDefault(); handleGeneralMobileNoteAdd('dash-quick-note-input');" class="flex gap-1.5 items-center">
+                <input
+                  type="text"
+                  id="dash-quick-note-input"
+                  placeholder="Yeni not veya görev ekle..."
+                  class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-[500] text-slate-800 focus:outline-none focus:bg-white focus:border-[#002D59]"
+                />
+                <button type="submit" class="px-3 py-1.5 bg-[#002D59] text-white rounded-xl text-xs font-[700] shrink-0">+</button>
+              </form>
+              ${userCalendarNotes.length > 0 ? `<div class="space-y-1.5 max-h-48 overflow-y-auto">${[...userCalendarNotes].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map(n => `
+                <div class="p-2 rounded-xl border ${n.completed ? 'bg-slate-50/60 border-slate-100 opacity-60' : 'bg-white border-slate-200/80'} flex items-center justify-between gap-2">
+                  <button type="button" onclick="toggleCalendarNote('${n.id}')" class="flex items-center gap-2 min-w-0 flex-1 text-left">
+                    <span class="w-4 h-4 rounded border ${n.completed ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white'} flex items-center justify-center text-[10px] shrink-0">${n.completed ? '✓' : ''}</span>
+                    <span class="text-xs font-[600] ${n.completed ? 'line-through text-slate-400' : 'text-slate-800'} break-words">${stripMobileOwnerTag(n.content)}</span>
+                  </button>
+                  <button type="button" onclick="deleteCalendarNote('${n.id}')" class="text-rose-500 text-[10px] font-[700] px-1.5 py-0.5 shrink-0">Sil</button>
+                </div>
+              `).join('')}</div>` : `<p class="text-[11px] text-slate-400 py-1 text-center">Henüz kişisel not veya görev eklenmemiş.</p>`}
+            </div>
           </div>
         `;
       }
@@ -24066,11 +24156,9 @@ function toggleSubTab(tabIndex) {
     }
 
     function deleteCalendarNote(noteId) {
-      const rawId = noteId.replace('note-', '');
+      const rawId = String(noteId).replace('note-', '');
       userCalendarNotes = userCalendarNotes.filter(n => String(n.id) !== rawId);
-      try {
-        localStorage.setItem('dars_calendar_notes', JSON.stringify(userCalendarNotes));
-      } catch(e) {}
+      saveMobileUserNotesCache();
       if (liveSupabase && /^[0-9a-f-]{36}$/i.test(rawId)) {
         liveSupabase.from('calendar_notes').delete().eq('id', rawId).then(() => {});
       }
@@ -24081,6 +24169,73 @@ function toggleSubTab(tabIndex) {
       }
     }
 
+    async function pushMobileNoteToSupabase(tempId, cleanText, targetDate) {
+      if (!liveSupabase) return;
+      const createdByUuid = (currentAuthUser && currentAuthUser.id && /^[0-9a-f-]{36}$/i.test(currentAuthUser.id) && !String(currentAuthUser.id).startsWith('d3de0000-'))
+        ? currentAuthUser.id
+        : undefined;
+      const tagged = encodeMobileOwnerContent(cleanText);
+      const basePayload = {
+        organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
+        content: tagged,
+        completed: false,
+        date: targetDate || null
+      };
+      if (/^[0-9a-f-]{36}$/i.test(String(tempId))) {
+        basePayload.id = tempId;
+      }
+      if (createdByUuid) {
+        basePayload.created_by = createdByUuid;
+      }
+
+      let res = await liveSupabase.from('calendar_notes').insert(basePayload).select('id').single();
+      if (res.error && !targetDate) {
+        res = await liveSupabase.from('calendar_notes').insert({ ...basePayload, date: '1970-01-01' }).select('id').single();
+      }
+      if (res.error && basePayload.created_by) {
+        const noCb = { ...basePayload };
+        delete noCb.created_by;
+        res = await liveSupabase.from('calendar_notes').insert(noCb).select('id').single();
+        if (res.error && !targetDate) {
+          res = await liveSupabase.from('calendar_notes').insert({ ...noCb, date: '1970-01-01' }).select('id').single();
+        }
+      }
+      if (!res.error && res.data && res.data.id) {
+        userCalendarNotes = userCalendarNotes.map(n => n.id === tempId ? { ...n, id: res.data.id } : n);
+        saveMobileUserNotesCache();
+        renderCalendar();
+        if (typeof syncNativeMorningNotifications === 'function') {
+          syncNativeMorningNotifications(false);
+        }
+      }
+    }
+
+    function handleGeneralMobileNoteAdd(inputId) {
+      const input = document.getElementById(inputId || 'dash-quick-note-input');
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) {
+        showToast('Lütfen not içeriği yazınız');
+        return;
+      }
+      const tempId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('note-' + Date.now());
+      const todayNow = new Date();
+      const todayISO = todayNow.getFullYear() + '-' + String(todayNow.getMonth() + 1).padStart(2, '0') + '-' + String(todayNow.getDate()).padStart(2, '0');
+      const newNote = {
+        id: tempId,
+        content: text,
+        date: todayISO,
+        rawDate: null,
+        completed: false
+      };
+      userCalendarNotes.push(newNote);
+      saveMobileUserNotesCache();
+      input.value = '';
+      showToast('Not eklendi ve tüm cihazlarla eşitlendi');
+      renderCalendar();
+      void pushMobileNoteToSupabase(tempId, text, null);
+    }
+
     function handleInlineAddNote() {
       const input = document.getElementById('calendar-quick-note-input');
       if (!input) return;
@@ -24089,47 +24244,20 @@ function toggleSubTab(tabIndex) {
         showToast('Lütfen not içeriği yazınız');
         return;
       }
-      const tempId = 'note-' + Date.now();
+      const tempId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('note-' + Date.now());
       const newNote = {
         id: tempId,
         content: text,
         date: selectedCalDay,
+        rawDate: selectedCalDay,
         completed: false
       };
       userCalendarNotes.push(newNote);
-      try {
-        localStorage.setItem('dars_calendar_notes', JSON.stringify(userCalendarNotes));
-      } catch(e) {}
+      saveMobileUserNotesCache();
       input.value = '';
       showToast('Not eklendi ve sabah 09:00 bildirimi kuruldu');
       renderCalendar();
-
-      if (liveSupabase) {
-        const createdByUuid = (currentAuthUser && currentAuthUser.id && /^[0-9a-f-]{36}$/i.test(currentAuthUser.id))
-          ? currentAuthUser.id
-          : null;
-        liveSupabase
-          .from('calendar_notes')
-          .insert({
-            organization_id: '13b8da90-27d1-440d-a8f4-eb50dadd6391',
-            created_by: createdByUuid,
-            content: text,
-            completed: false,
-            date: selectedCalDay
-          })
-          .select('id')
-          .single()
-          .then(({ data, error }) => {
-            if (!error && data && data.id) {
-              userCalendarNotes = userCalendarNotes.map(n => n.id === tempId ? { ...n, id: data.id } : n);
-              try {
-                localStorage.setItem('dars_calendar_notes', JSON.stringify(userCalendarNotes));
-              } catch(e) {}
-              renderCalendar();
-              syncNativeMorningNotifications(false);
-            }
-          });
-      }
+      void pushMobileNoteToSupabase(tempId, text, selectedCalDay);
       if (typeof syncNativeMorningNotifications === 'function') {
         syncNativeMorningNotifications(false);
       }
@@ -24835,6 +24963,7 @@ function toggleSubTab(tabIndex) {
     function applyAuthenticatedUserToUI(authUser) {
       if (!authUser) return;
       currentAuthUser = authUser;
+      loadMobileUserNotesCache();
       const profileBadge = document.querySelector('#app-header [title="Profil"]');
       if (profileBadge) {
         profileBadge.setAttribute("onclick", "showToast('Aktif Kullanıcı: " + authUser.name + " (" + authUser.role + ")')");
@@ -25529,21 +25658,33 @@ function toggleSubTab(tabIndex) {
         if (!error && Array.isArray(data)) {
           const todayNow = new Date();
           const todayISO = todayNow.getFullYear() + '-' + String(todayNow.getMonth() + 1).padStart(2, '0') + '-' + String(todayNow.getDate()).padStart(2, '0');
-          let filtered = data;
-          if (currentAuthUser && currentAuthUser.id && /^[0-9a-f-]{36}$/i.test(currentAuthUser.id)) {
-            const ownNotes = data.filter(n => !n.created_by || n.created_by === currentAuthUser.id);
-            if (ownNotes.length > 0) filtered = ownNotes;
+          const filtered = data.filter(row => doesMobileNoteBelongToUser(row));
+          const seenIds = new Set();
+          const seenSigs = new Set();
+          const remoteMapped = [];
+
+          for (const n of filtered) {
+            if (!n || !n.id) continue;
+            const cleanText = stripMobileOwnerTag(cleanTurkishText(n.content || ''));
+            if (!cleanText) continue;
+            const rawDateStr = n.date ? String(n.date).slice(0, 10) : null;
+            const normDate = (rawDateStr && rawDateStr !== '1970-01-01') ? rawDateStr : null;
+            const sig = cleanText.toLocaleLowerCase('tr-TR') + '|' + (normDate || '');
+            if (seenIds.has(String(n.id)) || seenSigs.has(sig)) continue;
+            seenIds.add(String(n.id));
+            seenSigs.add(sig);
+            remoteMapped.push({
+              id: n.id,
+              content: cleanText,
+              completed: Boolean(n.completed),
+              rawDate: normDate,
+              date: normDate || todayISO,
+              created_by: n.created_by || null
+            });
           }
-          userCalendarNotes = filtered.map(n => ({
-            id: n.id,
-            content: cleanTurkishText(n.content || ''),
-            completed: Boolean(n.completed),
-            date: n.date ? String(n.date).slice(0, 10) : todayISO,
-            created_by: n.created_by || null
-          }));
-          try {
-            localStorage.setItem('dars_calendar_notes', JSON.stringify(userCalendarNotes));
-          } catch(e) {}
+
+          userCalendarNotes = remoteMapped;
+          saveMobileUserNotesCache();
         }
       } catch (e) {
         console.warn('Calendar notes sync error:', e);
@@ -25593,52 +25734,67 @@ function toggleSubTab(tabIndex) {
     }
 
     let liveRealtimeChannel = null;
+    const mobileRealtimeTimers = {};
+    function debounceMobileRealtime(key, fn, delayMs) {
+      if (mobileRealtimeTimers[key]) clearTimeout(mobileRealtimeTimers[key]);
+      mobileRealtimeTimers[key] = setTimeout(fn, delayMs || 600);
+    }
     function setupLiveRealtimeSubscriptions() {
       if (!liveSupabase || liveRealtimeChannel) return;
       try {
         liveRealtimeChannel = liveSupabase
           .channel('dars_mobile_live_sync')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'credit_cards' }, async () => {
-            await syncLiveCards();
-            rebuildLiveCalendarEvents();
-            renderCreditCards();
-            renderCalendar();
-            renderNotifications();
-            renderSettings();
-            syncNativeMorningNotifications(false);
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'credit_cards' }, () => {
+            debounceMobileRealtime('cards', async () => {
+              await syncLiveCards();
+              rebuildLiveCalendarEvents();
+              renderCreditCards();
+              renderCalendar();
+              renderNotifications();
+              renderSettings();
+              syncNativeMorningNotifications(false);
+            }, 600);
           })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'statements' }, async () => {
-            await syncLiveCards();
-            rebuildLiveCalendarEvents();
-            renderCreditCards();
-            renderCalendar();
-            renderNotifications();
-            renderSettings();
-            syncNativeMorningNotifications(false);
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'statements' }, () => {
+            debounceMobileRealtime('cards', async () => {
+              await syncLiveCards();
+              rebuildLiveCalendarEvents();
+              renderCreditCards();
+              renderCalendar();
+              renderNotifications();
+              renderSettings();
+              syncNativeMorningNotifications(false);
+            }, 600);
           })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_notes' }, async () => {
-            await syncLiveCalendarNotes();
-            renderCalendar();
-            renderNotifications();
-            renderSettings();
-            syncNativeMorningNotifications(false);
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_notes' }, () => {
+            debounceMobileRealtime('notes', async () => {
+              await syncLiveCalendarNotes();
+              renderCalendar();
+              renderNotifications();
+              renderSettings();
+              syncNativeMorningNotifications(false);
+            }, 400);
           })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'ebs_checks' }, async () => {
-            await syncLiveChecks();
-            rebuildLiveCalendarEvents();
-            renderChecks();
-            renderCalendar();
-            renderNotifications();
-            updateLiveDashboardStats();
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'ebs_checks' }, () => {
+            debounceMobileRealtime('checks', async () => {
+              await syncLiveChecks();
+              rebuildLiveCalendarEvents();
+              renderChecks();
+              renderCalendar();
+              renderNotifications();
+              updateLiveDashboardStats();
+            }, 800);
           })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'cekten_hesabi' }, async () => {
-            await syncLiveCektenHesabi();
-            await syncLiveChecks();
-            rebuildLiveCalendarEvents();
-            renderCektenScreen();
-            renderChecks();
-            renderCalendar();
-            updateLiveDashboardStats();
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'cekten_hesabi' }, () => {
+            debounceMobileRealtime('cekten', async () => {
+              await syncLiveCektenHesabi();
+              await syncLiveChecks();
+              rebuildLiveCalendarEvents();
+              renderCektenScreen();
+              renderChecks();
+              renderCalendar();
+              updateLiveDashboardStats();
+            }, 600);
           })
           .subscribe();
       } catch (e) {

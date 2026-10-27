@@ -31,6 +31,16 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { fixCorruptedTurkishText } from '../../lib/turkishTextFixer';
 import { resolveCardDueDate, resolveCardOutstandingDebt } from '../credit-cards/lib/billingDateEngine';
+import {
+  loadCachedUserNotes,
+  saveCachedUserNotes,
+  syncUserCalendarNotes,
+  insertNoteToSupabase,
+  updateNoteInSupabase,
+  deleteNoteFromSupabase,
+  clearAllUserNotesInSupabase,
+  generateNoteUuid
+} from './utils/calendarNotesSync';
 
 export type EventType = 
   | 'note'
@@ -220,18 +230,25 @@ export function useCalendarEvents(){
       if (active) setLoading(false);
     });
 
+    let tendersTimer: ReturnType<typeof setTimeout> | null = null;
+    let checksTimer: ReturnType<typeof setTimeout> | null = null;
+
     const channel = supabase
       .channel('calendar_all_entities_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenders' }, () => {
-        void fetchTenders();
+        if (tendersTimer) clearTimeout(tendersTimer);
+        tendersTimer = setTimeout(() => void fetchTenders(), 600);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ebs_checks' }, () => {
-        void fetchChecks();
+        if (checksTimer) clearTimeout(checksTimer);
+        checksTimer = setTimeout(() => void fetchChecks(), 800);
       })
       .subscribe();
 
     return () => {
       active = false;
+      if (tendersTimer) clearTimeout(tendersTimer);
+      if (checksTimer) clearTimeout(checksTimer);
       void supabase.removeChannel(channel);
     };
   }, [user?.organizationId]);
@@ -441,7 +458,7 @@ interface CalendarNote {
   content: string; 
   completed: boolean; 
   date: string | null; 
-  created_by?: string;
+  created_by?: string | null;
 }
 
 export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
@@ -519,23 +536,12 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
     return !DEFAULT_ACTIVE_EVENT_TYPES.every(t => activeTypes.includes(t));
   }, [activeTypes]);
 
-  // 2. User-Isolated Notes State & Cache
-  const [notes, setNotes] = useState<CalendarNote[]>(() => {
-    try {
-      const local = localStorage.getItem(`dars_calendar_notes_${user?.id || user?.email || 'default'}`);
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch {}
-    return [];
-  });
+  // 2. User-Isolated Cloud-Synced Notes State & Cache
+  const [notes, setNotes] = useState<CalendarNote[]>(() => loadCachedUserNotes(user));
 
   const saveNotesCache = useCallback((updated: CalendarNote[]) => {
-    try {
-      localStorage.setItem(`dars_calendar_notes_${user?.id || user?.email || 'default'}`, JSON.stringify(updated));
-    } catch {}
-  }, [user?.id, user?.email]);
+    saveCachedUserNotes(user, updated);
+  }, [user]);
 
   const [newNote, setNewNote] = useState('');
   const [newDateNote, setNewDateNote] = useState('');
@@ -543,14 +549,7 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
-  const [notesLoading, setNotesLoading] = useState(() => {
-    try {
-      const local = localStorage.getItem(`dars_calendar_notes_${user?.id || user?.email || 'default'}`);
-      return !local || JSON.parse(local).length === 0;
-    } catch {
-      return false;
-    }
-  });
+  const [notesLoading, setNotesLoading] = useState(() => loadCachedUserNotes(user).length === 0);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [showCompletedDateNotes, setShowCompletedDateNotes] = useState(false);
@@ -559,68 +558,80 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
   // Sync cache if user identity finishes resolving
   useEffect(() => {
     if (!user?.id && !user?.email) return;
-    try {
-      const local = localStorage.getItem(notesStorageKey);
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed)) {
-          setNotes(parsed);
-        }
-      }
-    } catch {}
-  }, [notesStorageKey, user?.id, user?.email]);
+    const cached = loadCachedUserNotes(user);
+    if (cached.length > 0) {
+      setNotes(cached);
+    }
+  }, [notesStorageKey, user]);
 
-  // Fetch only this user's notes from Supabase
+  // Two-way sync of this user's notes with Supabase (auto-uploads any unsynced browser notes!)
   const fetchNotes = useCallback(async () => {
     const orgId = user?.organizationId || DEFAULT_ORG_ID;
     try {
-      let query = supabase
-        .from('calendar_notes')
-        .select('id,content,completed,date,created_by')
-        .eq('organization_id', orgId);
-
-      if (user?.id) {
-        query = query.eq('created_by', user.id);
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: true });
-
-      if (error) {
-        console.warn('Notes load error, preserving local cache:', error);
-        return;
-      }
-
-      if (Array.isArray(data)) {
-        setNotes(data);
-        saveNotesCache(data);
+      const synced = await syncUserCalendarNotes(supabase, orgId, user);
+      if (Array.isArray(synced)) {
+        setNotes(synced);
       }
     } catch (err) {
-      console.warn('Calendar notes fetch exception:', err);
+      console.warn('Calendar notes sync exception:', err);
     } finally {
       setNotesLoading(false);
     }
-  }, [user?.id, user?.organizationId, saveNotesCache]);
+  }, [user, user?.id, user?.email, user?.organizationId]);
 
   useEffect(() => {
     void fetchNotes();
 
-    const channelName = user?.id ? `calendar_notes_user_${user.id}` : 'calendar_notes_channel';
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const triggerDebouncedSync = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        void fetchNotes();
+      }, 500);
+    };
+
+    const orgId = user?.organizationId || DEFAULT_ORG_ID;
+    const channelName = `calendar_notes_sync_${user?.id || user?.email || 'default'}`;
     const channel = supabase
       .channel(channelName)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'calendar_notes',
-        ...(user?.id ? { filter: `created_by=eq.${user.id}` } : {})
+        filter: `organization_id=eq.${orgId}`
       }, () => {
-        void fetchNotes();
+        triggerDebouncedSync();
       })
       .subscribe();
 
-    return () => {
-      void supabase.removeChannel(channel);
+    const handleFocus = () => void fetchNotes();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void fetchNotes();
     };
-  }, [user?.id, fetchNotes]);
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key && e.key.startsWith('dars_calendar_notes')) {
+        const cached = loadCachedUserNotes(user);
+        setNotes(cached);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('storage', handleStorage);
+
+    const interval = setInterval(() => {
+      void fetchNotes();
+    }, 30000);
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      void supabase.removeChannel(channel);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(interval);
+    };
+  }, [user?.id, user?.email, user?.organizationId, fetchNotes]);
 
   // Add note from Yapılacaklar & Notlar box (with optional reminder date)
   const handleAddNote = async (e: React.FormEvent) => {
@@ -630,7 +641,7 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
     if (!text) return;
 
     const targetDate = noteTargetDate || null;
-    const tempId = crypto.randomUUID?.() || Math.random().toString(36).substring(2);
+    const tempId = generateNoteUuid();
     const freshNote: CalendarNote = { 
       id: tempId, 
       content: text, 
@@ -646,20 +657,10 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
     saveNotesCache(updatedNotes);
 
     try {
-      const { data, error } = await supabase
-        .from('calendar_notes')
-        .insert({
-          organization_id: orgId,
-          created_by: user?.id,
-          content: text,
-          completed: false,
-          date: targetDate
-        })
-        .select('id')
-        .single();
-      if (!error && data) {
+      const inserted = await insertNoteToSupabase(supabase, orgId, user, freshNote);
+      if (inserted) {
         setNotes(prev => {
-          const synced = prev.map(n => n.id === tempId ? { ...n, id: data.id } : n);
+          const synced = prev.map(n => n.id === tempId ? { ...n, id: inserted.id } : n);
           saveNotesCache(synced);
           return synced;
         });
@@ -676,7 +677,7 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
     const orgId = user?.organizationId || DEFAULT_ORG_ID;
     if (!text) return;
 
-    const tempId = crypto.randomUUID?.() || Math.random().toString(36).substring(2);
+    const tempId = generateNoteUuid();
     const freshNote: CalendarNote = { 
       id: tempId, 
       content: text, 
@@ -690,20 +691,10 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
     saveNotesCache(updatedNotes);
 
     try {
-      const { data, error } = await supabase
-        .from('calendar_notes')
-        .insert({
-          organization_id: orgId,
-          created_by: user?.id,
-          content: text,
-          completed: false,
-          date: selected
-        })
-        .select('id')
-        .single();
-      if (!error && data) {
+      const inserted = await insertNoteToSupabase(supabase, orgId, user, freshNote);
+      if (inserted) {
         setNotes(prev => {
-          const synced = prev.map(n => n.id === tempId ? { ...n, id: data.id } : n);
+          const synced = prev.map(n => n.id === tempId ? { ...n, id: inserted.id } : n);
           saveNotesCache(synced);
           return synced;
         });
@@ -718,9 +709,7 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
     setNotes(updatedNotes);
     saveNotesCache(updatedNotes);
     try {
-      let query = supabase.from('calendar_notes').update({ completed: !completed }).eq('id', id);
-      if (user?.id) query = query.eq('created_by', user.id);
-      await query;
+      await updateNoteInSupabase(supabase, user, id, { completed: !completed });
     } catch (err) {
       console.error(err);
     }
@@ -731,9 +720,7 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
     setNotes(updatedNotes);
     saveNotesCache(updatedNotes);
     try {
-      let query = supabase.from('calendar_notes').delete().eq('id', id);
-      if (user?.id) query = query.eq('created_by', user.id);
-      await query;
+      await deleteNoteFromSupabase(supabase, user, id);
     } catch (err) {
       console.error(err);
     }
@@ -741,14 +728,13 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
 
   const handleClearAllNotes = async () => {
     const orgId = user?.organizationId || DEFAULT_ORG_ID;
+    const prevNotes = [...notes];
     setNotes([]);
     setConfirmClear(false);
     saveNotesCache([]);
 
     try {
-      let query = supabase.from('calendar_notes').delete().eq('organization_id', orgId);
-      if (user?.id) query = query.eq('created_by', user.id);
-      await query;
+      await clearAllUserNotesInSupabase(supabase, orgId, user, prevNotes);
     } catch (err) {
       console.error('Notes clear all error:', err);
     }
@@ -765,9 +751,7 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
     saveNotesCache(updatedNotes);
     setEditingNoteId(null);
     try {
-      let query = supabase.from('calendar_notes').update({ content: text }).eq('id', id);
-      if (user?.id) query = query.eq('created_by', user.id);
-      await query;
+      await updateNoteInSupabase(supabase, user, id, { content: text });
     } catch (err) {
       console.error(err);
     }
@@ -778,9 +762,7 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
     setNotes(updatedNotes);
     saveNotesCache(updatedNotes);
     try {
-      let query = supabase.from('calendar_notes').update({ date: newDate }).eq('id', id);
-      if (user?.id) query = query.eq('created_by', user.id);
-      await query;
+      await updateNoteInSupabase(supabase, user, id, { date: newDate });
     } catch (err) {
       console.error('Note date update error:', err);
     }

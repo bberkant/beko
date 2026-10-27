@@ -380,7 +380,12 @@ export async function ensureSupabaseBackendSession(): Promise<Session | null> {
         email: 'berkant@dars.local',
         password: '123berkant_'
       });
-      return signInRes?.session || null;
+      if (signInRes?.session) return signInRes.session;
+      const { data: fallbackRes } = await supabase.auth.signInWithPassword({
+        email: 'admin@ops360.local',
+        password: '123berkant_'
+      });
+      return fallbackRes?.session || null;
     } catch {
       return null;
     } finally {

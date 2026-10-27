@@ -6,6 +6,7 @@ import { useStore } from '../../features/credit-cards/data/store';
 import { useVehicles } from '../../features/vehicles/store';
 import { supabase } from '../../lib/supabase';
 import { resolveCardDueDate, resolveCardOutstandingDebt } from '../../features/credit-cards/lib/billingDateEngine';
+import { doesRowBelongToUser, normalizeDbNoteRow } from '../../features/calendar/utils/calendarNotesSync';
 
 interface TopbarProps {
   onToggleSidebar: () => void;
@@ -75,16 +76,12 @@ export function Topbar({ onToggleSidebar, onOpenMobileSidebar }: TopbarProps) {
         .neq('status', 'kaybedildi')
         .neq('status', 'iptal');
 
-      let notesQuery = supabase
+      const notesQuery = supabase
         .from('calendar_notes')
-        .select('id,content,date,completed')
+        .select('id,content,date,completed,created_by')
         .eq('organization_id', orgId)
         .eq('completed', false)
         .not('date', 'is', null);
-
-      if (user?.id) {
-        notesQuery = notesQuery.eq('created_by', user.id);
-      }
 
       Promise.all([p1, notesQuery]).then(([{ data: tenderData }, { data: noteData }]) => {
         const list: NotificationItem[] = [];
@@ -176,7 +173,10 @@ export function Topbar({ onToggleSidebar, onOpenMobileSidebar }: TopbarProps) {
 
         // --- Custom Notes ---
         if (noteData) {
-          for (const note of noteData) {
+          for (const rawNote of noteData) {
+            if (!doesRowBelongToUser(rawNote, user)) continue;
+            const note = normalizeDbNoteRow(rawNote);
+            if (!note.date) continue;
             const noteDate = new Date(note.date);
             noteDate.setHours(0, 0, 0, 0);
             const diffTime = noteDate.getTime() - today.getTime();
