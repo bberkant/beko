@@ -2065,6 +2065,16 @@ export function ChecksPage() {
         : dueDates.filter(d => d === targetDateStr);
 
       for (const dueDateStr of matchingDueDates) {
+        const matchedIdx = activeUnpaidKesilen.findIndex(c =>
+          doesCheckMatchCreditCardOnDate(c, card, dueDateStr, cardLabel, cardLimit)
+        );
+        if (matchedIdx !== -1) {
+          const existing = activeUnpaidKesilen[matchedIdx];
+          if (!String(existing.ozel_alan || '').includes('CC_') && existing.creditor !== cardLabel) {
+            activeUnpaidKesilen[matchedIdx] = { ...existing, creditor: cardLabel };
+          }
+          continue;
+        }
         const alreadyInChecks = checks.some(c =>
           doesCheckMatchCreditCardOnDate(c, card, dueDateStr, cardLabel, cardLimit)
         );
