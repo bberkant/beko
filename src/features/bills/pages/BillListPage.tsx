@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { useToast } from '../../../lib/toast';
 import { useBills } from '../data/store';
-import { billCategoryConfig, billStatusLabels, formatTRY, formatDateTR } from '../data/labels';
+import { billCategoryConfig, billStatusLabels, formatTRY, formatDateTR, resolveBillDueDate } from '../data/labels';
 import { BillDueDateCell } from '../components/BillDueDateCell';
 import { BillRowMenu } from '../components/BillRowMenu';
 import { BillModal } from '../components/BillModal';
@@ -113,9 +113,14 @@ export function BillListPage() {
   const [editingBill, setEditingBill] = useState<CompanyBill | null>(null);
   const [invoiceModalBill, setInvoiceModalBill] = useState<CompanyBill | null>(null);
 
+  const resolvedMap = useMemo(() => {
+    return new Map(bills.map((b) => [b.id, resolveBillDueDate(b)]));
+  }, [bills]);
+
   // Filtering & Sorting
   const filteredBills = useMemo(() => {
     return bills.filter((b) => {
+      const resolved = resolvedMap.get(b.id) ?? resolveBillDueDate(b);
       if (search) {
         const q = search.toLocaleLowerCase('tr-TR');
         const match =
@@ -128,55 +133,60 @@ export function BillListPage() {
       if (selectedCategory !== 'all' && b.category !== selectedCategory) return false;
       if (selectedAutoPayment === 'auto' && !b.autoPayment) return false;
       if (selectedAutoPayment === 'manual' && b.autoPayment) return false;
-      if (selectedStatus !== 'all' && b.billStatus !== selectedStatus) return false;
+      if (selectedStatus !== 'all') {
+        if (selectedStatus === 'gecikmede') {
+          if (resolved.effectiveStatus === 'odendi' || resolved.diffDays > 3) return false;
+        } else if (resolved.effectiveStatus !== selectedStatus) {
+          return false;
+        }
+      }
       return true;
     }).sort((a, b) => {
-      // 1. Unpaid first, Paid last
-      const isPaidA = a.billStatus === 'odendi';
-      const isPaidB = b.billStatus === 'odendi';
+      const resA = resolvedMap.get(a.id) ?? resolveBillDueDate(a);
+      const resB = resolvedMap.get(b.id) ?? resolveBillDueDate(b);
+
+      // 1. Ödenecekler üstte, bu dönem Ödenenler en altta
+      const isPaidA = resA.effectiveStatus === 'odendi';
+      const isPaidB = resB.effectiveStatus === 'odendi';
       if (!isPaidA && isPaidB) return -1;
       if (isPaidA && !isPaidB) return 1;
 
-      // 2. Sort by Due Date ascending
-      const dateA = a.dueDate ? new Date(`${a.dueDate}T00:00:00`).getTime() : 9999999999999;
-      const dateB = b.dueDate ? new Date(`${b.dueDate}T00:00:00`).getTime() : 9999999999999;
+      // 2. Son 3 gün kalan (veya bugün son günü olan: diffDays <= 3) yaklaşan son ödemeler en üst sıraya çıkar
+      const isUrgent3DaysA = resA.diffDays >= 0 && resA.diffDays <= 3;
+      const isUrgent3DaysB = resB.diffDays >= 0 && resB.diffDays <= 3;
+      if (isUrgent3DaysA && !isUrgent3DaysB) return -1;
+      if (!isUrgent3DaysA && isUrgent3DaysB) return 1;
 
-      if (dateA !== dateB) return dateA - dateB;
+      // 3. Yaklaşan son ödeme tarihine göre artan sıra (günü geçenler bir sonraki aya yenilendiği için alt listeye iner)
+      if (resA.diffDays !== resB.diffDays) return resA.diffDays - resB.diffDays;
 
-      // 3. By amount descending
-      return b.currentAmount - a.currentAmount;
+      // 4. Aynı gün vadeli olanlarda tutara göre büyükten küçüğe
+      if (b.currentAmount !== a.currentAmount) return b.currentAmount - a.currentAmount;
+
+      return a.name.localeCompare(b.name, 'tr-TR');
     });
-  }, [bills, search, selectedCategory, selectedAutoPayment, selectedStatus]);
+  }, [bills, resolvedMap, search, selectedCategory, selectedAutoPayment, selectedStatus]);
 
   // KPIs
   const kpis = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const totalCount = bills.length;
-    const unpaidBills = bills.filter(b => b.billStatus !== 'odendi');
+    const unpaidBills = bills.filter((b) => (resolvedMap.get(b.id)?.effectiveStatus ?? b.billStatus) !== 'odendi');
     const totalUnpaidAmount = unpaidBills.reduce((sum, b) => sum + (b.currentAmount || 0), 0);
-    
-    const paidThisMonth = bills.filter(b => {
-      if (b.billStatus === 'odendi' && b.lastPaidAt) {
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        return b.lastPaidAt.startsWith(currentMonth);
-      }
-      return b.billStatus === 'odendi';
+
+    const paidThisMonth = bills.filter((b) => {
+      const eff = resolvedMap.get(b.id)?.effectiveStatus ?? b.billStatus;
+      return eff === 'odendi';
     }).reduce((sum, b) => sum + (b.currentAmount || 0), 0);
 
-    const in7Days = unpaidBills.filter(b => {
-      if (!b.dueDate) return false;
-      const due = new Date(`${b.dueDate}T00:00:00`);
-      const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
+    const in7Days = unpaidBills.filter((b) => {
+      const diff = resolvedMap.get(b.id)?.diffDays ?? 999;
       return diff >= 0 && diff <= 7;
     });
     const in7DaysAmount = in7Days.reduce((sum, b) => sum + (b.currentAmount || 0), 0);
 
-    const overdueCount = unpaidBills.filter(b => {
-      if (!b.dueDate) return false;
-      const due = new Date(`${b.dueDate}T00:00:00`);
-      return due.getTime() < today.getTime();
+    const urgent3DaysCount = unpaidBills.filter((b) => {
+      const diff = resolvedMap.get(b.id)?.diffDays ?? 999;
+      return diff >= 0 && diff <= 3;
     }).length;
 
     return {
@@ -185,24 +195,27 @@ export function BillListPage() {
       paidThisMonth,
       in7DaysCount: in7Days.length,
       in7DaysAmount,
-      overdueCount
+      overdueCount: urgent3DaysCount,
     };
-  }, [bills]);
+  }, [bills, resolvedMap]);
 
   // Excel Export
   const exportToExcel = () => {
     try {
-      const rows = filteredBills.map((b, idx) => ({
-        'Sıra': idx + 1,
-        'Fatura / Kurum Adı': b.name,
-        'Abone / Tesisat No': b.subscriberNo,
-        'Hizmet Türü': billCategoryConfig[b.category]?.label || b.category,
-        'Otomatik Talimat': b.autoPayment ? (b.autoPaymentBank || 'Var') : 'Yok',
-        'Son Ödeme Tarihi': formatDateTR(b.dueDate),
-        'Fatura Tutarı': b.currentAmount,
-        'Durum': billStatusLabels[b.billStatus]?.label || b.billStatus,
-        'Notlar': b.notes || ''
-      }));
+      const rows = filteredBills.map((b, idx) => {
+        const resolved = resolvedMap.get(b.id) ?? resolveBillDueDate(b);
+        return {
+          'Sıra': idx + 1,
+          'Fatura / Kurum Adı': b.name,
+          'Abone / Tesisat No': b.subscriberNo,
+          'Hizmet Türü': billCategoryConfig[b.category]?.label || b.category,
+          'Otomatik Talimat': b.autoPayment ? (b.autoPaymentBank || 'Var') : 'Yok',
+          'Son Ödeme Tarihi': formatDateTR(resolved.date),
+          'Fatura Tutarı': b.currentAmount,
+          'Durum': billStatusLabels[resolved.effectiveStatus]?.label || resolved.effectiveStatus,
+          'Notlar': b.notes || ''
+        };
+      });
 
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
@@ -253,18 +266,21 @@ export function BillListPage() {
               </tr>
             </thead>
             <tbody>
-              ${filteredBills.map((b, idx) => `
+              ${filteredBills.map((b, idx) => {
+                const resolved = resolvedMap.get(b.id) ?? resolveBillDueDate(b);
+                return `
                 <tr>
                   <td class="text-center">${idx + 1}</td>
                   <td class="font-bold">${b.name}</td>
                   <td>${b.subscriberNo || '—'}</td>
                   <td>${billCategoryConfig[b.category]?.label || b.category}</td>
                   <td class="text-center">${b.autoPayment ? (b.autoPaymentBank || 'Var') : 'Yok'}</td>
-                  <td class="text-center">${formatDateTR(b.dueDate)}</td>
+                  <td class="text-center">${formatDateTR(resolved.date)}</td>
                   <td class="text-right font-bold">${formatTRY(b.currentAmount)}</td>
-                  <td class="text-center">${billStatusLabels[b.billStatus]?.label || b.billStatus}</td>
+                  <td class="text-center">${billStatusLabels[resolved.effectiveStatus]?.label || resolved.effectiveStatus}</td>
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
             </tbody>
           </table>
           <script>
@@ -386,9 +402,9 @@ export function BillListPage() {
         </div>
 
         <div className="card p-4">
-          <span className="text-xs font-medium text-gray-500 block">Gecikmiş Fatura</span>
+          <span className="text-xs font-medium text-gray-500 block">Son 3 Gün (Kritik Vade)</span>
           <p className="mt-2 text-xl font-bold text-red-700">{kpis.overdueCount} Adet</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">vadesi geçmiş</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">yaklaşan son ödeme</p>
         </div>
       </div>
 
@@ -554,11 +570,17 @@ export function BillListPage() {
               ) : (
                 filteredBills.map((b, index) => {
                   const catLabel = billCategoryConfig[b.category]?.label || b.category;
+                  const resolved = resolvedMap.get(b.id) ?? resolveBillDueDate(b);
+                  const isUrgent3Days = resolved.effectiveStatus !== 'odendi' && resolved.diffDays >= 0 && resolved.diffDays <= 3;
 
                   return (
                     <tr
                       key={b.id}
-                      className="hover:bg-gray-50/60 transition-colors group/row"
+                      className={`transition-colors group/row ${
+                        isUrgent3Days
+                          ? 'bg-red-50/40 hover:bg-red-50/70'
+                          : 'hover:bg-gray-50/60'
+                      }`}
                     >
                       {/* # */}
                       <td className="table-td text-center text-gray-400 font-medium text-xs !px-1">
@@ -633,9 +655,11 @@ export function BillListPage() {
                       {/* Due Date */}
                       <td className="table-td text-center !px-2">
                         <BillDueDateCell
-                          dueDate={b.dueDate}
-                          billStatus={b.billStatus}
+                          dueDate={resolved.date}
+                          billStatus={resolved.effectiveStatus}
                           lastPaidAt={b.lastPaidAt}
+                          adjusted={resolved.adjusted}
+                          nominalDay={resolved.nominalDay}
                         />
                       </td>
 
@@ -661,13 +685,13 @@ export function BillListPage() {
                         <button
                           onClick={() => toggleBillStatus(b.id)}
                           className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
-                            b.billStatus === 'odendi'
+                            resolved.effectiveStatus === 'odendi'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
                               : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
                           }`}
                           title="Durumu değiştirmek için tıklayın"
                         >
-                          {b.billStatus === 'odendi' ? 'Ödendi' : 'Ödenecek'}
+                          {resolved.effectiveStatus === 'odendi' ? 'Ödendi' : 'Ödenecek'}
                         </button>
                       </td>
 

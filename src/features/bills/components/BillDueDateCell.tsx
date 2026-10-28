@@ -5,9 +5,11 @@ interface BillDueDateCellProps {
   dueDate?: string;
   billStatus: BillStatus;
   lastPaidAt?: string;
+  adjusted?: boolean;
+  nominalDay?: number;
 }
 
-export function BillDueDateCell({ dueDate, billStatus, lastPaidAt }: BillDueDateCellProps) {
+export function BillDueDateCell({ dueDate, billStatus, lastPaidAt, adjusted, nominalDay }: BillDueDateCellProps) {
   if (billStatus === 'odendi') {
     return (
       <div className="flex flex-col items-center justify-center leading-tight">
@@ -31,11 +33,16 @@ export function BillDueDateCell({ dueDate, billStatus, lastPaidAt }: BillDueDate
   const isOverdue = diffDays < 0;
   const isToday = diffDays === 0;
   const isTomorrow = diffDays === 1;
-  const isSoon = diffDays > 1 && diffDays <= 7;
+  const isCriticalThreeDays = diffDays >= 2 && diffDays <= 3;
+  const isSoon = diffDays > 3 && diffDays <= 7;
+
+  const titleHint = adjusted && nominalDay
+    ? `Normal vade günü ayın ${nominalDay}. günü (hafta sonu nedeniyle hafta içine kaydırıldı)`
+    : undefined;
 
   if (isOverdue) {
     return (
-      <div className="flex flex-col items-center justify-center leading-tight">
+      <div className="flex flex-col items-center justify-center leading-tight" title={titleHint}>
         <span className="font-bold text-red-700 text-sm">{formatDateTR(dueDate)}</span>
         <span className="text-xs text-red-600 font-bold tracking-tight">
           ({Math.abs(diffDays)} gün gecikti)
@@ -46,25 +53,36 @@ export function BillDueDateCell({ dueDate, billStatus, lastPaidAt }: BillDueDate
 
   if (isToday) {
     return (
-      <div className="flex flex-col items-center justify-center leading-tight">
+      <div className="flex flex-col items-center justify-center leading-tight" title={titleHint}>
         <span className="font-bold text-red-700 text-sm">{formatDateTR(dueDate)}</span>
-        <span className="text-xs text-red-600 font-bold tracking-tight">(bugün)</span>
+        <span className="text-xs text-red-600 font-bold tracking-tight">(bugün - son gün)</span>
       </div>
     );
   }
 
   if (isTomorrow) {
     return (
-      <div className="flex flex-col items-center justify-center leading-tight">
-        <span className="font-bold text-amber-800 text-sm">{formatDateTR(dueDate)}</span>
-        <span className="text-xs text-amber-700 font-bold tracking-tight">(yarın)</span>
+      <div className="flex flex-col items-center justify-center leading-tight" title={titleHint}>
+        <span className="font-bold text-red-700 text-sm">{formatDateTR(dueDate)}</span>
+        <span className="text-xs text-red-600 font-bold tracking-tight">(yarın)</span>
+      </div>
+    );
+  }
+
+  if (isCriticalThreeDays) {
+    return (
+      <div className="flex flex-col items-center justify-center leading-tight" title={titleHint}>
+        <span className="font-bold text-red-700 text-sm">{formatDateTR(dueDate)}</span>
+        <span className="text-xs text-red-600 font-bold tracking-tight">
+          ({diffDays} gün kaldı)
+        </span>
       </div>
     );
   }
 
   if (isSoon) {
     return (
-      <div className="flex flex-col items-center justify-center leading-tight">
+      <div className="flex flex-col items-center justify-center leading-tight" title={titleHint}>
         <span className="font-medium text-gray-900 text-sm">{formatDateTR(dueDate)}</span>
         <span className="text-xs text-amber-700 font-medium tracking-tight">
           ({diffDays} gün kaldı)
@@ -74,8 +92,11 @@ export function BillDueDateCell({ dueDate, billStatus, lastPaidAt }: BillDueDate
   }
 
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex flex-col items-center justify-center leading-tight" title={titleHint}>
       <span className="font-medium text-gray-700 text-sm">{formatDateTR(dueDate)}</span>
+      <span className="text-[11px] text-gray-400 font-medium tracking-tight">
+        ({diffDays} gün kaldı)
+      </span>
     </div>
   );
 }
