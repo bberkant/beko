@@ -53381,6 +53381,16 @@ function toggleSubTab(tabIndex) {
         if (timer) clearTimeout(timer);
         if (res.ok) {
           const json = await res.json();
+          if (json && Array.isArray(json.deletedIds)) {
+            const delSet = getMobileDeletedNotesSet();
+            json.deletedIds.forEach(id => {
+              const clean = String(id).replace(/^note-/, '');
+              if (clean) {
+                delSet.add(clean);
+                markMobileNoteDeleted(clean);
+              }
+            });
+          }
           if (json && Array.isArray(json.notes)) return json.notes;
         }
       } catch (e) {}
@@ -54827,22 +54837,38 @@ function toggleSubTab(tabIndex) {
     let isLiveConnected = false;
     let liveSupabase = null;
 
-    async function initSupabaseLiveSync() {
-      try {
+    async function ensureLiveSupabaseAuth() {
+      if (!liveSupabase) {
         if (window.supabase && window.supabase.createClient) {
           liveSupabase = window.supabase.createClient(
             'https://zubhjybqzcpplultpsgt.supabase.co',
             'sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG'
           );
-          try {
-            await liveSupabase.auth.signInWithPassword({
-              email: 'admin@ops360.local',
-              password: '123berkant_'
-            });
-          } catch (authErr) {
-            console.warn('Supabase auth non-blocking warning:', authErr);
-          }
+        } else {
+          return null;
         }
+      }
+      try {
+        const { data: sessionData } = await liveSupabase.auth.getSession();
+        if (sessionData && sessionData.session && sessionData.session.access_token) {
+          return sessionData.session;
+        }
+        const { data: signRes, error: signErr } = await liveSupabase.auth.signInWithPassword({
+          email: 'admin@ops360.local',
+          password: '123berkant_'
+        });
+        if (!signErr && signRes && signRes.session) {
+          return signRes.session;
+        }
+      } catch (authErr) {
+        console.warn('ensureLiveSupabaseAuth warning:', authErr);
+      }
+      return null;
+    }
+
+    async function initSupabaseLiveSync() {
+      try {
+        await ensureLiveSupabaseAuth();
 
         isLiveConnected = true;
         updateLiveBadge(true, 'Canlı Veritabanı Bağlandı');
@@ -56003,6 +56029,8 @@ function toggleSubTab(tabIndex) {
       const uKey = getMobileNoteUserKey();
       const deletedSet = getMobileDeletedNotesSet();
 
+      await ensureLiveSupabaseAuth();
+
       const fetchEdgePromise = (async () => {
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
         const timer = controller ? setTimeout(() => controller.abort(), 3500) : null;
@@ -56014,7 +56042,12 @@ function toggleSubTab(tabIndex) {
           });
           if (res.ok) {
             const json = await res.json();
-            if (json && Array.isArray(json.notes)) return json.notes;
+            if (json) {
+              return {
+                notes: Array.isArray(json.notes) ? json.notes : [],
+                deletedIds: Array.isArray(json.deletedIds) ? json.deletedIds : []
+              };
+            }
           }
         } catch (e) {} finally {
           if (timer) clearTimeout(timer);
@@ -56036,10 +56069,36 @@ function toggleSubTab(tabIndex) {
       })();
 
       const sbTimeout = new Promise(resolve => setTimeout(() => resolve(null), 4000));
-      const [edgeNotes, sbNotes] = await Promise.all([
+      const [edgeData, sbNotes] = await Promise.all([
         fetchEdgePromise,
         Promise.race([fetchSupabasePromise, sbTimeout])
       ]);
+
+      if (edgeData && Array.isArray(edgeData.deletedIds)) {
+        edgeData.deletedIds.forEach(id => {
+          const cleanId = String(id).replace(/^note-/, '');
+          if (cleanId) {
+            deletedSet.add(cleanId);
+            markMobileNoteDeleted(cleanId);
+          }
+        });
+      }
+
+      const edgeNotes = edgeData ? edgeData.notes : null;
+      const hasServerResponse = Array.isArray(edgeNotes) || Array.isArray(sbNotes);
+      const serverNoteIds = new Set();
+      if (Array.isArray(edgeNotes)) {
+        edgeNotes.forEach(n => {
+          if (n && n.id) serverNoteIds.add(String(n.id).replace(/^note-/, ''));
+        });
+      }
+      if (Array.isArray(sbNotes)) {
+        sbNotes.forEach(n => {
+          if (n && n.id && doesMobileNoteBelongToUser(n)) {
+            serverNoteIds.add(String(n.id).replace(/^note-/, ''));
+          }
+        });
+      }
 
       const merged = [];
       const seenIds = new Set();
@@ -56047,7 +56106,7 @@ function toggleSubTab(tabIndex) {
 
       const addCandidate = (row, skipOwnerCheck) => {
         if (!row || !row.id) return;
-        const idStr = String(row.id);
+        const idStr = String(row.id).replace(/^note-/, '');
         if (OBSOLETE_GLOBAL_NOTE_IDS_MOBILE.has(idStr) || deletedSet.has(idStr)) return;
         if (!skipOwnerCheck && !doesMobileNoteBelongToUser(row)) return;
         const cleanText = cleanTurkishText(stripMobileOwnerTag(row.content || ''));
@@ -56075,10 +56134,19 @@ function toggleSubTab(tabIndex) {
       }
 
       if (Array.isArray(userCalendarNotes)) {
-        userCalendarNotes.forEach(n => addCandidate(n, false));
+        userCalendarNotes.forEach(n => {
+          if (!n || !n.id) return;
+          const idStr = String(n.id).replace(/^note-/, '');
+          if (/^[0-9a-f-]{36}$/i.test(idStr) && hasServerResponse && !serverNoteIds.has(idStr)) {
+            deletedSet.add(idStr);
+            markMobileNoteDeleted(idStr);
+            return;
+          }
+          addCandidate(n, false);
+        });
       }
 
-      if (merged.length === 0 && (uKey === 'berkant' || uKey === 'admin')) {
+      if (merged.length === 0 && (uKey === 'berkant' || uKey === 'admin') && !hasServerResponse) {
         DEFAULT_WEB_CALENDAR_NOTES.forEach(n => addCandidate(n, true));
       }
 
@@ -56187,12 +56255,7 @@ function toggleSubTab(tabIndex) {
       isBackgroundAutoSyncRunning = true;
       try {
         clearAppIconBadgeMobile();
-        if (!liveSupabase && window.supabase && window.supabase.createClient) {
-          liveSupabase = window.supabase.createClient(
-            'https://zubhjybqzcpplultpsgt.supabase.co',
-            'sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG'
-          );
-        }
+        await ensureLiveSupabaseAuth();
 
         const nowMs = Date.now();
         const doFullSync = forceAll || (nowMs - lastFullCompanySyncAt >= 25000);
@@ -56293,7 +56356,19 @@ function toggleSubTab(tabIndex) {
               syncNativeMorningNotifications(false);
             }, 500);
           })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_notes' }, () => {
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_notes' }, (payload) => {
+            if (payload && (payload.eventType === 'DELETE' || payload.event === 'DELETE') && payload.old && payload.old.id) {
+              const delId = String(payload.old.id).replace(/^note-/, '');
+              markMobileNoteDeleted(delId);
+              userCalendarNotes = (userCalendarNotes || []).filter(n => String(n.id).replace(/^note-/, '') !== delId);
+              saveMobileUserNotesCache();
+              renderCalendar();
+              renderNotifications();
+              renderSettings();
+              if (typeof syncNativeMorningNotifications === 'function') {
+                syncNativeMorningNotifications(false);
+              }
+            }
             debounceMobileRealtime('notes', async () => {
               await syncLiveCalendarNotes();
               renderCalendar();

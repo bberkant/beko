@@ -61,7 +61,12 @@ function getEdgeUserNotesEndpoint(userKey: string): string {
   return `${base}/api/user-notes?userKey=${encodeURIComponent(userKey || 'default')}`;
 }
 
-async function fetchEdgeUserNotes(user?: AuthUser | null): Promise<CalendarNoteItem[] | null> {
+export interface EdgeUserNotesFetchResult {
+  notes: CalendarNoteItem[];
+  deletedIds: string[];
+}
+
+async function fetchEdgeUserNotes(user?: AuthUser | null): Promise<EdgeUserNotesFetchResult | null> {
   if (typeof fetch === 'undefined') return null;
   const userKey = getCanonicalNoteUserKey(user);
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -74,18 +79,24 @@ async function fetchEdgeUserNotes(user?: AuthUser | null): Promise<CalendarNoteI
     });
     if (!res.ok) return null;
     const json = await res.json();
-    if (json && Array.isArray(json.notes)) {
-      return json.notes
-        .filter((n: any) => n && n.id && !OBSOLETE_GLOBAL_NOTE_IDS.has(String(n.id)))
-        .map((n: any) => ({
-          id: String(n.id),
-          content: extractNoteOwnerAndContent(n.content).cleanContent,
-          completed: Boolean(n.completed),
-          date: normalizeNoteDate(n.date),
-          created_by: n.created_by || user?.id || null,
-          created_at: n.created_at
-        }))
-        .filter((n: CalendarNoteItem) => Boolean(n.content) && !isObsoleteSampleNote(n.content));
+    if (json) {
+      const notes = Array.isArray(json.notes)
+        ? json.notes
+            .filter((n: any) => n && n.id && !OBSOLETE_GLOBAL_NOTE_IDS.has(String(n.id)))
+            .map((n: any) => ({
+              id: String(n.id),
+              content: extractNoteOwnerAndContent(n.content).cleanContent,
+              completed: Boolean(n.completed),
+              date: normalizeNoteDate(n.date),
+              created_by: n.created_by || user?.id || null,
+              created_at: n.created_at
+            }))
+            .filter((n: CalendarNoteItem) => Boolean(n.content) && !isObsoleteSampleNote(n.content))
+        : [];
+      const deletedIds = Array.isArray(json.deletedIds)
+        ? json.deletedIds.map((id: any) => String(id).replace(/^note-/, ''))
+        : [];
+      return { notes, deletedIds };
     }
   } catch {
     // Ignore network / offline errors
@@ -656,10 +667,35 @@ export async function syncUserCalendarNotes(
   })();
 
   const timeoutPromise = new Promise<null>(resolve => setTimeout(() => resolve(null), 4000));
-  const [edgeNotes, dbRows] = await Promise.all([
+  const [edgeData, dbRows] = await Promise.all([
     edgeNotesPromise,
     Promise.race([supabaseTask, timeoutPromise])
   ]);
+
+  if (edgeData && Array.isArray(edgeData.deletedIds)) {
+    for (const dId of edgeData.deletedIds) {
+      if (dId) {
+        currentDeleted.add(dId);
+        markNoteIdDeleted(user, dId);
+      }
+    }
+  }
+
+  const edgeNotes = edgeData?.notes || null;
+  const hasServerResponse = Array.isArray(edgeNotes) || Array.isArray(dbRows);
+  const serverNoteIds = new Set<string>();
+  if (Array.isArray(edgeNotes)) {
+    for (const en of edgeNotes) {
+      if (en && en.id) serverNoteIds.add(String(en.id).replace(/^note-/, ''));
+    }
+  }
+  if (Array.isArray(dbRows)) {
+    for (const row of dbRows) {
+      if (row && row.id && doesRowBelongToUser(row, user)) {
+        serverNoteIds.add(String(row.id).replace(/^note-/, ''));
+      }
+    }
+  }
 
   const mergedNotes: CalendarNoteItem[] = [];
   const seenIds = new Set<string>();
@@ -667,7 +703,7 @@ export async function syncUserCalendarNotes(
 
   const addCandidate = (item: CalendarNoteItem) => {
     if (!item || !item.id) return;
-    const idStr = String(item.id);
+    const idStr = String(item.id).replace(/^note-/, '');
     if (OBSOLETE_GLOBAL_NOTE_IDS.has(idStr) || currentDeleted.has(idStr)) return;
     let cleanText = extractNoteOwnerAndContent(item.content).cleanContent;
     let completed = Boolean(item.completed);
@@ -712,8 +748,15 @@ export async function syncUserCalendarNotes(
     }
   }
 
-  // 3. Add local cached notes and backfill any missing ones
+  // 3. Add local cached notes only if they are not deleted on server
   for (const localNote of localNotes) {
+    if (!localNote || !localNote.id) continue;
+    const idStr = String(localNote.id).replace(/^note-/, '');
+    if (isValidUuid(idStr) && hasServerResponse && !serverNoteIds.has(idStr)) {
+      currentDeleted.add(idStr);
+      markNoteIdDeleted(user, idStr);
+      continue;
+    }
     addCandidate(localNote);
   }
 

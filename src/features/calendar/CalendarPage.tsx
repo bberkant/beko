@@ -40,7 +40,8 @@ import {
   updateNoteInSupabase,
   deleteNoteFromSupabase,
   clearAllUserNotesInSupabase,
-  generateNoteUuid
+  generateNoteUuid,
+  markNoteIdDeleted
 } from './utils/calendarNotesSync';
 
 export type EventType = 
@@ -603,7 +604,12 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
         schema: 'public', 
         table: 'calendar_notes',
         filter: `organization_id=eq.${orgId}`
-      }, () => {
+      }, (payload: any) => {
+        if (payload && (payload.eventType === 'DELETE' || payload.event === 'DELETE') && payload.old?.id) {
+          const delId = String(payload.old.id).replace(/^note-/, '');
+          markNoteIdDeleted(user, delId);
+          setNotes(prev => prev.filter(n => String(n.id).replace(/^note-/, '') !== delId));
+        }
         triggerDebouncedSync();
       })
       .subscribe();
