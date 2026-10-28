@@ -187,7 +187,7 @@ export function groupCustomerChecks(
   const b_garanti_fak: MatrixBlock = { id: 'garanti-fak', title: 'GARANTİ FAKTORİNG', checks: [], subtotal: 0 };
   const b_marif_ulusal: MatrixBlock = { id: 'marif-ulusal-fakir', title: 'MARİF ULUSAL FAKTORİNG', checks: [], subtotal: 0 };
   const b_isbank_fakir: MatrixBlock = { id: 'isbank-fakir', title: 'İŞBANK FAKTORİNG', checks: [], subtotal: 0 };
-  const b_marif_yapi: MatrixBlock = { id: 'marif-yapi-fakir', title: 'YAPI FAKTORİNG', checks: [], subtotal: 0 };
+  const b_marif_yapi: MatrixBlock = { id: 'marif-yapi-fakir', title: 'MARİF YAPI FAKTORİNG', checks: [], subtotal: 0 };
   const b_deniz_fakir: MatrixBlock = { id: 'deniz-fakir', title: 'DENİZ FAKTORİNG', checks: [], subtotal: 0 };
 
   // Strip 5: FİNANS FAKTORİNG, FİBA FAKTORİNG, TEB FAKTORİNG, FİGO FAKTORİNG, ELİMİZDEKİ ÇEKLER
@@ -264,7 +264,7 @@ export function groupCustomerChecks(
     else if (isTeminataVerildi && (tb === 'İŞBANK FAKTORİNG' || tb === 'ISBANK FAKTORING' || tb === 'İŞBANK FAKİR')) {
       b_isbank_fakir.checks.push(c);
     }
-    else if (isTeminataVerildi && (tb === 'YAPI FAKTORİNG' || tb === 'YAPI FAKTORING' || tb === 'MARİF YAPI FAKİR')) {
+    else if (isTeminataVerildi && (tb === 'MARİF YAPI FAKTORİNG' || tb === 'MARIF YAPI FAKTORING' || tb === 'YAPI FAKTORİNG' || tb === 'YAPI FAKTORING' || tb === 'MARİF YAPI FAKİR' || tb === 'MARIF YAPI FAKIR')) {
       b_marif_yapi.checks.push(c);
     }
     else if (isTeminataVerildi && (tb === 'DENİZ FAKTORİNG' || tb === 'DENIZ FAKTORING' || tb === 'DENİZ FAKİR')) {
