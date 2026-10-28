@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Download, ChevronDown, Filter, Pencil } from 'lucide-react';
+import { Plus, Search, Download, ChevronDown, Filter, Pencil, Zap, Droplets, Flame, Wifi } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { useToast } from '../../../lib/toast';
@@ -394,16 +394,80 @@ export function BillListPage() {
 
       {/* Filter and Search Bar */}
       <div className="card p-3.5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              className="input w-full pl-9 pr-4 text-sm"
-              placeholder="Fatura adı, abone no veya açıklama ara..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-1 flex-wrap items-center gap-2.5">
+            <div className="relative w-full sm:w-80">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                className="input w-full pl-9 pr-4 text-sm"
+                placeholder="Fatura adı, abone no veya açıklama ara..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('all')}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                  selectedCategory === 'all'
+                    ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Tümü
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedCategory(selectedCategory === 'elektrik' ? 'all' : 'elektrik')}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                  selectedCategory === 'elektrik'
+                    ? 'border-amber-500 bg-amber-500 text-white shadow-sm'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
+                }`}
+              >
+                <Zap size={13} />
+                Elektrik
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedCategory(selectedCategory === 'su' ? 'all' : 'su')}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                  selectedCategory === 'su'
+                    ? 'border-sky-500 bg-sky-500 text-white shadow-sm'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-sky-50 hover:text-sky-700 hover:border-sky-200'
+                }`}
+              >
+                <Droplets size={13} />
+                Su
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedCategory(selectedCategory === 'dogalgaz' ? 'all' : 'dogalgaz')}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                  selectedCategory === 'dogalgaz'
+                    ? 'border-orange-500 bg-orange-500 text-white shadow-sm'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-orange-50 hover:text-orange-700 hover:border-orange-200'
+                }`}
+              >
+                <Flame size={13} />
+                Doğalgaz
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedCategory(selectedCategory === 'internet_telefon' ? 'all' : 'internet_telefon')}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                  selectedCategory === 'internet_telefon'
+                    ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200'
+                }`}
+              >
+                <Wifi size={13} />
+                İnternet / Tel
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
