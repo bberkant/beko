@@ -27,6 +27,7 @@ import { SectionCard } from '../../components/ui/SectionCard';
 import { useStore } from '../credit-cards/data/store';
 import { useVehicles } from '../vehicles/store';
 import { useSafeBills } from '../bills/data/store';
+import { resolveBillDueDate } from '../bills/data/labels';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { fixCorruptedTurkishText } from '../../lib/turkishTextFixer';
@@ -64,6 +65,7 @@ export const ALL_EVENT_TYPES: EventType[] = [
 export const DEFAULT_ACTIVE_EVENT_TYPES: EventType[] = [
   'note',
   'credit-card',
+  'bill',
   'tender',
   'insurance',
   'inspection'
@@ -309,13 +311,15 @@ export function useCalendarEvents(){
       });
     }
 
-    // 3. Şirket Faturaları (Elektrik, Su, Doğalgaz, İnternet vb.)
+    // 3. Şirket Faturaları (Elektrik, Su, Doğalgaz, İnternet vb. - Aylık Yenilenen Son Ödeme Günü)
     const bills = billsContext?.bills || [];
     const invoices = billsContext?.invoices || [];
 
     for (const b of bills) {
-      if (!b.dueDate || b.billStatus === 'odendi') continue;
-      const dKey = dateKey(b.dueDate);
+      if (!b.dueDate) continue;
+      const resolved = resolveBillDueDate(b);
+      if (resolved.effectiveStatus === 'odendi') continue;
+      const dKey = dateKey(resolved.date);
       result.push({
         id: `bill-${b.id}`,
         date: dKey,
@@ -325,14 +329,14 @@ export function useCalendarEvents(){
         institution: b.name || 'Kurumsal Fatura',
         detail: `${(b.category || '').toUpperCase()} faturası ${b.notes ? `(${b.notes})` : ''}`,
         type: 'bill',
-        to: '/faturalar',
+        to: '/finans/faturalar',
         amount: b.currentAmount > 0 ? `${Number(b.currentAmount).toLocaleString('tr-TR')} ₺` : '—',
         teminat: '—',
         statusLabel: b.autoPayment ? 'Otomatik Ödeme' : 'Ödeme Bekliyor',
         statusClass: b.autoPayment 
           ? 'bg-blue-50 text-blue-700 border border-blue-200' 
           : 'bg-orange-50 text-orange-700 border border-orange-200',
-        timeStr: formatDate(b.dueDate)
+        timeStr: formatDate(resolved.date)
       });
     }
 
@@ -354,7 +358,7 @@ export function useCalendarEvents(){
         institution: parentBill?.name || 'Kurumsal Fatura',
         detail: `${parentBill?.name || 'Fatura'} · No: ${inv.invoiceNo || '—'}`,
         type: 'bill',
-        to: '/faturalar',
+        to: '/finans/faturalar',
         amount: remaining > 0 ? `${remaining.toLocaleString('tr-TR')} ₺` : '—',
         teminat: '—',
         statusLabel: inv.status === 'kismi' ? 'Kısmi Ödendi' : 'Ödeme Bekliyor',
@@ -469,12 +473,12 @@ export function CalendarPage({ embedded = false }: { embedded?: boolean }) {
 
   const userKey = user?.id || user?.email || 'default';
   const notesStorageKey = `dars_calendar_notes_${userKey}`;
-  const filterStorageKey = `dars_calendar_filters_v2_${userKey}`;
+  const filterStorageKey = `dars_calendar_filters_v3_${userKey}`;
 
   // 1. Dynamic Event Types Filter (Persisted per user, default: widely used operational types)
   const [activeTypes, setActiveTypes] = useState<EventType[]>(() => {
     try {
-      const saved = localStorage.getItem(`dars_calendar_filters_v2_${user?.id || user?.email || 'default'}`);
+      const saved = localStorage.getItem(`dars_calendar_filters_v3_${user?.id || user?.email || 'default'}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
