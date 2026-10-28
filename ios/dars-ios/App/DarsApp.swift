@@ -2,12 +2,16 @@ import SwiftUI
 import WebKit
 import UserNotifications
 import Foundation
+import BackgroundTasks
 
 // MARK: - Native Notification Manager (Kilit Ekranı & Arka Plan Bildirimleri)
 class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationManager()
     private let notificationQueue = DispatchQueue(label: "com.dars.notificationManagerQueue")
     private var hasSyncedFromJS = false
+    
+    static let bgRefreshTaskId = "com.amasyaetas.mobile.refresh"
+    private var bgTaskRegistered = false
     
     override init() {
         super.init()
@@ -19,7 +23,106 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             queue: .main
         ) { [weak self] _ in
             self?.clearAppBadge()
+            self?.performNativeBackgroundLiveSync(completion: nil)
         }
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.scheduleNextBackgroundRefresh()
+            self?.performNativeBackgroundLiveSync(completion: nil)
+        }
+    }
+    
+    func registerBackgroundTasks() {
+        guard !bgTaskRegistered else { return }
+        bgTaskRegistered = true
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.bgRefreshTaskId, using: nil) { [weak self] task in
+            guard let appRefreshTask = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self?.scheduleNextBackgroundRefresh()
+            appRefreshTask.expirationHandler = {
+                appRefreshTask.setTaskCompleted(success: false)
+            }
+            self?.performNativeBackgroundLiveSync { success in
+                appRefreshTask.setTaskCompleted(success: success)
+            }
+        }
+        scheduleNextBackgroundRefresh()
+    }
+    
+    func scheduleNextBackgroundRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: Self.bgRefreshTaskId)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+        try? BGTaskScheduler.shared.submit(request)
+    }
+    
+    /// Uygulama kapalıyken veya arka plandayken canlı sunucudan (cem.amasyaetas.com ve Supabase) notları ve kartları çekip 09:00 bildirimlerini günceller
+    func performNativeBackgroundLiveSync(completion: ((Bool) -> Void)?) {
+        guard let notesURL = URL(string: "https://cem.amasyaetas.com/api/user-notes?userKey=berkant") else {
+            completion?(false)
+            return
+        }
+        var request = URLRequest(url: notesURL)
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        request.timeoutInterval = 8
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
+            guard let self = self,
+                  error == nil,
+                  let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let notes = json["notes"] as? [[String: Any]] else {
+                completion?(false)
+                return
+            }
+            
+            let activeNotes = notes.filter { item in
+                let completed = item["completed"] as? Bool ?? false
+                let content = (item["content"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                return !completed && !content.isEmpty
+            }
+            
+            guard !activeNotes.isEmpty else {
+                completion?(true)
+                return
+            }
+            
+            let cal = Calendar.current
+            let now = Date()
+            var startOffset = 0
+            if let todayNine = cal.date(bySettingHour: 9, minute: 0, second: 0, of: now), todayNine <= now {
+                startOffset = 1
+            }
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyyy-MM-dd"
+            
+            self.notificationQueue.async {
+                for dayOffset in (0..<7).reversed() {
+                    guard let targetDay = cal.date(byAdding: .day, value: startOffset + dayOffset, to: now) else { continue }
+                    let iso = fmt.string(from: targetDay)
+                    for (idx, note) in activeNotes.prefix(6).enumerated() {
+                        let rawContent = note["content"] as? String ?? ""
+                        let cleanContent = rawContent.replacingOccurrences(of: #"^[USER:[^]]+]s*"#, with: "", options: .regularExpression)
+                        self.scheduleCalendarNotification(
+                            title: "📝 Notlarım (\(idx + 1)/\(activeNotes.count)) • 09:00",
+                            body: cleanContent,
+                            identifier: "sep_daily_note_\(iso)_\(idx)",
+                            dateString: iso,
+                            advanceDays: 0,
+                            hour: 9,
+                            minute: 0,
+                            badge: 0,
+                            userInfo: ["targetScreen": "takvim"]
+                        )
+                    }
+                }
+                completion?(true)
+            }
+        }.resume()
     }
     
     func clearAppBadge() {
@@ -821,8 +924,24 @@ struct PrototypeWebView: UIViewRepresentable {
                 .appendingPathComponent("ios_prototype_ota.html")
         }
         
+        private var liveSyncTimer: Timer?
+        
         init(_ parent: PrototypeWebView) {
             self.parent = parent
+            super.init()
+            NotificationCenter.default.addObserver(
+                forName: UIApplication.willEnterForegroundNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self = self else { return }
+                self.syncLiveOTAUpdate(into: self.webView, forceReload: false)
+                self.webView?.evaluateJavaScript("if (typeof window.syncAllLiveCompanyDataSilently === 'function') { window.syncAllLiveCompanyDataSilently(true); }", completionHandler: nil)
+            }
+            liveSyncTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+                guard let self = self else { return }
+                self.webView?.evaluateJavaScript("if (typeof window.syncAllLiveCompanyDataSilently === 'function') { window.syncAllLiveCompanyDataSilently(false); }", completionHandler: nil)
+            }
         }
         
         func loadInitialContent(into webView: WKWebView) {
@@ -957,7 +1076,9 @@ struct PrototypeWebView: UIViewRepresentable {
 @main
 struct DarsApp: App {
     init() {
+        NotificationManager.shared.registerBackgroundTasks()
         NotificationManager.shared.requestAuthorization()
+        NotificationManager.shared.performNativeBackgroundLiveSync(completion: nil)
     }
     
     var body: some Scene {

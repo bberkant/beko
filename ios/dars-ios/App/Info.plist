@@ -32,6 +32,17 @@
 	<string>Hesaplama ve ekstre raporlarını galerinize kaydetmek için izin gereklidir.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Uygulamaya güvenli ve hızlı giriş yapmak için Face ID doğrulaması gereklidir.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+		<string>remote-notification</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.amasyaetas.mobile.refresh</string>
+		<string>com.amasyaetas.mobile.notifications</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

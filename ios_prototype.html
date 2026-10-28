@@ -55783,11 +55783,107 @@ function toggleSubTab(tabIndex) {
     }
 
     let liveRealtimeChannel = null;
+    let isBackgroundAutoSyncRunning = false;
+    let lastFullCompanySyncAt = 0;
     const mobileRealtimeTimers = {};
     function debounceMobileRealtime(key, fn, delayMs) {
       if (mobileRealtimeTimers[key]) clearTimeout(mobileRealtimeTimers[key]);
       mobileRealtimeTimers[key] = setTimeout(fn, delayMs || 600);
     }
+
+    async function refreshActiveCariDetailSilently() {
+      if (currentScreen !== 'cari_detail' || !activeCariDetailId) return;
+      const cari = mockCaris.find(c => c.id === activeCariDetailId);
+      if (!cari) return;
+      try {
+        const rawCode = cari.rawCode || String(cari.code || '').replace(/^CAR-/, '');
+        const res = await fetch('https://vega-api.amasyaetas.com/api/cariler/' + encodeURIComponent(rawCode) + '/hareketler');
+        if (res.ok) {
+          const json = await res.json();
+          const rows = Array.isArray(json) ? json : (json.data || []);
+          if (rows.length > 0) {
+            const mapped = mapRawVegaMovementsMobile(rows, cari);
+            cari.movements = mapped.movements;
+            cari.total = mapped.totDebit;
+            cari.paid = mapped.totCredit;
+            cari.hasLoadedLiveMovements = true;
+            renderCariDetailScreen();
+          }
+        }
+      } catch (_) {}
+    }
+
+    async function syncAllLiveCompanyDataSilently(forceAll = false) {
+      if (isBackgroundAutoSyncRunning) return;
+      isBackgroundAutoSyncRunning = true;
+      try {
+        clearAppIconBadgeMobile();
+        if (!liveSupabase && window.supabase && window.supabase.createClient) {
+          liveSupabase = window.supabase.createClient(
+            'https://zubhjybqzcpplultpsgt.supabase.co',
+            'sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG'
+          );
+        }
+
+        const nowMs = Date.now();
+        const doFullSync = forceAll || (nowMs - lastFullCompanySyncAt >= 25000);
+
+        if (doFullSync) {
+          lastFullCompanySyncAt = nowMs;
+          await Promise.allSettled([
+            syncLiveCalendarNotes(),
+            syncLiveCards(),
+            syncLiveChecks(),
+            syncLiveCektenHesabi(),
+            syncLiveCaris(),
+            syncLiveSlaughters(),
+            syncLiveTransactions(),
+            syncLivePersonnel(),
+            syncLiveVehicles(),
+            syncLiveBanks(),
+            syncLiveTenders(),
+            syncLiveEstates(),
+            syncLiveInvoices()
+          ]);
+          if (currentScreen === 'cari_detail') {
+            await refreshActiveCariDetailSilently();
+          }
+        } else {
+          // Fast 15s cycle: Notes, Credit Cards, Checks, Transactions, and whichever screen is currently open
+          const tasks = [
+            syncLiveCalendarNotes(),
+            syncLiveCards(),
+            syncLiveTransactions()
+          ];
+          if (currentScreen === 'caris' || currentScreen === 'dashboard') tasks.push(syncLiveCaris());
+          if (currentScreen === 'cari_detail') tasks.push(refreshActiveCariDetailSilently());
+          if (currentScreen === 'slaughters' || currentScreen === 'acik_mal' || currentScreen === 'kesim_cari') tasks.push(syncLiveSlaughters());
+          if (currentScreen === 'checks' || currentScreen === 'takas_cekleri' || currentScreen === 'cekten_hesabi') {
+            tasks.push(syncLiveCektenHesabi(), syncLiveChecks());
+          }
+          if (currentScreen === 'personnel') tasks.push(syncLivePersonnel());
+          if (currentScreen === 'vehicles') tasks.push(syncLiveVehicles());
+          if (currentScreen === 'bank_accounts') tasks.push(syncLiveBanks());
+          await Promise.allSettled(tasks);
+        }
+
+        isLiveConnected = true;
+        const tNow = new Date();
+        const timeStr = String(tNow.getHours()).padStart(2, '0') + ':' + String(tNow.getMinutes()).padStart(2, '0');
+        updateLiveBadge(true, 'Canlı • ' + timeStr);
+
+        rebuildLiveCalendarEvents();
+        reRenderActiveScreen();
+        syncNativeMorningNotifications(false);
+        setupLiveRealtimeSubscriptions();
+      } catch (e) {
+        console.warn('Silent auto-sync warning:', e);
+      } finally {
+        isBackgroundAutoSyncRunning = false;
+      }
+    }
+    window.syncAllLiveCompanyDataSilently = syncAllLiveCompanyDataSilently;
+
     function setupLiveRealtimeSubscriptions() {
       if (!liveSupabase || liveRealtimeChannel) return;
       try {
@@ -55802,7 +55898,7 @@ function toggleSubTab(tabIndex) {
               renderNotifications();
               renderSettings();
               syncNativeMorningNotifications(false);
-            }, 600);
+            }, 500);
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'statements' }, () => {
             debounceMobileRealtime('cards', async () => {
@@ -55813,7 +55909,7 @@ function toggleSubTab(tabIndex) {
               renderNotifications();
               renderSettings();
               syncNativeMorningNotifications(false);
-            }, 600);
+            }, 500);
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_notes' }, () => {
             debounceMobileRealtime('notes', async () => {
@@ -55822,7 +55918,7 @@ function toggleSubTab(tabIndex) {
               renderNotifications();
               renderSettings();
               syncNativeMorningNotifications(false);
-            }, 400);
+            }, 350);
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'ebs_checks' }, () => {
             debounceMobileRealtime('checks', async () => {
@@ -55832,7 +55928,7 @@ function toggleSubTab(tabIndex) {
               renderCalendar();
               renderNotifications();
               updateLiveDashboardStats();
-            }, 800);
+            }, 600);
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'cekten_hesabi' }, () => {
             debounceMobileRealtime('cekten', async () => {
@@ -55843,9 +55939,58 @@ function toggleSubTab(tabIndex) {
               renderChecks();
               renderCalendar();
               updateLiveDashboardStats();
+            }, 500);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'kesim_listesi' }, () => {
+            debounceMobileRealtime('slaughters', async () => {
+              await syncLiveSlaughters();
+              renderSlaughters();
+              updateLiveDashboardStats();
             }, 600);
           })
-          .subscribe();
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'acik_mal_odemeleri' }, () => {
+            debounceMobileRealtime('acik_mal', async () => {
+              await syncLiveSlaughters();
+              renderSlaughters();
+              if (typeof renderAcikMalScreen === 'function') renderAcikMalScreen();
+            }, 500);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'vega_cariler' }, () => {
+            debounceMobileRealtime('caris', async () => {
+              await syncLiveCaris();
+              if (currentScreen === 'caris') renderCaris(getFilteredCarisListMobile());
+              updateLiveDashboardStats();
+            }, 600);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'vega_cari_hareketler' }, () => {
+            debounceMobileRealtime('cari_mov', async () => {
+              if (currentScreen === 'cari_detail') await refreshActiveCariDetailSilently();
+            }, 600);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => {
+            debounceMobileRealtime('vehicles', async () => {
+              await syncLiveVehicles();
+              renderVehicles();
+            }, 600);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'bank_accounts' }, () => {
+            debounceMobileRealtime('banks', async () => {
+              await syncLiveBanks();
+              renderBankAccounts();
+            }, 600);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'tenders' }, () => {
+            debounceMobileRealtime('tenders', async () => {
+              await syncLiveTenders();
+              renderTenders();
+            }, 600);
+          })
+          .subscribe((status) => {
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              liveRealtimeChannel = null;
+              setTimeout(setupLiveRealtimeSubscriptions, 4000);
+            }
+          });
       } catch (e) {
         console.warn('Realtime subscription warning:', e);
       }
@@ -56004,7 +56149,7 @@ function toggleSubTab(tabIndex) {
       } else if (currentScreen === 'findeks') {
         if (typeof renderFindeksScreen === 'function') renderFindeksScreen();
       } else if (currentScreen === 'caris') {
-        if (typeof renderCaris === 'function') renderCaris(typeof mockCaris !== 'undefined' ? mockCaris : []);
+        if (typeof renderCaris === 'function') renderCaris(typeof getFilteredCarisListMobile === 'function' ? getFilteredCarisListMobile() : mockCaris);
       } else if (currentScreen === 'cari_detail') {
         if (typeof renderCariDetailScreen === 'function') renderCariDetailScreen();
       } else if (currentScreen === 'takvim') {
@@ -56288,25 +56433,20 @@ function toggleSubTab(tabIndex) {
         }
       }, 3500);
 
-      // Periodic 15s & foreground sync for computer <-> mobile per-user notes & 09:00 notifications
-      const refreshNotesAndMorningNotifications = async () => {
+      // Continuous 12s & 25s background auto-sync for all company modules (Vega ERP + Supabase) & 09:00 notifications
+      const runContinuousCompanyAutoSync = async (forceFull = false) => {
         try {
-          clearAppIconBadgeMobile();
-          const prevJson = JSON.stringify(userCalendarNotes);
-          await syncLiveCalendarNotes();
-          if (JSON.stringify(userCalendarNotes) !== prevJson) {
-            renderCalendar();
-            renderNotifications();
-            renderSettings();
-            syncNativeMorningNotifications(false);
-          }
+          await syncAllLiveCompanyDataSilently(forceFull);
         } catch (e) {}
       };
-      setInterval(refreshNotesAndMorningNotifications, 15000);
-      window.addEventListener('focus', refreshNotesAndMorningNotifications);
+      setInterval(() => { void runContinuousCompanyAutoSync(false); }, 12000);
+      setInterval(() => { void runContinuousCompanyAutoSync(true); }, 30000);
+      window.addEventListener('focus', () => { void runContinuousCompanyAutoSync(true); });
+      window.addEventListener('online', () => { void runContinuousCompanyAutoSync(true); });
+      window.addEventListener('pageshow', () => { void runContinuousCompanyAutoSync(true); });
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-          void refreshNotesAndMorningNotifications();
+          void runContinuousCompanyAutoSync(true);
         }
       });
     }
