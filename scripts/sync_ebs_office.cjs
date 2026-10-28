@@ -385,8 +385,9 @@ async function runMainSync() {
     if (!existingListByKey.has(key)) existingListByKey.set(key, []);
     existingListByKey.get(key).push(c);
 
-    if (c.local_id !== null && c.local_id !== undefined && c.local_id < 1000000) {
-      localIdByTypeMap.set(`${c.check_type}_${c.local_id}`, c);
+    if (c.local_id !== null && c.local_id !== undefined && c.local_id < 2000000) {
+      const rawLocalId = (c.check_type === 'kesilen' && c.local_id >= 1000000) ? (c.local_id - 1000000) : c.local_id;
+      localIdByTypeMap.set(`${c.check_type}_${rawLocalId}`, c);
     }
   });
 
@@ -605,10 +606,12 @@ async function runMainSync() {
         finalStatus = 'Tahsilde';
       }
 
+      const effectiveLocalId = (existing && existing.local_id === 1000000 + r.id) ? existing.local_id : r.id;
+
       const checkData = {
         organization_id: organizationId,
         check_type: 'kesilen',
-        local_id: r.id,
+        local_id: effectiveLocalId,
         check_no: checkNo,
         issue_date: issueDate,
         due_date: dueDate,
@@ -634,7 +637,7 @@ async function runMainSync() {
           toReplace.push({ deleteId: existing.id, insertData: checkData });
         } else {
           const hasDiff =
-            existing.local_id !== r.id ||
+            existing.local_id !== effectiveLocalId ||
             existing.document_type !== documentType ||
             existing.status !== finalStatus ||
             (existing.check_no || '') !== checkNo ||
@@ -691,20 +694,71 @@ async function runMainSync() {
     }
   }
 
-  // A) Yeni Kayıtları Ekle (Batch 100)
+  const insertedRows = [];
+
+  async function insertSingleWithCollisionHandling(row) {
+    const { data, error } = await supabase.from('ebs_checks').insert(row).select('*').single();
+    if (!error && data) {
+      insertedRows.push(data);
+      return true;
+    }
+    if (error && error.message && error.message.includes('ebs_checks_local_id_document_type_unique')) {
+      const { data: conflict } = await supabase
+        .from('ebs_checks')
+        .select('*')
+        .eq('local_id', row.local_id)
+        .eq('document_type', row.document_type)
+        .maybeSingle();
+
+      if (conflict) {
+        if (conflict.check_type === row.check_type) {
+          const { error: updErr } = await supabase.from('ebs_checks').update(row).eq('id', conflict.id);
+          if (!updErr) {
+            insertedRows.push({ ...conflict, ...row });
+            return true;
+          }
+        } else if (row.check_type === 'alinan') {
+          const shiftedLocalId = 1000000 + Number(conflict.local_id);
+          await supabase.from('ebs_checks').update({ local_id: shiftedLocalId }).eq('id', conflict.id);
+          const conflictInCache = existingChecks.find(c => c.id === conflict.id);
+          if (conflictInCache) conflictInCache.local_id = shiftedLocalId;
+          const { data: retryData, error: retryErr } = await supabase.from('ebs_checks').insert(row).select('*').single();
+          if (!retryErr && retryData) {
+            insertedRows.push(retryData);
+            return true;
+          }
+        } else {
+          const shiftedRow = { ...row, local_id: 1000000 + Number(row.local_id) };
+          const { data: retryData, error: retryErr } = await supabase.from('ebs_checks').insert(shiftedRow).select('*').single();
+          if (!retryErr && retryData) {
+            insertedRows.push(retryData);
+            return true;
+          }
+        }
+      }
+    }
+    console.error(`      HATA (Insert local_id=${row.local_id}, type=${row.check_type}):`, error ? error.message : 'Bilinmeyen hata');
+    return false;
+  }
+
+  // A) Yeni Kayıtları Ekle (Batch 100 + Çakışma Çözümlü Yedek)
   if (toInsert.length > 0) {
     console.log(`\n      Yeni kayıtlar Supabase'e ekleniyor...`);
     const batchSize = 100;
     for (let i = 0; i < toInsert.length; i += batchSize) {
       const batch = toInsert.slice(i, i + batchSize);
-      const { error } = await supabase.from('ebs_checks').insert(batch);
+      const { data, error } = await supabase.from('ebs_checks').insert(batch).select('*');
       if (error) {
-        console.error(`      HATA (Insert batch ${i}-${i + batch.length}):`, error.message);
-      } else {
-        process.stdout.write(`      [+] ${Math.min(i + batchSize, toInsert.length)} / ${toInsert.length} yeni çek eklendi...\r`);
+        console.warn(`      [!] Batch (${i}-${i + batch.length}) tekil çakışma çözümüyle ekleniyor...`);
+        for (const row of batch) {
+          await insertSingleWithCollisionHandling(row);
+        }
+      } else if (data) {
+        insertedRows.push(...data);
       }
+      process.stdout.write(`      [+] ${Math.min(i + batchSize, toInsert.length)} / ${toInsert.length} yeni çek işlendi...\r`);
     }
-    console.log(`\n      Yeni kayıtların aktarımı tamamlandı.`);
+    console.log(`\n      Yeni kayıtların aktarımı tamamlandı (${insertedRows.length} kayıt).`);
   }
 
   // B) Güncellenecek Kayıtları Güncelle
@@ -717,22 +771,47 @@ async function runMainSync() {
       await Promise.all(chunk.map(async (item) => {
         const { id, ...updateFields } = item;
         const { error } = await supabase.from('ebs_checks').update(updateFields).eq('id', id);
-        if (!error) updatedSuccess++;
-        else console.error(`      HATA (Update ${id}):`, error.message);
+        if (!error) {
+          updatedSuccess++;
+        } else if (error.message && error.message.includes('ebs_checks_local_id_document_type_unique')) {
+          if (updateFields.check_type === 'kesilen' && updateFields.local_id < 1000000) {
+            updateFields.local_id = 1000000 + Number(updateFields.local_id);
+            item.local_id = updateFields.local_id;
+            const { error: retryErr } = await supabase.from('ebs_checks').update(updateFields).eq('id', id);
+            if (!retryErr) updatedSuccess++;
+          } else if (updateFields.check_type === 'alinan') {
+            const { data: conflict } = await supabase
+              .from('ebs_checks')
+              .select('id, local_id, check_type')
+              .eq('local_id', updateFields.local_id)
+              .eq('document_type', updateFields.document_type)
+              .neq('id', id)
+              .maybeSingle();
+            if (conflict && conflict.check_type === 'kesilen') {
+              await supabase.from('ebs_checks').update({ local_id: 1000000 + Number(conflict.local_id) }).eq('id', conflict.id);
+              const { error: retryErr } = await supabase.from('ebs_checks').update(updateFields).eq('id', id);
+              if (!retryErr) updatedSuccess++;
+            }
+          }
+        } else {
+          console.error(`      HATA (Update ${id}):`, error.message);
+        }
       }));
       process.stdout.write(`      [*] ${Math.min(i + updateBatchSize, toUpdate.length)} / ${toUpdate.length} çek güncellendi...\r`);
     }
     console.log(`\n      ${updatedSuccess} adet çek başarıyla güncellendi.`);
   }
 
-  // Yerel önbelleği güncellenen durumlarla senkronize et
-  if (toUpdate.length > 0 || toReplace.length > 0) {
+  // Yerel önbelleği eklenen ve güncellenen durumlarla senkronize et
+  if (insertedRows.length > 0 || toUpdate.length > 0 || toReplace.length > 0) {
     try {
       const updateMap = new Map(toUpdate.map(u => [u.id, u]));
       const replacedSet = new Set(toReplace.map(r => r.deleteId));
+      const insertedIds = new Set(insertedRows.map(r => r.id));
       const nextCache = existingChecks
-        .filter(c => !replacedSet.has(c.id))
-        .map(c => updateMap.has(c.id) ? { ...c, ...updateMap.get(c.id) } : c);
+        .filter(c => !replacedSet.has(c.id) && !insertedIds.has(c.id))
+        .map(c => updateMap.has(c.id) ? { ...c, ...updateMap.get(c.id) } : c)
+        .concat(insertedRows);
       fs.writeFileSync(SUPA_CACHE_FILE, JSON.stringify({ timestamp: Date.now(), items: nextCache }), 'utf8');
     } catch {}
   }

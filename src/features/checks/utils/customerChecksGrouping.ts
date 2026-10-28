@@ -183,18 +183,18 @@ export function groupCustomerChecks(
   const b_isbank_iskonto: MatrixBlock = { id: 'isbank-iskonto', title: 'İŞBANK-İSKONTO', checks: [], subtotal: 0 };
   const b_vakif_katilim: MatrixBlock = { id: 'vakif-katilim', title: 'VAKIF KATILIM-SAMSUN', checks: [], subtotal: 0 };
 
-  // Strip 4: GARANTİ FAKTORİNG, MARİF ULUSAL FAKTORİNG, İŞBANK FAKTORİNG, YAPI FAKTORİNG, DENİZ FAKTORİNG
-  const b_garanti_fak: MatrixBlock = { id: 'garanti-fak', title: 'GARANTİ FAKTORİNG', checks: [], subtotal: 0 };
-  const b_marif_ulusal: MatrixBlock = { id: 'marif-ulusal-fakir', title: 'MARİF ULUSAL FAKTORİNG', checks: [], subtotal: 0 };
-  const b_isbank_fakir: MatrixBlock = { id: 'isbank-fakir', title: 'İŞBANK FAKTORİNG', checks: [], subtotal: 0 };
-  const b_marif_yapi: MatrixBlock = { id: 'marif-yapi-fakir', title: 'MARİF YAPI FAKTORİNG', checks: [], subtotal: 0 };
-  const b_deniz_fakir: MatrixBlock = { id: 'deniz-fakir', title: 'DENİZ FAKTORİNG', checks: [], subtotal: 0 };
+  // Strip 4: GARANTİ FAKİR, MARİF ULUSAL FAKİR, İŞBANK FAKİR, MARİF YAPI FAKİR, DENİZ FAKİR
+  const b_garanti_fak: MatrixBlock = { id: 'garanti-fak', title: 'GARANTİ FAKİR', checks: [], subtotal: 0 };
+  const b_marif_ulusal: MatrixBlock = { id: 'marif-ulusal-fakir', title: 'MARİF ULUSAL FAKİR', checks: [], subtotal: 0 };
+  const b_isbank_fakir: MatrixBlock = { id: 'isbank-fakir', title: 'İŞBANK FAKİR', checks: [], subtotal: 0 };
+  const b_marif_yapi: MatrixBlock = { id: 'marif-yapi-fakir', title: 'MARİF YAPI FAKİR', checks: [], subtotal: 0 };
+  const b_deniz_fakir: MatrixBlock = { id: 'deniz-fakir', title: 'DENİZ FAKİR', checks: [], subtotal: 0 };
 
-  // Strip 5: FİNANS FAKTORİNG, FİBA FAKTORİNG, TEB FAKTORİNG, FİGO FAKTORİNG, ELİMİZDEKİ ÇEKLER
-  const b_finans_fakir: MatrixBlock = { id: 'finans-fakir', title: 'FİNANS FAKTORİNG', checks: [], subtotal: 0 };
-  const b_fiba_fakir: MatrixBlock = { id: 'fiba-fakir', title: 'FİBA FAKTORİNG', checks: [], subtotal: 0 };
-  const b_teb_fakir: MatrixBlock = { id: 'teb-fakir', title: 'TEB FAKTORİNG', checks: [], subtotal: 0 };
-  const b_figo_fakir: MatrixBlock = { id: 'figo-fakir', title: 'FİGO FAKTORİNG', checks: [], subtotal: 0 };
+  // Strip 5: FİNANS FAKİR, FİBA FAKİR, TEB FAKİR, FİGO FAKİR, ELİMİZDEKİ ÇEKLER
+  const b_finans_fakir: MatrixBlock = { id: 'finans-fakir', title: 'FİNANS FAKİR', checks: [], subtotal: 0 };
+  const b_fiba_fakir: MatrixBlock = { id: 'fiba-fakir', title: 'FİBA FAKİR', checks: [], subtotal: 0 };
+  const b_teb_fakir: MatrixBlock = { id: 'teb-fakir', title: 'TEB FAKİR', checks: [], subtotal: 0 };
+  const b_figo_fakir: MatrixBlock = { id: 'figo-fakir', title: 'FİGO FAKİR', checks: [], subtotal: 0 };
   const b_elimizdeki: MatrixBlock = { id: 'elimizdeki-cekler', title: 'ELİMİZDEKİ ÇEKLER', checks: [], subtotal: 0 };
 
   // Strip 6: TAHSİLDEKİ SENETLER
@@ -342,7 +342,7 @@ export function groupCustomerChecks(
     const slug = bankName.toLowerCase().replace(/[^a-z0-9]/g, '-');
     dynamicBlocks.push({
       id: `dynamic-${slug}`,
-      title: bankName,
+      title: bankName.replace(/FAKTOR[İI]NG/gi, 'FAKİR'),
       checks: bankChecks,
       subtotal,
     });
@@ -375,7 +375,7 @@ export function groupCustomerChecks(
   const strip4Blocks = [b_garanti_fak, b_marif_ulusal, b_isbank_fakir, b_marif_yapi, b_deniz_fakir];
   const strip4: MatrixStrip = {
     stripNumber: 4,
-    title: 'GARANTİ / ULUSAL / İŞBANK / YAPI / DENİZ FAKTORİNG',
+    title: 'GARANTİ / ULUSAL / İŞBANK / MARİF YAPI / DENİZ FAKİR',
     blocks: strip4Blocks,
     stripTotal: strip4Blocks.reduce((sum, b) => sum + b.subtotal, 0),
   };
@@ -384,7 +384,7 @@ export function groupCustomerChecks(
   const strip5Blocks = [b_finans_fakir, b_fiba_fakir, b_teb_fakir, b_figo_fakir, b_elimizdeki, ...dynamicBlocks];
   const strip5: MatrixStrip = {
     stripNumber: 5,
-    title: 'FİNANS / FİBA / TEB / FİGO FAKTORİNG & ELİMİZDEKİ ÇEKLER',
+    title: 'FİNANS / FİBA / TEB / FİGO FAKİR & ELİMİZDEKİ ÇEKLER',
     blocks: strip5Blocks,
     stripTotal: strip5Blocks.reduce((sum, b) => sum + b.subtotal, 0),
   };
