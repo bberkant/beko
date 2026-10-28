@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ExternalLink, Radar, X } from 'lucide-react';
+import { ExternalLink, Radar, X, CheckCircle2 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
@@ -46,20 +46,81 @@ export function EkapCandidates({ canWrite, onAccepted }: { canWrite: boolean; on
     setLoading(true);
     const now = new Date();
     const scanEndsAt = new Date(now.getTime() + (15 * 24 * 60 * 60 * 1000));
-    const { data, error } = await supabase
-      .from('ekap_candidates')
-      .select('id,ikn,title,institution,city,deadline_at,matched_keyword')
-      .eq('organization_id', user.organizationId)
-      .eq('status', 'bekliyor')
-      .or('scope.is.null,scope.eq.tender,scope.eq.4734,scope.eq.ihale')
-      .not('ikn', 'ilike', '%DT%')
-      .gte('deadline_at', now.toISOString())
-      .lte('deadline_at', scanEndsAt.toISOString())
-      .order('deadline_at');
-    
-    if (!error) setItems((data ?? []) as Candidate[]);
-    setLoading(false);
-  }, [user?.organizationId]);
+
+    try {
+      // 1. Bekleyen adaylar varsa otomatik olarak onaylayıp doğrudan ihaleler tablosuna ekle
+      const { data: pendingData } = await supabase
+        .from('ekap_candidates')
+        .select('*')
+        .eq('organization_id', user.organizationId)
+        .eq('status', 'bekliyor')
+        .or('scope.is.null,scope.eq.tender,scope.eq.4734,scope.eq.ihale')
+        .not('ikn', 'ilike', '%DT%')
+        .gte('deadline_at', now.toISOString())
+        .lte('deadline_at', scanEndsAt.toISOString())
+        .order('deadline_at');
+
+      if (pendingData && pendingData.length > 0) {
+        let addedCount = 0;
+        for (const item of pendingData) {
+          const { error: insError } = await supabase.from('tenders').insert({
+            organization_id: user.organizationId,
+            tender_number: item.ikn,
+            title: item.title,
+            institution: item.institution,
+            tender_type: 'mal',
+            method: 'acik',
+            status: 'hazirlaniyor',
+            estimated_amount: 0,
+            currency: 'TRY',
+            deadline_at: item.deadline_at,
+            assigned_to: '',
+            description: `EKAP 4734 kapsamı · Eşleşme: ${item.matched_keyword || 'OKAS 15100000'}`,
+            created_by: user.id
+          });
+
+          if (!insError || insError.code === '23505') {
+            addedCount++;
+          }
+        }
+
+        const ids = pendingData.map(c => c.id);
+        await supabase
+          .from('ekap_candidates')
+          .update({
+            status: 'onaylandi',
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: user.id
+          })
+          .in('id', ids);
+
+        if (addedCount > 0) {
+          notify(`${addedCount} adet yeni EKAP ihalesi otomatik onaylanıp listeye eklendi.`, 'success');
+          await onAccepted();
+        }
+      }
+
+      // 2. Önümüzdeki 15 gün içinde otomatik eklenmiş (onaylanmış) güncel ihaleleri getir
+      const { data: approvedData, error } = await supabase
+        .from('ekap_candidates')
+        .select('id,ikn,title,institution,city,deadline_at,matched_keyword')
+        .eq('organization_id', user.organizationId)
+        .eq('status', 'onaylandi')
+        .or('scope.is.null,scope.eq.tender,scope.eq.4734,scope.eq.ihale')
+        .not('ikn', 'ilike', '%DT%')
+        .gte('deadline_at', now.toISOString())
+        .lte('deadline_at', scanEndsAt.toISOString())
+        .order('deadline_at');
+
+      if (!error && approvedData) {
+        setItems(approvedData as Candidate[]);
+      }
+    } catch (e: any) {
+      console.warn('EKAP aday senkronizasyon hatası:', e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.organizationId, user?.id, notify, onAccepted]);
 
   const fetchActiveRequest = useCallback(async () => {
     if (!user?.organizationId) return;
@@ -73,11 +134,10 @@ export function EkapCandidates({ canWrite, onAccepted }: { canWrite: boolean; on
       .maybeSingle();
 
     if (!error && data) {
-      // If status changed from pending/running to completed/failed, notify and reload list
       setActiveRequest((prev: any) => {
         if (prev && ['pending', 'running'].includes(prev.status) && !['pending', 'running'].includes(data.status)) {
           if (data.status === 'completed') {
-            notify('EKAP 4734 İhale taraması başarıyla tamamlandı!', 'success');
+            notify('EKAP 4734 İhale taraması tamamlandı, ihaleler listeye eklendi!', 'success');
             void refresh();
           } else if (data.status === 'failed') {
             notify(`EKAP taraması başarısız oldu: ${data.error_message || 'Bilinmeyen hata'}`, 'error');
@@ -125,117 +185,53 @@ export function EkapCandidates({ canWrite, onAccepted }: { canWrite: boolean; on
     if (error) {
       notify(error.message, 'error');
     } else {
-      notify('4734 İhale tarama talebi sıraya alındı.', 'success');
+      notify('İhale tarama talebi sıraya alındı, bulunanlar otomatik eklenecek.', 'success');
       setActiveRequest({ status: 'pending', start_date: startDateInput, end_date: endDateInput, scope: 'tender' });
       void fetchActiveRequest();
     }
     setScanSubmitting(false);
   };
 
-  const review = async (item: Candidate, accept: boolean) => {
-    if (!user?.organizationId || !user.id) return;
-    if (accept) {
-      const { error } = await supabase.from('tenders').insert({
-        organization_id: user.organizationId,
-        tender_number: item.ikn,
-        title: item.title,
-        institution: item.institution,
-        tender_type: 'mal',
-        method: 'acik',
-        status: 'hazirlaniyor',
-        estimated_amount: 0,
-        currency: 'TRY',
-        deadline_at: item.deadline_at,
-        assigned_to: '',
-        description: `EKAP 4734 kapsamı · Eşleşme: ${item.matched_keyword}`
-      });
-      if (error && error.code !== '23505') {
-        notify(error.message, 'error');
-        return;
-      }
-    }
-    const { error } = await supabase
+  const removeCandidate = async (item: Candidate) => {
+    if (!user?.organizationId) return;
+    if (!confirm(`“${item.title}” ihalesi listeden kaldırılsın mı?`)) return;
+
+    // Delete from tenders table
+    await supabase
+      .from('tenders')
+      .delete()
+      .eq('organization_id', user.organizationId)
+      .eq('tender_number', item.ikn);
+
+    // Mark as reddedildi in candidates so it won't auto-add again
+    await supabase
       .from('ekap_candidates')
       .update({
-        status: accept ? 'onaylandi' : 'reddedildi',
+        status: 'reddedildi',
         reviewed_at: new Date().toISOString(),
         reviewed_by: user.id
       })
       .eq('id', item.id)
       .eq('organization_id', user.organizationId);
 
-    if (error) {
-      notify(error.message, 'error');
-      return;
-    }
-    notify(accept ? 'İhale onaylandı ve takvime eklendi.' : 'Aday reddedildi.', 'success');
+    notify('İhale listeden kaldırıldı.', 'success');
     await refresh();
-    if (accept) await onAccepted();
-  };
-
-  const handleApproveAll = async () => {
-    if (!user?.organizationId || !user.id || items.length === 0) return;
-    setLoading(true);
-    
-    // Insert all into tenders in parallel
-    const insertPromises = items.map(async (item) => {
-      const { error } = await supabase.from('tenders').insert({
-        organization_id: user.organizationId,
-        tender_number: item.ikn,
-        title: item.title,
-        institution: item.institution,
-        tender_type: 'mal',
-        method: 'acik',
-        status: 'hazirlaniyor',
-        estimated_amount: 0,
-        currency: 'TRY',
-        deadline_at: item.deadline_at,
-        assigned_to: '',
-        description: `EKAP 4734 kapsamı · Eşleşme: ${item.matched_keyword}`
-      });
-      if (error && error.code !== '23505') {
-        throw error;
-      }
-    });
-
-    try {
-      await Promise.all(insertPromises);
-      
-      const candidateIds = items.map(item => item.id);
-      const { error: updateError } = await supabase
-        .from('ekap_candidates')
-        .update({
-          status: 'onaylandi',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.id
-        })
-        .in('id', candidateIds)
-        .eq('organization_id', user.organizationId);
-
-      if (updateError) {
-        notify(updateError.message, 'error');
-      } else {
-        notify('Tüm ihaleler onaylandı ve takvime eklendi.', 'success');
-        await refresh();
-        await onAccepted();
-      }
-    } catch (err: any) {
-      notify(err.message || 'Bir hata oluştu.', 'error');
-    } finally {
-      setLoading(false);
-    }
+    await onAccepted();
   };
 
   return (
     <>
       <button className="btn-secondary" onClick={() => { setOpen(true); void refresh(); }}>
         <Radar size={16} />
-        EKAP’tan Bulunanlar{items.length ? ` (${items.length})` : ''}
+        EKAP İhale Taraması{items.length ? ` (${items.length})` : ''}
       </button>
       
-      <Modal open={open} onClose={() => setOpen(false)} title="EKAP’tan Bulunanlar" size="lg">
-        <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-          Önümüzdeki 15 gün içinde, EKAP'ta OKAS Kodu 15100000 (Hayvansal mezbaha ürünleri, et ve et ürünleri) kapsamında yayınlanan tüm ihaleler. Onaylanan ihale İhaleler listesine ve Takvim’e eklenir.
+      <Modal open={open} onClose={() => setOpen(false)} title="EKAP İhale Taraması" size="lg">
+        <div className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 flex items-center gap-2">
+          <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+          <span>
+            Önümüzdeki 15 gün içinde, EKAP'ta OKAS Kodu 15100000 (Hayvansal mezbaha ürünleri, et ve et ürünleri) kapsamında yayınlanan tüm ihaleler otomatik olarak onaylanıp İhaleler listesine ve Takvim’e eklenir.
+          </span>
         </div>
 
         {canWrite && (
@@ -275,7 +271,7 @@ export function EkapCandidates({ canWrite, onAccepted }: { canWrite: boolean; on
                 {activeRequest.status === 'pending' && (
                   <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 rounded-lg p-2.5">
                     <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
-                    <span>Tarama sıraya alındı, yerel tarayıcı bekleniyor... (Maksimum 5 dakika içinde başlayacaktır.)</span>
+                    <span>Tarama sıraya alındı, yerel tarayıcı bekleniyor... (Bulunan ihaleler doğrudan eklenecektir.)</span>
                   </div>
                 )}
                 {activeRequest.status === 'running' && (
@@ -299,45 +295,42 @@ export function EkapCandidates({ canWrite, onAccepted }: { canWrite: boolean; on
           </div>
         )}
 
-        {items.length > 0 && canWrite && (
-          <div className="mb-4 flex justify-end">
-            <button 
-              onClick={handleApproveAll} 
-              disabled={loading}
-              className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5"
-            >
-              <Check size={14} />
-              Tümünü Onayla ({items.length})
-            </button>
-          </div>
-        )}
+        <div className="mb-2 flex items-center justify-between text-xs font-semibold text-gray-700">
+          <span>Otomatik Eklenen İhaleler ({items.length} Adet)</span>
+        </div>
 
         {loading ? (
           <div className="py-10 text-center text-gray-400">Kayıtlar yükleniyor...</div>
         ) : items.length === 0 ? (
-          <div className="py-10 text-center text-gray-400">Önümüzdeki 15 gün içinde onay bekleyen EKAP kaydı yok.</div>
+          <div className="py-10 text-center text-gray-400">Önümüzdeki 15 gün içinde otomatik eklenmiş EKAP ihalesi bulunamadı.</div>
         ) : (
           <div className="max-h-[60vh] space-y-3 overflow-y-auto">
             {items.map(x => (
-              <div key={x.id} className="rounded-xl border border-gray-200 p-4">
+              <div key={x.id} className="rounded-xl border border-gray-200 p-4 hover:border-gray-300 transition-colors">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="mb-1 text-xs font-medium text-brand-600">{x.ikn} · {x.matched_keyword}</div>
-                    <div className="font-medium text-gray-900">{x.title}</div>
-                    <div className="mt-1 text-sm text-gray-500">
-                      {x.institution} · {x.city || '—'} · {new Date(x.deadline_at).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-brand-600">{x.ikn}</span>
+                      <span className="text-xs text-gray-400">·</span>
+                      <span className="text-xs text-gray-600">{x.matched_keyword}</span>
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                        Otomatik Eklendi
+                      </span>
+                    </div>
+                    <div className="font-semibold text-gray-900 text-sm">{x.title}</div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      {x.institution} · {x.city || '—'} · Son Teklif: <strong className="text-gray-700">{new Date(x.deadline_at).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</strong>
                     </div>
                   </div>
                   {canWrite && (
-                    <div className="flex shrink-0 gap-2">
-                      <button className="btn-secondary px-3" onClick={() => void review(x, false)} title="Reddet">
-                        <X size={16} />
-                      </button>
-                      <button className="btn-primary px-3" onClick={() => void review(x, true)} title="Onayla">
-                        <Check size={16} />
-                        Onayla
-                      </button>
-                    </div>
+                    <button 
+                      className="btn-secondary px-2.5 py-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0 flex items-center gap-1"
+                      onClick={() => void removeCandidate(x)} 
+                      title="Listeden Kaldır"
+                    >
+                      <X size={14} />
+                      <span>Kaldır</span>
+                    </button>
                   )}
                 </div>
                 <a 

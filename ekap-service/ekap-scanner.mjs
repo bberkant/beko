@@ -233,6 +233,28 @@ if (candidates.length > 0) {
   const newCandidates = candidates.filter(c => !existingIkns.has(c.ikn));
 
   console.log(`💾 Veritabanına aktarılıyor (${newCandidates.length} yeni aday)...`);
+  for (const c of candidates) {
+    c.status = 'onaylandi';
+    c.reviewed_at = new Date().toISOString();
+    if (c.scope !== 'dogrudan_temin' && !c.ikn.includes('DT')) {
+      await supabase.from('tenders').insert({
+        organization_id: c.organization_id,
+        tender_number: c.ikn,
+        title: c.title,
+        institution: c.institution,
+        tender_type: 'mal',
+        method: 'acik',
+        status: 'hazirlaniyor',
+        estimated_amount: 0,
+        currency: 'TRY',
+        deadline_at: c.deadline_at,
+        assigned_to: '',
+        description: `EKAP 4734 kapsamı · Eşleşme: ${c.matched_keyword || 'OKAS 15100000'}`,
+        created_by: '9c242e61-e15f-41b5-b1e6-60a02baed90a'
+      }).select().maybeSingle().catch(() => undefined);
+    }
+  }
+
   const { error: upsertErr } = await supabase
     .from('ekap_candidates')
     .upsert(candidates, { onConflict: 'organization_id,ikn' });
@@ -241,40 +263,6 @@ if (candidates.length > 0) {
     console.error('Veritabanı kayıt hatası:', upsertErr.message);
   } else {
     console.log('✅ İhale adayları veritabanına başarıyla kaydedildi!');
-  }
-
-  // 5. Telegram Bildirimi Gönder
-  if (newCandidates.length > 0) {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
-
-    if (token && chatId) {
-      console.log(`📱 ${newCandidates.length} yeni ihale için Telegram bildirimi gönderiliyor...`);
-      let messageText = `🔔 <b>YENİ EKAP İHALELERİ BULUNDU!</b>\n\n`;
-      newCandidates.slice(0, 10).forEach((c, idx) => {
-        const date = new Date(c.deadline_at);
-        const formattedDate = `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-        messageText += `${idx + 1}. <b>İKN:</b> <code>${c.ikn}</code>\n`;
-        messageText += `<b>Konu:</b> ${c.title}\n`;
-        messageText += `<b>Kurum:</b> ${c.institution}\n`;
-        messageText += `<b>Şehir:</b> ${c.city}\n`;
-        messageText += `<b>Son Teklif:</b> ${formattedDate}\n\n`;
-      });
-
-      try {
-        const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text: messageText, parse_mode: 'HTML' })
-        });
-        const tgJson = await tgRes.json();
-        if (tgJson.ok) {
-          console.log('✅ Telegram bildirimi başarıyla iletildi.');
-        }
-      } catch (tgErr) {
-        console.warn('Telegram bildirim hatası:', tgErr.message);
-      }
-    }
   }
 }
 
