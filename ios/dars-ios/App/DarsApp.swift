@@ -60,13 +60,17 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         try? BGTaskScheduler.shared.submit(request)
     }
     
-    /// Uygulama kapalıyken veya arka plandayken canlı sunucudan (cem.amasyaetas.com ve Supabase) notları ve o günün kartlarını çekip 09:00 bildirimlerini günceller
+    /// Uygulama kapalıyken veya arka plandayken canlı sunucudan (cem.amasyaetas.com ve Supabase) notları, o günün kartlarını ve faturalarını çekip 09:00 bildirimlerini günceller
     func performNativeBackgroundLiveSync(completion: ((Bool) -> Void)?) {
         guard let notesURL = URL(string: "https://cem.amasyaetas.com/api/user-notes?userKey=berkant"),
-              let cardsURL = URL(string: "https://zubhjybqzcpplultpsgt.supabase.co/rest/v1/credit_cards?select=*&status=eq.aktif") else {
+              let cardsURL = URL(string: "https://zubhjybqzcpplultpsgt.supabase.co/rest/v1/credit_cards?select=*&status=eq.aktif"),
+              let authURL = URL(string: "https://zubhjybqzcpplultpsgt.supabase.co/auth/v1/token?grant_type=password"),
+              let billsURL = URL(string: "https://zubhjybqzcpplultpsgt.supabase.co/rest/v1/company_bills?select=*") else {
             completion?(false)
             return
         }
+        let sbApiKey = "sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG"
+        
         var notesReq = URLRequest(url: notesURL)
         notesReq.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         notesReq.timeoutInterval = 8
@@ -74,11 +78,12 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         var cardsReq = URLRequest(url: cardsURL)
         cardsReq.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         cardsReq.timeoutInterval = 8
-        cardsReq.setValue("sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG", forHTTPHeaderField: "apikey")
+        cardsReq.setValue(sbApiKey, forHTTPHeaderField: "apikey")
         
         let group = DispatchGroup()
         var fetchedNotes: [[String: Any]] = []
         var fetchedCards: [[String: Any]] = []
+        var fetchedBills: [[String: Any]] = []
         
         group.enter()
         URLSession.shared.dataTask(with: notesReq) { data, _, error in
@@ -99,6 +104,36 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                let cards = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
                 fetchedCards = cards
             }
+        }.resume()
+        
+        group.enter()
+        var authReq = URLRequest(url: authURL)
+        authReq.httpMethod = "POST"
+        authReq.timeoutInterval = 8
+        authReq.setValue(sbApiKey, forHTTPHeaderField: "apikey")
+        authReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        authReq.httpBody = try? JSONSerialization.data(withJSONObject: ["email": "admin@ops360.local", "password": "123berkant_"])
+        URLSession.shared.dataTask(with: authReq) { authData, _, authErr in
+            guard authErr == nil,
+                  let authData = authData,
+                  let authJson = try? JSONSerialization.jsonObject(with: authData) as? [String: Any],
+                  let accessToken = authJson["access_token"] as? String else {
+                group.leave()
+                return
+            }
+            var billsReq = URLRequest(url: billsURL)
+            billsReq.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            billsReq.timeoutInterval = 8
+            billsReq.setValue(sbApiKey, forHTTPHeaderField: "apikey")
+            billsReq.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            URLSession.shared.dataTask(with: billsReq) { bData, _, bErr in
+                defer { group.leave() }
+                if bErr == nil,
+                   let bData = bData,
+                   let bills = try? JSONSerialization.jsonObject(with: bData) as? [[String: Any]] {
+                    fetchedBills = bills
+                }
+            }.resume()
         }.resume()
         
         group.notify(queue: self.notificationQueue) { [weak self] in
@@ -128,10 +163,11 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 let iso = fmt.string(from: targetDay)
                 let trDate = trFmt.string(from: targetDay)
                 let dayOfMonth = cal.component(.day, from: targetDay)
+                let weekday = cal.component(.weekday, from: targetDay) // 1=Pazar, 2=Pazartesi, 7=Cumartesi
                 
-                // Sadece o gün son ödeme günü olan kartlar (örn. 28. gün -> ETİK & MARİF KUVEYT FİNANSMAN KART)
+                // 1) Sadece o gün son ödeme günü olan kartlar (örn. 28. gün -> ETİK & MARİF KUVEYT FİNANSMAN KART)
                 let dueCardsForDay = fetchedCards.filter { card in
-                    let dueDay = (card["due_day"] as? Int) ?? Int("(card["due_day"] ?? 0)") ?? 0
+                    let dueDay = (card["due_day"] as? Int) ?? Int("\(card["due_day"] ?? 0)") ?? 0
                     return dueDay == dayOfMonth
                 }
                 
@@ -139,9 +175,9 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                     let bank = card["bank"] as? String ?? "Kredi Kartı"
                     let cardName = card["card_name"] as? String ?? ""
                     let last4 = card["last4"] as? String ?? ""
-                    let cardId = (card["id"] as? String) ?? "(cIdx)"
-                    let limitVal = (card["card_limit"] as? Double) ?? Double("(card["card_limit"] ?? 0)") ?? 0.0
-                    let debtVal = (card["current_debt"] as? Double) ?? Double("(card["current_debt"] ?? 0)") ?? 0.0
+                    let cardId = (card["id"] as? String) ?? "\(cIdx)"
+                    let limitVal = (card["card_limit"] as? Double) ?? Double("\(card["card_limit"] ?? 0)") ?? 0.0
+                    let debtVal = (card["current_debt"] as? Double) ?? Double("\(card["current_debt"] ?? 0)") ?? 0.0
                     let finDetail = debtVal > 0 ? "Güncel Borç: \(self.formatCurrency(debtVal))" : "Son Ödeme: \(trDate) • Limit: \(self.formatCurrency(limitVal))"
                     self.scheduleCalendarNotification(
                         title: "💳 \(bank) (\(cardName))",
@@ -156,9 +192,50 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                     )
                 }
                 
+                // 2) O gün son ödeme günü olan kurum faturaları (Hafta sonuna denk gelenler Pazartesiye kayar)
+                let dueBillsForDay = fetchedBills.filter { bill in
+                    let status = (bill["status"] as? String ?? "odenecek").lowercased()
+                    if status == "odendi" { return false }
+                    let rawDue = bill["due_date"] as? String ?? ""
+                    let parts = rawDue.split(separator: "-")
+                    guard parts.count == 3, let nominalDay = Int(parts[2]) else { return false }
+                    if weekday == 1 || weekday == 7 { return false }
+                    if nominalDay == dayOfMonth { return true }
+                    if weekday == 2 {
+                        if let sat = cal.date(byAdding: .day, value: -2, to: targetDay),
+                           cal.component(.day, from: sat) == nominalDay { return true }
+                        if let sun = cal.date(byAdding: .day, value: -1, to: targetDay),
+                           cal.component(.day, from: sun) == nominalDay { return true }
+                    }
+                    return false
+                }
+                
+                for (bIdx, bill) in dueBillsForDay.enumerated() {
+                    let instName = bill["institution_name"] as? String ?? "Kurum Faturası"
+                    let subNo = bill["subscriber_no"] as? String ?? "-"
+                    let billId = (bill["id"] as? String) ?? "\(bIdx)"
+                    let amtVal = (bill["amount"] as? Double) ?? Double("\(bill["amount"] ?? 0)") ?? 0.0
+                    let autoPay = bill["auto_payment"] as? Bool ?? false
+                    let autoBank = bill["auto_payment_bank"] as? String ?? ""
+                    let amtStr = amtVal > 0 ? " • Tutar: \(self.formatCurrency(amtVal))" : ""
+                    let autoStr = autoPay ? " • Otomatik: \(autoBank.isEmpty ? "Talimatlı" : autoBank)" : ""
+                    self.scheduleCalendarNotification(
+                        title: "🧾 Fatura Son Ödeme: \(instName)",
+                        body: "🚨 BUGÜN SON GÜN (Abone: \(subNo)) • Son Ödeme: \(trDate)\(amtStr)\(autoStr)",
+                        identifier: "sep_daily_bill_\(iso)_\(billId)",
+                        dateString: iso,
+                        advanceDays: 0,
+                        hour: 9,
+                        minute: 0,
+                        badge: 0,
+                        userInfo: ["targetScreen": "bills"]
+                    )
+                }
+                
+                // 3) Aktif kullanıcı notları
                 for (idx, note) in activeNotes.prefix(6).enumerated() {
                     let rawContent = note["content"] as? String ?? ""
-                    let cleanContent = rawContent.replacingOccurrences(of: #"^[USER:[^]]+]s*"#, with: "", options: .regularExpression)
+                    let cleanContent = rawContent.replacingOccurrences(of: #"^\[USER:[^\]]+\]\s*"#, with: "", options: .regularExpression)
                     self.scheduleCalendarNotification(
                         title: "📝 Notlarım (\(idx + 1)/\(activeNotes.count)) • 09:00",
                         body: cleanContent,
