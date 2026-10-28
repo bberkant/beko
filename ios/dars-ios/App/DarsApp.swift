@@ -7,10 +7,28 @@ import Foundation
 class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationManager()
     private let notificationQueue = DispatchQueue(label: "com.dars.notificationManagerQueue")
+    private var hasSyncedFromJS = false
     
     override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
+        clearAppBadge()
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.clearAppBadge()
+        }
+    }
+    
+    func clearAppBadge() {
+        DispatchQueue.main.async {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+            if #available(iOS 16.0, *) {
+                UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
+            }
+        }
     }
     
     /// Kilit ekranı banner, ses ve rozet bildirim izinlerini kullanıcıdan açıkça talep eder
@@ -18,8 +36,11 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if granted {
                 print("[DARS] Kilit ekranı bildirim izni başarıyla verildi.")
+                self.clearAppBadge()
                 DispatchQueue.main.async {
-                    self.scheduleAllFinancialReminders()
+                    if !self.hasSyncedFromJS {
+                        self.scheduleAllFinancialReminders()
+                    }
                 }
             } else if let error = error {
                 print("[DARS] Bildirim izin hatası: \(error.localizedDescription)")
@@ -312,7 +333,9 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         content.title = title
         content.body = body
         content.sound = .default
-        content.badge = NSNumber(value: badge)
+        if badge > 0 {
+            content.badge = NSNumber(value: badge)
+        }
         content.userInfo = userInfo
         
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
@@ -498,35 +521,40 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     
     /// JS köprüsünden gelen tekil hatırlatma mesajını işler
     func handleScheduleMessage(payload: [String: Any]) {
-        let title = payload["title"] as? String ?? "DARS Bildirimi"
-        let body = payload["body"] as? String ?? ""
-        let id = payload["id"] as? String ?? UUID().uuidString
-        let advanceDays = payload["advanceDays"] as? Int ?? 0
-        let hour = payload["hour"] as? Int ?? 9
-        let minute = payload["minute"] as? Int ?? 0
-        
-        if let dateStr = payload["date"] as? String, !dateStr.isEmpty {
-            scheduleCalendarNotification(
-                title: title,
-                body: body,
-                identifier: id,
-                dateString: dateStr,
-                advanceDays: advanceDays,
-                hour: hour,
-                minute: minute,
-                userInfo: payload
-            )
-        } else if let dueDay = payload["dueDay"] as? Int {
-            scheduleCreditCardReminder(
-                id: id,
-                bank: payload["bank"] as? String ?? title,
-                cardName: title,
-                dueDay: dueDay,
-                debt: payload["debt"] as? Double,
-                minPayment: payload["minPayment"] as? Double
-            )
-        } else if let delay = payload["delay"] as? Double {
-            scheduleNotification(title: title, body: body, identifier: id, timeInterval: delay)
+        hasSyncedFromJS = true
+        notificationQueue.async {
+            let title = payload["title"] as? String ?? "DARS Bildirimi"
+            let body = payload["body"] as? String ?? ""
+            let id = payload["id"] as? String ?? UUID().uuidString
+            let advanceDays = payload["advanceDays"] as? Int ?? 0
+            let hour = payload["hour"] as? Int ?? 9
+            let minute = payload["minute"] as? Int ?? 0
+            let badgeVal = payload["badge"] as? Int ?? 0
+            
+            if let dateStr = payload["date"] as? String, !dateStr.isEmpty {
+                self.scheduleCalendarNotification(
+                    title: title,
+                    body: body,
+                    identifier: id,
+                    dateString: dateStr,
+                    advanceDays: advanceDays,
+                    hour: hour,
+                    minute: minute,
+                    badge: badgeVal,
+                    userInfo: payload
+                )
+            } else if let dueDay = payload["dueDay"] as? Int {
+                self.scheduleCreditCardReminder(
+                    id: id,
+                    bank: payload["bank"] as? String ?? title,
+                    cardName: title,
+                    dueDay: dueDay,
+                    debt: payload["debt"] as? Double,
+                    minPayment: payload["minPayment"] as? Double
+                )
+            } else if let delay = payload["delay"] as? Double {
+                self.scheduleNotification(title: title, body: body, identifier: id, timeInterval: delay, badge: badgeVal > 0 ? badgeVal : nil)
+            }
         }
     }
     
@@ -536,7 +564,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         content.title = title
         content.body = body
         content.sound = .default
-        if let b = badge {
+        if let b = badge, b > 0 {
             content.badge = NSNumber(value: b)
         }
         
@@ -554,8 +582,11 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     
     /// Bekleyen tüm bildirim taleplerini temizler
     func clearAllPendingNotifications() {
+        hasSyncedFromJS = true
+        clearAppBadge()
         notificationQueue.async {
             UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+            UNUserNotificationCenter.current().removeAllDeliveredNotifications()
             print("[DARS] Tüm bekleyen kilit ekranı bildirimleri temizlendi.")
         }
     }
@@ -693,6 +724,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        clearAppBadge()
         let identifier = response.notification.request.identifier
         let userInfo = response.notification.request.content.userInfo
         print("[DARS] Kullanıcı kilit ekranı bildirimine dokundu: \(identifier), userInfo: \(userInfo)")
@@ -911,6 +943,8 @@ struct PrototypeWebView: UIViewRepresentable {
                 NotificationManager.shared.requestAuthorization()
             case "clearAll":
                 NotificationManager.shared.clearAllPendingNotifications()
+            case "clearBadge":
+                NotificationManager.shared.clearAppBadge()
             default:
                 // Handle direct payload or legacy delay message
                 NotificationManager.shared.handleScheduleMessage(payload: dict)
