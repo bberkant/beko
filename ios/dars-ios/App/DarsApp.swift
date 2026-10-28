@@ -26,10 +26,18 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             self?.performNativeBackgroundLiveSync(completion: nil)
         }
         NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.clearAppBadge()
+        }
+        NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            self?.clearAppBadge()
             self?.scheduleNextBackgroundRefresh()
             self?.performNativeBackgroundLiveSync(completion: nil)
         }
@@ -255,10 +263,12 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     
     func clearAppBadge() {
         DispatchQueue.main.async {
+            UIApplication.shared.applicationIconBadgeNumber = -1
             UIApplication.shared.applicationIconBadgeNumber = 0
             if #available(iOS 16.0, *) {
                 UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
             }
+            UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         }
     }
     
@@ -343,7 +353,6 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         advContent.title = "💳 Kredi Kartı Son Ödeme Uyarısı"
         advContent.body = "\(bank) \(cardName) son ödeme gününe 2 gün kaldı.\(debtStr)"
         advContent.sound = .default
-        advContent.badge = 1
         advContent.userInfo = ["type": "credit-card", "id": id, "dueDay": validDueDay, "targetScreen": "credit_cards"]
         
         let advTrigger = UNCalendarNotificationTrigger(dateMatching: advComponents, repeats: true)
@@ -364,7 +373,6 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         dueContent.title = "💳 Kredi Kartı Son Ödeme Günü"
         dueContent.body = "Bugün \(bank) \(cardName) son ödeme günüdür.\(minPayStr.isEmpty ? debtStr : minPayStr)"
         dueContent.sound = .default
-        dueContent.badge = 1
         dueContent.userInfo = ["type": "credit-card", "id": id, "dueDay": validDueDay, "targetScreen": "credit_cards"]
         
         let dueTrigger = UNCalendarNotificationTrigger(dateMatching: dueComponents, repeats: true)
@@ -425,7 +433,6 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 content.title = "🚨 Çek Vadesi Yaklaşıyor (2 Gün Kaldı)"
                 content.body = "\(isKesilen ? "Ödenecek" : "Tahsil edilecek") çek vadesine 2 gün kaldı: \(details)"
                 content.sound = .default
-                content.badge = 1
                 content.userInfo = ["type": "check", "id": id, "dueDate": dueDate, "targetScreen": "checks"]
                 
                 let trigger = UNCalendarNotificationTrigger(dateMatching: advComponents, repeats: false)
@@ -447,7 +454,6 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             content.title = "🚨 Çek Vadesi Bugün!"
             content.body = "Bugün vadesi dolan \(actionWord) çeki: \(details)"
             content.sound = .default
-            content.badge = 1
             content.userInfo = ["type": "check", "id": id, "dueDate": dueDate, "targetScreen": "checks"]
             
             let trigger = UNCalendarNotificationTrigger(dateMatching: dueComponents, repeats: false)
@@ -484,7 +490,6 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                     content.title = "🚗 Araç Muayene & Sigorta Takibi (TÜVTÜRK Muayene)"
                     content.body = "\(vehicleDesc) periyodik araç muayenesine 2 gün kaldı (\(inspStr))."
                     content.sound = .default
-                    content.badge = 1
                     content.userInfo = ["type": "vehicle_inspection", "id": id, "plate": plate, "targetScreen": "vehicles"]
                     
                     let trigger = UNCalendarNotificationTrigger(dateMatching: advComponents, repeats: false)
@@ -509,7 +514,6 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                     content.title = "📋 Trafik Sigortası Yenileme"
                     content.body = "\(vehicleDesc) zorunlu trafik sigortası 2 gün sonra sona eriyor (\(insStr))."
                     content.sound = .default
-                    content.badge = 1
                     content.userInfo = ["type": "vehicle_insurance", "id": id, "plate": plate, "targetScreen": "vehicles"]
                     
                     let trigger = UNCalendarNotificationTrigger(dateMatching: advComponents, repeats: false)
@@ -533,7 +537,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         advanceDays: Int = 0,
         hour: Int = 9,
         minute: Int = 0,
-        badge: Int = 1,
+        badge: Int = 0,
         userInfo: [String: Any] = [:]
     ) {
         guard let targetDate = parseDate(dateString) else {
@@ -606,7 +610,6 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 content.title = "\(titlePrefix) (\(advanceDays) Gün Kaldı)"
                 content.body = bodyDetail
                 content.sound = .default
-                content.badge = 1
                 content.userInfo = userInfo
                 
                 let trigger = UNCalendarNotificationTrigger(dateMatching: advComponents, repeats: false)
@@ -624,7 +627,6 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             content.title = titlePrefix
             content.body = bodyDetail
             content.sound = .default
-            content.badge = 1
             content.userInfo = userInfo
             
             let trigger = UNCalendarNotificationTrigger(dateMatching: dueComponents, repeats: false)
@@ -1063,6 +1065,7 @@ struct PrototypeWebView: UIViewRepresentable {
                 queue: .main
             ) { [weak self] _ in
                 guard let self = self else { return }
+                NotificationManager.shared.clearAppBadge()
                 self.syncLiveOTAUpdate(into: self.webView, forceReload: false)
                 self.webView?.evaluateJavaScript("if (typeof window.syncAllLiveCompanyDataSilently === 'function') { window.syncAllLiveCompanyDataSilently(true); }", completionHandler: nil)
             }
@@ -1147,6 +1150,7 @@ struct PrototypeWebView: UIViewRepresentable {
         }
         
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            NotificationManager.shared.clearAppBadge()
             refreshControl?.endRefreshing()
         }
         
@@ -1204,9 +1208,11 @@ struct PrototypeWebView: UIViewRepresentable {
 @main
 struct DarsApp: App {
     init() {
+        NotificationManager.shared.clearAppBadge()
         NotificationManager.shared.registerBackgroundTasks()
         NotificationManager.shared.requestAuthorization()
         NotificationManager.shared.performNativeBackgroundLiveSync(completion: nil)
+        NotificationManager.shared.clearAppBadge()
     }
     
     var body: some Scene {

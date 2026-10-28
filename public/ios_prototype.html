@@ -47477,6 +47477,9 @@
 
     function changeScreen(screenId) {
       currentScreen = screenId;
+      if (typeof clearAppIconBadgeMobile === 'function') {
+        clearAppIconBadgeMobile();
+      }
       
       // Hide ALL screens in DOM dynamically
       document.querySelectorAll('[id^="screen-"]').forEach(el => {
@@ -54178,6 +54181,21 @@ function toggleSubTab(tabIndex) {
         }
       } catch (e) {}
       postToNativeNotificationBridge({ action: 'clearBadge', badge: 0 });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', clearAppIconBadgeMobile);
+      window.addEventListener('pageshow', clearAppIconBadgeMobile);
+      if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') clearAppIconBadgeMobile();
+        });
+        document.addEventListener('DOMContentLoaded', () => {
+          clearAppIconBadgeMobile();
+          setTimeout(clearAppIconBadgeMobile, 600);
+          setTimeout(clearAppIconBadgeMobile, 2000);
+        });
+      }
     }
 
     function formatCreditCardSeparateNotice(card) {
