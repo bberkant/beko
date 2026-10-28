@@ -60,35 +60,56 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         try? BGTaskScheduler.shared.submit(request)
     }
     
-    /// Uygulama kapalıyken veya arka plandayken canlı sunucudan (cem.amasyaetas.com ve Supabase) notları ve kartları çekip 09:00 bildirimlerini günceller
+    /// Uygulama kapalıyken veya arka plandayken canlı sunucudan (cem.amasyaetas.com ve Supabase) notları ve o günün kartlarını çekip 09:00 bildirimlerini günceller
     func performNativeBackgroundLiveSync(completion: ((Bool) -> Void)?) {
-        guard let notesURL = URL(string: "https://cem.amasyaetas.com/api/user-notes?userKey=berkant") else {
+        guard let notesURL = URL(string: "https://cem.amasyaetas.com/api/user-notes?userKey=berkant"),
+              let cardsURL = URL(string: "https://zubhjybqzcpplultpsgt.supabase.co/rest/v1/credit_cards?select=*&status=eq.aktif") else {
             completion?(false)
             return
         }
-        var request = URLRequest(url: notesURL)
-        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        request.timeoutInterval = 8
+        var notesReq = URLRequest(url: notesURL)
+        notesReq.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        notesReq.timeoutInterval = 8
         
-        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
-            guard let self = self,
-                  error == nil,
-                  let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let notes = json["notes"] as? [[String: Any]] else {
+        var cardsReq = URLRequest(url: cardsURL)
+        cardsReq.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        cardsReq.timeoutInterval = 8
+        cardsReq.setValue("sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG", forHTTPHeaderField: "apikey")
+        
+        let group = DispatchGroup()
+        var fetchedNotes: [[String: Any]] = []
+        var fetchedCards: [[String: Any]] = []
+        
+        group.enter()
+        URLSession.shared.dataTask(with: notesReq) { data, _, error in
+            defer { group.leave() }
+            if error == nil,
+               let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let notes = json["notes"] as? [[String: Any]] {
+                fetchedNotes = notes
+            }
+        }.resume()
+        
+        group.enter()
+        URLSession.shared.dataTask(with: cardsReq) { data, _, error in
+            defer { group.leave() }
+            if error == nil,
+               let data = data,
+               let cards = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                fetchedCards = cards
+            }
+        }.resume()
+        
+        group.notify(queue: self.notificationQueue) { [weak self] in
+            guard let self = self else {
                 completion?(false)
                 return
             }
-            
-            let activeNotes = notes.filter { item in
+            let activeNotes = fetchedNotes.filter { item in
                 let completed = item["completed"] as? Bool ?? false
                 let content = (item["content"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 return !completed && !content.isEmpty
-            }
-            
-            guard !activeNotes.isEmpty else {
-                completion?(true)
-                return
             }
             
             let cal = Calendar.current
@@ -99,30 +120,60 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             }
             let fmt = DateFormatter()
             fmt.dateFormat = "yyyy-MM-dd"
+            let trFmt = DateFormatter()
+            trFmt.dateFormat = "dd.MM.yyyy"
             
-            self.notificationQueue.async {
-                for dayOffset in (0..<7).reversed() {
-                    guard let targetDay = cal.date(byAdding: .day, value: startOffset + dayOffset, to: now) else { continue }
-                    let iso = fmt.string(from: targetDay)
-                    for (idx, note) in activeNotes.prefix(6).enumerated() {
-                        let rawContent = note["content"] as? String ?? ""
-                        let cleanContent = rawContent.replacingOccurrences(of: #"^[USER:[^]]+]s*"#, with: "", options: .regularExpression)
-                        self.scheduleCalendarNotification(
-                            title: "📝 Notlarım (\(idx + 1)/\(activeNotes.count)) • 09:00",
-                            body: cleanContent,
-                            identifier: "sep_daily_note_\(iso)_\(idx)",
-                            dateString: iso,
-                            advanceDays: 0,
-                            hour: 9,
-                            minute: 0,
-                            badge: 0,
-                            userInfo: ["targetScreen": "takvim"]
-                        )
-                    }
+            for dayOffset in (0..<7).reversed() {
+                guard let targetDay = cal.date(byAdding: .day, value: startOffset + dayOffset, to: now) else { continue }
+                let iso = fmt.string(from: targetDay)
+                let trDate = trFmt.string(from: targetDay)
+                let dayOfMonth = cal.component(.day, from: targetDay)
+                
+                // Sadece o gün son ödeme günü olan kartlar (örn. 28. gün -> ETİK & MARİF KUVEYT FİNANSMAN KART)
+                let dueCardsForDay = fetchedCards.filter { card in
+                    let dueDay = (card["due_day"] as? Int) ?? Int("(card["due_day"] ?? 0)") ?? 0
+                    return dueDay == dayOfMonth
                 }
-                completion?(true)
+                
+                for (cIdx, card) in dueCardsForDay.enumerated() {
+                    let bank = card["bank"] as? String ?? "Kredi Kartı"
+                    let cardName = card["card_name"] as? String ?? ""
+                    let last4 = card["last4"] as? String ?? ""
+                    let cardId = (card["id"] as? String) ?? "(cIdx)"
+                    let limitVal = (card["card_limit"] as? Double) ?? Double("(card["card_limit"] ?? 0)") ?? 0.0
+                    let debtVal = (card["current_debt"] as? Double) ?? Double("(card["current_debt"] ?? 0)") ?? 0.0
+                    let finDetail = debtVal > 0 ? "Güncel Borç: \(self.formatCurrency(debtVal))" : "Son Ödeme: \(trDate) • Limit: \(self.formatCurrency(limitVal))"
+                    self.scheduleCalendarNotification(
+                        title: "💳 \(bank) (\(cardName))",
+                        body: "🚨 BUGÜN SON GÜN (•••• \(last4)) • \(finDetail)",
+                        identifier: "sep_daily_cc_\(iso)_\(cardId)",
+                        dateString: iso,
+                        advanceDays: 0,
+                        hour: 9,
+                        minute: 0,
+                        badge: 0,
+                        userInfo: ["targetScreen": "credit_cards"]
+                    )
+                }
+                
+                for (idx, note) in activeNotes.prefix(6).enumerated() {
+                    let rawContent = note["content"] as? String ?? ""
+                    let cleanContent = rawContent.replacingOccurrences(of: #"^[USER:[^]]+]s*"#, with: "", options: .regularExpression)
+                    self.scheduleCalendarNotification(
+                        title: "📝 Notlarım (\(idx + 1)/\(activeNotes.count)) • 09:00",
+                        body: cleanContent,
+                        identifier: "sep_daily_note_\(iso)_\(idx)",
+                        dateString: iso,
+                        advanceDays: 0,
+                        hour: 9,
+                        minute: 0,
+                        badge: 0,
+                        userInfo: ["targetScreen": "takvim"]
+                    )
+                }
             }
-        }.resume()
+            completion?(true)
+        }
     }
     
     func clearAppBadge() {
