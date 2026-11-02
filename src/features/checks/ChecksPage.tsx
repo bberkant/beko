@@ -358,9 +358,15 @@ function isMarkedPaidLocally(orgId: string | undefined, c: EbsCheck): boolean {
 }
 
 function normalizeUnpaidEbsCarryOvers(list: EbsCheck[], _orgId?: string): EbsCheck[] {
-  let has13304 = false;
   const normalized = list.map(c => {
     if (isMarkedPaidLocally(_orgId, c)) {
+      return { ...c, status: 'Ödendi' };
+    }
+    if (
+      (c.local_id === 13304 && c.check_type === 'kesilen') ||
+      c.id === 'e51d927f-1ef1-4e99-9332-f2548502e255' ||
+      (c.check_no === '0026849' && Number(c.amount) === 1262373)
+    ) {
       return { ...c, status: 'Ödendi' };
     }
     if (c.check_type === 'kesilen' && c.local_id && EBS_CONFIRMED_PAID_LOCAL_IDS_OCT26.has(Number(c.local_id))) {
@@ -369,49 +375,8 @@ function normalizeUnpaidEbsCarryOvers(list: EbsCheck[], _orgId?: string): EbsChe
         return { ...c, status: 'Ödendi' };
       }
     }
-    if (
-      (c.local_id === 13304 && c.check_type === 'kesilen') ||
-      c.id === 'e51d927f-1ef1-4e99-9332-f2548502e255' ||
-      (c.check_no === '0026849' && Number(c.amount) === 1262373)
-    ) {
-      has13304 = true;
-      const ozelUpper = (c.ozel_alan || '').toUpperCase();
-      if (!ozelUpper.includes('SİLİNDİ') && !ozelUpper.includes('İÇ TAKAS')) {
-        return {
-          ...c,
-          debtor: c.debtor || 'M.ZİRAAT',
-          bank_name: c.bank_name || 'M.ZİRAAT',
-          ozel_alan: ozelUpper.includes('TAKASTA OLMAYAN') ? 'TAKASTA OLMAYAN - İÇ TAKAS' : 'TAKASTA - İÇ TAKAS'
-        };
-      }
-    }
     return c;
   });
-
-  if (!has13304) {
-    normalized.push({
-      id: 'e51d927f-1ef1-4e99-9332-f2548502e255',
-      local_id: 13304,
-      check_type: 'kesilen',
-      check_no: '0026849',
-      due_date: '2026-10-26',
-      issue_date: '2026-10-26',
-      amount: 1262373,
-      creditor: 'SADIK KİRLİBAL',
-      debtor: 'M.ZİRAAT',
-      bank_name: 'M.ZİRAAT',
-      bank_branch: '',
-      status: 'Tahsilde',
-      para_birimi: 'TL',
-      ozel_alan: 'TAKASTA - İÇ TAKAS',
-      kesideci: '',
-      keside_yeri: '',
-      tahsildar_banka: '',
-      ciro_edilen: '',
-      document_type: 'cek',
-      created_at: '2026-09-29T14:00:12.223+00:00'
-    });
-  }
 
   return normalized;
 }
