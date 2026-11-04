@@ -615,11 +615,34 @@ app.get('/api/personel/:code/hareketler', async (req, res) => {
 app.get('/api/vega/schema-check', async (req, res) => {
   try {
     const pool = await getVegaPool();
-    const { chCols, shCols } = await getHareketColumns(pool);
+    
+    // Find all tables with DEKONT or VIRMAN or HAREKET in F0101
+    const tables = await pool.request().query(`
+      SELECT TABLE_NAME 
+      FROM INFORMATION_SCHEMA.TABLES 
+      WHERE TABLE_NAME LIKE 'F0101%DEKONT%' 
+         OR TABLE_NAME LIKE 'F0101%VIRMAN%'
+         OR TABLE_NAME LIKE 'F0101D0008TBL%'
+    `).then(r => r.recordset.map(x => x.TABLE_NAME)).catch(e => []);
+
+    // Search tables having EVRAKNO or BELGENO for A0003685
+    const matchResults = {};
+    for (const tbl of tables) {
+      try {
+        const r = await pool.request().query(`
+          SELECT TOP 5 * FROM [${tbl}] 
+          WHERE (EVRAKNO = 'A0003685' OR BELGENO = 'A0003685')
+        `);
+        if (r.recordset && r.recordset.length > 0) {
+          matchResults[tbl] = r.recordset;
+        }
+      } catch (err) {}
+    }
+
     res.json({
       success: true,
-      cariHareketlerColumns: Array.from(chCols).sort(),
-      stokHareketlerColumns: Array.from(shCols).sort()
+      tablesFound: tables.filter(t => t.includes('DEKONT') || t.includes('VIRMAN')),
+      matchResults
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
