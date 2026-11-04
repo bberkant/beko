@@ -30,6 +30,9 @@ import { Modal } from '../../components/ui/Modal';
 import { fixCorruptedTurkishText } from '../../lib/turkishTextFixer';
 import { useStore } from '../credit-cards/data/store';
 import type { CreditCard, Statement } from '../credit-cards/types';
+import { useSafeBills } from '../bills/data/store';
+import { resolveBillDueDate } from '../bills/data/labels';
+import type { CompanyBill } from '../bills/types';
 
 const statusCache = new Map<string, string>();
 const cleanStatus = (status: string | null | undefined): string => {
@@ -391,7 +394,7 @@ function getCachedChecks(orgId: string, isTakas = false): EbsCheck[] {
     if (primaryRaw) {
       const parsed = JSON.parse(primaryRaw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        baseChecks = parsed.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-'));
+        baseChecks = parsed.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-') && !String(c.id).startsWith('cc_') && !String(c.id).startsWith('bill_'));
       }
     }
 
@@ -400,7 +403,7 @@ function getCachedChecks(orgId: string, isTakas = false): EbsCheck[] {
       if (fallbackRaw) {
         const parsed = JSON.parse(fallbackRaw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          baseChecks = parsed.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-'));
+          baseChecks = parsed.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-') && !String(c.id).startsWith('cc_') && !String(c.id).startsWith('bill_'));
         }
       }
     }
@@ -422,8 +425,8 @@ function getCachedChecks(orgId: string, isTakas = false): EbsCheck[] {
 function setCachedChecks(orgId: string, data: EbsCheck[], isTakas = false) {
   try {
     if (!Array.isArray(data) || data.length === 0) return;
-    // Strip dynamic cekten_* and temp-* IDs: only genuine DB checks should be cached
-    const realChecks = data.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-'));
+    // Strip dynamic IDs: only genuine DB checks should be cached
+    const realChecks = data.filter(c => !String(c.id).startsWith('cekten_') && !String(c.id).startsWith('temp-') && !String(c.id).startsWith('cc_') && !String(c.id).startsWith('bill_'));
     if (realChecks.length === 0) return;
 
     // 1. Always keep a compact, fast Takas/Active cache of unpaid + kayıp checks (~300 KB)
@@ -576,9 +579,31 @@ function doesCheckMatchCreditCardOnDate(
   return false;
 }
 
+function doesCheckMatchBillOnDate(
+  c: EbsCheck,
+  bill: CompanyBill,
+  targetDateStr: string,
+  billDueStr: string
+): boolean {
+  const billTag = `FATURA_${bill.id}`;
+  if (String(c.id || '').startsWith(`bill_${bill.id}_`)) return true;
+  if ((c.ozel_alan || '').includes(billTag)) return true;
+
+  const cDue = (c.due_date || '').substring(0, 10);
+  if (cDue !== targetDateStr && cDue !== billDueStr) return false;
+
+  const cCred = fixCorruptedText(c.creditor || '').trim().toLocaleUpperCase('tr-TR');
+  const bName = fixCorruptedText(bill.name || '').trim().toLocaleUpperCase('tr-TR');
+  if (cCred === bName) return true;
+
+  return false;
+}
+
 export function ChecksPage() {
   const { user } = useAuth();
   const { cards: creditCards, statements: creditCardStatements } = useStore();
+  const billsContext = useSafeBills();
+  const companyBills = billsContext?.bills || [];
   const orgId = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
   const pendingInserts = useRef<Record<string, boolean>>({});
   const insertPromises = useRef<Record<string, Promise<any> | undefined>>({});
@@ -2076,7 +2101,74 @@ export function ChecksPage() {
       }
     }
 
-    const activeUnpaid = [...activeUnpaidKesilen, ...creditCardDueChecks, ...hatirAlinan];
+    const billDueChecks: EbsCheck[] = [];
+    const targetDate = new Date(targetDateStr + 'T00:00:00');
+    const targetMs = targetDate.getTime();
+
+    for (const bill of (companyBills || [])) {
+      if (bill.billStatus === 'odendi') continue;
+
+      const resolved = resolveBillDueDate(bill, targetDate);
+      if (resolved.effectiveStatus === 'odendi') continue;
+
+      const billDueStr = resolved.date;
+      const billDueMs = new Date(billDueStr + 'T00:00:00').getTime();
+      const diffDays = Math.round((billDueMs - targetMs) / 86400000);
+      const dueDayOfWeek = new Date(billDueStr + 'T00:00:00').getDay();
+
+      // "son ödeme gününde veya son ödeme gününden 1 gün önce"
+      // diffDays === 0: son ödeme gününde
+      // diffDays === 1: son ödeme gününden 1 gün önce
+      // Hafta sonu / Pazartesiye denk gelenler Cuma gününden itibaren (dueDayOfWeek === 1 && diffDays >= 0 && diffDays <= 3)
+      const isDueMatch = diffDays === 0 || diffDays === 1 || (dueDayOfWeek === 1 && diffDays >= 0 && diffDays <= 3);
+
+      if (!isDueMatch) continue;
+
+      const billLabel = bill.name ? bill.name.trim().toLocaleUpperCase('tr-TR') : 'FATURA';
+
+      const matchedIdx = activeUnpaidKesilen.findIndex(c =>
+        doesCheckMatchBillOnDate(c, bill, targetDateStr, billDueStr)
+      );
+      if (matchedIdx !== -1) {
+        continue;
+      }
+
+      const alreadyInChecks = checks.some(c =>
+        doesCheckMatchBillOnDate(c, bill, targetDateStr, billDueStr)
+      );
+      if (alreadyInChecks) continue;
+
+      const syntheticBillCheck: EbsCheck = {
+        id: `bill_${bill.id}_${targetDateStr}`,
+        local_id: 0,
+        check_type: 'kesilen',
+        document_type: 'cek',
+        issue_date: billDueStr,
+        due_date: targetDateStr,
+        amount: Number(bill.currentAmount || 0),
+        para_birimi: 'TRY',
+        check_no: null,
+        debtor: 'TAKSİT',
+        creditor: billLabel,
+        bank_name: 'TAKSİT',
+        bank_branch: null,
+        status: 'Tahsilde',
+        ozel_alan: `TAKASTA - FATURA_${bill.id}_${billDueStr}`,
+        kesideci: null,
+        keside_yeri: null,
+        tahsildar_banka: null,
+        ciro_edilen: null,
+        created_at: `${targetDateStr}T00:00:00.000Z`
+      };
+
+      if (isMarkedPaidLocally(orgId, syntheticBillCheck) || isPaidBySignature(syntheticBillCheck)) {
+        continue;
+      }
+
+      billDueChecks.push(syntheticBillCheck);
+    }
+
+    const activeUnpaid = [...activeUnpaidKesilen, ...creditCardDueChecks, ...billDueChecks, ...hatirAlinan];
 
     // 2. Durumu 'Kayıp' olan tüm çekler (Kayıp Çekler)
     const kayipChecks = checks.filter(c => cleanStatus(c.status).includes('kayıp'));
@@ -2240,8 +2332,11 @@ export function ChecksPage() {
           const desc = getDesc(c);
           return desc.includes('KART');
         };
+        const isBill = (c: EbsCheck) => {
+          return String(c.id || '').startsWith('bill_') || String(c.ozel_alan || '').includes('FATURA_');
+        };
         const isSystem = (c: EbsCheck) => {
-          if (isCard(c) || isToggledNonTakas(c)) return false;
+          if (isCard(c) || isBill(c) || isToggledNonTakas(c)) return false;
           const desc = getDesc(c);
           return desc.includes('ALBARAKA') || 
                  desc.includes('KUVEYT') || 
@@ -2252,13 +2347,22 @@ export function ChecksPage() {
         };
         
         const systemChecks = columns[colName].filter(c => isSystem(c));
-        const cardChecks = columns[colName].filter(c => isCard(c) && !isToggledNonTakas(c));
-        const regularManualChecks = columns[colName].filter(c => !isSystem(c) && !isCard(c) && !isToggledNonTakas(c));
+        const cardChecks = columns[colName].filter(c => isCard(c) && !isBill(c) && !isToggledNonTakas(c));
+        const billChecks = columns[colName].filter(c => isBill(c) && !isToggledNonTakas(c));
+        const regularManualChecks = columns[colName].filter(c => !isSystem(c) && !isCard(c) && !isBill(c) && !isToggledNonTakas(c));
         const toggledNonTakasChecks = columns[colName].filter(c => isToggledNonTakas(c));
         
-        // Sort lists: system checks alphabetically, card checks alphabetically, manual checks chronologically by creation date to prevent jumping while editing
+        // Sort lists: system checks alphabetically, card checks alphabetically, bill checks (amount > 0 first, then alphabetically), manual checks chronologically by creation date to prevent jumping while editing
         systemChecks.sort((a, b) => getDesc(a).localeCompare(getDesc(b), 'tr'));
         cardChecks.sort((a, b) => getDesc(a).localeCompare(getDesc(b), 'tr'));
+        billChecks.sort((a, b) => {
+          const amtA = Number(a.amount || 0);
+          const amtB = Number(b.amount || 0);
+          if (amtA > 0 && amtB === 0) return -1;
+          if (amtA === 0 && amtB > 0) return 1;
+          if (amtA !== amtB) return amtB - amtA;
+          return getDesc(a).localeCompare(getDesc(b), 'tr');
+        });
         regularManualChecks.sort((a, b) => {
           const timeDiff = (a.created_at || '').localeCompare(b.created_at || '');
           if (timeDiff !== 0) return timeDiff;
@@ -2270,8 +2374,8 @@ export function ChecksPage() {
           return (a.id || '').localeCompare(b.id || '');
         });
         
-        // Sıralama: 1. Banka Taksitleri -> 2. Kart Girişleri -> 3. Diğer Elle Girilenler (örn. ANKARA SEMİH) -> 4. Takasa Taşınanlar
-        columns[colName] = [...systemChecks, ...cardChecks, ...regularManualChecks, ...toggledNonTakasChecks];
+        // Sıralama: 1. Banka Taksitleri -> 2. Kart Girişleri -> 3. Faturalar -> 4. Diğer Elle Girilenler (örn. ANKARA SEMİH) -> 5. Takasa Taşınanlar
+        columns[colName] = [...systemChecks, ...cardChecks, ...billChecks, ...regularManualChecks, ...toggledNonTakasChecks];
       } else {
         columns[colName].sort((a, b) => {
           const aIc = isIcTakasCheck(a);
@@ -2337,7 +2441,7 @@ export function ChecksPage() {
       bankBalances,
       totalBankBalance
     };
-  }, [checks, bankAccounts, takasDate, takasViewMode, creditCards, creditCardStatements, orgId]);
+  }, [checks, bankAccounts, takasDate, takasViewMode, creditCards, creditCardStatements, companyBills, orgId]);
 
   const formatExcelNumber = (num: number) => {
     if (!num || num === 0 || num === 0.01) return '';
@@ -2586,6 +2690,58 @@ export function ChecksPage() {
         return;
       }
 
+      if (check.id.startsWith('bill_')) {
+        const targetOrgId = user.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
+        const localId = Math.floor(Date.now() % 10000000);
+        const dueStr = (check.due_date || takasDate || new Date().toISOString().split('T')[0]).substring(0, 10);
+        const insertPayload: any = {
+          organization_id: targetOrgId,
+          check_type: 'kesilen',
+          status: shouldDelete ? 'Ödendi' : 'Tahsilde',
+          due_date: dueStr,
+          issue_date: dueStr,
+          local_id: localId,
+          amount: field === 'amount' ? parsedValue : Number(check.amount || 0),
+          para_birimi: 'TRY',
+          creditor: field === 'creditor' ? parsedValue : check.creditor,
+          debtor: field === 'debtor' ? parsedValue : (check.debtor || 'TAKSİT'),
+          bank_name: field === 'bank_name' ? parsedValue : (check.bank_name || 'TAKSİT'),
+          ozel_alan: shouldDelete
+            ? `SİLİNDİ - TAKASTAN KALDIRILDI - ${check.ozel_alan || ''}`
+            : (check.ozel_alan || 'TAKASTA')
+        };
+        supabase
+          .from('ebs_checks')
+          .insert([insertPayload])
+          .select()
+          .then(({ data, error }) => {
+            if (error) {
+              console.error('Supabase bill insert error:', error);
+            } else if (data && data[0]) {
+              setChecks(prev => {
+                const exists = prev.some(c => c.id === check.id);
+                const next = exists
+                  ? prev.map(c => c.id === check.id ? data[0] : c)
+                  : [...prev, data[0]];
+                setCachedChecks(targetOrgId, next, isTakasRoute);
+                return next;
+              });
+            }
+          });
+
+        const rawBillId = check.id.split('_')[1];
+        if (rawBillId && field === 'amount' && Number(parsedValue) > 0) {
+          supabase
+            .from('company_bills')
+            .update({ current_amount: parsedValue })
+            .eq('id', rawBillId)
+            .then(() => {
+              if (billsContext?.refresh) void billsContext.refresh();
+            });
+        }
+        return;
+      }
+
       // Perform update asynchronously in background
       if (check.id.startsWith('temp-')) {
         const insertPromise = insertPromises.current[check.id] || Promise.resolve();
@@ -2745,6 +2901,7 @@ export function ChecksPage() {
     const isCekten = isCektenCheck(check);
     const isDynamicCekten = Boolean(check.id && String(check.id).startsWith('cekten_'));
     const isDynamicCreditCard = Boolean(check.id && String(check.id).startsWith('cc_'));
+    const isDynamicBill = Boolean(check.id && String(check.id).startsWith('bill_'));
     const targetDateStr = takasDate || new Date().toISOString().split('T')[0];
 
     // 1. Calculate new values optimistically
@@ -2899,6 +3056,47 @@ export function ChecksPage() {
             return next;
           });
         }
+      } else if (isDynamicBill) {
+        const localId = Math.floor(Date.now() % 10000000);
+        const dueStr = (check.due_date || targetDateStr).substring(0, 10);
+        const billInsertPayload: any = {
+          organization_id: orgId,
+          check_type: 'kesilen',
+          status: (statusOption === 'sil' || statusOption === 'odendi') ? 'Ödendi' : (updatedStatus || 'Tahsilde'),
+          due_date: dueStr,
+          issue_date: dueStr,
+          local_id: localId,
+          amount: Number(check.amount || 0),
+          para_birimi: 'TRY',
+          creditor: check.creditor,
+          debtor: updatedDebtor || check.debtor || 'TAKSİT',
+          bank_name: check.bank_name || 'TAKSİT',
+          ozel_alan: statusOption === 'sil'
+            ? `SİLİNDİ - TAKASTAN KALDIRILDI - ${check.ozel_alan || ''}`
+            : (updatedOzelAlan || check.ozel_alan || 'TAKASTA')
+        };
+        const { data: insertedBill } = await supabase
+          .from('ebs_checks')
+          .insert([billInsertPayload])
+          .select();
+        if (insertedBill && insertedBill[0]) {
+          setChecks(prev => {
+            const withoutOld = prev.filter(c => c.id !== check.id);
+            const next = [...withoutOld, insertedBill[0]];
+            setCachedChecks(orgId, next, isTakasRoute);
+            return next;
+          });
+        }
+        if (statusOption === 'odendi') {
+          const rawBillId = check.id.split('_')[1];
+          if (rawBillId) {
+            await supabase
+              .from('company_bills')
+              .update({ bill_status: 'odendi', last_paid_at: targetDateStr })
+              .eq('id', rawBillId);
+            if (billsContext?.refresh) void billsContext.refresh();
+          }
+        }
       } else if (statusOption === 'sil') {
         lastMutationAtRef.current = Date.now();
         markCheckPaidLocally(orgId, check);
@@ -3010,7 +3208,7 @@ export function ChecksPage() {
 
     try {
       const uuidTargetIds = targets
-        .filter(t => t.id && !String(t.id).startsWith('cekten_') && !String(t.id).startsWith('temp-') && !String(t.id).startsWith('cc_'))
+        .filter(t => t.id && !String(t.id).startsWith('cekten_') && !String(t.id).startsWith('temp-') && !String(t.id).startsWith('cc_') && !String(t.id).startsWith('bill_'))
         .map(t => t.id);
       const ccTargets = targets.filter(t => t.id && String(t.id).startsWith('cc_'));
       if (ccTargets.length > 0) {
@@ -3034,6 +3232,38 @@ export function ChecksPage() {
         const { data: insertedCcRows } = await supabase.from('ebs_checks').insert(ccPayloads).select();
         if (insertedCcRows && insertedCcRows.length > 0) {
           setChecks(prev => [...prev, ...insertedCcRows]);
+        }
+      }
+      const billTargets = targets.filter(t => t.id && String(t.id).startsWith('bill_'));
+      if (billTargets.length > 0) {
+        const billPayloads = billTargets.map((t, idx) => {
+          const dueStr = (t.due_date || takasDate || new Date().toISOString().split('T')[0]).substring(0, 10);
+          return {
+            organization_id: orgId,
+            check_type: 'kesilen',
+            status: 'Ödendi',
+            due_date: dueStr,
+            issue_date: dueStr,
+            local_id: Math.floor(Date.now() % 10000000) + 100 + idx,
+            amount: Number(t.amount || 0),
+            para_birimi: 'TRY',
+            creditor: t.creditor,
+            debtor: t.debtor || 'TAKSİT',
+            bank_name: t.bank_name || 'TAKSİT',
+            ozel_alan: t.ozel_alan || 'TAKASTA'
+          };
+        });
+        const { data: insertedBillRows } = await supabase.from('ebs_checks').insert(billPayloads).select();
+        if (insertedBillRows && insertedBillRows.length > 0) {
+          setChecks(prev => [...prev, ...insertedBillRows]);
+        }
+        const rawBillIds = billTargets.map(t => t.id.split('_')[1]).filter(Boolean);
+        if (rawBillIds.length > 0) {
+          await supabase
+            .from('company_bills')
+            .update({ bill_status: 'odendi', last_paid_at: (takasDate || new Date().toISOString().split('T')[0]) })
+            .in('id', rawBillIds);
+          if (billsContext?.refresh) void billsContext.refresh();
         }
       }
       const tempTargets = targets
