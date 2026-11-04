@@ -491,6 +491,7 @@ function buildHareketSqlQuery(chCols, shCols) {
   const chDesc = [];
   if (chCols.has('ACIKLAMA')) chDesc.push("NULLIF(ch.ACIKLAMA, '')");
   if (chCols.has('ALTNOT')) chDesc.push("NULLIF(ch.ALTNOT, '')");
+  if (chCols.has('OZELKOD')) chDesc.push("NULLIF(ch.OZELKOD, '')");
   if (chCols.has('BASLIK')) chDesc.push("NULLIF(ch.BASLIK, '')");
   if (chCols.has('ACIKLAMA1')) chDesc.push("NULLIF(ch.ACIKLAMA1, '')");
 
@@ -501,13 +502,15 @@ function buildHareketSqlQuery(chCols, shCols) {
   if (shCols.has('ALTNOT')) altnotCandidates.push("NULLIF(sh.ALTNOT, '')");
   if (chCols.has('ALTNOT')) altnotCandidates.push("NULLIF(ch.ALTNOT, '')");
   if (shCols.has('ACIKLAMA')) altnotCandidates.push("NULLIF(sh.ACIKLAMA, '')");
-  if (chCols.has('ACIKLAMA')) altnotCandidates.push("NULLIF(ch.ACIKLAMA, '')");
+  if (chCols.has('OZELKOD')) altnotCandidates.push("NULLIF(ch.OZELKOD, '')");
   const altnotExpr = altnotCandidates.length > 0 ? `COALESCE(${altnotCandidates.join(', ')}, '')` : "''";
 
   const prodCandidates = ["NULLIF(s.MALINCINSI, '')"];
   if (chCols.has('BASLIK')) prodCandidates.push("NULLIF(ch.BASLIK, '')");
   if (chCols.has('ACIKLAMA')) prodCandidates.push("NULLIF(ch.ACIKLAMA, '')");
-  const prodExpr = `COALESCE(${prodCandidates.join(', ')})`;
+  if (chCols.has('OZELKOD')) prodCandidates.push("NULLIF(ch.OZELKOD, '')");
+  if (chCols.has('ALTNOT')) prodCandidates.push("NULLIF(ch.ALTNOT, '')");
+  const prodExpr = `COALESCE(${prodCandidates.join(', ')}, NULL)`;
 
   return `
     SELECT 
@@ -529,8 +532,8 @@ function buildHareketSqlQuery(chCols, shCols) {
         (ch.BORC + ch.ALACAK) AS [amount],
         ${shCols.has('ACIKLAMA') ? "sh.ACIKLAMA" : "NULL"} AS [stokAciklama],
         ${shCols.has('ALTNOT') ? "sh.ALTNOT" : "NULL"} AS [stokAltnot],
-        ${chCols.has('ACIKLAMA') ? "ch.ACIKLAMA" : "NULL"} AS [cariAciklama],
-        ${chCols.has('ALTNOT') ? "ch.ALTNOT" : "NULL"} AS [cariAltnot]
+        ${chCols.has('ALTNOT') ? "ch.ALTNOT" : "NULL"} AS [cariAltnot],
+        ${chCols.has('OZELKOD') ? "ch.OZELKOD" : "NULL"} AS [cariOzelKod]
     FROM F0101D0008TBLCARIHAREKETLERI ch
     LEFT JOIN F0101D0008TBLSTOKHAREKETLERI sh
         ON ch.EVRAKNO = sh.EVRAKNO 
