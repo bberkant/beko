@@ -483,33 +483,33 @@ async function getHareketColumns(pool) {
 
 function buildHareketSqlQuery(chCols, shCols) {
   const shDesc = [];
-  if (shCols.has('ACIKLAMA')) shDesc.push("NULLIF(sh.ACIKLAMA, '')");
-  if (shCols.has('ALTNOT')) shDesc.push("NULLIF(sh.ALTNOT, '')");
-  if (shCols.has('ACIKLAMA1')) shDesc.push("NULLIF(sh.ACIKLAMA1, '')");
-  if (shCols.has('OZELKOD1')) shDesc.push("NULLIF(sh.OZELKOD1, '')");
+  if (shCols.has('ACIKLAMA')) shDesc.push("NULLIF(CAST(sh.ACIKLAMA AS NVARCHAR(MAX)), '')");
+  if (shCols.has('ALTNOT')) shDesc.push("NULLIF(CAST(sh.ALTNOT AS NVARCHAR(MAX)), '')");
+  if (shCols.has('ACIKLAMA1')) shDesc.push("NULLIF(CAST(sh.ACIKLAMA1 AS NVARCHAR(MAX)), '')");
+  if (shCols.has('OZELKOD1')) shDesc.push("NULLIF(CAST(sh.OZELKOD1 AS NVARCHAR(MAX)), '')");
 
   const chDesc = [];
-  if (chCols.has('ACIKLAMA')) chDesc.push("NULLIF(ch.ACIKLAMA, '')");
-  if (chCols.has('ALTNOT')) chDesc.push("NULLIF(ch.ALTNOT, '')");
-  if (chCols.has('OZELKOD')) chDesc.push("NULLIF(ch.OZELKOD, '')");
-  if (chCols.has('BASLIK')) chDesc.push("NULLIF(ch.BASLIK, '')");
-  if (chCols.has('ACIKLAMA1')) chDesc.push("NULLIF(ch.ACIKLAMA1, '')");
+  if (chCols.has('ACIKLAMA')) chDesc.push("NULLIF(CAST(ch.ACIKLAMA AS NVARCHAR(MAX)), '')");
+  if (chCols.has('ALTNOT')) chDesc.push("NULLIF(CAST(ch.ALTNOT AS NVARCHAR(MAX)), '')");
+  if (chCols.has('OZELKOD')) chDesc.push("NULLIF(CAST(ch.OZELKOD AS NVARCHAR(MAX)), '')");
+  if (chCols.has('BASLIK')) chDesc.push("NULLIF(CAST(ch.BASLIK AS NVARCHAR(MAX)), '')");
+  if (chCols.has('ACIKLAMA1')) chDesc.push("NULLIF(CAST(ch.ACIKLAMA1 AS NVARCHAR(MAX)), '')");
 
   const allDesc = [...shDesc, ...chDesc];
-  const descExpr = allDesc.length > 0 ? `COALESCE(${allDesc.join(', ')}, '')` : "''";
+  const descExpr = `COALESCE(${allDesc.join(', ')}, '')`;
 
   const altnotCandidates = [];
-  if (shCols.has('ALTNOT')) altnotCandidates.push("NULLIF(sh.ALTNOT, '')");
-  if (chCols.has('ALTNOT')) altnotCandidates.push("NULLIF(ch.ALTNOT, '')");
-  if (shCols.has('ACIKLAMA')) altnotCandidates.push("NULLIF(sh.ACIKLAMA, '')");
-  if (chCols.has('OZELKOD')) altnotCandidates.push("NULLIF(ch.OZELKOD, '')");
-  const altnotExpr = altnotCandidates.length > 0 ? `COALESCE(${altnotCandidates.join(', ')}, '')` : "''";
+  if (shCols.has('ALTNOT')) altnotCandidates.push("NULLIF(CAST(sh.ALTNOT AS NVARCHAR(MAX)), '')");
+  if (chCols.has('ALTNOT')) altnotCandidates.push("NULLIF(CAST(ch.ALTNOT AS NVARCHAR(MAX)), '')");
+  if (shCols.has('ACIKLAMA')) altnotCandidates.push("NULLIF(CAST(sh.ACIKLAMA AS NVARCHAR(MAX)), '')");
+  if (chCols.has('OZELKOD')) altnotCandidates.push("NULLIF(CAST(ch.OZELKOD AS NVARCHAR(MAX)), '')");
+  const altnotExpr = `COALESCE(${altnotCandidates.join(', ')}, '')`;
 
-  const prodCandidates = ["NULLIF(s.MALINCINSI, '')"];
-  if (chCols.has('BASLIK')) prodCandidates.push("NULLIF(ch.BASLIK, '')");
-  if (chCols.has('ACIKLAMA')) prodCandidates.push("NULLIF(ch.ACIKLAMA, '')");
-  if (chCols.has('OZELKOD')) prodCandidates.push("NULLIF(ch.OZELKOD, '')");
-  if (chCols.has('ALTNOT')) prodCandidates.push("NULLIF(ch.ALTNOT, '')");
+  const prodCandidates = ["NULLIF(CAST(s.MALINCINSI AS NVARCHAR(MAX)), '')"];
+  if (chCols.has('BASLIK')) prodCandidates.push("NULLIF(CAST(ch.BASLIK AS NVARCHAR(MAX)), '')");
+  if (chCols.has('ACIKLAMA')) prodCandidates.push("NULLIF(CAST(ch.ACIKLAMA AS NVARCHAR(MAX)), '')");
+  if (chCols.has('OZELKOD')) prodCandidates.push("NULLIF(CAST(ch.OZELKOD AS NVARCHAR(MAX)), '')");
+  if (chCols.has('ALTNOT')) prodCandidates.push("NULLIF(CAST(ch.ALTNOT AS NVARCHAR(MAX)), '')");
   const prodExpr = `COALESCE(${prodCandidates.join(', ')}, NULL)`;
 
   return `
@@ -530,10 +530,10 @@ function buildHareketSqlQuery(chCols, shCols) {
         ${altnotExpr} AS [altnot],
         CASE WHEN ch.BORC > 0 THEN 'Satış Faturası' ELSE 'Alış Faturası' END AS [type],
         (ch.BORC + ch.ALACAK) AS [amount],
-        ${shCols.has('ACIKLAMA') ? "sh.ACIKLAMA" : "NULL"} AS [stokAciklama],
-        ${shCols.has('ALTNOT') ? "sh.ALTNOT" : "NULL"} AS [stokAltnot],
-        ${chCols.has('ALTNOT') ? "ch.ALTNOT" : "NULL"} AS [cariAltnot],
-        ${chCols.has('OZELKOD') ? "ch.OZELKOD" : "NULL"} AS [cariOzelKod]
+        ${shCols.has('ACIKLAMA') ? "CAST(sh.ACIKLAMA AS NVARCHAR(MAX))" : "NULL"} AS [stokAciklama],
+        ${shCols.has('ALTNOT') ? "CAST(sh.ALTNOT AS NVARCHAR(MAX))" : "NULL"} AS [stokAltnot],
+        ${chCols.has('ALTNOT') ? "CAST(ch.ALTNOT AS NVARCHAR(MAX))" : "NULL"} AS [cariAltnot],
+        ${chCols.has('OZELKOD') ? "CAST(ch.OZELKOD AS NVARCHAR(MAX))" : "NULL"} AS [cariOzelKod]
     FROM F0101D0008TBLCARIHAREKETLERI ch
     LEFT JOIN F0101D0008TBLSTOKHAREKETLERI sh
         ON ch.EVRAKNO = sh.EVRAKNO 
