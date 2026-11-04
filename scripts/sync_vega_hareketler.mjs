@@ -96,7 +96,7 @@ export async function syncVegaData(fullSync = false) {
           date: m.date || new Date().toISOString(),
           invoice_no: m.invoiceNo || '',
           izahat: m.izahat || '',
-          description: m.description || '',
+          description: (m.altnot || m.description || m.stokAciklama || m.cariAciklama || '').trim(),
           quantity: Number(m.quantity || 0),
           unit_price: Number(m.unitPrice || 0),
           line_tutar: Number(m.lineTutar || 0),

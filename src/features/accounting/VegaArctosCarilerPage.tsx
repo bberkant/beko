@@ -38,6 +38,10 @@ interface CariInvoice {
   lineTutar?: number | null;
   currency?: string;
   vade?: string | null;
+  stokAciklama?: string | null;
+  stokAltnot?: string | null;
+  cariAciklama?: string | null;
+  cariAltnot?: string | null;
 }
 
 interface CariKart {
@@ -1028,16 +1032,20 @@ export function VegaArctosCarilerPage() {
                   let malinMiktari = '';
                   let birimFiyat = '';
                   
+                  const explicitDesc = (inv.altnot || inv.description || inv.stokAciklama || inv.cariAciklama || '').trim();
+                  
                   if (isInvoice) {
-                    malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, inv.description);
+                    malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, explicitDesc);
                     izahatStr = getIzahatText(inv.izahat, inv.borcVal, inv.alacakVal);
                     
                     const calculatedQty = inv.quantity && inv.quantity > 0 
                       ? inv.quantity 
                       : (inv.unitPrice && inv.unitPrice > 0 && inv.lineTutar ? Number((inv.lineTutar / inv.unitPrice).toFixed(2)) : 0);
                       
-                    // Carcass count deduction for Bütün Kuzu and Karkas Dana/Düve
-                    if (inv.productName === 'BÜTÜN KUZU') {
+                    // Carcass count deduction for Bütün Kuzu and Karkas Dana/Düve (only if no explicit Vega line note exists)
+                    if (explicitDesc) {
+                      aciklama = explicitDesc;
+                    } else if (inv.productName === 'BÜTÜN KUZU') {
                       if (calculatedQty >= 80) aciklama = '2 AD';
                       else if (calculatedQty >= 40 && calculatedQty < 80) aciklama = '3 AD';
                       else aciklama = '1 AD';
@@ -1045,7 +1053,7 @@ export function VegaArctosCarilerPage() {
                       if (calculatedQty >= 200) aciklama = '1 AD';
                       else aciklama = '1/2';
                     } else {
-                      aciklama = inv.altnot || inv.description || '';
+                      aciklama = '';
                     }
                     
                     malinMiktari = calculatedQty > 0
@@ -1068,19 +1076,19 @@ export function VegaArctosCarilerPage() {
                       const isGelen = inv.izahat === '83' || inv.izahat === '103';
                       malinCinsi = isGelen ? 'Hesaba Havale Gelen' : 'Hesaba Havale Giden';
                       izahatStr = 'Havale';
-                      aciklama = isGelen ? 'Hesaba Havale Gelen' : 'Hesaba Havale Giden';
+                      aciklama = explicitDesc || (isGelen ? 'Hesaba Havale Gelen' : 'Hesaba Havale Giden');
                       malinMiktari = 'Havale ()';
                       birimFiyat = formatDate(inv.vade || inv.date);
                     } else if (inv.izahat === '33' || inv.izahat === '34') {
                       const isTahsilat = inv.izahat === '33';
                       malinCinsi = isTahsilat ? 'Nakit Tahsilat' : 'Nakit Ödeme';
                       izahatStr = 'Nakit';
-                      aciklama = isTahsilat ? 'Nakit Tahsilat' : 'Nakit Ödeme';
+                      aciklama = explicitDesc || (isTahsilat ? 'Nakit Tahsilat' : 'Nakit Ödeme');
                       malinMiktari = 'Nakit ()';
                       birimFiyat = formatDate(inv.vade || inv.date);
                     } else {
-                      const isCC = tutar === 13870 || (inv.description && inv.description.toLowerCase().includes('mail order'));
-                      const isTavuk = tutar === 100000 || tutar === 145000 || (inv.description && inv.description.toLowerCase().includes('tavuk'));
+                      const isCC = tutar === 13870 || (explicitDesc.toLowerCase().includes('mail order'));
+                      const isTavuk = tutar === 100000 || tutar === 145000 || (explicitDesc.toLowerCase().includes('tavuk'));
                       const isBranch = selectedCari?.name.toLowerCase().includes('şub') || selectedCari?.name.toLowerCase().includes('sub');
                       
                       if (isBranch) {
@@ -1095,8 +1103,8 @@ export function VegaArctosCarilerPage() {
                           aciklama = 'Hasilat';
                         }
                       } else {
-                        malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, inv.description);
-                        aciklama = inv.description || getIslemIzahatToStr(inv.izahat);
+                        malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, explicitDesc);
+                        aciklama = explicitDesc || getIslemIzahatToStr(inv.izahat);
                       }
                       
                       izahatStr = getIzahatText(inv.izahat, inv.borcVal, inv.alacakVal);
@@ -1673,18 +1681,21 @@ export function VegaArctosCarilerPage() {
                     let birimFiyat = '';
                     
                     const tutar = Math.abs(inv.borcVal - inv.alacakVal);
+                    const explicitDesc = (inv.altnot || inv.description || inv.stokAciklama || inv.cariAciklama || '').trim();
                     
                     if (reportDesign === 'dars') {
                       if (isInvoice) {
-                        malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, inv.description);
+                        malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, explicitDesc);
                         izahatStr = getIzahatText(inv.izahat, inv.borcVal, inv.alacakVal);
                         
                         const calculatedQty = inv.quantity && inv.quantity > 0 
                           ? inv.quantity 
                           : (inv.unitPrice && inv.unitPrice > 0 && inv.lineTutar ? Number((inv.lineTutar / inv.unitPrice).toFixed(2)) : 0);
                           
-                        // Carcass count deduction for Bütün Kuzu and Karkas Dana/Düve
-                        if (inv.productName === 'BÜTÜN KUZU') {
+                        // Carcass count deduction for Bütün Kuzu and Karkas Dana/Düve (only if no explicit Vega line note exists)
+                        if (explicitDesc) {
+                          aciklama = explicitDesc;
+                        } else if (inv.productName === 'BÜTÜN KUZU') {
                           if (calculatedQty >= 80) aciklama = '2 AD';
                           else if (calculatedQty >= 40 && calculatedQty < 80) aciklama = '3 AD';
                           else aciklama = '1 AD';
@@ -1692,7 +1703,7 @@ export function VegaArctosCarilerPage() {
                           if (calculatedQty >= 200) aciklama = '1 AD';
                           else aciklama = '1/2';
                         } else {
-                          aciklama = inv.altnot || inv.description || '';
+                          aciklama = '';
                         }
                         
                         malinMiktari = calculatedQty > 0
@@ -1715,20 +1726,20 @@ export function VegaArctosCarilerPage() {
                           const isGelen = inv.izahat === '83' || inv.izahat === '103';
                           malinCinsi = isGelen ? 'Hesaba Havale Gelen' : 'Hesaba Havale Giden';
                           izahatStr = 'Havale';
-                          aciklama = isGelen ? 'Hesaba Havale Gelen' : 'Hesaba Havale Giden';
+                          aciklama = explicitDesc || (isGelen ? 'Hesaba Havale Gelen' : 'Hesaba Havale Giden');
                           malinMiktari = 'Havale ()';
                           birimFiyat = formatDate(inv.vade || inv.date);
                         } else if (inv.izahat === '33' || inv.izahat === '34') {
                           const isTahsilat = inv.izahat === '33';
                           malinCinsi = isTahsilat ? 'Nakit Tahsilat' : 'Nakit Ödeme';
                           izahatStr = 'Nakit';
-                          aciklama = isTahsilat ? 'Nakit Tahsilat' : 'Nakit Ödeme';
+                          aciklama = explicitDesc || (isTahsilat ? 'Nakit Tahsilat' : 'Nakit Ödeme');
                           malinMiktari = 'Nakit ()';
                           birimFiyat = formatDate(inv.vade || inv.date);
                         } else {
                           // General branch or other payment / receipt
-                          const isCC = tutar === 13870 || (inv.description && inv.description.toLowerCase().includes('mail order'));
-                          const isTavuk = tutar === 100000 || tutar === 145000 || (inv.description && inv.description.toLowerCase().includes('tavuk'));
+                          const isCC = tutar === 13870 || (explicitDesc.toLowerCase().includes('mail order'));
+                          const isTavuk = tutar === 100000 || tutar === 145000 || (explicitDesc.toLowerCase().includes('tavuk'));
                           const isBranch = selectedCari?.name.toLowerCase().includes('şub') || selectedCari?.name.toLowerCase().includes('sub');
                           
                           if (isBranch) {
@@ -1743,8 +1754,8 @@ export function VegaArctosCarilerPage() {
                               aciklama = 'Hasilat';
                             }
                           } else {
-                            malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, inv.description);
-                            aciklama = inv.description || getIslemIzahatToStr(inv.izahat);
+                            malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, explicitDesc);
+                            aciklama = explicitDesc || getIslemIzahatToStr(inv.izahat);
                           }
                           
                           izahatStr = getIzahatText(inv.izahat, inv.borcVal, inv.alacakVal);
@@ -1755,9 +1766,9 @@ export function VegaArctosCarilerPage() {
                     } else {
                       // reportDesign === 'etas' (Old layout)
                       if (isInvoice) {
-                        malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, inv.description);
+                        malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, explicitDesc);
                         izahatStr = getIzahatText(inv.izahat, inv.borcVal, inv.alacakVal);
-                        aciklama = inv.altnot || inv.description || '';
+                        aciklama = explicitDesc;
                         
                         const calculatedQty = inv.quantity && inv.quantity > 0 
                           ? inv.quantity 
@@ -1783,21 +1794,21 @@ export function VegaArctosCarilerPage() {
                           const isGelen = inv.izahat === '83' || inv.izahat === '103';
                           malinCinsi = isGelen ? 'Hesaba Havale Gelen' : 'Hesaba Havale Giden';
                           izahatStr = 'Havale';
-                          aciklama = isGelen ? 'Hesaba Havale Gelen' : 'Hesaba Havale Giden';
+                          aciklama = explicitDesc || (isGelen ? 'Hesaba Havale Gelen' : 'Hesaba Havale Giden');
                           malinMiktari = 'Havale ()';
                           birimFiyat = formatDate(inv.vade || inv.date);
                         } else if (inv.izahat === '33' || inv.izahat === '34') {
                           const isTahsilat = inv.izahat === '33';
                           malinCinsi = isTahsilat ? 'Nakit Tahsilat' : 'Nakit Ödeme';
                           izahatStr = 'Nakit';
-                          aciklama = isTahsilat ? 'Nakit Tahsilat' : 'Nakit Ödeme';
+                          aciklama = explicitDesc || (isTahsilat ? 'Nakit Tahsilat' : 'Nakit Ödeme');
                           malinMiktari = 'Nakit ()';
                           birimFiyat = formatDate(inv.vade || inv.date);
                         } else {
                           // Fallbacks
-                          malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, inv.description);
+                          malinCinsi = getMalinCinsi(inv.productName, inv.izahat, inv.borcVal, inv.alacakVal, explicitDesc);
                           izahatStr = getIzahatText(inv.izahat, inv.borcVal, inv.alacakVal);
-                          aciklama = inv.description || getIslemIzahatToStr(inv.izahat);
+                          aciklama = explicitDesc || getIslemIzahatToStr(inv.izahat);
                           malinMiktari = '-';
                           birimFiyat = '-';
                         }

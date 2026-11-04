@@ -448,44 +448,115 @@ app.get('/api/cariler', async (req, res) => {
   }
 });
 
-// 2. Vega Cari Hareket Detayı
+// Helper: Discover available columns on Hareket tables for resilient schema adaptation
+let cariHareketColsCache = null;
+let stokHareketColsCache = null;
+
+async function getHareketColumns(pool) {
+  if (cariHareketColsCache && stokHareketColsCache) {
+    return { chCols: cariHareketColsCache, shCols: stokHareketColsCache };
+  }
+  try {
+    const chRes = await pool.request().query(`
+      SELECT COLUMN_NAME 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_NAME = 'F0101D0008TBLCARIHAREKETLERI'
+    `);
+    cariHareketColsCache = new Set((chRes.recordset || []).map(r => r.COLUMN_NAME.toUpperCase()));
+  } catch (e) {
+    cariHareketColsCache = new Set(['IND', 'TARIH', 'EVRAKNO', 'IZAHAT', 'ALTNOT', 'BORC', 'ALACAK', 'ODEMETARIHI', 'FIRMANO']);
+  }
+
+  try {
+    const shRes = await pool.request().query(`
+      SELECT COLUMN_NAME 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_NAME = 'F0101D0008TBLSTOKHAREKETLERI'
+    `);
+    stokHareketColsCache = new Set((shRes.recordset || []).map(r => r.COLUMN_NAME.toUpperCase()));
+  } catch (e) {
+    stokHareketColsCache = new Set(['IND', 'EVRAKNO', 'FIRMANO', 'IZAHAT', 'STOKNO', 'BIRIMEX', 'GIREN', 'CIKAN', 'BIRIMFIYAT', 'TUTAR', 'ALTNOT']);
+  }
+
+  return { chCols: cariHareketColsCache, shCols: stokHareketColsCache };
+}
+
+function buildHareketSqlQuery(chCols, shCols) {
+  const shDesc = [];
+  if (shCols.has('ACIKLAMA')) shDesc.push("NULLIF(sh.ACIKLAMA, '')");
+  if (shCols.has('ALTNOT')) shDesc.push("NULLIF(sh.ALTNOT, '')");
+  if (shCols.has('ACIKLAMA1')) shDesc.push("NULLIF(sh.ACIKLAMA1, '')");
+  if (shCols.has('OZELKOD1')) shDesc.push("NULLIF(sh.OZELKOD1, '')");
+
+  const chDesc = [];
+  if (chCols.has('ACIKLAMA')) chDesc.push("NULLIF(ch.ACIKLAMA, '')");
+  if (chCols.has('ALTNOT')) chDesc.push("NULLIF(ch.ALTNOT, '')");
+  if (chCols.has('BASLIK')) chDesc.push("NULLIF(ch.BASLIK, '')");
+  if (chCols.has('ACIKLAMA1')) chDesc.push("NULLIF(ch.ACIKLAMA1, '')");
+
+  const allDesc = [...shDesc, ...chDesc];
+  const descExpr = allDesc.length > 0 ? `COALESCE(${allDesc.join(', ')}, '')` : "''";
+
+  const altnotCandidates = [];
+  if (shCols.has('ALTNOT')) altnotCandidates.push("NULLIF(sh.ALTNOT, '')");
+  if (chCols.has('ALTNOT')) altnotCandidates.push("NULLIF(ch.ALTNOT, '')");
+  if (shCols.has('ACIKLAMA')) altnotCandidates.push("NULLIF(sh.ACIKLAMA, '')");
+  if (chCols.has('ACIKLAMA')) altnotCandidates.push("NULLIF(ch.ACIKLAMA, '')");
+  const altnotExpr = altnotCandidates.length > 0 ? `COALESCE(${altnotCandidates.join(', ')}, '')` : "''";
+
+  const prodCandidates = ["NULLIF(s.MALINCINSI, '')"];
+  if (chCols.has('BASLIK')) prodCandidates.push("NULLIF(ch.BASLIK, '')");
+  if (chCols.has('ACIKLAMA')) prodCandidates.push("NULLIF(ch.ACIKLAMA, '')");
+  const prodExpr = `COALESCE(${prodCandidates.join(', ')})`;
+
+  return `
+    SELECT 
+        ch.IND AS [id],
+        ch.TARIH AS [date],
+        ch.EVRAKNO AS [invoiceNo],
+        ch.IZAHAT AS [izahat],
+        ${descExpr} AS [description],
+        COALESCE(sh.GIREN, sh.CIKAN, 0) AS [quantity],
+        sh.BIRIMFIYAT AS [unitPrice],
+        sh.TUTAR AS [lineTutar],
+        ${prodExpr} AS [productName],
+        b.BIRIMADI AS [unitName],
+        ch.BORC AS [borc],
+        ch.ALACAK AS [alacak],
+        ch.ODEMETARIHI AS [vade],
+        ${altnotExpr} AS [altnot],
+        CASE WHEN ch.BORC > 0 THEN 'Satış Faturası' ELSE 'Alış Faturası' END AS [type],
+        (ch.BORC + ch.ALACAK) AS [amount],
+        ${shCols.has('ACIKLAMA') ? "sh.ACIKLAMA" : "NULL"} AS [stokAciklama],
+        ${shCols.has('ALTNOT') ? "sh.ALTNOT" : "NULL"} AS [stokAltnot],
+        ${chCols.has('ACIKLAMA') ? "ch.ACIKLAMA" : "NULL"} AS [cariAciklama],
+        ${chCols.has('ALTNOT') ? "ch.ALTNOT" : "NULL"} AS [cariAltnot]
+    FROM F0101D0008TBLCARIHAREKETLERI ch
+    LEFT JOIN F0101D0008TBLSTOKHAREKETLERI sh
+        ON ch.EVRAKNO = sh.EVRAKNO 
+        AND ch.FIRMANO = sh.FIRMANO 
+        AND ch.IZAHAT = sh.IZAHAT
+        AND NULLIF(ch.EVRAKNO, '') IS NOT NULL
+    LEFT JOIN F0101TBLSTOKLAR s 
+        ON sh.STOKNO = s.IND
+    LEFT JOIN F0101TBLBIRIMLEREX b 
+        ON sh.BIRIMEX = b.IND
+    WHERE ch.FIRMANO = @code
+    ORDER BY ch.TARIH ASC, ch.IND ASC
+  `;
+}
+
+// 2. Vega Cari Hareket Detayı (Açıklama & Altnot zenginleştirmeli)
 app.get('/api/cariler/:code/hareketler', async (req, res) => {
   try {
     const { code } = req.params;
     const pool = await getVegaPool();
+    const { chCols, shCols } = await getHareketColumns(pool);
+    const sqlQuery = buildHareketSqlQuery(chCols, shCols);
+
     const result = await pool.request()
       .input('code', sql.VarChar, code)
-      .query(`
-        SELECT 
-            ch.IND AS [id],
-            ch.TARIH AS [date],
-            ch.EVRAKNO AS [invoiceNo],
-            ch.IZAHAT AS [izahat],
-            ch.ALTNOT AS [description],
-            COALESCE(sh.GIREN, sh.CIKAN, 0) AS [quantity],
-            sh.BIRIMFIYAT AS [unitPrice],
-            sh.TUTAR AS [lineTutar],
-            s.MALINCINSI AS [productName],
-            b.BIRIMADI AS [unitName],
-            ch.BORC AS [borc],
-            ch.ALACAK AS [alacak],
-            ch.ODEMETARIHI AS [vade],
-            ch.ALTNOT AS [altnot],
-            CASE WHEN ch.BORC > 0 THEN 'Satış Faturası' ELSE 'Alış Faturası' END AS [type],
-            (ch.BORC + ch.ALACAK) AS [amount]
-        FROM F0101D0008TBLCARIHAREKETLERI ch
-        LEFT JOIN F0101D0008TBLSTOKHAREKETLERI sh
-            ON ch.EVRAKNO = sh.EVRAKNO 
-            AND ch.FIRMANO = sh.FIRMANO 
-            AND ch.IZAHAT = sh.IZAHAT
-            AND NULLIF(ch.EVRAKNO, '') IS NOT NULL
-        LEFT JOIN F0101TBLSTOKLAR s 
-            ON sh.STOKNO = s.IND
-        LEFT JOIN F0101TBLBIRIMLEREX b 
-            ON sh.BIRIMEX = b.IND
-        WHERE ch.FIRMANO = @code
-        ORDER BY ch.TARIH ASC, ch.IND ASC
-      `);
+      .query(sqlQuery);
     res.json(result.recordset);
   } catch (err) {
     console.error('[API /api/cariler/:code/hareketler HATASI]:', err.message);
@@ -524,43 +595,31 @@ app.get('/api/personel/:code/hareketler', async (req, res) => {
   try {
     const { code } = req.params;
     const pool = await getVegaPool();
+    const { chCols, shCols } = await getHareketColumns(pool);
+    const sqlQuery = buildHareketSqlQuery(chCols, shCols);
+
     const result = await pool.request()
       .input('code', sql.VarChar, code)
-      .query(`
-        SELECT 
-            ch.IND AS [id],
-            ch.TARIH AS [date],
-            ch.EVRAKNO AS [invoiceNo],
-            ch.IZAHAT AS [izahat],
-            ch.ALTNOT AS [description],
-            COALESCE(sh.GIREN, sh.CIKAN, 0) AS [quantity],
-            sh.BIRIMFIYAT AS [unitPrice],
-            sh.TUTAR AS [lineTutar],
-            s.MALINCINSI AS [productName],
-            b.BIRIMADI AS [unitName],
-            ch.BORC AS [borc],
-            ch.ALACAK AS [alacak],
-            ch.ODEMETARIHI AS [vade],
-            ch.ALTNOT AS [altnot],
-            CASE WHEN ch.BORC > 0 THEN 'Satış Faturası' ELSE 'Alış Faturası' END AS [type],
-            (ch.BORC + ch.ALACAK) AS [amount]
-        FROM F0101D0008TBLCARIHAREKETLERI ch
-        LEFT JOIN F0101D0008TBLSTOKHAREKETLERI sh
-            ON ch.EVRAKNO = sh.EVRAKNO 
-            AND ch.FIRMANO = sh.FIRMANO 
-            AND ch.IZAHAT = sh.IZAHAT
-            AND NULLIF(ch.EVRAKNO, '') IS NOT NULL
-        LEFT JOIN F0101TBLSTOKLAR s 
-            ON sh.STOKNO = s.IND
-        LEFT JOIN F0101TBLBIRIMLEREX b 
-            ON sh.BIRIMEX = b.IND
-        WHERE ch.FIRMANO = @code
-        ORDER BY ch.TARIH ASC, ch.IND ASC
-      `);
+      .query(sqlQuery);
     res.json(result.recordset);
   } catch (err) {
     console.error('[API /api/personel/:code/hareketler HATASI]:', err.message);
     res.status(500).json({ error: 'SQL Hatası', details: err.message });
+  }
+});
+
+// 4b. Vega Veritabanı Şema Teşhisi Endpoint'i
+app.get('/api/vega/schema-check', async (req, res) => {
+  try {
+    const pool = await getVegaPool();
+    const { chCols, shCols } = await getHareketColumns(pool);
+    res.json({
+      success: true,
+      cariHareketlerColumns: Array.from(chCols).sort(),
+      stokHareketlerColumns: Array.from(shCols).sort()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
