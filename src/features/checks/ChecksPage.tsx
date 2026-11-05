@@ -589,12 +589,15 @@ function doesCheckMatchBillOnDate(
   if (String(c.id || '').startsWith(`bill_${bill.id}_`)) return true;
   if ((c.ozel_alan || '').includes(billTag)) return true;
 
+  if (String(c.id || '').startsWith('bill_')) return false;
+  if ((c.ozel_alan || '').includes('FATURA_')) return false;
+
   const cDue = (c.due_date || '').substring(0, 10);
   if (cDue !== targetDateStr && cDue !== billDueStr) return false;
 
   const cCred = fixCorruptedText(c.creditor || '').trim().toLocaleUpperCase('tr-TR');
   const bName = fixCorruptedText(bill.name || '').trim().toLocaleUpperCase('tr-TR');
-  if (cCred === bName) return true;
+  if (cCred && bName && cCred === bName) return true;
 
   return false;
 }
@@ -2138,6 +2141,8 @@ export function ChecksPage() {
       );
       if (alreadyInChecks) continue;
 
+      const bankLabel = bill.autoPaymentBank ? bill.autoPaymentBank.trim().toLocaleUpperCase('tr-TR') : '';
+
       const syntheticBillCheck: EbsCheck = {
         id: `bill_${bill.id}_${targetDateStr}`,
         local_id: 0,
@@ -2148,12 +2153,12 @@ export function ChecksPage() {
         amount: Number(bill.currentAmount || 0),
         para_birimi: 'TRY',
         check_no: null,
-        debtor: 'TAKSİT',
+        debtor: bankLabel,
         creditor: billLabel,
-        bank_name: 'TAKSİT',
+        bank_name: bankLabel,
         bank_branch: null,
         status: 'Tahsilde',
-        ozel_alan: `TAKASTA - FATURA_${bill.id}_${billDueStr}`,
+        ozel_alan: `TAKASTA OLMAYAN - FATURA_${bill.id}_${billDueStr}`,
         kesideci: null,
         keside_yeri: null,
         tahsildar_banka: null,
@@ -2388,8 +2393,22 @@ export function ChecksPage() {
       }
     });
 
-    // Sort non-takas checks to match Excel template (empty bank name first, then alphabetical by bank, then alphabetical by creditor)
+    // Sort non-takas checks: actual non-takas checks first, then due bills (amount > 0 first, then by name)
     nonTakasChecks.sort((a, b) => {
+      const isBillA = String(a.id || '').startsWith('bill_') || String(a.ozel_alan || '').includes('FATURA_');
+      const isBillB = String(b.id || '').startsWith('bill_') || String(b.ozel_alan || '').includes('FATURA_');
+
+      if (!isBillA && isBillB) return -1;
+      if (isBillA && !isBillB) return 1;
+
+      if (isBillA && isBillB) {
+        const amtA = Number(a.amount || 0);
+        const amtB = Number(b.amount || 0);
+        if (amtA > 0 && amtB === 0) return -1;
+        if (amtA === 0 && amtB > 0) return 1;
+        if (amtA !== amtB && amtA > 0 && amtB > 0) return amtB - amtA;
+      }
+
       const bankA = (a.bank_name || a.debtor || '').trim().toUpperCase();
       const bankB = (b.bank_name || b.debtor || '').trim().toUpperCase();
       
@@ -2704,11 +2723,11 @@ export function ChecksPage() {
           amount: field === 'amount' ? parsedValue : Number(check.amount || 0),
           para_birimi: 'TRY',
           creditor: field === 'creditor' ? parsedValue : check.creditor,
-          debtor: field === 'debtor' ? parsedValue : (check.debtor || 'TAKSİT'),
-          bank_name: field === 'bank_name' ? parsedValue : (check.bank_name || 'TAKSİT'),
+          debtor: field === 'debtor' ? parsedValue : (check.debtor || ''),
+          bank_name: field === 'bank_name' ? parsedValue : (check.bank_name || check.debtor || ''),
           ozel_alan: shouldDelete
             ? `SİLİNDİ - TAKASTAN KALDIRILDI - ${check.ozel_alan || ''}`
-            : (check.ozel_alan || 'TAKASTA')
+            : (check.ozel_alan || 'TAKASTA OLMAYAN')
         };
         supabase
           .from('ebs_checks')
@@ -3069,11 +3088,11 @@ export function ChecksPage() {
           amount: Number(check.amount || 0),
           para_birimi: 'TRY',
           creditor: check.creditor,
-          debtor: updatedDebtor || check.debtor || 'TAKSİT',
-          bank_name: check.bank_name || 'TAKSİT',
+          debtor: updatedDebtor || check.debtor || '',
+          bank_name: check.bank_name || check.debtor || '',
           ozel_alan: statusOption === 'sil'
             ? `SİLİNDİ - TAKASTAN KALDIRILDI - ${check.ozel_alan || ''}`
-            : (updatedOzelAlan || check.ozel_alan || 'TAKASTA')
+            : (updatedOzelAlan || check.ozel_alan || 'TAKASTA OLMAYAN')
         };
         const { data: insertedBill } = await supabase
           .from('ebs_checks')
@@ -3248,9 +3267,9 @@ export function ChecksPage() {
             amount: Number(t.amount || 0),
             para_birimi: 'TRY',
             creditor: t.creditor,
-            debtor: t.debtor || 'TAKSİT',
-            bank_name: t.bank_name || 'TAKSİT',
-            ozel_alan: t.ozel_alan || 'TAKASTA'
+            debtor: t.debtor || '',
+            bank_name: t.bank_name || t.debtor || '',
+            ozel_alan: t.ozel_alan || 'TAKASTA OLMAYAN'
           };
         });
         const { data: insertedBillRows } = await supabase.from('ebs_checks').insert(billPayloads).select();
@@ -4075,6 +4094,13 @@ export function ChecksPage() {
                                     className={`w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left border-t border-gray-100 ${check.ozel_alan?.includes('TAKASTA OLMAYAN') ? 'bg-red-50 text-red-700 font-black' : ''}`}
                                   >
                                     <span>Takasta Değil</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleTakasStatus(check, 'odendi')}
+                                    className="w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 font-bold text-left border-t border-gray-100"
+                                  >
+                                    <span>Ödendi</span>
                                   </button>
                                   <button
                                     type="button"
