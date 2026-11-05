@@ -73,6 +73,51 @@ export function TendersPage(){
       .eq('status', 'hazirlaniyor')
       .lt('deadline_at', nowIso);
 
+    // Auto-import pending EKAP candidates directly into tenders
+    try {
+      const { data: pendingData } = await supabase
+        .from('ekap_candidates')
+        .select('*')
+        .eq('organization_id', user.organizationId)
+        .eq('status', 'bekliyor')
+        .or('scope.is.null,scope.eq.tender,scope.eq.4734,scope.eq.ihale')
+        .not('ikn', 'ilike', '%DT%')
+        .gte('deadline_at', nowIso)
+        .order('deadline_at');
+
+      if (pendingData && pendingData.length > 0) {
+        for (const item of pendingData) {
+          await supabase.from('tenders').insert({
+            organization_id: user.organizationId,
+            tender_number: item.ikn,
+            title: item.title,
+            institution: item.institution,
+            tender_type: 'mal',
+            method: 'acik',
+            status: 'hazirlaniyor',
+            estimated_amount: 0,
+            currency: 'TRY',
+            deadline_at: item.deadline_at,
+            assigned_to: '',
+            description: `EKAP 4734 kapsamı · Eşleşme: ${item.matched_keyword || 'OKAS 15100000'}`,
+            created_by: user.id
+          });
+        }
+
+        const ids = pendingData.map(c => c.id);
+        await supabase
+          .from('ekap_candidates')
+          .update({
+            status: 'onaylandi',
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: user.id
+          })
+          .in('id', ids);
+      }
+    } catch (e: any) {
+      console.warn('EKAP aday senkronizasyon hatası:', e.message);
+    }
+
     const{data,error}=await supabase
       .from('tenders')
       .select('*')
@@ -190,8 +235,23 @@ export function TendersPage(){
   const remove=async(item:Tender)=>{
     if(!confirm(`“${item.title}” ihalesi silinsin mi?`))return;
     const{error}=await supabase.from('tenders').delete().eq('id',item.id).eq('organization_id',user?.organizationId);
-    if(error)notify(error.message,'error');
-    else{notify('İhale silindi.','success');await refresh()}
+    if(error) {
+      notify(error.message,'error');
+    } else {
+      if (item.tender_number && user?.organizationId) {
+        await supabase
+          .from('ekap_candidates')
+          .update({
+            status: 'reddedildi',
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: user.id
+          })
+          .eq('organization_id', user.organizationId)
+          .eq('ikn', item.tender_number);
+      }
+      notify('İhale silindi.','success');
+      await refresh();
+    }
   };
 
   const removeAll = async () => {
@@ -209,6 +269,7 @@ export function TendersPage(){
     if (!confirm(msg)) return;
 
     const ids = targetItems.map(x => x.id);
+    const ikns = targetItems.map(x => x.tender_number).filter(Boolean);
     const batchSize = 100;
     let hasError = false;
     for (let i = 0; i < ids.length; i += batchSize) {
@@ -225,6 +286,17 @@ export function TendersPage(){
       }
     }
     if (!hasError) {
+      if (ikns.length > 0 && user?.organizationId) {
+        await supabase
+          .from('ekap_candidates')
+          .update({
+            status: 'reddedildi',
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: user.id
+          })
+          .in('ikn', ikns)
+          .eq('organization_id', user.organizationId);
+      }
       notify(`${count} adet ihale başarıyla silindi.`, 'success');
       await refresh();
     }
