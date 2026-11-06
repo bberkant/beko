@@ -90,8 +90,28 @@ export function VegaArctosCarilerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const codeParam = searchParams.get('code');
   const searchParamVal = searchParams.get('search') || '';
-  const [cariler, setCariler] = useState<CariKart[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [cariler, setCariler] = useState<CariKart[]>(() => {
+    try {
+      const cached = localStorage.getItem('vega_cariler_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('LocalStorage cache read error:', e);
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    try {
+      const cached = localStorage.getItem('vega_cariler_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return false;
+      }
+    } catch (e) {}
+    return true;
+  });
   const [searchQuery, setSearchQuery] = useState(searchParamVal);
   const [localSearch, setLocalSearch] = useState(searchParamVal);
   const [typeFilter, setTypeFilter] = useState<'all' | 'customer' | 'supplier'>('all');
@@ -114,7 +134,13 @@ export function VegaArctosCarilerPage() {
   const [selectedCari, setSelectedCari] = useState<CariKart | null>(null);
   const [selectedCariInvoices, setSelectedCariInvoices] = useState<CariInvoice[]>([]);
   const [liveConnection, setLiveConnection] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('vega_cariler_cache_time');
+    } catch {
+      return null;
+    }
+  });
   
   const [allChecks, setAllChecks] = useState<any[]>([]);
   const [reportDesign, setReportDesign] = useState<'dars' | 'etas'>('dars');
@@ -330,184 +356,118 @@ export function VegaArctosCarilerPage() {
     return false;
   };
 
-  const syncCariMovements = async (carilerList: any[], orgId: string) => {
-    // Get all unique supplier names from kesim_listesi to make sure they are synced
-    const supplierNames = new Set<string>();
-    try {
-      const { data: kesimSuppliers } = await supabase
-        .from('kesim_listesi')
-        .select('supplier')
-        .eq('organization_id', orgId);
-      
-      if (kesimSuppliers) {
-        kesimSuppliers.forEach(k => {
-          if (k.supplier) {
-            supplierNames.add(turkishNormalize(k.supplier).replace(/\s+/g, ''));
-          }
-        });
-      }
-    } catch (err) {
-      console.error('Tedarikçi listesi çekilirken hata:', err);
-    }
-
-    const activeCariler = carilerList.filter(c => {
-      const hasTransactionDate = !!c.lastTransactionDate;
-      const hasBalance = Math.abs(Number(c.balance || 0)) > 0.01;
-      const isSupplier = supplierNames.has(turkishNormalize(c.name || '').replace(/\s+/g, ''));
-      return hasTransactionDate || hasBalance || isSupplier;
-    });
-    
-    const batchSize = 35; 
-    let processed = 0;
-    
-    for (let i = 0; i < activeCariler.length; i += batchSize) {
-      const chunk = activeCariler.slice(i, i + batchSize);
-      
-      const allMovementsToInsert: any[] = [];
-      const codesToDelete: string[] = [];
-
-      await Promise.all(chunk.map(async (cari) => {
-        try {
-          const res = await fetch(`${TUNNEL_URL}/api/cariler/${cari.code}/hareketler`);
-          if (res.ok) {
-            const movements = await res.json();
-            if (Array.isArray(movements) && movements.length > 0) {
-              codesToDelete.push(cari.code);
-              movements.forEach((m: any) => {
-                allMovementsToInsert.push({
-                  organization_id: orgId,
-                  cari_code: cari.code,
-                  date: m.date || new Date().toISOString(),
-                  invoice_no: m.invoiceNo || '',
-                  izahat: m.izahat || '',
-                  description: m.description || '',
-                  quantity: Number(m.quantity || 0),
-                  unit_price: Number(m.unitPrice || 0),
-                  line_tutar: Number(m.lineTutar || 0),
-                  product_name: m.productName || null,
-                  unit_name: m.unitName || null,
-                  borc: Number(m.borc || 0),
-                  alacak: Number(m.alacak || 0),
-                  vade: m.vade || null,
-                  type: m.type || '',
-                  amount: Number(m.amount || 0)
-                });
-              });
-            }
-          }
-        } catch (err) {
-          console.error(`Cari ${cari.code} hareketleri çekilirken hata:`, err);
-        }
-      }));
-
-      // Delete old movements for this batch
-      if (codesToDelete.length > 0) {
-        const { error: delErr } = await supabase
-          .from('vega_cari_hareketler')
-          .delete()
-          .eq('organization_id', orgId)
-          .in('cari_code', codesToDelete);
-        
-        if (delErr) console.error('Eski hareketler silinirken hata:', delErr);
-      }
-
-      // Insert new movements
-      if (allMovementsToInsert.length > 0) {
-        const insertBatchSize = 500;
-        for (let k = 0; k < allMovementsToInsert.length; k += insertBatchSize) {
-          const subChunk = allMovementsToInsert.slice(k, k + insertBatchSize);
-          const { error: insErr } = await supabase
-            .from('vega_cari_hareketler')
-            .insert(subChunk);
-          
-          if (insErr) console.error('Yeni hareketler eklenirken hata:', insErr);
-        }
-      }
-      
-      processed += chunk.length;
-    }
-  };
-
   const fetchCariler = async (showNotification = false) => {
     const orgId = user?.organizationId || DEFAULT_ORG_ID;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
     try {
-      const response = await fetch(`${TUNNEL_URL}/api/cariler`);
+      const response = await fetch(`${TUNNEL_URL}/api/cariler`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       if (!response.ok) throw new Error('API yanıt vermedi.');
       const data = await response.json();
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         setCariler(data);
+        setIsLoading(false); // Anında tabloyu göster, bekleme yok!
         setLiveConnection(true);
         const now = new Date();
-        setLastSyncTime(
-          `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-        );
-        
-        // Save to Supabase (upsert) in background
-        const payload = data.map(item => ({
-          organization_id: orgId,
-          code: item.code,
-          name: item.name,
-          company_code: item.companyCode,
-          company_tracking_code: item.companyTrackingCode,
-          tax_office: item.taxOffice,
-          tax_no: item.taxNo,
-          type: item.type,
-          city: item.city,
-          last_transaction_date: item.lastTransactionDate,
-          balance: item.balance
-        }));
-        
-        const batchSize = 1000;
-        for (let i = 0; i < payload.length; i += batchSize) {
-          const chunk = payload.slice(i, i + batchSize);
-          await supabase
-            .from('vega_cariler')
-            .upsert(chunk, { onConflict: 'organization_id,code' });
+        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        setLastSyncTime(timeStr);
+
+        try {
+          localStorage.setItem('vega_cariler_cache', JSON.stringify(data));
+          localStorage.setItem('vega_cariler_cache_time', timeStr);
+        } catch (storageErr) {
+          console.warn('LocalStorage save error:', storageErr);
         }
-        
-        // Eşitlenen carilerin hareketlerini de yedekle
+
         if (showNotification) {
-          notify('Cari kartlar eşitlendi. Şimdi tüm hesap ve stok hareketleri Supabase\'e yedekleniyor. Lütfen bekleyin...', 'info');
-          await syncCariMovements(data, orgId);
-          notify('Tüm cari kartlar, hesap ve stok hareketleri başarıyla senkronize edildi!', 'success');
+          notify(`Cari kartlar ve güncel bakiyeler başarıyla eşitlendi (${data.length} cari).`, 'success');
         }
+
+        // Arka planda Supabase'e yedekle (UI'ı asla bekletmez veya dondurmaz)
+        void (async () => {
+          try {
+            const payload = data.map(item => ({
+              organization_id: orgId,
+              code: item.code,
+              name: item.name,
+              company_code: item.companyCode,
+              company_tracking_code: item.companyTrackingCode,
+              tax_office: item.taxOffice,
+              tax_no: item.taxNo,
+              type: item.type,
+              city: item.city,
+              last_transaction_date: item.lastTransactionDate,
+              balance: item.balance
+            }));
+
+            const batchSize = 500;
+            for (let i = 0; i < payload.length; i += batchSize) {
+              const chunk = payload.slice(i, i + batchSize);
+              await supabase
+                .from('vega_cariler')
+                .upsert(chunk, { onConflict: 'organization_id,code' });
+            }
+          } catch (upsertErr) {
+            console.warn('Supabase arka plan kayıt uyarısı:', upsertErr);
+          }
+        })();
+
+        return true;
       }
-    } catch (err) {
+    } catch (err: any) {
+      clearTimeout(timeoutId);
       console.error('Vega canlı verisi çekilemedi:', err);
       setLiveConnection(false);
-      
-      // Try to load cached data from Supabase first
-      const loaded = await fetchSavedCariler();
-      
-      if (showNotification) {
-        if (loaded) {
-          notify('Vega API bağlantısı başarısız. Sistemdeki son güncel veriler gösteriliyor.', 'error');
-        } else {
-          notify('Vega API bağlantısı başarısız. Server ayarlarını kontrol edin.', 'error');
-        }
+
+      // Canlı çekilemediyse ve hafızada veri yoksa Supabase'den yüklemeyi dene
+      if (cariler.length === 0) {
+        await fetchSavedCariler();
       }
+
+      if (showNotification) {
+        notify('Vega API bağlantısı başarısız. Sistemdeki mevcut veriler gösteriliyor.', 'error');
+      }
+    } finally {
+      setIsLoading(false);
     }
+    return false;
   };
 
   useEffect(() => {
+    let isMounted = true;
     const initLoad = async () => {
-      setIsLoading(true);
-      // 1. Instantly load cached 2,183 cariler from Supabase for zero-delay UI rendering
-      const hasSaved = await fetchSavedCariler();
-      if (hasSaved) {
+      // 1. Eğer hafızada/localStorage'da veri yoksa Supabase'den hızlıca yükle
+      if (cariler.length === 0) {
+        const hasSaved = await fetchSavedCariler();
+        if (hasSaved && isMounted) {
+          setIsLoading(false);
+        }
+      } else {
         setIsLoading(false);
       }
-      // 2. Refresh live data from Vega in the background
-      await fetchCariler(false);
-      setIsLoading(false);
+
+      // 2. Arka planda Vega'dan canlı verileri çek ve güncelle
+      try {
+        await fetchCariler(false);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     };
     initLoad();
+    return () => {
+      isMounted = false;
+    };
   }, [user?.organizationId]);
 
   useEffect(() => {
     if (selectedCari) {
       setSelectedCariInvoices(selectedCari.invoices || []);
-      
+
       const fetchInvoices = async () => {
         try {
           const response = await fetch(`${TUNNEL_URL}/api/cariler/${selectedCari.code}/hareketler`);
@@ -515,13 +475,81 @@ export function VegaArctosCarilerPage() {
             const data = await response.json();
             if (Array.isArray(data)) {
               setSelectedCariInvoices(data);
+
+              // Arka planda bu seçili carinin hareketlerini Supabase'e yedekle (UI'ı bekletmez)
+              void (async () => {
+                try {
+                  const orgId = user?.organizationId || DEFAULT_ORG_ID;
+                  await supabase
+                    .from('vega_cari_hareketler')
+                    .delete()
+                    .eq('organization_id', orgId)
+                    .eq('cari_code', selectedCari.code);
+
+                  if (data.length > 0) {
+                    const toInsert = data.map((m: any) => ({
+                      organization_id: orgId,
+                      cari_code: selectedCari.code,
+                      date: m.date || new Date().toISOString(),
+                      invoice_no: m.invoiceNo || '',
+                      izahat: m.izahat || '',
+                      description: m.description || '',
+                      quantity: Number(m.quantity || 0),
+                      unit_price: Number(m.unitPrice || 0),
+                      line_tutar: Number(m.lineTutar || 0),
+                      product_name: m.productName || null,
+                      unit_name: m.unitName || null,
+                      borc: Number(m.borc || 0),
+                      alacak: Number(m.alacak || 0),
+                      vade: m.vade || null,
+                      type: m.type || '',
+                      amount: Number(m.amount || 0)
+                    }));
+                    await supabase.from('vega_cari_hareketler').insert(toInsert);
+                  }
+                } catch (saveErr) {
+                  console.warn('Seçili cari hareketleri Supabase kayıt uyarısı:', saveErr);
+                }
+              })();
             }
           }
         } catch (err) {
           console.error('Cari hareketleri çekilemedi:', err);
+          // Canlı çekilemezse Supabase'den yedek hareketleri yükle
+          try {
+            const orgId = user?.organizationId || DEFAULT_ORG_ID;
+            const { data: cachedMoves } = await supabase
+              .from('vega_cari_hareketler')
+              .select('*')
+              .eq('organization_id', orgId)
+              .eq('cari_code', selectedCari.code)
+              .order('date', { ascending: true });
+            if (cachedMoves && cachedMoves.length > 0) {
+              const mapped = cachedMoves.map((m: any) => ({
+                id: m.id,
+                date: m.date,
+                invoiceNo: m.invoice_no,
+                izahat: m.izahat,
+                description: m.description,
+                quantity: m.quantity,
+                unitPrice: m.unit_price,
+                lineTutar: m.line_tutar,
+                productName: m.product_name,
+                unitName: m.unit_name,
+                borc: m.borc,
+                alacak: m.alacak,
+                vade: m.vade,
+                type: m.type,
+                amount: m.amount
+              }));
+              setSelectedCariInvoices(mapped);
+            }
+          } catch (dbErr) {
+            console.error('Supabase hareketler de yüklenemedi:', dbErr);
+          }
         }
       };
-      
+
       fetchInvoices();
     } else {
       setSelectedCariInvoices([]);
@@ -530,8 +558,14 @@ export function VegaArctosCarilerPage() {
 
   const handleSync = async () => {
     setIsSyncing(true);
-    await fetchCariler(true);
-    setIsSyncing(false);
+    try {
+      await fetchCariler(true);
+    } catch (err) {
+      console.error('Eşitleme hatası:', err);
+      notify('Eşitleme sırasında hata oluştu.', 'error');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleExportStatement = (cari: CariKart) => {
@@ -1915,7 +1949,12 @@ export function VegaArctosCarilerPage() {
         <div className="flex gap-6 z-10 border-t border-white/10 pt-4 md:border-t-0 md:pt-0">
           <div>
             <span className="text-[10px] text-white/50 uppercase font-bold tracking-wider">Son Eşitleme</span>
-            <div className="text-sm font-semibold mt-0.5">{liveConnection ? (lastSyncTime ? lastSyncTime : 'Az Önce (Real-time)') : 'Senkronize Edilmedi'}</div>
+            <div className="text-sm font-semibold mt-0.5 flex items-center gap-1.5">
+              <span>{liveConnection ? (lastSyncTime ? lastSyncTime : 'Az Önce (Real-time)') : 'Senkronize Edilmedi'}</span>
+              {isLoading && cariler.length > 0 && (
+                <span className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-white/40 border-t-white" title="Arka planda güncelleniyor..." />
+              )}
+            </div>
           </div>
           <div>
             <span className="text-[10px] text-white/50 uppercase font-bold tracking-wider">Kayıtlı Cari Kart</span>
@@ -2052,7 +2091,7 @@ export function VegaArctosCarilerPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {isLoading ? (
+              {isLoading && cariler.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-5 py-12 text-center text-sm text-gray-500 font-medium">
                     <div className="flex items-center justify-center gap-2">
