@@ -816,6 +816,7 @@ export function ChecksPage() {
   const [selectedCheckId, setSelectedCheckId] = useState<string>('');
   const [targetColumn, setTargetColumn] = useState<string>('TAKSİT');
   const [modalSearchTerm, setModalSearchTerm] = useState('');
+  const [isModalIcTakas, setIsModalIcTakas] = useState(false);
 
   const resetForm = () => {
     setNewCheckNo('');
@@ -832,6 +833,7 @@ export function ChecksPage() {
     setSelectedCheckId('');
     setTargetColumn('TAKSİT');
     setModalSearchTerm('');
+    setIsModalIcTakas(false);
   };
 
   useEffect(() => {
@@ -895,12 +897,11 @@ export function ChecksPage() {
         const isCekten = isCektenCheck(targetCheck);
         const cektenSuffix = isCekten ? ' - ÇEKTEN' : '';
         
+        const isIcTakasFlag = isModalIcTakas || (targetCheck.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
         if (targetColumn === 'TAKASTA OLMAYAN') {
-          const isCurrentlyIcTakas = (targetCheck.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
-          updatedOzelAlan = isCurrentlyIcTakas ? `TAKASTA OLMAYAN - İÇ TAKAS${cektenSuffix}` : `TAKASTA OLMAYAN${cektenSuffix}`;
+          updatedOzelAlan = isIcTakasFlag ? `TAKASTA OLMAYAN - İÇ TAKAS${cektenSuffix}` : `TAKASTA OLMAYAN${cektenSuffix}`;
         } else {
-          const isCurrentlyIcTakas = (targetCheck.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
-          updatedOzelAlan = isCurrentlyIcTakas ? `TAKASTA - İÇ TAKAS${cektenSuffix}` : `TAKASTA${cektenSuffix}`;
+          updatedOzelAlan = isIcTakasFlag ? `TAKASTA - İÇ TAKAS${cektenSuffix}` : `TAKASTA${cektenSuffix}`;
           updatedDebtor = targetColumn;
         }
 
@@ -948,6 +949,10 @@ export function ChecksPage() {
           finalOzelAlan = newOzelAlan.trim() ? `TAKASTA - ${newOzelAlan.trim()}` : 'TAKASTA';
           finalDebtor = targetColumn;
           finalKesideci = newDebtor; // Store custom debtor in kesideci field
+        }
+
+        if (isModalIcTakas && !finalOzelAlan.includes('İÇ TAKAS')) {
+          finalOzelAlan = finalOzelAlan ? `${finalOzelAlan} - İÇ TAKAS` : 'TAKASTA - İÇ TAKAS';
         }
 
         const newCheckData = {
@@ -6049,7 +6054,23 @@ export function ChecksPage() {
                 <select
                   className="input"
                   value={selectedCheckId}
-                  onChange={(e) => setSelectedCheckId(e.target.value)}
+                  onChange={(e) => {
+                    const cId = e.target.value;
+                    setSelectedCheckId(cId);
+                    const found = checks.find(c => c.id === cId);
+                    if (found) {
+                      const todayStr = takasDate || new Date().toISOString().substring(0, 10);
+                      const isPast = Boolean(found.due_date && found.due_date.substring(0, 10) < todayStr);
+                      const isIc = (found.ozel_alan || '').toUpperCase().includes('İÇ TAKAS');
+                      if (isIc || isPast) {
+                        setIsModalIcTakas(true);
+                      }
+                      const cleanBank = getBankColumn(found.debtor, found.bank_name) || getCleanBankName(found.debtor, found.bank_name);
+                      if (cleanBank && cleanBank !== 'TAKSİT') {
+                        setTargetColumn(cleanBank);
+                      }
+                    }
+                  }}
                   required
                 >
                   <option value="">-- Çek Seçin --</option>
@@ -6255,6 +6276,19 @@ export function ChecksPage() {
                 <option key={col} value={col}>{col} Sütunu</option>
               ))}
             </select>
+          </div>
+
+          <div className="mt-3 flex items-center gap-2 bg-red-50/60 p-2.5 rounded-lg border border-red-100">
+            <input
+              type="checkbox"
+              id="modalIcTakasCheckbox"
+              checked={isModalIcTakas}
+              onChange={(e) => setIsModalIcTakas(e.target.checked)}
+              className="h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer"
+            />
+            <label htmlFor="modalIcTakasCheckbox" className="text-xs font-bold text-red-800 cursor-pointer select-none">
+              İç Takas olarak ekle (Kırmızı zeminli, gün devreden iç takas)
+            </label>
           </div>
 
           <div className="flex justify-end gap-3 border-t border-gray-100 pt-4 mt-6">
