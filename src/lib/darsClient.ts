@@ -200,7 +200,20 @@ export class DarsQueryBuilder<T = any> {
     try {
       // 1. MUTATION: INSERT OR UPSERT
       if (this.mutationType === 'insert' || this.mutationType === 'upsert') {
-        const rows = Array.isArray(this.mutationData) ? this.mutationData : [this.mutationData];
+        const rawRows = Array.isArray(this.mutationData) ? this.mutationData : [this.mutationData];
+        const rows = rawRows.map(r => {
+          if (r && typeof r === 'object') {
+            const hasId = r.id !== undefined && r.id !== null && r.id !== '';
+            if (!hasId) {
+              const genId = typeof crypto !== 'undefined' && crypto.randomUUID
+                ? crypto.randomUUID()
+                : 'id_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+              return { id: genId, ...r };
+            }
+          }
+          return r;
+        });
+
         if (rows.length === 1 && !Array.isArray(this.mutationData)) {
           const res = await this.postApi('rest_insert', {
             table: this.table,

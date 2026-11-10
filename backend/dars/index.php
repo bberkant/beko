@@ -316,6 +316,16 @@ if ($action === 'import_batch') {
 
             if (empty($filteredRow)) continue;
 
+            if (isset($existingColsSet['id']) && empty($filteredRow['id'])) {
+                $filteredRow['id'] = gen_uuid();
+            }
+            if (isset($existingColsSet['created_at']) && empty($filteredRow['created_at'])) {
+                $filteredRow['created_at'] = date('c');
+            }
+            if (isset($existingColsSet['updated_at']) && empty($filteredRow['updated_at'])) {
+                $filteredRow['updated_at'] = date('c');
+            }
+
             $colList = array_keys($filteredRow);
             $colNames = implode(', ', array_map(fn($c) => "`{$c}`", $colList));
             $placeholders = implode(', ', array_map(fn($c) => ":{$c}", $colList));
