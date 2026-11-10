@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { darsApiCall } from './darsApi';
 import { useToast } from '../../../lib/toast';
 import type { CompanyBill, BillInvoice, BillFormInput, InvoiceFormInput, BillStatus, InvoiceStatus } from '../types';
 
@@ -552,39 +552,20 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Sunucu yanıt süresi aşıldı (Timeout)')), 8000)
-      );
-
-      const fetchPromise = Promise.all([
-        supabase
-          .from('company_bills')
-          .select('*')
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('company_bill_invoices')
-          .select('*')
-          .order('due_date', { ascending: false })
-      ]);
-
-      const [{ data: billsData, error: billsError }, { data: invData }] = await Promise.race([
-        fetchPromise,
-        timeoutPromise
-      ]);
-
-      if (billsError) throw billsError;
-
-      if (billsData && billsData.length > 0) {
-        const mappedBills = billsData.map(mapDbBillToApp);
-        const mappedInvoices = (invData || []).map(mapDbInvoiceToApp);
+      const res = await darsApiCall('get_all');
+      if (res && res.success && Array.isArray(res.bills)) {
+        const mappedBills = res.bills.map(mapDbBillToApp);
+        const mappedInvoices = (res.invoices || []).map(mapDbInvoiceToApp);
         setBills(mappedBills);
         setInvoices(mappedInvoices);
         persistBillsToStorage(mappedBills);
         persistInvoicesToStorage(mappedInvoices);
+        setIsOffline(false);
+      } else {
+        throw new Error(res?.error || 'Veriler alınamadı');
       }
-      setIsOffline(false);
     } catch (err: any) {
-      console.warn('Bills Supabase fetch error/timeout, using local cache:', err);
+      console.warn('Bills DARS API fetch notice, using local cache:', err);
       setIsOffline(true);
     } finally {
       setLoading(false);
@@ -632,14 +613,10 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         notes: input.notes || ''
       };
 
-      const { data, error } = await supabase
-        .from('company_bills')
-        .insert([dbPayload])
-        .select()
-        .single();
+      const res = await darsApiCall('add_bill', { id: tempId, ...dbPayload });
 
-      if (!error && data) {
-        const created = mapDbBillToApp(data);
+      if (res && res.success && res.bill) {
+        const created = mapDbBillToApp(res.bill);
         setBills(prev => {
           const next = prev.map(b => b.id === tempId ? created : b);
           persistBillsToStorage(next);
@@ -683,14 +660,8 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (input.dueDate !== undefined) dbPayload.due_date = input.dueDate || null;
       if (input.billStatus !== undefined) dbPayload.bill_status = input.billStatus;
       if (input.notes !== undefined) dbPayload.notes = input.notes;
-      dbPayload.updated_at = new Date().toISOString();
 
-      const { error } = await supabase
-        .from('company_bills')
-        .update(dbPayload)
-        .eq('id', id);
-
-      if (error) console.warn('updateBill remote sync notice:', error);
+      await darsApiCall('update_bill', { id, ...dbPayload });
       notify('Fatura bilgisi güncellendi.', 'success');
     } catch (err: any) {
       console.warn('updateBill remote warning (kept locally):', err);
@@ -711,12 +682,7 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     try {
-      const { error } = await supabase
-        .from('company_bills')
-        .delete()
-        .eq('id', id);
-
-      if (error) console.warn('deleteBill remote sync notice:', error);
+      await darsApiCall('delete_bill', { id });
       notify('Fatura kaydı silindi.', 'success');
     } catch (err: any) {
       console.warn('deleteBill remote warning (deleted locally):', err);
@@ -739,16 +705,11 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     try {
-      const { error } = await supabase
-        .from('company_bills')
-        .update({
-          bill_status: newStatus,
-          last_paid_at: lastPaidAt || null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', billId);
-
-      if (error) console.warn('toggleBillStatus remote sync notice:', error);
+      await darsApiCall('toggle_bill_status', {
+        id: billId,
+        bill_status: newStatus,
+        last_paid_at: lastPaidAt || null
+      });
       notify(`${target.name} durumu "${newStatus === 'odendi' ? 'Ödendi' : 'Ödenecek'}" olarak güncellendi.`, 'success');
     } catch (err: any) {
       console.warn('toggleBillStatus remote warning (updated locally):', err);
@@ -802,14 +763,10 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         notes: input.notes || ''
       };
 
-      const { data, error } = await supabase
-        .from('company_bill_invoices')
-        .insert([dbPayload])
-        .select()
-        .single();
+      const res = await darsApiCall('add_invoice', { id: tempId, ...dbPayload });
 
-      if (!error && data) {
-        const created = mapDbInvoiceToApp(data);
+      if (res && res.success && res.invoice) {
+        const created = mapDbInvoiceToApp(res.invoice);
         setInvoices(prev => {
           const next = prev.map(i => i.id === tempId ? created : i);
           persistInvoicesToStorage(next);
@@ -847,14 +804,8 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (input.paidAt !== undefined) dbPayload.paid_at = input.paidAt || null;
       if (input.paymentMethod !== undefined) dbPayload.payment_method = input.paymentMethod;
       if (input.notes !== undefined) dbPayload.notes = input.notes;
-      dbPayload.updated_at = new Date().toISOString();
 
-      const { error } = await supabase
-        .from('company_bill_invoices')
-        .update(dbPayload)
-        .eq('id', id);
-
-      if (error) console.warn('updateInvoice remote sync notice:', error);
+      await darsApiCall('update_invoice', { id, ...dbPayload });
       notify('Fatura hareketi güncellendi.', 'success');
     } catch (err: any) {
       console.warn('updateInvoice remote warning (updated locally):', err);
@@ -870,12 +821,7 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     try {
-      const { error } = await supabase
-        .from('company_bill_invoices')
-        .delete()
-        .eq('id', id);
-
-      if (error) console.warn('deleteInvoice remote sync notice:', error);
+      await darsApiCall('delete_invoice', { id });
       notify('Fatura hareketi silindi.', 'success');
     } catch (err: any) {
       console.warn('deleteInvoice remote warning (deleted locally):', err);
@@ -899,17 +845,12 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     try {
-      const { error } = await supabase
-        .from('company_bill_invoices')
-        .update({
-          status: newStatus,
-          paid_at: paidAt || null,
-          paid_amount: paidAmount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', invoiceId);
-
-      if (error) console.warn('toggleInvoiceStatus remote sync notice:', error);
+      await darsApiCall('toggle_invoice_status', {
+        id: invoiceId,
+        status: newStatus,
+        paid_at: paidAt || null,
+        paid_amount: paidAmount
+      });
       notify(`Fatura "${newStatus === 'odendi' ? 'Ödendi' : 'Ödenecek'}" olarak güncellendi.`, 'success');
     } catch (err: any) {
       console.warn('toggleInvoiceStatus remote warning (updated locally):', err);

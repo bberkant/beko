@@ -2755,13 +2755,9 @@ export function ChecksPage() {
 
         const rawBillId = check.id.split('_')[1];
         if (rawBillId && field === 'amount' && Number(parsedValue) > 0) {
-          supabase
-            .from('company_bills')
-            .update({ current_amount: parsedValue })
-            .eq('id', rawBillId)
-            .then(() => {
-              if (billsContext?.refresh) void billsContext.refresh();
-            });
+          if (billsContext?.updateBill) {
+            void billsContext.updateBill(rawBillId, { currentAmount: Number(parsedValue) });
+          }
         }
         return;
       }
@@ -3114,11 +3110,9 @@ export function ChecksPage() {
         if (statusOption === 'odendi') {
           const rawBillId = check.id.split('_')[1];
           if (rawBillId) {
-            await supabase
-              .from('company_bills')
-              .update({ bill_status: 'odendi', last_paid_at: targetDateStr })
-              .eq('id', rawBillId);
-            if (billsContext?.refresh) void billsContext.refresh();
+            if (billsContext?.toggleBillStatus) {
+              await billsContext.toggleBillStatus(rawBillId, targetDateStr);
+            }
           }
         }
       } else if (statusOption === 'sil') {
@@ -3283,11 +3277,10 @@ export function ChecksPage() {
         }
         const rawBillIds = billTargets.map(t => t.id.split('_')[1]).filter(Boolean);
         if (rawBillIds.length > 0) {
-          await supabase
-            .from('company_bills')
-            .update({ bill_status: 'odendi', last_paid_at: (takasDate || new Date().toISOString().split('T')[0]) })
-            .in('id', rawBillIds);
-          if (billsContext?.refresh) void billsContext.refresh();
+          const targetPayDate = (takasDate || new Date().toISOString().split('T')[0]);
+          if (billsContext?.toggleBillStatus) {
+            await Promise.all(rawBillIds.map(id => billsContext.toggleBillStatus(id, targetPayDate)));
+          }
         }
       }
       const tempTargets = targets
