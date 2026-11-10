@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { darsFrom } from './darsClient';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey =
@@ -9,7 +10,7 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Supabase ortam değişkenleri eksik.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
+const rawSupabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -31,6 +32,15 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     },
   },
 });
+
+export const supabase = new Proxy(rawSupabase, {
+  get(target: any, prop: string | symbol, receiver: any) {
+    if (prop === 'from') {
+      return (table: string) => darsFrom(table);
+    }
+    return Reflect.get(target, prop, receiver);
+  }
+}) as typeof rawSupabase;
 
 export function normalizeFileName(fileName: string): string {
   const dotIndex = fileName.lastIndexOf('.');
