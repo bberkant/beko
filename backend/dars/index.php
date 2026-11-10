@@ -67,6 +67,182 @@ function gen_uuid() {
     );
 }
 
+// Helper to build robust WHERE clause supporting filters, where, and or_groups
+function buildDarsWhere($input, &$params) {
+    $whereParts = ["1=1"];
+    $paramIdx = 0;
+
+    $sanitizeCol = function($c) {
+        return preg_replace('/[^a-zA-Z0-9_]/', '', $c);
+    };
+
+    $formatCondition = function($col, $op, $val) use (&$params, &$paramIdx, $sanitizeCol) {
+        $c = $sanitizeCol($col);
+        if (empty($c)) return null;
+
+        $op = strtolower(trim((string)$op));
+        $p = ":p_" . $paramIdx++;
+
+        if ($op === 'is_null' || ($op === 'is' && ($val === null || strtolower((string)$val) === 'null'))) {
+            return "`{$c}` IS NULL";
+        }
+        if ($op === 'not_null' || $op === 'is_not_null' || ($op === 'not' && ($val === null || strtolower((string)$val) === 'null')) || ($op === 'not.is' && ($val === null || strtolower((string)$val) === 'null'))) {
+            return "`{$c}` IS NOT NULL";
+        }
+        if ($op === 'eq' || $op === '=') {
+            if ($val === null || strtolower((string)$val) === 'null') return "`{$c}` IS NULL";
+            $params[$p] = $val;
+            return "`{$c}` = {$p}";
+        }
+        if ($op === 'neq' || $op === '!=' || $op === '<>') {
+            if ($val === null || strtolower((string)$val) === 'null') return "`{$c}` IS NOT NULL";
+            $params[$p] = $val;
+            return "(`{$c}` != {$p} OR `{$c}` IS NULL)";
+        }
+        if ($op === 'gt' || $op === '>') {
+            $params[$p] = $val;
+            return "`{$c}` > {$p}";
+        }
+        if ($op === 'gte' || $op === '>=') {
+            $params[$p] = $val;
+            return "`{$c}` >= {$p}";
+        }
+        if ($op === 'lt' || $op === '<') {
+            $params[$p] = $val;
+            return "`{$c}` < {$p}";
+        }
+        if ($op === 'lte' || $op === '<=') {
+            $params[$p] = $val;
+            return "`{$c}` <= {$p}";
+        }
+        if ($op === 'like') {
+            $params[$p] = $val;
+            return "`{$c}` LIKE {$p}";
+        }
+        if ($op === 'ilike') {
+            $params[$p] = $val;
+            return "LOWER(`{$c}`) LIKE LOWER({$p})";
+        }
+        if ($op === 'not_like' || $op === 'not.like') {
+            $params[$p] = $val;
+            return "(`{$c}` NOT LIKE {$p} OR `{$c}` IS NULL)";
+        }
+        if ($op === 'not_ilike' || $op === 'not.ilike') {
+            $params[$p] = $val;
+            return "(LOWER(`{$c}`) NOT LIKE LOWER({$p}) OR `{$c}` IS NULL)";
+        }
+        if ($op === 'in') {
+            $vals = is_array($val) ? $val : array_map('trim', explode(',', trim((string)$val, '()')));
+            if (empty($vals)) return "1=0";
+            $inPlaceholders = [];
+            foreach ($vals as $inVal) {
+                $inP = ":p_" . $paramIdx++;
+                $inPlaceholders[] = $inP;
+                $params[$inP] = $inVal;
+            }
+            return "`{$c}` IN (" . implode(',', $inPlaceholders) . ")";
+        }
+        if ($op === 'not_in' || $op === 'not.in') {
+            $vals = is_array($val) ? $val : array_map('trim', explode(',', trim((string)$val, '()')));
+            if (empty($vals)) return "1=1";
+            $inPlaceholders = [];
+            foreach ($vals as $inVal) {
+                $inP = ":p_" . $paramIdx++;
+                $inPlaceholders[] = $inP;
+                $params[$inP] = $inVal;
+            }
+            return "(`{$c}` NOT IN (" . implode(',', $inPlaceholders) . ") OR `{$c}` IS NULL)";
+        }
+
+        $params[$p] = $val;
+        return "`{$c}` = {$p}";
+    };
+
+    // 1. Process explicit filters array
+    if (!empty($input['filters']) && is_array($input['filters'])) {
+        foreach ($input['filters'] as $f) {
+            if (isset($f['col']) && isset($f['op'])) {
+                $cond = $formatCondition($f['col'], $f['op'], $f['val'] ?? null);
+                if ($cond) $whereParts[] = $cond;
+            }
+        }
+    }
+
+    // 2. Process legacy / key-value where object
+    if (!empty($input['where']) && is_array($input['where'])) {
+        foreach ($input['where'] as $col => $val) {
+            if (strpos($col, '__neq_') === 0) {
+                $realCol = substr($col, 6);
+                $cond = $formatCondition($realCol, 'neq', $val);
+            } elseif (strpos($col, '__gt_') === 0) {
+                $realCol = substr($col, 5);
+                $cond = $formatCondition($realCol, 'gt', $val);
+            } elseif (strpos($col, '__gte_') === 0) {
+                $realCol = substr($col, 6);
+                $cond = $formatCondition($realCol, 'gte', $val);
+            } elseif (strpos($col, '__lt_') === 0) {
+                $realCol = substr($col, 5);
+                $cond = $formatCondition($realCol, 'lt', $val);
+            } elseif (strpos($col, '__lte_') === 0) {
+                $realCol = substr($col, 6);
+                $cond = $formatCondition($realCol, 'lte', $val);
+            } elseif (strpos($col, '__not_null_') === 0) {
+                $realCol = substr($col, 11);
+                $cond = $formatCondition($realCol, 'not_null', null);
+            } elseif (strpos($col, '__is_null_') === 0) {
+                $realCol = substr($col, 10);
+                $cond = $formatCondition($realCol, 'is_null', null);
+            } elseif (is_null($val)) {
+                $cond = $formatCondition($col, 'is_null', null);
+            } elseif (is_array($val)) {
+                $cond = $formatCondition($col, 'in', $val);
+            } else {
+                $cond = $formatCondition($col, 'eq', $val);
+            }
+            if ($cond) $whereParts[] = $cond;
+        }
+    }
+
+    // 3. Process PostgREST-style OR filters
+    $orList = [];
+    if (!empty($input['or'])) {
+        if (is_array($input['or'])) {
+            $orList = $input['or'];
+        } else {
+            $orList = [$input['or']];
+        }
+    }
+    if (!empty($input['or_groups']) && is_array($input['or_groups'])) {
+        $orList = array_merge($orList, $input['or_groups']);
+    }
+
+    foreach ($orList as $orStr) {
+        if (!is_string($orStr) || empty(trim($orStr))) continue;
+        $tokens = explode(',', $orStr);
+        $orClauses = [];
+        foreach ($tokens as $token) {
+            $token = trim($token);
+            if (empty($token)) continue;
+            if (preg_match('/^([a-zA-Z0-9_]+)\.([a-zA-Z0-9_\.]+)\.(.*)$/i', $token, $m)) {
+                $col = $m[1];
+                $op = $m[2];
+                $val = $m[3];
+                if (strtolower($val) === 'null') $val = null;
+                $cond = $formatCondition($col, $op, $val);
+                if ($cond) $orClauses[] = $cond;
+            } elseif (preg_match('/^([a-zA-Z0-9_]+)\.is\.null$/i', $token, $m)) {
+                $cond = $formatCondition($m[1], 'is_null', null);
+                if ($cond) $orClauses[] = $cond;
+            }
+        }
+        if (!empty($orClauses)) {
+            $whereParts[] = "(" . implode(" OR ", $orClauses) . ")";
+        }
+    }
+
+    return implode(" AND ", $whereParts);
+}
+
 // -------------------------------------------------------------
 // 1. SELF UPDATE (Allows AI to deploy backend updates remotely)
 // -------------------------------------------------------------
@@ -118,7 +294,6 @@ if ($action === 'import_batch') {
     }
 
     try {
-        // Get valid column names from the target table to avoid mismatch
         $colsStmt = $pdo->query("DESCRIBE `{$table}`");
         $existingCols = $colsStmt->fetchAll(PDO::FETCH_COLUMN);
         $existingColsSet = array_flip($existingCols);
@@ -185,7 +360,7 @@ if ($action === 'table_counts') {
             $stmt = $pdo->query("SELECT COUNT(*) FROM `{$cleanT}`");
             $counts[$cleanT] = (int)$stmt->fetchColumn();
         } catch (Exception $e) {
-            $counts[$cleanT] = -1; // table doesn't exist
+            $counts[$cleanT] = -1;
         }
     }
     echo json_encode(['success' => true, 'counts' => $counts], JSON_UNESCAPED_UNICODE);
@@ -208,32 +383,8 @@ if ($action === 'rest_query') {
         $select = '*';
     }
 
-    $whereClause = "1=1";
     $params = [];
-    $where = $input['where'] ?? [];
-    if (is_array($where)) {
-        foreach ($where as $col => $val) {
-            $cleanCol = preg_replace('/[^a-zA-Z0-9_]/', '', $col);
-            if (is_null($val)) {
-                $whereClause .= " AND `{$cleanCol}` IS NULL";
-            } elseif (is_array($val)) {
-                // IN (...)
-                $placeholders = [];
-                foreach ($val as $idx => $inVal) {
-                    $pName = ":in_{$cleanCol}_{$idx}";
-                    $placeholders[] = $pName;
-                    $params[$pName] = $inVal;
-                }
-                if (!empty($placeholders)) {
-                    $whereClause .= " AND `{$cleanCol}` IN (" . implode(',', $placeholders) . ")";
-                }
-            } else {
-                $pName = ":w_{$cleanCol}";
-                $whereClause .= " AND `{$cleanCol}` = {$pName}";
-                $params[$pName] = $val;
-            }
-        }
-    }
+    $whereClause = buildDarsWhere($input, $params);
 
     $orderClause = "";
     if (!empty($input['order'])) {
@@ -243,31 +394,42 @@ if ($action === 'rest_query') {
     }
 
     $limitClause = "";
-    $limit = isset($input['limit']) ? (int)$input['limit'] : 1000;
+    $limit = isset($input['limit']) ? (int)$input['limit'] : 25000;
     $offset = isset($input['offset']) ? (int)$input['offset'] : 0;
     if ($limit > 0) {
         $limitClause = "LIMIT {$limit} OFFSET {$offset}";
     }
 
     $sql = "SELECT {$select} FROM `{$table}` WHERE {$whereClause} {$orderClause} {$limitClause}";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $data = $stmt->fetchAll();
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $data = $stmt->fetchAll();
 
-    // Auto-decode JSON strings if detected
-    foreach ($data as &$row) {
-        foreach ($row as $k => $v) {
-            if (is_string($v) && (isset($v[0]) && ($v[0] === '{' || $v[0] === '['))) {
-                $decoded = json_decode($v, true);
-                if (json_last_error() === JSON_ERROR_NONE) {
-                    $row[$k] = $decoded;
+        // Auto-decode JSON strings if detected
+        foreach ($data as &$row) {
+            foreach ($row as $k => $v) {
+                if (is_string($v) && (isset($v[0]) && ($v[0] === '{' || $v[0] === '['))) {
+                    $decoded = json_decode($v, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $row[$k] = $decoded;
+                    }
                 }
             }
         }
-    }
 
-    echo json_encode(['success' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
-    exit;
+        echo json_encode(['success' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
+        exit;
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => $e->getMessage(),
+            'sql' => $sql,
+            'params' => $params
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 }
 
 // -------------------------------------------------------------
@@ -320,54 +482,86 @@ if ($action === 'rest_insert') {
 
 if ($action === 'rest_update') {
     $table = preg_replace('/[^a-zA-Z0-9_]/', '', $input['table'] ?? '');
-    $id = $input['id'] ?? '';
     $data = $input['data'] ?? [];
 
-    if (empty($table) || empty($id) || empty($data)) {
+    if (empty($table) || empty($data)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Missing id/table/data'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['success' => false, 'error' => 'Missing table/data'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
     $fields = [];
-    $params = [':id' => $id];
+    $updateParams = [];
+    $upIdx = 0;
     foreach ($data as $k => $v) {
         $cleanCol = preg_replace('/[^a-zA-Z0-9_]/', '', $k);
         if ($cleanCol === 'id') continue;
-        $fields[] = "`{$cleanCol}` = :{$cleanCol}";
+        $uP = ":up_" . $upIdx++;
+        $fields[] = "`{$cleanCol}` = {$uP}";
         if (is_array($v) || is_object($v)) {
-            $params[":{$cleanCol}"] = json_encode($v, JSON_UNESCAPED_UNICODE);
+            $updateParams[$uP] = json_encode($v, JSON_UNESCAPED_UNICODE);
         } elseif (is_bool($v)) {
-            $params[":{$cleanCol}"] = $v ? 1 : 0;
+            $updateParams[$uP] = $v ? 1 : 0;
         } else {
-            $params[":{$cleanCol}"] = $v;
+            $updateParams[$uP] = $v;
         }
     }
 
-    $params[':sys_updated_at'] = date('c');
-    $fields[] = "`updated_at` = :sys_updated_at";
+    $uPUpdated = ":up_" . $upIdx++;
+    $fields[] = "`updated_at` = {$uPUpdated}";
+    $updateParams[$uPUpdated] = date('c');
 
-    $sql = "UPDATE `{$table}` SET " . implode(', ', $fields) . " WHERE id = :id";
+    $whereParams = [];
+    if (!empty($input['id'])) {
+        $whereClause = "`id` = :w_id";
+        $whereParams[':w_id'] = $input['id'];
+    } else {
+        $whereClause = buildDarsWhere($input, $whereParams);
+    }
+
+    $allParams = array_merge($updateParams, $whereParams);
+    $sql = "UPDATE `{$table}` SET " . implode(', ', $fields) . " WHERE {$whereClause}";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    $stmt->execute($allParams);
 
-    echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['success' => true, 'affected_rows' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 if ($action === 'rest_delete') {
     $table = preg_replace('/[^a-zA-Z0-9_]/', '', $input['table'] ?? '');
-    $id = $input['id'] ?? '';
-    if (empty($table) || empty($id)) {
+    if (empty($table)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Missing id or table'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['success' => false, 'error' => 'Missing table'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
-    $stmt = $pdo->prepare("DELETE FROM `{$table}` WHERE id = ?");
-    $stmt->execute([$id]);
+    $whereParams = [];
+    if (!empty($input['id'])) {
+        $whereClause = "`id` = :w_id";
+        $whereParams[':w_id'] = $input['id'];
+    } elseif (!empty($input['ids']) && is_array($input['ids'])) {
+        $placeholders = [];
+        foreach ($input['ids'] as $idx => $idVal) {
+            $pName = ":del_id_{$idx}";
+            $placeholders[] = $pName;
+            $whereParams[$pName] = $idVal;
+        }
+        $whereClause = "`id` IN (" . implode(',', $placeholders) . ")";
+    } else {
+        $whereClause = buildDarsWhere($input, $whereParams);
+    }
 
-    echo json_encode(['success' => true], JSON_UNESCAPED_UNICODE);
+    if ($whereClause === "1=1" || empty($whereClause)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Unrestricted delete blocked'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $stmt = $pdo->prepare("DELETE FROM `{$table}` WHERE {$whereClause}");
+    $stmt->execute($whereParams);
+
+    echo json_encode(['success' => true, 'deleted_rows' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

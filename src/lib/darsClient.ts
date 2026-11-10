@@ -13,12 +13,17 @@ export interface DarsQueryResult<T = any> {
   count?: number | null;
 }
 
+export interface DarsFilterClause {
+  col: string;
+  op: string;
+  val: any;
+}
+
 export class DarsQueryBuilder<T = any> {
   private table: string;
   private selectedCols: string = '*';
-  private whereFilters: Record<string, any> = {};
-  private inFilters: Record<string, any[]> = {};
-  private isNullFilters: string[] = [];
+  private filters: DarsFilterClause[] = [];
+  private orFilters: string[] = [];
   private orderCol?: string;
   private orderDir?: 'ASC' | 'DESC';
   private limitCount?: number;
@@ -40,47 +45,96 @@ export class DarsQueryBuilder<T = any> {
   }
 
   eq(col: string, val: any) {
-    this.whereFilters[col] = val;
+    this.filters.push({ col, op: 'eq', val });
     return this;
   }
 
   neq(col: string, val: any) {
-    // Handled in where
-    this.whereFilters[`__neq_${col}`] = val;
+    this.filters.push({ col, op: 'neq', val });
     return this;
   }
 
   gt(col: string, val: any) {
-    this.whereFilters[`__gt_${col}`] = val;
+    this.filters.push({ col, op: 'gt', val });
     return this;
   }
 
   gte(col: string, val: any) {
-    this.whereFilters[`__gte_${col}`] = val;
+    this.filters.push({ col, op: 'gte', val });
     return this;
   }
 
   lt(col: string, val: any) {
-    this.whereFilters[`__lt_${col}`] = val;
+    this.filters.push({ col, op: 'lt', val });
     return this;
   }
 
   lte(col: string, val: any) {
-    this.whereFilters[`__lte_${col}`] = val;
+    this.filters.push({ col, op: 'lte', val });
+    return this;
+  }
+
+  like(col: string, pattern: string) {
+    this.filters.push({ col, op: 'like', val: pattern });
+    return this;
+  }
+
+  ilike(col: string, pattern: string) {
+    this.filters.push({ col, op: 'ilike', val: pattern });
     return this;
   }
 
   is(col: string, val: any) {
-    if (val === null) {
-      this.isNullFilters.push(col);
+    if (val === null || val === 'null') {
+      this.filters.push({ col, op: 'is_null', val: null });
     } else {
-      this.whereFilters[col] = val;
+      this.filters.push({ col, op: 'eq', val });
     }
     return this;
   }
 
   in(col: string, vals: any[]) {
-    this.inFilters[col] = vals;
+    this.filters.push({ col, op: 'in', val: vals });
+    return this;
+  }
+
+  not(col: string, op: string, val: any) {
+    const cleanOp = (op || '').toLowerCase().trim();
+    if (cleanOp === 'is' && (val === null || val === 'null')) {
+      this.filters.push({ col, op: 'not_null', val: null });
+    } else if (cleanOp === 'ilike' || cleanOp === 'like') {
+      this.filters.push({ col, op: 'not_ilike', val });
+    } else if (cleanOp === 'eq' || cleanOp === '=') {
+      this.filters.push({ col, op: 'neq', val });
+    } else if (cleanOp === 'in') {
+      this.filters.push({ col, op: 'not_in', val });
+    } else {
+      this.filters.push({ col, op: `not_${cleanOp}`, val });
+    }
+    return this;
+  }
+
+  or(filters: string, _options?: any) {
+    if (filters) {
+      this.orFilters.push(filters);
+    }
+    return this;
+  }
+
+  filter(col: string, op: string, val: any) {
+    this.filters.push({ col, op, val });
+    return this;
+  }
+
+  abortSignal(_signal?: AbortSignal) {
+    return this;
+  }
+
+  returns<NewT = any>() {
+    return this as unknown as DarsQueryBuilder<NewT>;
+  }
+
+  throwOnError() {
     return this;
   }
 
@@ -123,7 +177,7 @@ export class DarsQueryBuilder<T = any> {
     return this;
   }
 
-  upsert(data: any | any[]) {
+  upsert(data: any | any[], _options?: any) {
     this.mutationType = 'upsert';
     this.mutationData = data;
     return this;
@@ -147,8 +201,7 @@ export class DarsQueryBuilder<T = any> {
       // 1. MUTATION: INSERT OR UPSERT
       if (this.mutationType === 'insert' || this.mutationType === 'upsert') {
         const rows = Array.isArray(this.mutationData) ? this.mutationData : [this.mutationData];
-        if (rows.length === 1 && !this.mutationData.length) {
-          // Single row insert
+        if (rows.length === 1 && !Array.isArray(this.mutationData)) {
           const res = await this.postApi('rest_insert', {
             table: this.table,
             data: rows[0]
@@ -156,7 +209,6 @@ export class DarsQueryBuilder<T = any> {
           if (!res.success) throw new Error(res.error || 'Ekleme hatası');
           return { data: (this.isSingle ? res.data : [res.data]) as any, error: null };
         } else {
-          // Batch insert
           const res = await this.postApi('import_batch', {
             table: this.table,
             rows: rows
@@ -168,52 +220,46 @@ export class DarsQueryBuilder<T = any> {
 
       // 2. MUTATION: UPDATE
       if (this.mutationType === 'update') {
-        const id = this.whereFilters['id'] || this.whereFilters['__id'];
-        if (id) {
-          const res = await this.postApi('rest_update', {
-            table: this.table,
-            id: id,
-            data: this.mutationData
-          });
-          if (!res.success) throw new Error(res.error || 'Güncelleme hatası');
-          return { data: res.data || null, error: null };
-        } else {
-          // Multi-row update via import_batch or SQL
-          const res = await this.postApi('import_batch', {
-            table: this.table,
-            rows: [this.mutationData]
-          });
-          return { data: res.data || null, error: null };
+        const idFilter = this.filters.find(f => f.col === 'id' && f.op === 'eq');
+        const payload: any = {
+          table: this.table,
+          data: this.mutationData,
+          filters: this.filters
+        };
+        if (idFilter) {
+          payload.id = idFilter.val;
         }
+
+        const res = await this.postApi('rest_update', payload);
+        if (!res.success) throw new Error(res.error || 'Güncelleme hatası');
+        return { data: res.data || null, error: null };
       }
 
       // 3. MUTATION: DELETE
       if (this.mutationType === 'delete') {
-        const id = this.whereFilters['id'];
-        if (id) {
-          const res = await this.postApi('rest_delete', {
-            table: this.table,
-            id: id
-          });
-          if (!res.success) throw new Error(res.error || 'Silme hatası');
-          return { data: null, error: null };
+        const idFilter = this.filters.find(f => f.col === 'id' && f.op === 'eq');
+        const idsFilter = this.filters.find(f => f.col === 'id' && f.op === 'in');
+        const payload: any = {
+          table: this.table,
+          filters: this.filters
+        };
+        if (idFilter) {
+          payload.id = idFilter.val;
+        } else if (idsFilter && Array.isArray(idsFilter.val)) {
+          payload.ids = idsFilter.val;
         }
+
+        const res = await this.postApi('rest_delete', payload);
+        if (!res.success) throw new Error(res.error || 'Silme hatası');
         return { data: null, error: null };
       }
 
       // 4. QUERY (SELECT)
-      const combinedWhere: Record<string, any> = { ...this.whereFilters };
-      for (const [col, vals] of Object.entries(this.inFilters)) {
-        combinedWhere[col] = vals;
-      }
-      for (const col of this.isNullFilters) {
-        combinedWhere[col] = null;
-      }
-
       const queryPayload: any = {
         table: this.table,
         select: this.selectedCols,
-        where: combinedWhere,
+        filters: this.filters,
+        or_groups: this.orFilters,
         order: this.orderCol,
         dir: this.orderDir,
         limit: this.limitCount || 25000,
@@ -262,7 +308,7 @@ export class DarsQueryBuilder<T = any> {
 
   private async postApi(action: string, payload: any): Promise<any> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     try {
       const response = await fetch(DARS_API_URL, {
