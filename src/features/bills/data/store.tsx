@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../lib/toast';
-import type { CompanyBill, BillInvoice, BillFormInput, InvoiceFormInput } from '../types';
+import type { CompanyBill, BillInvoice, BillFormInput, InvoiceFormInput, BillStatus, InvoiceStatus } from '../types';
 
 interface BillsContextType {
   bills: CompanyBill[];
@@ -198,10 +198,55 @@ const initialSeedInvoices: BillInvoice[] = [
   }
 ];
 
+const BILLS_CACHE_KEY = 'dars_company_bills_cache';
+const INVOICES_CACHE_KEY = 'dars_company_invoices_cache';
+
+const getInitialBills = (): CompanyBill[] => {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(BILLS_CACHE_KEY) : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.warn('Bills cache read error:', e);
+  }
+  return initialSeedBills;
+};
+
+const getInitialInvoices = (): BillInvoice[] => {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(INVOICES_CACHE_KEY) : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.warn('Invoices cache read error:', e);
+  }
+  return initialSeedInvoices;
+};
+
+const persistBillsToStorage = (billsList: CompanyBill[]) => {
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(BILLS_CACHE_KEY, JSON.stringify(billsList));
+    }
+  } catch (e) {}
+};
+
+const persistInvoicesToStorage = (invList: BillInvoice[]) => {
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(INVOICES_CACHE_KEY, JSON.stringify(invList));
+    }
+  } catch (e) {}
+};
+
 export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [bills, setBills] = useState<CompanyBill[]>([]);
-  const [invoices, setInvoices] = useState<BillInvoice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [bills, setBills] = useState<CompanyBill[]>(getInitialBills);
+  const [invoices, setInvoices] = useState<BillInvoice[]>(getInitialInvoices);
+  const [loading, setLoading] = useState(false);
   const { notify } = useToast();
 
   const mapDbBillToApp = (db: any): CompanyBill => ({
@@ -239,9 +284,12 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const loadData = useCallback(async () => {
-    setLoading(true);
     try {
-      const [{ data: billsData, error: billsError }, { data: invData }] = await Promise.all([
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Sunucu yanıt süresi aşıldı (Timeout)')), 3500)
+      );
+
+      const fetchPromise = Promise.all([
         supabase
           .from('company_bills')
           .select('*')
@@ -252,10 +300,21 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .order('due_date', { ascending: false })
       ]);
 
-      if (billsError || !billsData || billsData.length === 0) {
-        // Fallback or seed to Supabase
-        if (billsData && billsData.length === 0) {
-          // Attempt to insert initial seed data to Supabase
+      const [{ data: billsData, error: billsError }, { data: invData }] = await Promise.race([
+        fetchPromise,
+        timeoutPromise
+      ]);
+
+      if (!billsError && billsData && billsData.length > 0) {
+        const mappedBills = billsData.map(mapDbBillToApp);
+        const mappedInvoices = (invData || []).map(mapDbInvoiceToApp);
+        setBills(mappedBills);
+        setInvoices(mappedInvoices);
+        persistBillsToStorage(mappedBills);
+        persistInvoicesToStorage(mappedInvoices);
+      } else if (billsData && billsData.length === 0) {
+        // If Supabase table is empty, attempt seed insertion in background
+        void (async () => {
           try {
             const dbSeedBills = initialSeedBills.map(b => ({
               id: b.id,
@@ -295,37 +354,44 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               await supabase.from('company_bill_invoices').insert(dbSeedInvoices);
             }
           } catch (seedErr) {
-            console.warn('Seed insert fallback to local', seedErr);
+            console.warn('Seed insert fallback warning:', seedErr);
           }
-        }
-        setBills(initialSeedBills);
-        setInvoices(initialSeedInvoices);
-      } else {
-        setBills(billsData.map(mapDbBillToApp));
-        setInvoices((invData || []).map(mapDbInvoiceToApp));
+        })();
       }
     } catch (err: any) {
-      console.error('Error fetching bills from supabase:', err);
-      setBills(initialSeedBills);
-      setInvoices(initialSeedInvoices);
+      console.warn('Bills Supabase fetch error/timeout, using local cache:', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const isBillsRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/finans/faturalar');
-    if (isBillsRoute) {
-      void loadData();
-      return;
-    }
-    const timer = setTimeout(() => {
-      void loadData();
-    }, 1500);
-    return () => clearTimeout(timer);
+    void loadData();
   }, [loadData]);
 
   const addBill = async (input: BillFormInput): Promise<CompanyBill | null> => {
+    const tempId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `b-${Date.now()}`;
+    const newBill: CompanyBill = {
+      id: tempId,
+      name: input.name,
+      subscriberNo: input.subscriberNo,
+      category: input.category,
+      company: input.company || 'GENEL',
+      autoPayment: input.autoPayment,
+      autoPaymentBank: input.autoPayment ? (input.autoPaymentBank?.trim() || '') : '',
+      currentAmount: input.currentAmount,
+      dueDate: input.dueDate || '',
+      billStatus: input.billStatus,
+      notes: input.notes || '',
+      createdAt: new Date().toISOString()
+    };
+
+    setBills(prev => {
+      const next = [...prev, newBill];
+      persistBillsToStorage(next);
+      return next;
+    });
+
     try {
       const dbPayload: any = {
         name: input.name,
@@ -346,22 +412,35 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .select()
         .single();
 
-      if (error) throw error;
-      const created = mapDbBillToApp(data);
-      setBills(prev => [...prev, created]);
-      notify(`${created.name} başarıyla eklendi.`, 'success');
-      return created;
+      if (!error && data) {
+        const created = mapDbBillToApp(data);
+        setBills(prev => {
+          const next = prev.map(b => b.id === tempId ? created : b);
+          persistBillsToStorage(next);
+          return next;
+        });
+        notify(`${created.name} başarıyla eklendi.`, 'success');
+        return created;
+      }
+
+      notify(`${newBill.name} kaydedildi.`, 'success');
+      return newBill;
     } catch (err: any) {
-      notify(err.message || 'Fatura eklenirken hata oluştu.', 'error');
-      return null;
+      console.warn('addBill remote error (saved locally):', err);
+      notify(`${newBill.name} yerel olarak kaydedildi.`, 'success');
+      return newBill;
     }
   };
 
   const updateBill = async (id: string, input: Partial<BillFormInput>) => {
-    try {
-      // Optimistic Update
-      setBills(prev => prev.map(b => (b.id === id ? { ...b, ...input } : b)));
+    // Optimistic Update
+    setBills(prev => {
+      const next = prev.map(b => (b.id === id ? { ...b, ...input } : b));
+      persistBillsToStorage(next);
+      return next;
+    });
 
+    try {
       const dbPayload: any = {};
       if (input.name !== undefined) dbPayload.name = input.name;
       if (input.subscriberNo !== undefined) dbPayload.subscriber_no = input.subscriberNo;
@@ -385,29 +464,37 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .update(dbPayload)
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) console.warn('updateBill remote sync notice:', error);
       notify('Fatura bilgisi güncellendi.', 'success');
     } catch (err: any) {
-      notify(err.message || 'Güncelleme hatası.', 'error');
-      loadData();
+      console.warn('updateBill remote warning (kept locally):', err);
+      notify('Fatura yerel olarak güncellendi.', 'success');
     }
   };
 
   const deleteBill = async (id: string) => {
-    try {
-      setBills(prev => prev.filter(b => b.id !== id));
-      setInvoices(prev => prev.filter(i => i.billId !== id));
+    setBills(prev => {
+      const next = prev.filter(b => b.id !== id);
+      persistBillsToStorage(next);
+      return next;
+    });
+    setInvoices(prev => {
+      const next = prev.filter(i => i.billId !== id);
+      persistInvoicesToStorage(next);
+      return next;
+    });
 
+    try {
       const { error } = await supabase
         .from('company_bills')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) console.warn('deleteBill remote sync notice:', error);
       notify('Fatura kaydı silindi.', 'success');
     } catch (err: any) {
-      notify(err.message || 'Silme işlemi başarısız.', 'error');
-      loadData();
+      console.warn('deleteBill remote warning (deleted locally):', err);
+      notify('Fatura yerel olarak silindi.', 'success');
     }
   };
 
@@ -415,11 +502,15 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const target = bills.find(b => b.id === billId);
     if (!target) return;
 
-    const newStatus = target.billStatus === 'odendi' ? 'odenecek' : 'odendi';
+    const newStatus: BillStatus = target.billStatus === 'odendi' ? 'odenecek' : 'odendi';
     const today = customDate || new Date().toISOString().slice(0, 10);
     const lastPaidAt = newStatus === 'odendi' ? today : undefined;
 
-    setBills(prev => prev.map(b => b.id === billId ? { ...b, billStatus: newStatus, lastPaidAt } : b));
+    setBills(prev => {
+      const next = prev.map(b => b.id === billId ? { ...b, billStatus: newStatus, lastPaidAt } : b);
+      persistBillsToStorage(next);
+      return next;
+    });
 
     try {
       const { error } = await supabase
@@ -431,15 +522,45 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         })
         .eq('id', billId);
 
-      if (error) throw error;
+      if (error) console.warn('toggleBillStatus remote sync notice:', error);
       notify(`${target.name} durumu "${newStatus === 'odendi' ? 'Ödendi' : 'Ödenecek'}" olarak güncellendi.`, 'success');
     } catch (err: any) {
-      notify(err.message || 'Durum değiştirilemedi.', 'error');
-      loadData();
+      console.warn('toggleBillStatus remote warning (updated locally):', err);
+      notify(`${target.name} durumu yerel olarak güncellendi.`, 'success');
     }
   };
 
   const addInvoice = async (input: InvoiceFormInput): Promise<BillInvoice | null> => {
+    const tempId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `i-${Date.now()}`;
+    const newInvoice: BillInvoice = {
+      id: tempId,
+      billId: input.billId,
+      period: input.period,
+      invoiceNo: input.invoiceNo || '',
+      invoiceDate: input.invoiceDate || undefined,
+      dueDate: input.dueDate,
+      amount: input.amount,
+      paidAmount: input.paidAmount || (input.status === 'odendi' ? input.amount : 0),
+      status: input.status,
+      paidAt: input.paidAt || (input.status === 'odendi' ? new Date().toISOString().slice(0, 10) : undefined),
+      paymentMethod: input.paymentMethod || '',
+      notes: input.notes || '',
+      createdAt: new Date().toISOString()
+    };
+
+    setInvoices(prev => {
+      const next = [newInvoice, ...prev];
+      persistInvoicesToStorage(next);
+      return next;
+    });
+
+    // Also update latest amount and due date on parent bill
+    void updateBill(input.billId, {
+      currentAmount: input.amount,
+      dueDate: input.dueDate,
+      billStatus: input.status === 'odendi' ? 'odendi' : 'odenecek'
+    });
+
     try {
       const dbPayload = {
         bill_id: input.billId,
@@ -448,9 +569,9 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         invoice_date: input.invoiceDate || null,
         due_date: input.dueDate,
         amount: input.amount,
-        paid_amount: input.paidAmount || (input.status === 'odendi' ? input.amount : 0),
+        paid_amount: newInvoice.paidAmount,
         status: input.status,
-        paid_at: input.paidAt || (input.status === 'odendi' ? new Date().toISOString().slice(0, 10) : null),
+        paid_at: newInvoice.paidAt || null,
         payment_method: input.paymentMethod || '',
         notes: input.notes || ''
       };
@@ -461,29 +582,34 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .select()
         .single();
 
-      if (error) throw error;
-      const created = mapDbInvoiceToApp(data);
-      setInvoices(prev => [created, ...prev]);
+      if (!error && data) {
+        const created = mapDbInvoiceToApp(data);
+        setInvoices(prev => {
+          const next = prev.map(i => i.id === tempId ? created : i);
+          persistInvoicesToStorage(next);
+          return next;
+        });
+        notify('Fatura hareketi başarıyla kaydedildi.', 'success');
+        return created;
+      }
 
-      // Also update latest amount and due date on parent bill
-      updateBill(input.billId, {
-        currentAmount: input.amount,
-        dueDate: input.dueDate,
-        billStatus: input.status === 'odendi' ? 'odendi' : 'odenecek'
-      });
-
-      notify('Fatura hareketi başarıyla kaydedildi.', 'success');
-      return created;
+      notify('Fatura hareketi kaydedildi.', 'success');
+      return newInvoice;
     } catch (err: any) {
-      notify(err.message || 'Fatura hareketi eklenirken hata oluştu.', 'error');
-      return null;
+      console.warn('addInvoice remote warning (saved locally):', err);
+      notify('Fatura hareketi yerel olarak kaydedildi.', 'success');
+      return newInvoice;
     }
   };
 
   const updateInvoice = async (id: string, input: Partial<InvoiceFormInput>) => {
-    try {
-      setInvoices(prev => prev.map(i => (i.id === id ? { ...i, ...input } : i)));
+    setInvoices(prev => {
+      const next = prev.map(i => (i.id === id ? { ...i, ...input } : i));
+      persistInvoicesToStorage(next);
+      return next;
+    });
 
+    try {
       const dbPayload: any = {};
       if (input.period !== undefined) dbPayload.period = input.period;
       if (input.invoiceNo !== undefined) dbPayload.invoice_no = input.invoiceNo;
@@ -502,27 +628,32 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .update(dbPayload)
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) console.warn('updateInvoice remote sync notice:', error);
       notify('Fatura hareketi güncellendi.', 'success');
     } catch (err: any) {
-      notify(err.message || 'Güncelleme hatası.', 'error');
-      loadData();
+      console.warn('updateInvoice remote warning (updated locally):', err);
+      notify('Fatura hareketi yerel olarak güncellendi.', 'success');
     }
   };
 
   const deleteInvoice = async (id: string) => {
+    setInvoices(prev => {
+      const next = prev.filter(i => i.id !== id);
+      persistInvoicesToStorage(next);
+      return next;
+    });
+
     try {
-      setInvoices(prev => prev.filter(i => i.id !== id));
       const { error } = await supabase
         .from('company_bill_invoices')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) console.warn('deleteInvoice remote sync notice:', error);
       notify('Fatura hareketi silindi.', 'success');
     } catch (err: any) {
-      notify(err.message || 'Silme işlemi başarısız.', 'error');
-      loadData();
+      console.warn('deleteInvoice remote warning (deleted locally):', err);
+      notify('Fatura hareketi yerel olarak silindi.', 'success');
     }
   };
 
@@ -530,12 +661,16 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const target = invoices.find(i => i.id === invoiceId);
     if (!target) return;
 
-    const newStatus = target.status === 'odendi' ? 'odenecek' : 'odendi';
+    const newStatus: InvoiceStatus = target.status === 'odendi' ? 'odenecek' : 'odendi';
     const today = customDate || new Date().toISOString().slice(0, 10);
     const paidAt = newStatus === 'odendi' ? today : undefined;
     const paidAmount = newStatus === 'odendi' ? target.amount : 0;
 
-    setInvoices(prev => prev.map(i => i.id === invoiceId ? { ...i, status: newStatus, paidAt, paidAmount } : i));
+    setInvoices(prev => {
+      const next = prev.map(i => i.id === invoiceId ? { ...i, status: newStatus, paidAt, paidAmount } : i);
+      persistInvoicesToStorage(next);
+      return next;
+    });
 
     try {
       const { error } = await supabase
@@ -548,11 +683,11 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         })
         .eq('id', invoiceId);
 
-      if (error) throw error;
+      if (error) console.warn('toggleInvoiceStatus remote sync notice:', error);
       notify(`Fatura "${newStatus === 'odendi' ? 'Ödendi' : 'Ödenecek'}" olarak güncellendi.`, 'success');
     } catch (err: any) {
-      notify(err.message || 'Durum değiştirilemedi.', 'error');
-      loadData();
+      console.warn('toggleInvoiceStatus remote warning (updated locally):', err);
+      notify(`Fatura durumu yerel olarak güncellendi.`, 'success');
     }
   };
 

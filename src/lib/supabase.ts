@@ -19,12 +19,14 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   global: {
     fetch: (input: RequestInfo | URL, init?: RequestInit) => {
       const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-      const timeoutMs = urlStr.includes('/storage/v1/') ? 60000 : 12000;
-      if (init?.signal) {
-        return fetch(input, init);
-      }
+      const timeoutMs = urlStr.includes('/storage/v1/') ? 60000 : 10000;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(new Error('Sunucu yanıt süresi aşıldı (Timeout)')), timeoutMs);
+
+      if (init?.signal) {
+        init.signal.addEventListener('abort', () => controller.abort(init.signal?.reason));
+      }
+
       return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
     },
   },
