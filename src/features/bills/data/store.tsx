@@ -7,6 +7,7 @@ interface BillsContextType {
   bills: CompanyBill[];
   invoices: BillInvoice[];
   loading: boolean;
+  isOffline: boolean;
   refresh: () => Promise<void>;
   addBill: (input: BillFormInput) => Promise<CompanyBill | null>;
   updateBill: (id: string, input: Partial<BillFormInput>) => Promise<void>;
@@ -247,6 +248,7 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [bills, setBills] = useState<CompanyBill[]>(getInitialBills);
   const [invoices, setInvoices] = useState<BillInvoice[]>(getInitialInvoices);
   const [loading, setLoading] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
   const { notify } = useToast();
 
   const mapDbBillToApp = (db: any): CompanyBill => ({
@@ -284,9 +286,10 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const loadData = useCallback(async () => {
+    setLoading(true);
     try {
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Sunucu yanıt süresi aşıldı (Timeout)')), 3500)
+        setTimeout(() => reject(new Error('Sunucu yanıt süresi aşıldı (Timeout)')), 8000)
       );
 
       const fetchPromise = Promise.all([
@@ -305,61 +308,20 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         timeoutPromise
       ]);
 
-      if (!billsError && billsData && billsData.length > 0) {
+      if (billsError) throw billsError;
+
+      if (billsData && billsData.length > 0) {
         const mappedBills = billsData.map(mapDbBillToApp);
         const mappedInvoices = (invData || []).map(mapDbInvoiceToApp);
         setBills(mappedBills);
         setInvoices(mappedInvoices);
         persistBillsToStorage(mappedBills);
         persistInvoicesToStorage(mappedInvoices);
-      } else if (billsData && billsData.length === 0) {
-        // If Supabase table is empty, attempt seed insertion in background
-        void (async () => {
-          try {
-            const dbSeedBills = initialSeedBills.map(b => ({
-              id: b.id,
-              name: b.name,
-              subscriber_no: b.subscriberNo,
-              category: b.category,
-              company: b.company,
-              auto_payment: b.autoPayment,
-              auto_payment_bank: b.autoPaymentBank || '',
-              current_amount: b.currentAmount,
-              due_date: b.dueDate,
-              bill_status: b.billStatus,
-              last_paid_at: b.lastPaidAt || null,
-              notes: b.notes || ''
-            }));
-
-            const { data: insertedBills } = await supabase
-              .from('company_bills')
-              .insert(dbSeedBills)
-              .select();
-
-            if (insertedBills && insertedBills.length > 0) {
-              const dbSeedInvoices = initialSeedInvoices.map(i => ({
-                id: i.id,
-                bill_id: i.billId,
-                period: i.period,
-                invoice_no: i.invoiceNo || '',
-                invoice_date: i.invoiceDate || null,
-                due_date: i.dueDate,
-                amount: i.amount,
-                paid_amount: i.paidAmount,
-                status: i.status,
-                paid_at: i.paidAt || null,
-                payment_method: i.paymentMethod || '',
-                notes: i.notes || ''
-              }));
-              await supabase.from('company_bill_invoices').insert(dbSeedInvoices);
-            }
-          } catch (seedErr) {
-            console.warn('Seed insert fallback warning:', seedErr);
-          }
-        })();
       }
+      setIsOffline(false);
     } catch (err: any) {
       console.warn('Bills Supabase fetch error/timeout, using local cache:', err);
+      setIsOffline(true);
     } finally {
       setLoading(false);
     }
@@ -703,6 +665,7 @@ export const BillsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         bills,
         invoices,
         loading,
+        isOffline,
         refresh: loadData,
         addBill,
         updateBill,

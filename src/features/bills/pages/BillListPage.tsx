@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Download, ChevronDown, Filter, Pencil, Zap, Droplets, Flame, Wifi } from 'lucide-react';
+import { Plus, Search, Download, ChevronDown, Filter, Pencil, Zap, Droplets, Flame, Wifi, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { useToast } from '../../../lib/toast';
@@ -95,6 +95,8 @@ export function BillListPage() {
   const {
     bills,
     loading,
+    isOffline,
+    refresh,
     addBill,
     updateBill,
     deleteBill,
@@ -356,6 +358,17 @@ export function BillListPage() {
             </div>
 
             <button
+              type="button"
+              className="btn-secondary flex items-center gap-1.5"
+              onClick={() => refresh()}
+              disabled={loading}
+              title="Bulut veritabanından güncel verileri çek"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin text-blue-600" : "text-gray-500"} />
+              <span className="hidden sm:inline">Verileri Yenile</span>
+            </button>
+
+            <button
               className="btn-primary flex items-center gap-1.5"
               onClick={() => {
                 setEditingBill(null);
@@ -368,6 +381,38 @@ export function BillListPage() {
           </div>
         }
       />
+
+      {isOffline && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-amber-50/90 border border-amber-200 rounded-xl text-amber-900 text-sm shadow-sm">
+          <div className="flex items-start gap-2.5">
+            <span className="text-xl shrink-0 mt-0.5">⚠️</span>
+            <div>
+              <p className="font-semibold text-amber-950">Bulut Veritabanı (Supabase) Bağlantısı Bekleniyor</p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Daha önce manuel girdiğiniz tüm faturalar veritabanınızda güvendedir. Ücretsiz plan nedeniyle uyku moduna geçen Supabase projesini uyandırmak için panele girip <strong>"Restore Project"</strong> butonuna basabilirsiniz.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            <a
+              href="https://supabase.com/dashboard/project/zubhjybqzcpplultpsgt"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-amber-900 hover:bg-amber-100 transition-colors shadow-sm"
+            >
+              Supabase Paneline Git ↗
+            </a>
+            <button
+              onClick={() => refresh()}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+              Yeniden Dene
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards (Clean, Minimalist Design) */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
