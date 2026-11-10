@@ -227,6 +227,21 @@ export class DarsQueryBuilder<T = any> {
 
       let data = res.data || [];
 
+      // Auto-cast MySQL '0' and '1' strings for boolean-prefixed fields
+      if (Array.isArray(data)) {
+        data.forEach((row: any) => {
+          if (row && typeof row === 'object') {
+            for (const k of Object.keys(row)) {
+              if (row[k] === '0' && (k.startsWith('is_') || k.includes('active') || k.includes('auto_payment') || k.includes('has_'))) {
+                row[k] = false;
+              } else if (row[k] === '1' && (k.startsWith('is_') || k.includes('active') || k.includes('auto_payment') || k.includes('has_'))) {
+                row[k] = true;
+              }
+            }
+          }
+        });
+      }
+
       if (this.isSingle) {
         if (data.length === 0) {
           return { data: null, error: { message: 'Kayıt bulunamadı' } };

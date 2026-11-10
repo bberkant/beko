@@ -192,7 +192,7 @@ export function VegaArctosPersonelPage() {
           city: item.city || '',
           lastTransactionDate: item.last_transaction_date,
           balance: Number(item.balance || 0),
-          is_manual: Boolean(item.is_manual)
+          is_manual: item.is_manual === true || (item as any).is_manual === 1 || (item as any).is_manual === '1' || (item as any).is_manual === 'true'
         }));
         setPersonnelList(mappedData);
         return true;
@@ -233,9 +233,13 @@ export function VegaArctosPersonelPage() {
           is_manual: false
         }));
 
-        // Merge with existing manual personnel
+        // Merge with existing manual personnel (deduplicate against live Vega personnel)
         setPersonnelList(prev => {
-          const manualOnes = prev.filter(p => p.is_manual);
+          const liveCodeSet = new Set(mappedLive.map(p => p.code));
+          const manualOnes = prev.filter(p => {
+            const isManualBool = p.is_manual === true || (p as any).is_manual === 1 || (p as any).is_manual === '1';
+            return isManualBool && !liveCodeSet.has(p.code);
+          });
           return [...mappedLive, ...manualOnes];
         });
 
