@@ -534,7 +534,24 @@ if ($action === 'rest_update') {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($allParams);
 
-    echo json_encode(['success' => true, 'affected_rows' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
+    $updatedRow = null;
+    try {
+        $fetchStmt = $pdo->prepare("SELECT * FROM `{$table}` WHERE {$whereClause} LIMIT 1");
+        $fetchStmt->execute($whereParams);
+        $updatedRow = $fetchStmt->fetch();
+        if ($updatedRow) {
+            foreach ($updatedRow as $k => $v) {
+                if (is_string($v) && (isset($v[0]) && ($v[0] === '{' || $v[0] === '['))) {
+                    $decoded = json_decode($v, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $updatedRow[$k] = $decoded;
+                    }
+                }
+            }
+        }
+    } catch (Exception $e) {}
+
+    echo json_encode(['success' => true, 'data' => $updatedRow, 'affected_rows' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

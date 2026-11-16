@@ -245,7 +245,17 @@ export class DarsQueryBuilder<T = any> {
 
         const res = await this.postApi('rest_update', payload);
         if (!res.success) throw new Error(res.error || 'Güncelleme hatası');
-        return { data: res.data || null, error: null };
+        let data = res.data || null;
+        if (data && typeof data === 'object') {
+          for (const k of Object.keys(data)) {
+            if (data[k] === '0' && (k.startsWith('is_') || k.includes('active') || k.includes('auto_payment') || k.includes('has_'))) {
+              data[k] = false;
+            } else if (data[k] === '1' && (k.startsWith('is_') || k.includes('active') || k.includes('auto_payment') || k.includes('has_'))) {
+              data[k] = true;
+            }
+          }
+        }
+        return { data: (this.isSingle ? data : (data ? [data] : [])) as any, error: null };
       }
 
       // 3. MUTATION: DELETE

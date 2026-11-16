@@ -12,6 +12,7 @@ export interface NewCardInput {
   holder: string; department: string; limit: number; currency: CreditCard['currency'];
   statementDay: number; dueDay: number; minPaymentRate: number; startDate: string;
   expiryMonth: number; expiryYear: number; status: CreditCard['status']; description?: string;
+  currentDebt?: number;
 }
 
 export interface NewStatementInput {
@@ -44,14 +45,17 @@ interface StoreContextValue {
 }
 
 type Row = Record<string, any>;
-const cardFromRow = (r: Row): CreditCard => ({
-  id: r.id, bank: r.bank, bankShort: r.bank_short, cardName: r.card_name,
-  cardType: r.card_type, last4: r.last4, holder: r.holder, department: r.department,
-  limit: Number(r.card_limit), currentDebt: Number(r.current_debt), currency: r.currency,
-  statementDay: r.statement_day, dueDay: r.due_day, minPaymentRate: Number(r.min_payment_rate),
-  startDate: r.start_date, expiryMonth: r.expiry_month, expiryYear: r.expiry_year,
-  status: r.status, statementStatus: r.statement_status, description: r.description ?? undefined,
-});
+const cardFromRow = (r: Row): CreditCard => {
+  if (!r) return {} as CreditCard;
+  return {
+    id: r.id, bank: r.bank, bankShort: r.bank_short, cardName: r.card_name,
+    cardType: r.card_type, last4: r.last4, holder: r.holder, department: r.department,
+    limit: Number(r.card_limit), currentDebt: Number(r.current_debt || 0), currency: r.currency,
+    statementDay: r.statement_day, dueDay: r.due_day, minPaymentRate: Number(r.min_payment_rate),
+    startDate: r.start_date, expiryMonth: r.expiry_month, expiryYear: r.expiry_year,
+    status: r.status, statementStatus: r.statement_status, description: r.description ?? undefined,
+  };
+};
 const statementFromRow = (r: Row): Statement => ({
   id: r.id, cardId: r.card_id, period: r.period, statementDate: r.statement_date,
   dueDate: r.due_date, totalDebt: Number(r.total_debt), minPayment: Number(r.min_payment),
@@ -195,15 +199,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const updateCard = useCallback(async (id: string, input: NewCardInput) => {
     const organizationId = requireOrg();
     const bankShort = input.bank.split(' ').map((w) => w[0]).join('').slice(0, 5).toUpperCase();
-    const { data, error: dbError } = await supabase.from('credit_cards').update({
+    const payload: any = {
       bank: input.bank, bank_short: bankShort, card_name: input.cardName, card_type: input.cardType,
       last4: input.last4, holder: input.holder, department: input.department, card_limit: input.limit,
       currency: input.currency, statement_day: input.statementDay, due_day: input.dueDay,
       min_payment_rate: input.minPaymentRate, start_date: input.startDate, expiry_month: input.expiryMonth,
       expiry_year: input.expiryYear, status: input.status, description: input.description,
-    }).eq('id', id).eq('organization_id', organizationId).select().single();
+    };
+    if (input.currentDebt !== undefined) {
+      payload.current_debt = input.currentDebt;
+    }
+    const { data, error: dbError } = await supabase.from('credit_cards').update(payload).eq('id', id).eq('organization_id', organizationId).select().single();
     if (dbError) throw dbError;
-    setCards((prev) => prev.map((c) => c.id === id ? cardFromRow(data) : c));
+    if (data && data.id) {
+      setCards((prev) => prev.map((c) => c.id === id ? cardFromRow(data) : c));
+    } else {
+      setCards((prev) => prev.map((c) => {
+        if (c.id !== id) return c;
+        return {
+          ...c,
+          bank: input.bank,
+          bankShort,
+          cardName: input.cardName,
+          cardType: input.cardType,
+          last4: input.last4,
+          holder: input.holder,
+          department: input.department,
+          limit: input.limit,
+          currentDebt: input.currentDebt !== undefined ? input.currentDebt : c.currentDebt,
+          currency: input.currency,
+          statementDay: input.statementDay,
+          dueDay: input.dueDay,
+          minPaymentRate: input.minPaymentRate,
+          startDate: input.startDate,
+          expiryMonth: input.expiryMonth,
+          expiryYear: input.expiryYear,
+          status: input.status,
+          description: input.description,
+        };
+      }));
+    }
   }, [requireOrg]);
 
   const deleteCard = useCallback(async (id: string) => {
