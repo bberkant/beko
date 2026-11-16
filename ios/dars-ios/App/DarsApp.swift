@@ -93,7 +93,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
     }
     
-    /// Uygulama kapalıyken veya arka plandayken canlı sunucudan (cem.amasyaetas.com ve Supabase) notları, o günün kartlarını ve faturalarını çekip sabah bildirimlerini günceller
+    /// Uygulama kapalıyken veya arka plandayken canlı Turhost sunucusundan (https://amasyaetas.com/dars/) notları, o günün kartlarını ve faturalarını çekip sabah bildirimlerini günceller
     func performNativeBackgroundLiveSync(completion: ((Bool) -> Void)?) {
         let prefs = getSavedNotificationSettings()
         let masterEnabled = prefs["masterEnabled"] as? Bool ?? true
@@ -110,80 +110,101 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let billsEnabled = prefs["billsEnabled"] as? Bool ?? true
         let notesEnabled = prefs["notesEnabled"] as? Bool ?? true
         
-        let timestamp = Int(Date().timeIntervalSince1970)
-        guard let notesURL = URL(string: "https://cem.amasyaetas.com/api/user-notes?userKey=berkant&_t=\(timestamp)"),
-              let cardsURL = URL(string: "https://zubhjybqzcpplultpsgt.supabase.co/rest/v1/credit_cards?select=*&status=eq.aktif"),
-              let authURL = URL(string: "https://zubhjybqzcpplultpsgt.supabase.co/auth/v1/token?grant_type=password"),
-              let billsURL = URL(string: "https://zubhjybqzcpplultpsgt.supabase.co/rest/v1/company_bills?select=*") else {
+        guard let darsURL = URL(string: "https://amasyaetas.com/dars/") else {
             completion?(false)
             return
         }
-        let sbApiKey = "sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG"
-        
-        var notesReq = URLRequest(url: notesURL)
-        notesReq.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        notesReq.timeoutInterval = 8
-        
-        var cardsReq = URLRequest(url: cardsURL)
-        cardsReq.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        cardsReq.timeoutInterval = 8
-        cardsReq.setValue(sbApiKey, forHTTPHeaderField: "apikey")
+        let darsKey = "etas_dars_sec_89234710"
         
         let group = DispatchGroup()
         var fetchedNotes: [[String: Any]] = []
         var fetchedCards: [[String: Any]] = []
         var fetchedBills: [[String: Any]] = []
         
-        group.enter()
-        URLSession.shared.dataTask(with: notesReq) { data, _, error in
-            defer { group.leave() }
-            if error == nil,
-               let data = data,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let notes = json["notes"] as? [[String: Any]] {
-                fetchedNotes = notes
-            }
-        }.resume()
+        // 1. Fetch Calendar Notes directly from Turhost MySQL backend
+        if notesEnabled {
+            group.enter()
+            var notesReq = URLRequest(url: darsURL)
+            notesReq.httpMethod = "POST"
+            notesReq.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            notesReq.timeoutInterval = 8
+            notesReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            notesReq.setValue(darsKey, forHTTPHeaderField: "X-DARS-KEY")
+            notesReq.httpBody = try? JSONSerialization.data(withJSONObject: [
+                "action": "rest_query",
+                "table": "calendar_notes",
+                "select": "*",
+                "order": "created_at",
+                "dir": "ASC",
+                "limit": 100
+            ])
+            URLSession.shared.dataTask(with: notesReq) { data, _, error in
+                defer { group.leave() }
+                if error == nil,
+                   let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let notes = json["data"] as? [[String: Any]] {
+                    fetchedNotes = notes
+                }
+            }.resume()
+        }
         
-        group.enter()
-        URLSession.shared.dataTask(with: cardsReq) { data, _, error in
-            defer { group.leave() }
-            if error == nil,
-               let data = data,
-               let cards = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-                fetchedCards = cards
-            }
-        }.resume()
+        // 2. Fetch Active Credit Cards directly from Turhost MySQL backend
+        if ccEnabled {
+            group.enter()
+            var cardsReq = URLRequest(url: darsURL)
+            cardsReq.httpMethod = "POST"
+            cardsReq.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            cardsReq.timeoutInterval = 8
+            cardsReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            cardsReq.setValue(darsKey, forHTTPHeaderField: "X-DARS-KEY")
+            cardsReq.httpBody = try? JSONSerialization.data(withJSONObject: [
+                "action": "rest_query",
+                "table": "credit_cards",
+                "select": "*",
+                "filters": [["col": "status", "op": "eq", "val": "aktif"]],
+                "order": "bank",
+                "dir": "ASC",
+                "limit": 100
+            ])
+            URLSession.shared.dataTask(with: cardsReq) { data, _, error in
+                defer { group.leave() }
+                if error == nil,
+                   let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let cards = json["data"] as? [[String: Any]] {
+                    fetchedCards = cards
+                }
+            }.resume()
+        }
         
-        group.enter()
-        var authReq = URLRequest(url: authURL)
-        authReq.httpMethod = "POST"
-        authReq.timeoutInterval = 8
-        authReq.setValue(sbApiKey, forHTTPHeaderField: "apikey")
-        authReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        authReq.httpBody = try? JSONSerialization.data(withJSONObject: ["email": "admin@ops360.local", "password": "123berkant_"])
-        URLSession.shared.dataTask(with: authReq) { authData, _, authErr in
-            guard authErr == nil,
-                  let authData = authData,
-                  let authJson = try? JSONSerialization.jsonObject(with: authData) as? [String: Any],
-                  let accessToken = authJson["access_token"] as? String else {
-                group.leave()
-                return
-            }
-            var billsReq = URLRequest(url: billsURL)
+        // 3. Fetch Company Bills directly from Turhost MySQL backend (No Supabase auth dependency!)
+        if billsEnabled {
+            group.enter()
+            var billsReq = URLRequest(url: darsURL)
+            billsReq.httpMethod = "POST"
             billsReq.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
             billsReq.timeoutInterval = 8
-            billsReq.setValue(sbApiKey, forHTTPHeaderField: "apikey")
-            billsReq.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-            URLSession.shared.dataTask(with: billsReq) { bData, _, bErr in
+            billsReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            billsReq.setValue(darsKey, forHTTPHeaderField: "X-DARS-KEY")
+            billsReq.httpBody = try? JSONSerialization.data(withJSONObject: [
+                "action": "rest_query",
+                "table": "company_bills",
+                "select": "*",
+                "order": "created_at",
+                "dir": "ASC",
+                "limit": 100
+            ])
+            URLSession.shared.dataTask(with: billsReq) { data, _, error in
                 defer { group.leave() }
-                if bErr == nil,
-                   let bData = bData,
-                   let bills = try? JSONSerialization.jsonObject(with: bData) as? [[String: Any]] {
+                if error == nil,
+                   let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let bills = json["data"] as? [[String: Any]] {
                     fetchedBills = bills
                 }
             }.resume()
-        }.resume()
+        }
         
         group.notify(queue: self.notificationQueue) { [weak self] in
             guard let self = self else {
@@ -199,7 +220,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 }
                 
                 let activeNotes = fetchedNotes.filter { item in
-                    let completed = item["completed"] as? Bool ?? false
+                    let completed = (item["completed"] as? Bool) ?? (item["completed"] as? String == "1") ?? (item["completed"] as? Int == 1) ?? false
                     let content = (item["content"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                     return !completed && !content.isEmpty
                 }
@@ -260,9 +281,9 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                     // 2) O gün son ödeme günü olan kurum faturaları (Hafta sonuna denk gelenler Pazartesiye kayar)
                     if billsEnabled {
                         let dueBillsForDay = fetchedBills.filter { bill in
-                            let status = (bill["status"] as? String ?? "odenecek").lowercased()
+                            let status = (bill["status"] as? String ?? bill["bill_status"] as? String ?? "odenecek").lowercased()
                             if status == "odendi" { return false }
-                            let rawDue = bill["due_date"] as? String ?? ""
+                            let rawDue = (bill["due_date"] as? String ?? "")
                             let parts = rawDue.split(separator: "-")
                             guard parts.count == 3, let nominalDay = Int(parts[2]) else { return false }
                             if weekday == 1 || weekday == 7 { return false }
@@ -278,11 +299,11 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                         
                         for (bIdx, bill) in dueBillsForDay.enumerated() {
                             if scheduledCount >= maxSafeRequests { break }
-                            let instName = bill["institution_name"] as? String ?? "Kurum Faturası"
+                            let instName = bill["name"] as? String ?? bill["institution_name"] as? String ?? "Kurum Faturası"
                             let subNo = bill["subscriber_no"] as? String ?? "-"
                             let billId = (bill["id"] as? String) ?? "\(bIdx)"
-                            let amtVal = (bill["amount"] as? Double) ?? Double("\(bill["amount"] ?? 0)") ?? 0.0
-                            let autoPay = bill["auto_payment"] as? Bool ?? false
+                            let amtVal = (bill["current_amount"] as? Double) ?? Double("\(bill["current_amount"] ?? 0)") ?? (bill["amount"] as? Double) ?? Double("\(bill["amount"] ?? 0)") ?? 0.0
+                            let autoPay = (bill["auto_payment"] as? Bool) ?? (bill["auto_payment"] as? String == "1") ?? (bill["auto_payment"] as? Int == 1) ?? false
                             let autoBank = bill["auto_payment_bank"] as? String ?? ""
                             let amtStr = amtVal > 0 ? " • Tutar: \(self.formatCurrency(amtVal))" : ""
                             let autoStr = autoPay ? " • Otomatik: \(autoBank.isEmpty ? "Talimatlı" : autoBank)" : ""

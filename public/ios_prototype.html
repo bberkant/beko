@@ -54851,37 +54851,274 @@ function toggleSubTab(tabIndex) {
       appendAiChat('Sohbet geçmişi temizlendi. Nasıl yardımcı olabilirim?', 'bot');
     }
 
-    // ==================== SUPABASE REAL LIVE DATA BRIDGE ====================
+    // ==================== DARS SELF-HOSTED LIVE DATA CLIENT (TURHOST MYSQL) ====================
+    const DARS_API_URL = 'https://amasyaetas.com/dars/';
+    const DARS_API_KEY = 'etas_dars_sec_89234710';
+
+    class DarsQueryBuilder {
+      constructor(table) {
+        this.table = table;
+        this.selectedCols = '*';
+        this.filters = [];
+        this.orFilters = [];
+        this.orderCol = undefined;
+        this.orderDir = 'ASC';
+        this.limitCount = undefined;
+        this.offsetCount = 0;
+        this.isSingle = false;
+        this.isMaybeSingle = false;
+        this.mutationType = undefined;
+        this.mutationData = undefined;
+      }
+
+      select(cols = '*', _options) {
+        this.selectedCols = cols;
+        return this;
+      }
+
+      eq(col, val) {
+        this.filters.push({ col, op: 'eq', val });
+        return this;
+      }
+
+      neq(col, val) {
+        this.filters.push({ col, op: 'neq', val });
+        return this;
+      }
+
+      gt(col, val) {
+        this.filters.push({ col, op: 'gt', val });
+        return this;
+      }
+
+      gte(col, val) {
+        this.filters.push({ col, op: 'gte', val });
+        return this;
+      }
+
+      lt(col, val) {
+        this.filters.push({ col, op: 'lt', val });
+        return this;
+      }
+
+      lte(col, val) {
+        this.filters.push({ col, op: 'lte', val });
+        return this;
+      }
+
+      order(col, options) {
+        this.orderCol = col;
+        this.orderDir = (options && options.ascending === false) ? 'DESC' : 'ASC';
+        return this;
+      }
+
+      limit(count) {
+        this.limitCount = count;
+        return this;
+      }
+
+      range(from, to) {
+        this.offsetCount = from;
+        this.limitCount = (to - from + 1);
+        return this;
+      }
+
+      single() {
+        this.isSingle = true;
+        return this.execute();
+      }
+
+      maybeSingle() {
+        this.isMaybeSingle = true;
+        return this.execute();
+      }
+
+      insert(data) {
+        this.mutationType = 'insert';
+        this.mutationData = data;
+        return this;
+      }
+
+      update(data) {
+        this.mutationType = 'update';
+        this.mutationData = data;
+        return this;
+      }
+
+      delete() {
+        this.mutationType = 'delete';
+        return this;
+      }
+
+      then(onfulfilled, onrejected) {
+        return this.execute().then(onfulfilled, onrejected);
+      }
+
+      async execute() {
+        try {
+          if (this.table === 'company_bills' && this.mutationData) {
+            const normalizeBill = (item) => {
+              if (!item || typeof item !== 'object') return item;
+              const copy = { ...item };
+              if (copy.institution_name && !copy.name) copy.name = copy.institution_name;
+              if (copy.amount !== undefined && copy.current_amount === undefined) copy.current_amount = copy.amount;
+              if (copy.status && !copy.bill_status) copy.bill_status = copy.status;
+              delete copy.institution_name;
+              delete copy.amount;
+              delete copy.status;
+              return copy;
+            };
+            if (Array.isArray(this.mutationData)) {
+              this.mutationData = this.mutationData.map(normalizeBill);
+            } else {
+              this.mutationData = normalizeBill(this.mutationData);
+            }
+          }
+
+          if (this.mutationType === 'insert') {
+            const rawRows = Array.isArray(this.mutationData) ? this.mutationData : [this.mutationData];
+            const rows = rawRows.map(r => {
+              if (r && typeof r === 'object' && !r.id) {
+                const genId = typeof crypto !== 'undefined' && crypto.randomUUID
+                  ? crypto.randomUUID()
+                  : 'id_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+                return { id: genId, ...r };
+              }
+              return r;
+            });
+
+            if (rows.length === 1 && !Array.isArray(this.mutationData)) {
+              const res = await this.postApi('rest_insert', { table: this.table, data: rows[0] });
+              if (!res.success) throw new Error(res.error || 'Ekleme hatası');
+              return { data: (this.isSingle ? res.data : [res.data]), error: null };
+            } else {
+              const res = await this.postApi('import_batch', { table: this.table, rows: rows });
+              if (!res.success) throw new Error(res.error || 'Toplu ekleme hatası');
+              return { data: rows, error: null };
+            }
+          }
+
+          if (this.mutationType === 'update') {
+            const idFilter = this.filters.find(f => f.col === 'id' && f.op === 'eq');
+            const payload = {
+              table: this.table,
+              data: this.mutationData,
+              filters: this.filters
+            };
+            if (idFilter) payload.id = idFilter.val;
+
+            const res = await this.postApi('rest_update', payload);
+            if (!res.success) throw new Error(res.error || 'Güncelleme hatası');
+            return { data: (this.isSingle ? res.data : (res.data ? [res.data] : [])), error: null };
+          }
+
+          if (this.mutationType === 'delete') {
+            const idFilter = this.filters.find(f => f.col === 'id' && f.op === 'eq');
+            const payload = {
+              table: this.table,
+              filters: this.filters
+            };
+            if (idFilter) payload.id = idFilter.val;
+
+            const res = await this.postApi('rest_delete', payload);
+            if (!res.success) throw new Error(res.error || 'Silme hatası');
+            return { data: null, error: null };
+          }
+
+          // 4. QUERY (SELECT)
+          const queryPayload = {
+            table: this.table,
+            select: this.selectedCols,
+            filters: this.filters,
+            or_groups: this.orFilters,
+            order: this.orderCol,
+            dir: this.orderDir,
+            limit: this.limitCount || 25000,
+            offset: this.offsetCount || 0
+          };
+
+          const res = await this.postApi('rest_query', queryPayload);
+          if (!res.success) throw new Error(res.error || 'Sorgu hatası');
+
+          let data = res.data || [];
+
+          if (this.table === 'company_bills' && Array.isArray(data)) {
+            data = data.map(item => ({
+              ...item,
+              institution_name: item.name || item.institution_name,
+              amount: item.current_amount !== undefined ? item.current_amount : item.amount,
+              status: item.bill_status || item.status,
+              auto_payment: item.auto_payment === '1' || item.auto_payment === 1 || item.auto_payment === true
+            }));
+          }
+
+          if (this.isSingle) {
+            if (data.length === 0) return { data: null, error: { message: 'Kayıt bulunamadı' } };
+            return { data: data[0], error: null };
+          }
+
+          if (this.isMaybeSingle) {
+            return { data: (data.length > 0 ? data[0] : null), error: null };
+          }
+
+          return { data: data, error: null, count: data.length };
+        } catch (err) {
+          console.warn(`[DARS LIVE DB] (${this.table}):`, err.message || err);
+          return { data: null, error: { message: err.message || String(err) } };
+        }
+      }
+
+      async postApi(action, payload) {
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = controller ? setTimeout(() => controller.abort(), 12000) : null;
+        try {
+          const res = await fetch(DARS_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-DARS-KEY': DARS_API_KEY
+            },
+            body: JSON.stringify({ action, ...payload }),
+            signal: controller ? controller.signal : undefined
+          });
+          if (timer) clearTimeout(timer);
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`HTTP ${res.status}: ${txt}`);
+          }
+          return await res.json();
+        } catch (e) {
+          if (timer) clearTimeout(timer);
+          throw e;
+        }
+      }
+    }
+
+    function createDarsLiveClient() {
+      return {
+        from: (table) => new DarsQueryBuilder(table),
+        auth: {
+          getSession: async () => ({ data: { session: { access_token: DARS_API_KEY, user: { id: 'admin', email: 'admin@amasyaetas.com' } } }, error: null }),
+          signInWithPassword: async () => ({ data: { session: { access_token: DARS_API_KEY, user: { id: 'admin', email: 'admin@amasyaetas.com' } } }, error: null }),
+          signOut: async () => ({ error: null })
+        },
+        rpc: async (_fn, _args) => ({ data: [], error: null }),
+        channel: (_name) => ({
+          on: function() { return this; },
+          subscribe: function() { return this; },
+          unsubscribe: function() {}
+        })
+      };
+    }
+
     let isLiveConnected = false;
-    let liveSupabase = null;
+    let liveSupabase = createDarsLiveClient();
 
     async function ensureLiveSupabaseAuth() {
       if (!liveSupabase) {
-        if (window.supabase && window.supabase.createClient) {
-          liveSupabase = window.supabase.createClient(
-            'https://zubhjybqzcpplultpsgt.supabase.co',
-            'sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG'
-          );
-        } else {
-          return null;
-        }
+        liveSupabase = createDarsLiveClient();
       }
-      try {
-        const { data: sessionData } = await liveSupabase.auth.getSession();
-        if (sessionData && sessionData.session && sessionData.session.access_token) {
-          return sessionData.session;
-        }
-        const { data: signRes, error: signErr } = await liveSupabase.auth.signInWithPassword({
-          email: 'admin@ops360.local',
-          password: '123berkant_'
-        });
-        if (!signErr && signRes && signRes.session) {
-          return signRes.session;
-        }
-      } catch (authErr) {
-        console.warn('ensureLiveSupabaseAuth warning:', authErr);
-      }
-      return null;
+      return { access_token: DARS_API_KEY, user: { id: 'admin', email: 'admin@amasyaetas.com' } };
     }
 
     async function initSupabaseLiveSync() {
@@ -55034,11 +55271,8 @@ function toggleSubTab(tabIndex) {
 
     async function recordMobileLoginLog(payload) {
       try {
-        if (!liveSupabase && window.supabase && window.supabase.createClient) {
-          liveSupabase = window.supabase.createClient(
-            "https://zubhjybqzcpplultpsgt.supabase.co",
-            "sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG"
-          );
+        if (!liveSupabase) {
+          liveSupabase = createDarsLiveClient();
         }
         if (!liveSupabase) return;
         await liveSupabase.from("user_login_logs").insert([{
@@ -55083,11 +55317,8 @@ function toggleSubTab(tabIndex) {
           return Array.isArray(u.aliases) && u.aliases.some(a => normalizeLoginUserKey(a) === inputKey);
         });
 
-        if (!liveSupabase && window.supabase && window.supabase.createClient) {
-          liveSupabase = window.supabase.createClient(
-            "https://zubhjybqzcpplultpsgt.supabase.co",
-            "sb_publishable_IzgkpcZTArogrYSlNxpWBA_DWi2JTpG"
-          );
+        if (!liveSupabase) {
+          liveSupabase = createDarsLiveClient();
         }
 
         if (!matchedUser && liveSupabase) {
@@ -56026,13 +56257,13 @@ function toggleSubTab(tabIndex) {
         if (!error && Array.isArray(data) && data.length > 0) {
           mockBillsData = hydrateMobileBillsList(data.map(row => ({
             id: row.id,
-            name: row.institution_name,
+            name: row.name || row.institution_name || 'Kurum Faturası',
             subscriberNo: row.subscriber_no || '-',
             category: row.category || 'elektrik',
-            amount: Number(row.amount) || 0,
+            amount: Number(row.amount !== undefined && row.amount !== null ? row.amount : row.current_amount) || 0,
             rawDueDate: row.due_date,
-            rawStatus: row.status || 'odenecek',
-            autoPayment: Boolean(row.auto_payment),
+            rawStatus: row.bill_status || row.status || 'odenecek',
+            autoPayment: Boolean(row.auto_payment === '1' || row.auto_payment === 1 || row.auto_payment === true),
             bank: row.auto_payment_bank || '-',
             notes: row.notes || '',
             lastPaidAt: row.last_paid_at || null
