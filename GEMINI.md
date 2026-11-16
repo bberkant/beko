@@ -431,13 +431,19 @@ Sistem genelinde tutar, ödeme, borç, alacak ve bakiye girişi yapılan tüm bi
 
 
 
-## DARS Mobil (iOS & Swift) Geliştirme ve OTA Canlı Güncelleme Standartları
+## DARS Mobil (iOS & Swift) Geliştirme, Canlı OTA ve İletişim Standartları
 
-1. **Yalnızca iOS ve Swift Mimarisi (Swift & iOS-Only Invariant):**
-   - DARS Mobil uygulaması **yalnızca iOS** platformunda kullanılır (`iOS 17.0+`, `Bundle ID: com.amasyaetas.mobile`, `Team ID: WGARWL7QZ4`).
+1. **KESİN KURAL: TestFlight Yasağı ve "Mobil Uygulama" Tanımı:**
+   - Kullanıcıyla iletişimde veya geliştirme adımlarında **TestFlight KESİNLİKLE kullanılmayacak, karıştırılmayacak ve kullanıcıya TestFlight'tan bahsedilmeyecektir.**
+   - Kullanıcı "mobil uygulama" dediğinde KESİNLİKLE telefonunda halihazırda yüklü olan ve yayında çalışan **canlı mobil uygulama** anlaşılacaktır.
+   - Yapılan her kodlama, hata düzeltmesi veya yeni özellik doğrudan yayındaki mobil uygulamaya yansıyacak şekilde (`cem.amasyaetas.com/ios_prototype` OTA sistemi üzerinden) canlıya alınacaktır.
+   - Kullanıcıya test veya doğrulama için asla TestFlight söylenmeyecek; yalnızca *"Telefonunuzdaki mobil uygulamayı açmanız (veya ekranı aşağı çekerek yenilemeniz)"* denecektir.
+
+2. **Yalnızca iOS ve Swift Mimarisi (Swift & iOS-Only Invariant):**
+   - DARS Mobil uygulaması **yalnızca iOS** platformunda kullanılır (`iOS 17.0+`, `Bundle ID: com.amasyaetas.mobile`, `Team ID: WGARWL7QZ4`, App Store Unlisted: `https://apps.apple.com/app/id6813872326`).
    - Mobil geliştirmeler yalnızca **Swift (`SwiftUI`, `WebKit`, `UserNotifications`, `Foundation`)** ve `ios/dars-ios` mimarisi üzerinden yürütülür; Android, Flutter, React Native veya Kotlin önerilmez ve kullanılmaz.
-2. **App Store (Gizli Yayın) & OTA Canlı Güncelleme (`cem.amasyaetas.com`):**
-   - Uygulama App Store'da gizli yayın (Unlisted) olarak yayınlanmıştır; TestFlight odaklı süreç yerine doğrudan canlı uygulama üzerinden geliştirme yapılır.
-   - Uygulama güncellemelerinin App Store inceleme/onay sürecini beklemeden doğrudan canlı sunucudan (`https://cem.amasyaetas.com`) otomatik olarak çekileceği **OTA (Over-The-Air) Canlı Güncelleme** yapısı (çevrimdışı/hata durumunda yerel `Bundle.main` yedeğine düşecek şekilde) ve `WKUserContentController` (`darsNotification`) köprüsü korunur.
-3. **Kuveyt Türk Kurumsal Tasarım ve Proje Kuralları Uyumu:**
-   - Mobil uygulamada Kuveyt Türk kurumsal tasarım tokenları (`Color.ktPrimary` `#002D59`, `Color.ktCoral` `#EA3829`, `Color.ktOrange` `#FF9800`, `Color.ktSuccess` `#10B981`, `SF Pro` `.ktMonospacedDigits()`) ve bu belgedeki tüm finansal/iş kuralları (sağda `₺`/`TL` simgesi, binlik `.` ayracı, Takas `E.`/`M.` ve `TAKSİT` kuralları, Çekten ↔ Takas çift yönlü senkronizasyonu, Kredi Kartları sıralama/hatırlatma kuralları, 1 aylık doğal cari vade ve doğrudan Supabase bağlantısı) birebir uygulanır.
+
+3. **Canlı OTA Güncelleme (`cem.amasyaetas.com`) & Turhost MySQL Backend:**
+   - Mobil uygulamanın veri katmanı web sitesiyle %100 aynı olan kendi **Turhost MySQL veritabanımıza (`https://amasyaetas.com/dars/`)** bağlıdır (eski Supabase kesinlikle kullanılmaz).
+   - `git push origin main` yapıldığında `cem.amasyaetas.com/ios_prototype` anında canlıya çıkar ve kullanıcının telefonundaki mobil uygulama açıldığı anda bu güncellemeyi otomatik olarak çeker.
+   - Mobil uygulamada Kuveyt Türk kurumsal tasarım tokenları (`Color.ktPrimary` `#002D59`, `Color.ktCoral` `#EA3829`, `Color.ktOrange` `#FF9800`, `Color.ktSuccess` `#10B981`, `SF Pro` `.ktMonospacedDigits()`) ve bu belgedeki tüm finansal/iş kuralları (sağda `₺`/`TL` simgesi, binlik `.` ayracı, Takas `E.`/`M.` ve `TAKSİT` kuralları, Çekten ↔ Takas çift yönlü senkronizasyonu, Kredi Kartları sıralama/hatırlatma kuralları, 1 aylık doğal cari vade ve doğrudan Turhost MySQL bağlantısı) birebir uygulanır.
