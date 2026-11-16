@@ -68,9 +68,50 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         try? BGTaskScheduler.shared.submit(request)
     }
     
-    /// Uygulama kapalıyken veya arka plandayken canlı sunucudan (cem.amasyaetas.com ve Supabase) notları, o günün kartlarını ve faturalarını çekip 09:00 bildirimlerini günceller
+    // MARK: - Notification Settings Persistence
+    func getSavedNotificationSettings() -> [String: Any] {
+        if let data = UserDefaults.standard.data(forKey: "dars_notification_settings"),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return dict
+        }
+        return [
+            "masterEnabled": true,
+            "morningHour": 9,
+            "morningMinute": 0,
+            "creditCardsEnabled": true,
+            "creditCardsAdvance2Days": false,
+            "billsEnabled": true,
+            "notesEnabled": true,
+            "checksEnabled": true,
+            "vehiclesEnabled": true
+        ]
+    }
+    
+    func saveNotificationSettings(_ settings: [String: Any]) {
+        if let data = try? JSONSerialization.data(withJSONObject: settings) {
+            UserDefaults.standard.set(data, forKey: "dars_notification_settings")
+        }
+    }
+    
+    /// Uygulama kapalıyken veya arka plandayken canlı sunucudan (cem.amasyaetas.com ve Supabase) notları, o günün kartlarını ve faturalarını çekip sabah bildirimlerini günceller
     func performNativeBackgroundLiveSync(completion: ((Bool) -> Void)?) {
-        guard let notesURL = URL(string: "https://cem.amasyaetas.com/api/user-notes?userKey=berkant"),
+        let prefs = getSavedNotificationSettings()
+        let masterEnabled = prefs["masterEnabled"] as? Bool ?? true
+        guard masterEnabled else {
+            clearAllDailyNotifications {
+                completion?(true)
+            }
+            return
+        }
+        
+        let morningHour = prefs["morningHour"] as? Int ?? 9
+        let morningMinute = prefs["morningMinute"] as? Int ?? 0
+        let ccEnabled = prefs["creditCardsEnabled"] as? Bool ?? true
+        let billsEnabled = prefs["billsEnabled"] as? Bool ?? true
+        let notesEnabled = prefs["notesEnabled"] as? Bool ?? true
+        
+        let timestamp = Int(Date().timeIntervalSince1970)
+        guard let notesURL = URL(string: "https://cem.amasyaetas.com/api/user-notes?userKey=berkant&_t=\(timestamp)"),
               let cardsURL = URL(string: "https://zubhjybqzcpplultpsgt.supabase.co/rest/v1/credit_cards?select=*&status=eq.aktif"),
               let authURL = URL(string: "https://zubhjybqzcpplultpsgt.supabase.co/auth/v1/token?grant_type=password"),
               let billsURL = URL(string: "https://zubhjybqzcpplultpsgt.supabase.co/rest/v1/company_bills?select=*") else {
@@ -149,116 +190,233 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 completion?(false)
                 return
             }
-            let activeNotes = fetchedNotes.filter { item in
-                let completed = item["completed"] as? Bool ?? false
-                let content = (item["content"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                return !completed && !content.isEmpty
-            }
             
-            let cal = Calendar.current
-            let now = Date()
-            var startOffset = 0
-            if let todayNine = cal.date(bySettingHour: 9, minute: 0, second: 0, of: now), todayNine <= now {
-                startOffset = 1
-            }
-            let fmt = DateFormatter()
-            fmt.dateFormat = "yyyy-MM-dd"
-            let trFmt = DateFormatter()
-            trFmt.dateFormat = "dd.MM.yyyy"
-            
-            for dayOffset in (0..<7).reversed() {
-                guard let targetDay = cal.date(byAdding: .day, value: startOffset + dayOffset, to: now) else { continue }
-                let iso = fmt.string(from: targetDay)
-                let trDate = trFmt.string(from: targetDay)
-                let dayOfMonth = cal.component(.day, from: targetDay)
-                let weekday = cal.component(.weekday, from: targetDay) // 1=Pazar, 2=Pazartesi, 7=Cumartesi
-                
-                // 1) Sadece o gün son ödeme günü olan kartlar (örn. 28. gün -> ETİK & MARİF KUVEYT FİNANSMAN KART)
-                let dueCardsForDay = fetchedCards.filter { card in
-                    let dueDay = (card["due_day"] as? Int) ?? Int("\(card["due_day"] ?? 0)") ?? 0
-                    return dueDay == dayOfMonth
+            // Remove previous sep_daily_ requests before scheduling fresh ones
+            UNUserNotificationCenter.current().getPendingNotificationRequests { existing in
+                let toRemove = existing.filter { $0.identifier.hasPrefix("sep_daily_") || $0.identifier.hasPrefix("test_") }.map { $0.identifier }
+                if !toRemove.isEmpty {
+                    UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: toRemove)
                 }
                 
-                for (cIdx, card) in dueCardsForDay.enumerated() {
-                    let bank = card["bank"] as? String ?? "Kredi Kartı"
-                    let cardName = card["card_name"] as? String ?? ""
-                    let last4 = card["last4"] as? String ?? ""
-                    let cardId = (card["id"] as? String) ?? "\(cIdx)"
-                    let limitVal = (card["card_limit"] as? Double) ?? Double("\(card["card_limit"] ?? 0)") ?? 0.0
-                    let debtVal = (card["current_debt"] as? Double) ?? Double("\(card["current_debt"] ?? 0)") ?? 0.0
-                    let finDetail = debtVal > 0 ? "Güncel Borç: \(self.formatCurrency(debtVal))" : "Son Ödeme: \(trDate) • Limit: \(self.formatCurrency(limitVal))"
-                    self.scheduleCalendarNotification(
-                        title: "💳 \(bank) (\(cardName))",
-                        body: "🚨 BUGÜN SON GÜN (•••• \(last4)) • \(finDetail)",
-                        identifier: "sep_daily_cc_\(iso)_\(cardId)",
-                        dateString: iso,
-                        advanceDays: 0,
-                        hour: 9,
-                        minute: 0,
-                        badge: 0,
-                        userInfo: ["targetScreen": "credit_cards"]
-                    )
+                let activeNotes = fetchedNotes.filter { item in
+                    let completed = item["completed"] as? Bool ?? false
+                    let content = (item["content"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    return !completed && !content.isEmpty
                 }
                 
-                // 2) O gün son ödeme günü olan kurum faturaları (Hafta sonuna denk gelenler Pazartesiye kayar)
-                let dueBillsForDay = fetchedBills.filter { bill in
-                    let status = (bill["status"] as? String ?? "odenecek").lowercased()
-                    if status == "odendi" { return false }
-                    let rawDue = bill["due_date"] as? String ?? ""
-                    let parts = rawDue.split(separator: "-")
-                    guard parts.count == 3, let nominalDay = Int(parts[2]) else { return false }
-                    if weekday == 1 || weekday == 7 { return false }
-                    if nominalDay == dayOfMonth { return true }
-                    if weekday == 2 {
-                        if let sat = cal.date(byAdding: .day, value: -2, to: targetDay),
-                           cal.component(.day, from: sat) == nominalDay { return true }
-                        if let sun = cal.date(byAdding: .day, value: -1, to: targetDay),
-                           cal.component(.day, from: sun) == nominalDay { return true }
+                let cal = Calendar.current
+                let now = Date()
+                var startOffset = 0
+                if let todayFire = cal.date(bySettingHour: morningHour, minute: morningMinute, second: 0, of: now), todayFire <= now {
+                    startOffset = 1
+                }
+                let fmt = DateFormatter()
+                fmt.dateFormat = "yyyy-MM-dd"
+                let trFmt = DateFormatter()
+                trFmt.dateFormat = "dd.MM.yyyy"
+                
+                var scheduledCount = 0
+                let maxSafeRequests = 40
+                
+                for dayOffset in (0..<7) {
+                    if scheduledCount >= maxSafeRequests { break }
+                    guard let targetDay = cal.date(byAdding: .day, value: startOffset + dayOffset, to: now) else { continue }
+                    let iso = fmt.string(from: targetDay)
+                    let trDate = trFmt.string(from: targetDay)
+                    let dayOfMonth = cal.component(.day, from: targetDay)
+                    let weekday = cal.component(.weekday, from: targetDay) // 1=Pazar, 2=Pazartesi, 7=Cumartesi
+                    
+                    // 1) Sadece o gün son ödeme günü olan kartlar
+                    if ccEnabled {
+                        let dueCardsForDay = fetchedCards.filter { card in
+                            let dueDay = (card["due_day"] as? Int) ?? Int("\(card["due_day"] ?? 0)") ?? 0
+                            return dueDay == dayOfMonth
+                        }
+                        
+                        for (cIdx, card) in dueCardsForDay.enumerated() {
+                            if scheduledCount >= maxSafeRequests { break }
+                            let bank = card["bank"] as? String ?? "Kredi Kartı"
+                            let cardName = card["card_name"] as? String ?? ""
+                            let last4 = card["last4"] as? String ?? ""
+                            let cardId = (card["id"] as? String) ?? "\(cIdx)"
+                            let limitVal = (card["card_limit"] as? Double) ?? Double("\(card["card_limit"] ?? 0)") ?? 0.0
+                            let debtVal = (card["current_debt"] as? Double) ?? Double("\(card["current_debt"] ?? 0)") ?? 0.0
+                            let finDetail = debtVal > 0 ? "Güncel Borç: \(self.formatCurrency(debtVal))" : "Son Ödeme: \(trDate) • Limit: \(self.formatCurrency(limitVal))"
+                            self.scheduleCalendarNotification(
+                                title: "💳 \(bank) (\(cardName))",
+                                body: "🚨 BUGÜN SON GÜN (•••• \(last4)) • \(finDetail)",
+                                identifier: "sep_daily_cc_\(iso)_\(cardId)",
+                                dateString: iso,
+                                advanceDays: 0,
+                                hour: morningHour,
+                                minute: morningMinute,
+                                badge: 0,
+                                userInfo: ["targetScreen": "credit_cards"]
+                            )
+                            scheduledCount += 1
+                        }
                     }
-                    return false
+                    
+                    // 2) O gün son ödeme günü olan kurum faturaları (Hafta sonuna denk gelenler Pazartesiye kayar)
+                    if billsEnabled {
+                        let dueBillsForDay = fetchedBills.filter { bill in
+                            let status = (bill["status"] as? String ?? "odenecek").lowercased()
+                            if status == "odendi" { return false }
+                            let rawDue = bill["due_date"] as? String ?? ""
+                            let parts = rawDue.split(separator: "-")
+                            guard parts.count == 3, let nominalDay = Int(parts[2]) else { return false }
+                            if weekday == 1 || weekday == 7 { return false }
+                            if nominalDay == dayOfMonth { return true }
+                            if weekday == 2 {
+                                if let sat = cal.date(byAdding: .day, value: -2, to: targetDay),
+                                   cal.component(.day, from: sat) == nominalDay { return true }
+                                if let sun = cal.date(byAdding: .day, value: -1, to: targetDay),
+                                   cal.component(.day, from: sun) == nominalDay { return true }
+                            }
+                            return false
+                        }
+                        
+                        for (bIdx, bill) in dueBillsForDay.enumerated() {
+                            if scheduledCount >= maxSafeRequests { break }
+                            let instName = bill["institution_name"] as? String ?? "Kurum Faturası"
+                            let subNo = bill["subscriber_no"] as? String ?? "-"
+                            let billId = (bill["id"] as? String) ?? "\(bIdx)"
+                            let amtVal = (bill["amount"] as? Double) ?? Double("\(bill["amount"] ?? 0)") ?? 0.0
+                            let autoPay = bill["auto_payment"] as? Bool ?? false
+                            let autoBank = bill["auto_payment_bank"] as? String ?? ""
+                            let amtStr = amtVal > 0 ? " • Tutar: \(self.formatCurrency(amtVal))" : ""
+                            let autoStr = autoPay ? " • Otomatik: \(autoBank.isEmpty ? "Talimatlı" : autoBank)" : ""
+                            self.scheduleCalendarNotification(
+                                title: "🧾 Fatura Son Ödeme: \(instName)",
+                                body: "🚨 BUGÜN SON GÜN (Abone: \(subNo)) • Son Ödeme: \(trDate)\(amtStr)\(autoStr)",
+                                identifier: "sep_daily_bill_\(iso)_\(billId)",
+                                dateString: iso,
+                                advanceDays: 0,
+                                hour: morningHour,
+                                minute: morningMinute,
+                                badge: 0,
+                                userInfo: ["targetScreen": "bills"]
+                            )
+                            scheduledCount += 1
+                        }
+                    }
+                    
+                    // 3) Aktif kullanıcı notları
+                    if notesEnabled {
+                        for (idx, note) in activeNotes.prefix(6).enumerated() {
+                            if scheduledCount >= maxSafeRequests { break }
+                            let noteId = (note["id"] as? String) ?? "\(idx)"
+                            if let noteDate = note["date"] as? String, !noteDate.isEmpty {
+                                let normDate = String(noteDate.prefix(10))
+                                if normDate != iso { continue }
+                            } else {
+                                if dayOffset >= 3 { continue }
+                            }
+                            let rawContent = note["content"] as? String ?? ""
+                            let cleanContent = rawContent.replacingOccurrences(of: #"^\[USER:[^\]]+\]\s*"#, with: "", options: .regularExpression)
+                            self.scheduleCalendarNotification(
+                                title: "📝 Notlarım (\(idx + 1)/\(activeNotes.count)) • \(String(format: "%02d:%02d", morningHour, morningMinute))",
+                                body: cleanContent,
+                                identifier: "sep_daily_note_\(iso)_\(noteId)",
+                                dateString: iso,
+                                advanceDays: 0,
+                                hour: morningHour,
+                                minute: morningMinute,
+                                badge: 0,
+                                userInfo: ["targetScreen": "takvim"]
+                            )
+                            scheduledCount += 1
+                        }
+                    }
                 }
-                
-                for (bIdx, bill) in dueBillsForDay.enumerated() {
-                    let instName = bill["institution_name"] as? String ?? "Kurum Faturası"
-                    let subNo = bill["subscriber_no"] as? String ?? "-"
-                    let billId = (bill["id"] as? String) ?? "\(bIdx)"
-                    let amtVal = (bill["amount"] as? Double) ?? Double("\(bill["amount"] ?? 0)") ?? 0.0
-                    let autoPay = bill["auto_payment"] as? Bool ?? false
-                    let autoBank = bill["auto_payment_bank"] as? String ?? ""
-                    let amtStr = amtVal > 0 ? " • Tutar: \(self.formatCurrency(amtVal))" : ""
-                    let autoStr = autoPay ? " • Otomatik: \(autoBank.isEmpty ? "Talimatlı" : autoBank)" : ""
-                    self.scheduleCalendarNotification(
-                        title: "🧾 Fatura Son Ödeme: \(instName)",
-                        body: "🚨 BUGÜN SON GÜN (Abone: \(subNo)) • Son Ödeme: \(trDate)\(amtStr)\(autoStr)",
-                        identifier: "sep_daily_bill_\(iso)_\(billId)",
-                        dateString: iso,
-                        advanceDays: 0,
-                        hour: 9,
-                        minute: 0,
-                        badge: 0,
-                        userInfo: ["targetScreen": "bills"]
-                    )
-                }
-                
-                // 3) Aktif kullanıcı notları
-                for (idx, note) in activeNotes.prefix(6).enumerated() {
-                    let rawContent = note["content"] as? String ?? ""
-                    let cleanContent = rawContent.replacingOccurrences(of: #"^\[USER:[^\]]+\]\s*"#, with: "", options: .regularExpression)
-                    self.scheduleCalendarNotification(
-                        title: "📝 Notlarım (\(idx + 1)/\(activeNotes.count)) • 09:00",
-                        body: cleanContent,
-                        identifier: "sep_daily_note_\(iso)_\(idx)",
-                        dateString: iso,
-                        advanceDays: 0,
-                        hour: 9,
-                        minute: 0,
-                        badge: 0,
-                        userInfo: ["targetScreen": "takvim"]
-                    )
-                }
+                print("[DARS] Native arka plan senkronizasyonu tamamlandı: \(scheduledCount) bildirim kuruldu.")
+                completion?(true)
             }
-            completion?(true)
         }
+    }
+    
+    /// Tüm periyodik sabah bildirimlerini temizler
+    func clearAllDailyNotifications(completion: (() -> Void)? = nil) {
+        notificationQueue.async {
+            UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+                let dailyIds = requests.filter { req in
+                    req.identifier.hasPrefix("sep_daily_") || req.identifier.hasPrefix("test_")
+                }.map { $0.identifier }
+                if !dailyIds.isEmpty {
+                    UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: dailyIds)
+                }
+                completion?()
+            }
+        }
+    }
+    
+    /// JS köprüsünden tek bir atomik mesajda gelen tüm sabah bildirimlerini sıfırdan kurar
+    func syncAllMorningNotifications(items: [[String: Any]], settings: [String: Any]?) {
+        hasSyncedFromJS = true
+        if let s = settings {
+            saveNotificationSettings(s)
+        }
+        clearAppBadge()
+        notificationQueue.async { [weak self] in
+            guard let self = self else { return }
+            UNUserNotificationCenter.current().getPendingNotificationRequests { existing in
+                let toRemove = existing.filter { $0.identifier.hasPrefix("sep_daily_") || $0.identifier.hasPrefix("test_") }.map { $0.identifier }
+                if !toRemove.isEmpty {
+                    UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: toRemove)
+                }
+                
+                let capped = items.count > 40 ? Array(items.prefix(40)) : items
+                for item in capped {
+                    guard let id = item["id"] as? String,
+                          let title = item["title"] as? String,
+                          let body = item["body"] as? String,
+                          let dateStr = item["date"] as? String else { continue }
+                    let advanceDays = item["advanceDays"] as? Int ?? 0
+                    let hour = item["hour"] as? Int ?? 9
+                    let minute = item["minute"] as? Int ?? 0
+                    let targetScreen = item["targetScreen"] as? String ?? ""
+                    
+                    self.scheduleCalendarNotification(
+                        title: title,
+                        body: body,
+                        identifier: id,
+                        dateString: dateStr,
+                        advanceDays: advanceDays,
+                        hour: hour,
+                        minute: minute,
+                        badge: 0,
+                        userInfo: ["targetScreen": targetScreen]
+                    )
+                }
+                print("[DARS] syncAllMorningNotifications: \(capped.count) bildirim atomik olarak başarıyla kuruldu.")
+            }
+        }
+    }
+    
+    /// iOS UNUserNotificationCenter üzerindeki bekleyen bildirimleri listeler
+    func getPendingNotifications(completion: @escaping ([[String: Any]]) -> Void) {
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let list: [[String: Any]] = requests.map { req in
+                var dateStr = ""
+                if let calTrigger = req.trigger as? UNCalendarNotificationTrigger {
+                    let comps = calTrigger.dateComponents
+                    if let y = comps.year, let m = comps.month, let d = comps.day, let h = comps.hour, let min = comps.minute {
+                        dateStr = String(format: "%02d.%02d.%04d %02d:%02d", d, m, y, h, min)
+                    } else if let h = comps.hour, let min = comps.minute {
+                        dateStr = String(format: "Her Gün %02d:%02d", h, min)
+                    }
+                }
+                return [
+                    "id": req.identifier,
+                    "title": req.content.title,
+                    "body": req.content.body,
+                    "date": dateStr,
+                    "targetScreen": (req.content.userInfo["targetScreen"] as? String) ?? ""
+                ]
+            }
+            completion(list)
+        }
+    }
     }
     
     func clearAppBadge() {
@@ -280,7 +438,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 self.clearAppBadge()
                 DispatchQueue.main.async {
                     if !self.hasSyncedFromJS {
-                        self.scheduleAllFinancialReminders()
+                        self.performNativeBackgroundLiveSync(completion: nil)
                     }
                 }
             } else if let error = error {
@@ -1184,6 +1342,24 @@ struct PrototypeWebView: UIViewRepresentable {
             let action = dict["action"] as? String ?? ""
             
             switch action {
+            case "syncAllMorningNotifications":
+                let items = dict["items"] as? [[String: Any]] ?? []
+                let settings = dict["settings"] as? [String: Any]
+                NotificationManager.shared.syncAllMorningNotifications(items: items, settings: settings)
+            case "updateNotificationSettings":
+                if let settings = dict["settings"] as? [String: Any] {
+                    NotificationManager.shared.saveNotificationSettings(settings)
+                }
+            case "getPendingNotifications":
+                NotificationManager.shared.getPendingNotifications { [weak self] list in
+                    if let data = try? JSONSerialization.data(withJSONObject: list),
+                       let jsonString = String(data: data, encoding: .utf8) {
+                        DispatchQueue.main.async {
+                            let js = "if (typeof window.onNativePendingNotificationsReceived === 'function') { window.onNativePendingNotificationsReceived(\(jsonString)); }"
+                            self?.webView?.evaluateJavaScript(js, completionHandler: nil)
+                        }
+                    }
+                }
             case "syncAllEvents":
                 if let events = dict["events"] as? [[String: Any]] {
                     NotificationManager.shared.syncAllEvents(events: events)

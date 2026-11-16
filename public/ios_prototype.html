@@ -54123,6 +54123,7 @@ function toggleSubTab(tabIndex) {
       const current = getNotificationSettings();
       current[key] = Boolean(checked);
       saveNotificationSettings(current);
+      postToNativeNotificationBridge({ action: 'updateNotificationSettings', settings: current });
       syncNativeMorningNotifications(true);
       renderSettings();
       renderNotifications();
@@ -54136,6 +54137,7 @@ function toggleSubTab(tabIndex) {
       current.morningHour = hour;
       current.morningMinute = minute;
       saveNotificationSettings(current);
+      postToNativeNotificationBridge({ action: 'updateNotificationSettings', settings: current });
       syncNativeMorningNotifications(true);
       renderSettings();
       renderNotifications();
@@ -54152,6 +54154,29 @@ function toggleSubTab(tabIndex) {
       }
       return false;
     }
+
+    let latestNativePendingNotifications = [];
+    window.onNativePendingNotificationsReceived = function(list) {
+      if (Array.isArray(list)) {
+        latestNativePendingNotifications = list;
+        const countBadge = document.getElementById('native-pending-count-badge');
+        if (countBadge) {
+          countBadge.textContent = list.length + ' Bildirim Kilit Ekranına Hazır';
+        }
+        const pendingContainer = document.getElementById('native-pending-items-list');
+        if (pendingContainer && list.length > 0) {
+          pendingContainer.innerHTML = list.slice(0, 8).map(item => `
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs space-y-1">
+              <div class="flex justify-between items-center">
+                <span class="font-[700] text-slate-800">${item.title}</span>
+                <span class="text-[10px] font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md font-bold">${item.date || '09:00'}</span>
+              </div>
+              <p class="text-[11px] text-slate-600">${item.body}</p>
+            </div>
+          `).join('');
+        }
+      }
+    };
 
     function getUpcomingMorningDatesISO(hour, minute, count) {
       const now = new Date();
@@ -54287,6 +54312,7 @@ function toggleSubTab(tabIndex) {
         lastMorningSyncSignature = 'DISABLED';
         if (morningNotificationSyncTimer) clearTimeout(morningNotificationSyncTimer);
         postToNativeNotificationBridge({ action: 'clearAll' });
+        postToNativeNotificationBridge({ action: 'updateNotificationSettings', settings: prefs });
         if (showFeedbackToast) showToast('Tüm bildirimler devre dışı bırakıldı');
         return;
       }
@@ -54311,6 +54337,8 @@ function toggleSubTab(tabIndex) {
         ccAdv: Boolean(prefs.creditCardsAdvance2Days),
         billsEn: Boolean(prefs.billsEnabled !== false),
         ntEn: Boolean(prefs.notesEnabled),
+        chEn: Boolean(prefs.checksEnabled),
+        vhEn: Boolean(prefs.vehiclesEnabled),
         notes: activeNotes.slice(0, 10).map(n => `${n.id}|${stripMobileOwnerTag(n.content)}|${n.date || ''}`),
         todayCards: todayDueCards.map(c => `${c.rawId || c.id}|${c.dueDateISO || c.dueDate || ''}|${c.used}|${c.limit}`),
         todayBills: todayDueBills.map(b => `${b.id}|${b.dueDateISO}|${b.amount}|${b.status}`)
@@ -54321,98 +54349,100 @@ function toggleSubTab(tabIndex) {
       }
       lastMorningSyncSignature = currentSig;
 
-      // Önceki bekleyen bildirimleri temizle
-      postToNativeNotificationBridge({ action: 'clearAll' });
+      // ATOMİK VE GÜVENLİ BİLDİRİM LİSTESİ HAZIRLA (Maksimum 40 güvenli bildirim kotası)
+      const scheduledItems = [];
+      const maxSafeRequests = 40;
 
-      const scheduleSeparateItems = () => {
-        let scheduledCount = 0;
-        const maxSafeRequests = 54;
+      for (let dayIdx = 0; dayIdx < upcomingMornings.length; dayIdx++) {
+        const morningISO = upcomingMornings[dayIdx];
 
-        // Önümüzdeki 7 sabah için (ters sırayla: 6. günden 0. güne doğru) SADECE o gün son ödeme günü olan kartlar, faturalar ve aktif kullanıcı notları TEKER TEKER kurulur.
-        for (let dayIdx = upcomingMornings.length - 1; dayIdx >= 0; dayIdx--) {
-          const morningISO = upcomingMornings[dayIdx];
-
-          if (prefs.creditCardsEnabled) {
-            const cardsForMorning = getCardsDueOnDateMobile(morningISO, Boolean(prefs.creditCardsAdvance2Days));
-            cardsForMorning.forEach((card, cIdx) => {
-              if (scheduledCount >= maxSafeRequests && dayIdx > 1) return;
-              const formatted = formatCreditCardSeparateNotice(card);
-              postToNativeNotificationBridge({
-                action: 'scheduleDate',
-                id: 'sep_daily_cc_' + morningISO + '_' + String(card.rawId || card.id || cIdx),
-                title: formatted.title,
-                body: formatted.body,
-                date: morningISO,
-                advanceDays: 0,
-                hour: hour,
-                minute: minute,
-                badge: 0,
-                targetScreen: 'credit_cards'
-              });
-              scheduledCount++;
-            });
-          }
-
-          if (prefs.billsEnabled !== false) {
-            const billsForMorning = getBillsDueOnDateMobile(morningISO);
-            billsForMorning.forEach((bill, bIdx) => {
-              if (scheduledCount >= maxSafeRequests && dayIdx > 1) return;
-              const formatted = formatBillSeparateNotice(bill, morningISO);
-              postToNativeNotificationBridge({
-                action: 'scheduleDate',
-                id: 'sep_daily_bill_' + morningISO + '_' + String(bill.id || bIdx),
-                title: formatted.title,
-                body: formatted.body,
-                date: morningISO,
-                advanceDays: 0,
-                hour: hour,
-                minute: minute,
-                badge: 0,
-                targetScreen: 'bills'
-              });
-              scheduledCount++;
-            });
-          }
-
-          if (activeNotes.length > 0) {
-            activeNotes.slice(0, 6).forEach((note, nIdx) => {
-              if (scheduledCount >= maxSafeRequests && dayIdx > 1) return;
-              const cleanText = stripMobileOwnerTag(note.content);
-              postToNativeNotificationBridge({
-                action: 'scheduleDate',
-                id: 'sep_daily_note_' + morningISO + '_' + nIdx,
-                title: '📝 Notlarım (' + (nIdx + 1) + '/' + activeNotes.length + ') • ' + timeLabel,
-                body: cleanText,
-                date: morningISO,
-                advanceDays: 0,
-                hour: hour,
-                minute: minute,
-                badge: 0,
-                targetScreen: 'takvim'
-              });
-              scheduledCount++;
+        // 1) Kredi & Finansman Kartları
+        if (prefs.creditCardsEnabled) {
+          const cardsForMorning = getCardsDueOnDateMobile(morningISO, Boolean(prefs.creditCardsAdvance2Days));
+          for (let cIdx = 0; cIdx < cardsForMorning.length; cIdx++) {
+            if (scheduledItems.length >= maxSafeRequests) break;
+            const card = cardsForMorning[cIdx];
+            const formatted = formatCreditCardSeparateNotice(card);
+            scheduledItems.push({
+              id: 'sep_daily_cc_' + morningISO + '_' + String(card.rawId || card.id || cIdx),
+              title: formatted.title,
+              body: formatted.body,
+              date: morningISO,
+              advanceDays: 0,
+              hour: hour,
+              minute: minute,
+              badge: 0,
+              targetScreen: 'credit_cards'
             });
           }
         }
-      };
 
-      if (morningNotificationSyncTimer) clearTimeout(morningNotificationSyncTimer);
-      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.darsNotification) {
-        morningNotificationSyncTimer = setTimeout(scheduleSeparateItems, 650);
-      } else {
-        scheduleSeparateItems();
+        // 2) Kurum Faturaları
+        if (prefs.billsEnabled !== false) {
+          const billsForMorning = getBillsDueOnDateMobile(morningISO);
+          for (let bIdx = 0; bIdx < billsForMorning.length; bIdx++) {
+            if (scheduledItems.length >= maxSafeRequests) break;
+            const bill = billsForMorning[bIdx];
+            const formatted = formatBillSeparateNotice(bill, morningISO);
+            scheduledItems.push({
+              id: 'sep_daily_bill_' + morningISO + '_' + String(bill.id || bIdx),
+              title: formatted.title,
+              body: formatted.body,
+              date: morningISO,
+              advanceDays: 0,
+              hour: hour,
+              minute: minute,
+              badge: 0,
+              targetScreen: 'bills'
+            });
+          }
+        }
+
+        // 3) Canlı Kullanıcı Notları
+        if (prefs.notesEnabled && activeNotes.length > 0) {
+          for (let nIdx = 0; nIdx < activeNotes.length; nIdx++) {
+            if (scheduledItems.length >= maxSafeRequests) break;
+            const note = activeNotes[nIdx];
+            if (note.date) {
+              const noteNorm = normalizeMobileNoteDate(note.date);
+              if (noteNorm !== morningISO) continue;
+            } else {
+              if (dayIdx >= 3) continue;
+            }
+            const cleanText = stripMobileOwnerTag(note.content);
+            const noteCleanId = String(note.id).replace(/^note-/, '');
+            scheduledItems.push({
+              id: 'sep_daily_note_' + morningISO + '_' + noteCleanId,
+              title: '📝 Notlarım (' + (nIdx + 1) + '/' + activeNotes.length + ') • ' + timeLabel,
+              body: cleanText,
+              date: morningISO,
+              advanceDays: 0,
+              hour: hour,
+              minute: minute,
+              badge: 0,
+              targetScreen: 'takvim'
+            });
+          }
+        }
       }
+
+      // ATOMİK PROGRAMLAMA: Tek mesajda Swift NotificationManager'a gönder
+      postToNativeNotificationBridge({
+        action: 'syncAllMorningNotifications',
+        settings: prefs,
+        items: scheduledItems
+      });
 
       if (showFeedbackToast) {
         const ccCount = todayDueCards.length;
         const billCount = todayDueBills.length;
         const noteCount = activeNotes.length;
-        showToast('Sabah ' + timeLabel + ' bildirimleri kuruldu (Bugün: ' + ccCount + ' Kart, ' + billCount + ' Fatura, ' + noteCount + ' Not)');
+        showToast('✓ ' + scheduledItems.length + ' kilit ekranı bildirimi kuruldu (Bugün: ' + ccCount + ' Kart, ' + billCount + ' Fatura, ' + noteCount + ' Not)');
       }
     }
 
     async function manualSyncNotificationsNow() {
-      showToast('Canlı site verileri çekiliyor ve 09:00 ayrı bildirimleri eşitleniyor...');
+      showToast('Canlı veriler eşitleniyor ve kilit ekranı bildirimleri kuruluyor...');
       await Promise.allSettled([
         syncLiveCards(),
         syncLiveBills(),
@@ -54425,95 +54455,31 @@ function toggleSubTab(tabIndex) {
       renderCalendar();
       renderNotifications();
       renderSettings();
+      postToNativeNotificationBridge({ action: 'getPendingNotifications' });
     }
 
     function sendTestMorningNotification() {
       clearAppIconBadgeMobile();
       const prefs = getNotificationSettings();
       const timeLabel = String(prefs.morningHour || 9).padStart(2, '0') + ':' + String(prefs.morningMinute || 0).padStart(2, '0');
-      const todayISO = getTodayISOString();
-
-      // Sadece bugünün son ödeme kartları (örn. 28.10.2026: ETİK & MARİF KUVEYT FİNANSMAN KART)
-      const todayCards = prefs.creditCardsEnabled ? getCardsDueOnDateMobile(todayISO, false) : [];
-      const cardsToSend = prefs.creditCardsEnabled
-        ? (todayCards.length > 0 ? todayCards : getCardsDueOnDateMobile(todayISO, true))
-        : [];
-
-      // Bugünün son ödeme faturaları (bugün yoksa yaklaşan 7 gün içindeki faturalar)
-      const todayBills = prefs.billsEnabled !== false ? getBillsDueOnDateMobile(todayISO) : [];
-      const billsToSend = prefs.billsEnabled !== false
-        ? (todayBills.length > 0
-            ? todayBills
-            : [...mockBillsData]
-                .filter(b => b.status !== 'odendi' && Number(b.daysLeft) <= 7)
-                .sort((a, b) => (Number(a.daysLeft) || 0) - (Number(b.daysLeft) || 0))
-                .slice(0, 2))
-        : [];
-
-      const activeNotes = prefs.notesEnabled
-        ? userCalendarNotes.filter(n => n && !n.completed && stripMobileOwnerTag(n.content))
-        : [];
-
-      let delaySec = 2;
-      let sentAnyNative = false;
       const nowStamp = Date.now();
 
-      // 1) Bugünün Son Ödeme Kartları Ayrı Ayrı Bildirim Olarak Gönderilir
-      cardsToSend.forEach((card, cIdx) => {
-        const formatted = formatCreditCardSeparateNotice(card);
-        const ok = postToNativeNotificationBridge({
-          action: 'scheduleReminder',
-          id: 'test_sep_cc_' + nowStamp + '_' + cIdx,
-          title: formatted.title,
-          body: formatted.body,
-          delay: delaySec,
-          badge: 0
-        });
-        if (ok) sentAnyNative = true;
-        delaySec += 1;
-      });
+      showToast('🔔 Test bildirimi 3 saniye sonra gelecek. Telefonunuzu hemen kilitleyin!');
 
-      // 2) Son Ödeme Günü Gelen Faturalar Ayrı Ayrı Bildirim Olarak Gönderilir
-      billsToSend.forEach((bill, bIdx) => {
-        const formatted = formatBillSeparateNotice(bill, todayBills.length > 0 ? todayISO : null);
-        const ok = postToNativeNotificationBridge({
-          action: 'scheduleReminder',
-          id: 'test_sep_bill_' + nowStamp + '_' + bIdx,
-          title: formatted.title,
-          body: formatted.body,
-          delay: delaySec,
-          badge: 0
-        });
-        if (ok) sentAnyNative = true;
-        delaySec += 1;
+      postToNativeNotificationBridge({
+        action: 'scheduleReminder',
+        id: 'test_sep_instant_' + nowStamp,
+        title: '🔔 DARS Kilit Ekranı Bildirim Testi',
+        body: 'Sabah saat ' + timeLabel + ' kilit ekranı bildirim motorunuz kusursuz çalışıyor! (Kartlar, Faturalar, Notlar)',
+        delay: 3,
+        badge: 0
       });
-
-      // 3) Her Kullanıcı Notu Teker Teker Ayrı Bildirim Olarak Gönderilir
-      activeNotes.forEach((note, nIdx) => {
-        const cleanText = stripMobileOwnerTag(note.content);
-        const ok = postToNativeNotificationBridge({
-          action: 'scheduleReminder',
-          id: 'test_sep_note_' + nowStamp + '_' + nIdx,
-          title: '📝 Notlarım (' + (nIdx + 1) + '/' + activeNotes.length + ') • ' + timeLabel,
-          body: cleanText,
-          delay: delaySec,
-          badge: 0
-        });
-        if (ok) sentAnyNative = true;
-        delaySec += 1;
-      });
-
-      const totalSeparate = cardsToSend.length + billsToSend.length + activeNotes.length;
-      if (sentAnyNative) {
-        showToast(totalSeparate + ' adet ayrı bildirim gönderildi! (' + cardsToSend.length + ' Kart + ' + billsToSend.length + ' Fatura + ' + activeNotes.length + ' Not)');
-      } else {
-        showToast('🔔 ' + cardsToSend.length + ' Kart, ' + billsToSend.length + ' Fatura ve ' + activeNotes.length + ' Not ayrı ayrı bildirim olarak hazırlandı');
-      }
     }
 
     function renderNotifications() {
       const container = document.getElementById('notifications-list-container');
       if (!container) return;
+      postToNativeNotificationBridge({ action: 'getPendingNotifications' });
       const prefs = getNotificationSettings();
       const timeLabel = String(prefs.morningHour || 9).padStart(2, '0') + ':' + String(prefs.morningMinute || 0).padStart(2, '0');
       const activeNotes = userCalendarNotes.filter(n => !n.completed && n.content);
@@ -54532,22 +54498,56 @@ function toggleSubTab(tabIndex) {
       const displayBills = todayDueBills.length > 0 ? todayDueBills : upcomingWeekBills;
 
       let htmlItems = `
-        <div class="kt-card p-3.5 bg-gradient-to-r from-[#002D59] to-[#0A467E] text-white rounded-2xl space-y-2 shadow-xs">
-          <div class="flex justify-between items-center">
+        <!-- Canlı Durum ve Teşhis Paneli -->
+        <div class="kt-card p-4 bg-gradient-to-br from-[#002D59] to-[#0A467E] text-white rounded-2xl space-y-3 shadow-sm">
+          <div class="flex justify-between items-start">
             <div class="flex items-center gap-2">
-              <span class="text-base">⏰</span>
-              <span class="text-xs font-[700]">Her Gün Sabah ${timeLabel} Otomatik Bildirim</span>
+              <span class="text-lg">⏰</span>
+              <div>
+                <h3 class="text-sm font-[800]">Kilit Ekranı Bildirim Motoru</h3>
+                <span class="text-[11px] text-blue-200">Her Gün Sabah ${timeLabel} Otomatik</span>
+              </div>
             </div>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-400/20 border border-emerald-300/40 text-emerald-200 text-[10px] font-[700]">${isLiveConnected ? 'Canlı Site Verisi' : 'Aktif'}</span>
+            <span id="native-pending-count-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-400/20 border border-emerald-300/40 text-emerald-200 text-[10px] font-[700]">
+              ${isLiveConnected ? 'Canlı Site Verisi Aktif' : 'Hazır'}
+            </span>
           </div>
-          <p class="text-[11px] text-blue-100 leading-relaxed">
-            Bugün son ödeme günü olan <strong>${todayDueCards.length} Kart</strong>, <strong>${todayDueBills.length} Fatura</strong> ve <strong>${activeNotes.length} Aktif Kullanıcı Notunuz</strong> sabah saat <strong>${timeLabel}</strong>'da ayrı ayrı bildirim olarak gönderilir.
+
+          <p class="text-[11.5px] text-blue-100 leading-relaxed">
+            Bugün vadesi gelen <strong>${todayDueCards.length} Kart</strong>, <strong>${todayDueBills.length} Fatura</strong> ve <strong>${activeNotes.length} Notunuz</strong> sabah saat <strong>${timeLabel}</strong>'da telefonunuz kilitliyken sesli ve banner olarak kilit ekranınızda çalar.
           </p>
+
+          <div class="grid grid-cols-3 gap-2 pt-0.5">
+            <div onclick="changeScreen('credit_cards')" class="p-2 rounded-xl bg-white/10 border border-white/15 text-center cursor-pointer">
+              <span class="text-[9.5px] text-blue-200 block font-[600]">KARTLAR</span>
+              <span class="text-xs font-[800] text-white">${todayDueCards.length} Bugün / ${mockCreditCards.length}</span>
+            </div>
+            <div onclick="changeScreen('bills')" class="p-2 rounded-xl bg-white/10 border border-white/15 text-center cursor-pointer">
+              <span class="text-[9.5px] text-blue-200 block font-[600]">FATURALAR</span>
+              <span class="text-xs font-[800] text-white">${todayDueBills.length} Bugün / ${mockBillsData.length}</span>
+            </div>
+            <div onclick="changeScreen('takvim')" class="p-2 rounded-xl bg-white/10 border border-white/15 text-center cursor-pointer">
+              <span class="text-[9.5px] text-blue-200 block font-[600]">NOTLARIM</span>
+              <span class="text-xs font-[800] text-white">${activeNotes.length} Aktif Not</span>
+            </div>
+          </div>
+
           <div class="flex gap-2 pt-1">
-            <button onclick="changeScreen('ayarlar')" class="flex-1 py-1.5 px-3 rounded-xl bg-white text-[#002D59] font-[700] text-[11px] text-center shadow-2xs">⚙️ Bildirim Ayarları</button>
-            <button onclick="sendTestMorningNotification()" class="py-1.5 px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-[600] text-[11px]">🔔 Test Et</button>
+            <button onclick="sendTestMorningNotification()" class="flex-1 py-2 px-3 rounded-xl bg-white text-[#002D59] font-[800] text-xs text-center shadow-xs hover:bg-blue-50 transition-all flex items-center justify-center gap-1.5">
+              <span>🔔</span>
+              <span>Anında Test Et (3 sn)</span>
+            </button>
+            <button onclick="manualSyncNotificationsNow()" class="py-2 px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-[700] text-xs transition-all flex items-center justify-center gap-1">
+              <span>🔄</span>
+              <span>Eşitle</span>
+            </button>
+            <button onclick="changeScreen('ayarlar')" class="py-2 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-[600] text-xs">
+              <span>⚙️</span>
+            </button>
           </div>
         </div>
+
+        <div id="native-pending-items-list" class="space-y-1.5"></div>
       `;
 
       // 1. Live Notes Notifications (Sabah 09:00)
@@ -56053,9 +56053,14 @@ function toggleSubTab(tabIndex) {
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
         const timer = controller ? setTimeout(() => controller.abort(), 3500) : null;
         try {
-          const res = await fetch('https://cem.amasyaetas.com/api/user-notes?userKey=' + encodeURIComponent(uKey), {
+          const res = await fetch('https://cem.amasyaetas.com/api/user-notes?userKey=' + encodeURIComponent(uKey) + '&_t=' + Date.now(), {
             method: 'GET',
-            headers: { 'Accept': 'application/json' },
+            headers: {
+              'Accept': 'application/json',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            },
+            cache: 'no-store',
             signal: controller ? controller.signal : undefined
           });
           if (res.ok) {
@@ -56155,7 +56160,7 @@ function toggleSubTab(tabIndex) {
         userCalendarNotes.forEach(n => {
           if (!n || !n.id) return;
           const idStr = String(n.id).replace(/^note-/, '');
-          if (/^[0-9a-f-]{36}$/i.test(idStr) && hasServerResponse && !serverNoteIds.has(idStr)) {
+          if (hasServerResponse && !serverNoteIds.has(idStr)) {
             deletedSet.add(idStr);
             markMobileNoteDeleted(idStr);
             return;
