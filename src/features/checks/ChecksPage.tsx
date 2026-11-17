@@ -1030,22 +1030,28 @@ export function ChecksPage() {
     if (!modalOpen || !isTakasRoute || hasHydratedAllAlinanForModalRef.current) return;
     hasHydratedAllAlinanForModalRef.current = true;
     const targetOrg = user?.organizationId || '13b8da90-27d1-440d-a8f4-eb50dadd6391';
-    void Promise.all([
-      supabase.from('ebs_checks').select('*').eq('organization_id', targetOrg).eq('check_type', 'alinan').neq('status', 'Ödendi').order('due_date', { ascending: true }).range(0, 999),
-      supabase.from('ebs_checks').select('*').eq('organization_id', targetOrg).eq('check_type', 'alinan').neq('status', 'Ödendi').order('due_date', { ascending: true }).range(1000, 1999)
-    ]).then(([p0, p1]) => {
-      const extra = [...(p0.data || []), ...(p1.data || [])];
-      if (extra.length > 0) {
-        setChecks(prev => {
-          const map = new Map<string, EbsCheck>();
-          prev.forEach(c => map.set(c.id, c));
-          extra.forEach(c => {
-            if (!map.has(c.id)) map.set(c.id, c);
+    void (async () => {
+      try {
+        const res = await supabase
+          .from('ebs_checks')
+          .select('*')
+          .eq('organization_id', targetOrg)
+          .eq('check_type', 'alinan')
+          .neq('status', 'Ödendi')
+          .order('due_date', { ascending: true });
+        const extra = res.data || [];
+        if (extra.length > 0) {
+          setChecks(prev => {
+            const map = new Map<string, EbsCheck>();
+            prev.forEach(c => map.set(c.id, c));
+            extra.forEach(c => {
+              if (!map.has(c.id)) map.set(c.id, c);
+            });
+            return Array.from(map.values());
           });
-          return Array.from(map.values());
-        });
-      }
-    }).catch(() => {});
+        }
+      } catch {}
+    })();
   }, [modalOpen, isTakasRoute, user?.organizationId]);
 
   const fetchChecks = async (options?: { background?: boolean } | any) => {
@@ -1064,7 +1070,7 @@ export function ChecksPage() {
       await ensureSupabaseBackendSession();
 
       if (isTakasRoute) {
-        // FAST SINGLE-ROUNDTRIP PARALLEL FETCH FOR TAKAS (~780 active rows instead of 9,300 historical rows)
+        // FAST SINGLE-ROUNDTRIP PARALLEL FETCH FOR TAKAS
         const [kesilenRes, alinanTakasRes, paidCardTakasRes, accountsResult, cektenResult] = await withQueryTimeout(
           Promise.all([
             supabase
@@ -1073,7 +1079,7 @@ export function ChecksPage() {
               .eq('organization_id', orgId)
               .eq('check_type', 'kesilen')
               .neq('status', 'Ödendi')
-              .range(0, 999),
+              .order('due_date', { ascending: true }),
             supabase
               .from('ebs_checks')
               .select('*')
@@ -1081,7 +1087,7 @@ export function ChecksPage() {
               .eq('check_type', 'alinan')
               .neq('status', 'Ödendi')
               .or('ozel_alan.ilike.%TAKASTA%,debtor.ilike.%HATIR%,creditor.ilike.%HATIR%,kesideci.ilike.%HATIR%,ozel_alan.ilike.%HATIR%,status.ilike.%KAYIP%,status.ilike.%kayıp%')
-              .range(0, 999),
+              .order('due_date', { ascending: true }),
             supabase
               .from('ebs_checks')
               .select('*')
@@ -1089,7 +1095,7 @@ export function ChecksPage() {
               .eq('check_type', 'kesilen')
               .eq('status', 'Ödendi')
               .or('creditor.ilike.%KART%,ozel_alan.ilike.%CC_%')
-              .range(0, 499),
+              .order('due_date', { ascending: true }),
             supabase
               .from('bank_accounts')
               .select('*')
@@ -1113,16 +1119,6 @@ export function ChecksPage() {
         setCachedBankAccounts(orgId, accounts);
 
         let kesilenData = kesilenRes.data || [];
-        if (kesilenData.length === 1000) {
-          const { data: moreKesilen } = await supabase
-            .from('ebs_checks')
-            .select('*')
-            .eq('organization_id', orgId)
-            .eq('check_type', 'kesilen')
-            .neq('status', 'Ödendi')
-            .range(1000, 1999);
-          if (moreKesilen) kesilenData = [...kesilenData, ...moreKesilen];
-        }
 
         const dedupMap = new Map<string, EbsCheck>();
         for (const row of kesilenData) dedupMap.set(row.id, row);
@@ -1159,26 +1155,14 @@ export function ChecksPage() {
 
       // STANDART ÇEK & SENET LİSTESİ (/cekler):
       // Wave 1 (Fast Priority Wave): Fetch all unpaid checks + bank_accounts + cekten_hesabi in a single round-trip
-      const [unpaidP0, unpaidP1, unpaidP2, accountsResult, cektenResult] = await withQueryTimeout(
+      const [unpaidRes, accountsResult, cektenResult] = await withQueryTimeout(
         Promise.all([
           supabase
             .from('ebs_checks')
             .select('*')
             .eq('organization_id', orgId)
             .neq('status', 'Ödendi')
-            .range(0, 999),
-          supabase
-            .from('ebs_checks')
-            .select('*')
-            .eq('organization_id', orgId)
-            .neq('status', 'Ödendi')
-            .range(1000, 1999),
-          supabase
-            .from('ebs_checks')
-            .select('*')
-            .eq('organization_id', orgId)
-            .neq('status', 'Ödendi')
-            .range(2000, 2999),
+            .order('due_date', { ascending: true }),
           supabase
             .from('bank_accounts')
             .select('*')
@@ -1193,18 +1177,14 @@ export function ChecksPage() {
         15000
       );
 
-      if (unpaidP0.error) throw unpaidP0.error;
+      if (unpaidRes.error) throw unpaidRes.error;
       if (accountsResult.error) throw accountsResult.error;
 
       const accounts = accountsResult.data || [];
       setBankAccounts(accounts);
       setCachedBankAccounts(orgId, accounts);
 
-      let unpaidData: EbsCheck[] = [
-        ...(unpaidP0.data || []),
-        ...(unpaidP1.data || []),
-        ...(unpaidP2.data || [])
-      ];
+      let unpaidData: EbsCheck[] = unpaidRes.data || [];
 
       if (!cektenResult.error && cektenResult.data) {
         setCachedCektenRows(orgId, cektenResult.data);

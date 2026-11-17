@@ -196,6 +196,16 @@ export class DarsQueryBuilder<T = any> {
     return this.execute().then(onfulfilled, onrejected);
   }
 
+  catch<TResult = never>(
+    onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null
+  ): Promise<DarsQueryResult<T> | TResult> {
+    return this.execute().catch(onrejected);
+  }
+
+  finally(onfinally?: (() => void) | null): Promise<DarsQueryResult<T>> {
+    return this.execute().finally(onfinally);
+  }
+
   async execute(): Promise<DarsQueryResult<T>> {
     try {
       // 1. MUTATION: INSERT OR UPSERT
