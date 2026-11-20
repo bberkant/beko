@@ -1509,33 +1509,22 @@
       "cb672a20-d9a9-4085-a1e1-66b4ab5b92d6",
       "ef55b332-5078-4ad1-8f7a-7fb0cf9b6fbc",
       "d0991686-9f14-4bfa-bf00-fa4da3dface4",
-      "1a64c2a4-a44e-4a17-bc4d-d1bd7f92e50a"
+      "1a64c2a4-a44e-4a17-bc4d-d1bd7f92e50a",
+      "7f340d47-d533-4b62-9e0a-27de65e24db5",
+      "51c3b038-6ac7-4e58-8109-c2e0506e90ae",
+      "8866e3ca-bfb5-42e1-80cd-e8830ff93770",
+      "3eb3aecd-4d4e-4670-9271-ad9a770b7569",
+      "aac301fb-9d07-4a61-b5c6-30713ab3fdcc"
     ]);
     function isObsoleteSampleMobileNote(text) {
       const s = String(text || "").trim();
       return /^Stres Notu #\d+|Tarih döngüsü test notu|Tıklama ve Event Bubbling Testi|Takvimden Tarihsiz Not|Tarihsiz calendar notu|İleri tarihli teftiş notu|Günlük Rutin Görev|Kritik Vergi Ödemesi|Maaş ödemeleri ve BES kesintisi|Sabah rutini döviz kurlarını kontrol et/i.test(s);
     }
-    const DEFAULT_WEB_CALENDAR_NOTES = [
-      {
-        "id": "3eb3aecd-4d4e-4670-9271-ad9a770b7569",
-        "content": "Önemli Etkinlikleri Kaydetme Portala Ekle",
-        "completed": false,
-        "date": null,
-        "created_by": "9c242e61-e15f-41b5-b1e6-60a02baed90a"
-      },
-      {
-        "id": "aac301fb-9d07-4a61-b5c6-30713ab3fdcc",
-        "content": "Halk 5 tane etik pos parası aldı kontrol et fazlaları iptal et",
-        "completed": false,
-        "date": null,
-        "created_by": "9c242e61-e15f-41b5-b1e6-60a02baed90a"
-      }
-    ];
+    const DEFAULT_WEB_CALENDAR_NOTES = [];
     let userCalendarNotes = [];
     try {
       const savedNotes = JSON.parse(localStorage.getItem('dars_calendar_notes') || '[]');
       const noteMap = new Map();
-      DEFAULT_WEB_CALENDAR_NOTES.forEach(n => noteMap.set(String(n.id), { ...n }));
       if (Array.isArray(savedNotes)) {
         savedNotes.forEach(n => {
           if (n && n.id && n.content && !OBSOLETE_GLOBAL_NOTE_IDS_MOBILE.has(String(n.id)) && !isObsoleteSampleMobileNote(n.content)) {
@@ -1545,7 +1534,7 @@
       }
       userCalendarNotes = Array.from(noteMap.values());
     } catch(e) {
-      userCalendarNotes = [...DEFAULT_WEB_CALENDAR_NOTES];
+      userCalendarNotes = [];
     }
 
     const monthNamesTR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -25868,506 +25857,6 @@
     let mockCreditCards = [
   {
     "id": 3,
-    "rawId": "7467cc58-24db-4590-85dc-1c80799766c4",
-    "bank": "ETİK KUVEYT FİNANSMAN KART",
-    "name": "Business Finansman",
-    "holder": "Şirket Kartı",
-    "last4": "8482",
-    "no": "•••• •••• •••• 8482",
-    "limit": 5770711,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 23,
-    "dueDay": 28,
-    "cutDate": "23.10.2026",
-    "dueDate": "28.10.2026",
-    "dueDateISO": "2026-10-28",
-    "daysLeft": 0,
-    "isCritical": true,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 10,
-    "rawId": "e5d4e205-07f9-484b-95f5-5086cf49a1bb",
-    "bank": "MARİF KUVEYT FİNANSMAN KART",
-    "name": "Business Finansman",
-    "holder": "Şirket Kartı",
-    "last4": "3678",
-    "no": "•••• •••• •••• 3678",
-    "limit": 2272713,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 23,
-    "dueDay": 28,
-    "cutDate": "23.10.2026",
-    "dueDate": "28.10.2026",
-    "dueDateISO": "2026-10-28",
-    "daysLeft": 0,
-    "isCritical": true,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 7,
-    "rawId": "29a64395-4055-4240-95d7-e6259eff6bbe",
-    "bank": "MARİF VAKIF KATILIM",
-    "name": "VKart Business - EK KART",
-    "holder": "BERKANT",
-    "last4": "0888",
-    "no": "•••• •••• •••• 0888",
-    "limit": 100000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 24,
-    "dueDay": 3,
-    "cutDate": "24.11.2026",
-    "dueDate": "03.11.2026",
-    "dueDateISO": "2026-11-03",
-    "daysLeft": 6,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 9,
-    "rawId": "639a1f33-ce11-47dd-9cd5-39d8a04c6fb0",
-    "bank": "MARİF KUVEYT",
-    "name": "EK KART",
-    "holder": "Şirket Kartı",
-    "last4": "4709",
-    "no": "•••• •••• •••• 4709",
-    "limit": 500000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 23,
-    "dueDay": 3,
-    "cutDate": "23.11.2026",
-    "dueDate": "03.11.2026",
-    "dueDateISO": "2026-11-03",
-    "daysLeft": 6,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 19,
-    "rawId": "46ecf383-3b1f-4a11-b356-84a9f9fe2645",
-    "bank": "ETİK KUVEYT",
-    "name": "Kobi Kart",
-    "holder": "Şirket Kartı",
-    "last4": "3711",
-    "no": "•••• •••• •••• 3711",
-    "limit": 500000,
-    "used": 60000,
-    "minPay": 24000,
-    "statementDay": 23,
-    "dueDay": 3,
-    "cutDate": "23.11.2026",
-    "dueDate": "03.11.2026",
-    "dueDateISO": "2026-11-03",
-    "daysLeft": 6,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 26,
-    "rawId": "80868702-7f93-4ea8-8869-4de12604b471",
-    "bank": "ETİK GARANTİ",
-    "name": "Bonus Business Visa",
-    "holder": "Şirket Kartı",
-    "last4": "4029",
-    "no": "•••• •••• •••• 4029",
-    "limit": 500000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 29,
-    "dueDay": 3,
-    "cutDate": "29.11.2026",
-    "dueDate": "03.11.2026",
-    "dueDateISO": "2026-11-03",
-    "daysLeft": 6,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 27,
-    "rawId": "12ae5b12-4fc4-46dc-b321-d51fbaed8b59",
-    "bank": "ETİK GARANTİ",
-    "name": "Bonus Business Visa",
-    "holder": "Şirket Kartı",
-    "last4": "4011",
-    "no": "•••• •••• •••• 4011",
-    "limit": 10000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 29,
-    "dueDay": 3,
-    "cutDate": "29.11.2026",
-    "dueDate": "03.11.2026",
-    "dueDateISO": "2026-11-03",
-    "daysLeft": 6,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 5,
-    "rawId": "ab2cdade-eea5-4e9b-8662-423696a6c6e6",
-    "bank": "ETİK KUVEYT BUSİNESS",
-    "name": "Miles&Smiles",
-    "holder": "Şirket Kartı",
-    "last4": "6039",
-    "no": "•••• •••• •••• 6039",
-    "limit": 950000,
-    "used": 950000,
-    "minPay": 380000,
-    "statementDay": 30,
-    "dueDay": 4,
-    "cutDate": "30.11.2026",
-    "dueDate": "04.11.2026",
-    "dueDateISO": "2026-11-04",
-    "daysLeft": 7,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 11,
-    "rawId": "a8a08a44-d018-4bdc-a031-7687e411d294",
-    "bank": "MARİF ZİRAAT",
-    "name": "EK KART",
-    "holder": "Şirket Kartı",
-    "last4": "6548",
-    "no": "•••• •••• •••• 6548",
-    "limit": 500000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 25,
-    "dueDay": 4,
-    "cutDate": "25.11.2026",
-    "dueDate": "04.11.2026",
-    "dueDateISO": "2026-11-04",
-    "daysLeft": 7,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 12,
-    "rawId": "d627e774-1c25-4aa0-87c9-a0c3f21bdcec",
-    "bank": "MARİF ZİRAAT",
-    "name": "Bankkart Başak KK",
-    "holder": "DEPO",
-    "last4": "2864",
-    "no": "•••• •••• •••• 2864",
-    "limit": 1000000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 25,
-    "dueDay": 4,
-    "cutDate": "25.11.2026",
-    "dueDate": "04.11.2026",
-    "dueDateISO": "2026-11-04",
-    "daysLeft": 7,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 1,
-    "rawId": "d8817d17-a9cc-48c6-8158-d9c336d3e12c",
-    "bank": "MARİF DENİZ",
-    "name": "Bonus Business Select Troy",
-    "holder": "Şirket Kartı",
-    "last4": "8128",
-    "no": "•••• •••• •••• 8128",
-    "limit": 250000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 30,
-    "dueDay": 5,
-    "cutDate": "30.11.2026",
-    "dueDate": "05.11.2026",
-    "dueDateISO": "2026-11-05",
-    "daysLeft": 8,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 2,
-    "rawId": "800bfaf1-0f52-4b55-95c9-d9eebe4a217a",
-    "bank": "MARİF DENİZ",
-    "name": "Bonus Business Select Troy",
-    "holder": "Şirket Kartı",
-    "last4": "5634",
-    "no": "•••• •••• •••• 5634",
-    "limit": 500000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 31,
-    "dueDay": 5,
-    "cutDate": "01.12.2026",
-    "dueDate": "05.11.2026",
-    "dueDateISO": "2026-11-05",
-    "daysLeft": 8,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 22,
-    "rawId": "b33ebbac-7ab8-4453-b2ba-c67cfd8324ce",
-    "bank": "ETİK DENİZ",
-    "name": "Bonus Business Select Troy",
-    "holder": "CEM",
-    "last4": "7865",
-    "no": "•••• •••• •••• 7865",
-    "limit": 150000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 30,
-    "dueDay": 5,
-    "cutDate": "30.11.2026",
-    "dueDate": "05.11.2026",
-    "dueDateISO": "2026-11-05",
-    "daysLeft": 8,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 23,
-    "rawId": "2d5e177c-6850-454a-8911-ad97e740b518",
-    "bank": "ETİK DENİZ",
-    "name": "Bonus Business Select Troy",
-    "holder": "Şirket Kartı",
-    "last4": "4495",
-    "no": "•••• •••• •••• 4495",
-    "limit": 500000,
-    "used": 150000,
-    "minPay": 60000,
-    "statementDay": 30,
-    "dueDay": 5,
-    "cutDate": "30.11.2026",
-    "dueDate": "05.11.2026",
-    "dueDateISO": "2026-11-05",
-    "daysLeft": 8,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 28,
-    "rawId": "97e1383c-358b-49b1-a73d-0356c769b198",
-    "bank": "ETİK ZİRAAT",
-    "name": "Bankkart Başak KG Troy Ek Kart",
-    "holder": "Şirket Kartı",
-    "last4": "2027",
-    "no": "•••• •••• •••• 2027",
-    "limit": 500000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 30,
-    "dueDay": 5,
-    "cutDate": "30.11.2026",
-    "dueDate": "05.11.2026",
-    "dueDateISO": "2026-11-05",
-    "daysLeft": 8,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 29,
-    "rawId": "ea6f548b-e55a-4f99-bf6a-5c6f66ec3263",
-    "bank": "ETİK ZİRAAT",
-    "name": "Bankkart Başak KK",
-    "holder": "Şirket Kartı",
-    "last4": "9246",
-    "no": "•••• •••• •••• 9246",
-    "limit": 1750000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 28,
-    "dueDay": 8,
-    "cutDate": "28.11.2026",
-    "dueDate": "08.11.2026",
-    "dueDateISO": "2026-11-08",
-    "daysLeft": 11,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 6,
-    "rawId": "8a2dda10-f020-41a6-bf11-c29055443ada",
-    "bank": "CEM KUVEYT",
-    "name": "KUVEYT TÜRK",
-    "holder": "CEM",
-    "last4": "0601",
-    "no": "•••• •••• •••• 0601",
-    "limit": 150000,
-    "used": 150000,
-    "minPay": 60000,
-    "statementDay": 31,
-    "dueDay": 9,
-    "cutDate": "01.12.2026",
-    "dueDate": "09.11.2026",
-    "dueDateISO": "2026-11-09",
-    "daysLeft": 12,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 8,
-    "rawId": "7119afb5-1eb5-4d5c-a863-3b97ca12dbe5",
-    "bank": "ETİK KUVEYT",
-    "name": "EK KART",
-    "holder": "Şirket Kartı",
-    "last4": "1582",
-    "no": "•••• •••• •••• 1582",
-    "limit": 500000,
-    "used": 27122.57,
-    "minPay": 27122.57,
-    "statementDay": 30,
-    "dueDay": 9,
-    "cutDate": "30.11.2026",
-    "dueDate": "09.11.2026",
-    "dueDateISO": "2026-11-09",
-    "daysLeft": 12,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 13,
-    "rawId": "6fb6f723-f62f-4f4e-8f4d-c9371bd2751d",
-    "bank": "BERKANT VAKIF",
-    "name": "Rail & Miles",
-    "holder": "DEPO",
-    "last4": "1042",
-    "no": "•••• •••• •••• 1042",
-    "limit": 1500000,
-    "used": 1500000,
-    "minPay": 600000,
-    "statementDay": 31,
-    "dueDay": 9,
-    "cutDate": "01.12.2026",
-    "dueDate": "09.11.2026",
-    "dueDateISO": "2026-11-09",
-    "daysLeft": 12,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 18,
-    "rawId": "4d54f202-8dbd-48d9-839d-7ca8694c4b5f",
-    "bank": "ETİK KUVEYT",
-    "name": "Business TROY",
-    "holder": "Şirket Kartı",
-    "last4": "8023",
-    "no": "•••• •••• •••• 8023",
-    "limit": 500000,
-    "used": 50000,
-    "minPay": 20000,
-    "statementDay": 30,
-    "dueDay": 9,
-    "cutDate": "30.11.2026",
-    "dueDate": "09.11.2026",
-    "dueDateISO": "2026-11-09",
-    "daysLeft": 12,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 20,
-    "rawId": "a0822a65-f9a5-441c-940e-80a6ffb16ab3",
-    "bank": "ETİK İŞBANK",
-    "name": "Maximiles 100. Yıl",
-    "holder": "Şirket Kartı",
-    "last4": "7742",
-    "no": "•••• •••• •••• 7742",
-    "limit": 500000,
-    "used": 1000000,
-    "minPay": 400000,
-    "statementDay": 10,
-    "dueDay": 15,
-    "cutDate": "10.11.2026",
-    "dueDate": "15.11.2026",
-    "dueDateISO": "2026-11-15",
-    "daysLeft": 18,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 21,
-    "rawId": "2651b897-c60d-45e4-9037-4a5b1560ef05",
-    "bank": "ETİK İŞBANK",
-    "name": "Troy Business",
-    "holder": "Şirket Kartı",
-    "last4": "8488",
-    "no": "•••• •••• •••• 8488",
-    "limit": 1000000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 10,
-    "dueDay": 15,
-    "cutDate": "10.11.2026",
-    "dueDate": "15.11.2026",
-    "dueDateISO": "2026-11-15",
-    "daysLeft": 18,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 16,
-    "rawId": "0f33be37-9c51-4cea-99b7-b5f3e2750242",
-    "bank": "ETİK VAKIF KATILIM",
-    "name": "VKart Business Ek Kart",
-    "holder": "Şirket Kartı",
-    "last4": "5837",
-    "no": "•••• •••• •••• 5837",
-    "limit": 500000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 7,
-    "dueDay": 17,
-    "cutDate": "07.11.2026",
-    "dueDate": "17.11.2026",
-    "dueDateISO": "2026-11-17",
-    "daysLeft": 20,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 17,
-    "rawId": "da2b3599-6e95-4387-9901-bd9762667d3d",
-    "bank": "ETİK VAKIF KATILIM",
-    "name": "VKart Business",
-    "holder": "İLKADIM",
-    "last4": "2462",
-    "no": "•••• •••• •••• 2462",
-    "limit": 50000,
-    "used": 50000,
-    "minPay": 20000,
-    "statementDay": 7,
-    "dueDay": 17,
-    "cutDate": "07.11.2026",
-    "dueDate": "17.11.2026",
-    "dueDateISO": "2026-11-17",
-    "daysLeft": 20,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 15,
-    "rawId": "a7a073f0-12a9-4daa-98f6-fd4de51ef68b",
-    "bank": "MARİF YAPI",
-    "name": "World Business",
-    "holder": "ATAKUM",
-    "last4": "9069",
-    "no": "•••• •••• •••• 9069",
-    "limit": 245000,
-    "used": 245000,
-    "minPay": 98000,
-    "statementDay": 14,
-    "dueDay": 18,
-    "cutDate": "14.11.2026",
-    "dueDate": "18.11.2026",
-    "dueDateISO": "2026-11-18",
-    "daysLeft": 21,
-    "isCritical": false,
-    "color": "from-teal-800 to-emerald-950"
-  },
-  {
-    "id": 14,
     "rawId": "78ef4333-e5a6-4733-8ed1-36a92eaf07f9",
     "bank": "BERKANT YAPI",
     "name": "World Gold",
@@ -26382,32 +25871,12 @@
     "cutDate": "10.11.2026",
     "dueDate": "20.11.2026",
     "dueDateISO": "2026-11-20",
-    "daysLeft": 23,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
+    "daysLeft": 0,
+    "isCritical": true,
+    "color": "from-teal-800 to-emerald-950"
   },
   {
-    "id": 24,
-    "rawId": "5adf1d39-19c2-49ab-9c90-1b23b16adbe1",
-    "bank": "ETİK ALBARAKA",
-    "name": "EK KART",
-    "holder": "Şirket Kartı",
-    "last4": "9132",
-    "no": "•••• •••• •••• 9132",
-    "limit": 500000,
-    "used": 0,
-    "minPay": 0,
-    "statementDay": 10,
-    "dueDay": 20,
-    "cutDate": "10.11.2026",
-    "dueDate": "20.11.2026",
-    "dueDateISO": "2026-11-20",
-    "daysLeft": 23,
-    "isCritical": false,
-    "color": "from-blue-900 to-indigo-950"
-  },
-  {
-    "id": 25,
+    "id": 5,
     "rawId": "d0cb7034-ecd9-470a-b30c-e0515c937497",
     "bank": "ETİK ALBARAKA",
     "name": "Mastercard Business",
@@ -26422,12 +25891,152 @@
     "cutDate": "10.11.2026",
     "dueDate": "20.11.2026",
     "dueDateISO": "2026-11-20",
-    "daysLeft": 23,
+    "daysLeft": 0,
+    "isCritical": true,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 16,
+    "rawId": "ab2cdade-eea5-4e9b-8662-423696a6c6e6",
+    "bank": "ETİK KUVEYT BUSİNESS",
+    "name": "Miles&Smiles",
+    "holder": "DEPO",
+    "last4": "6039",
+    "no": "•••• •••• •••• 6039",
+    "limit": 950000,
+    "used": 950000,
+    "minPay": 380000,
+    "statementDay": 30,
+    "dueDay": 4,
+    "cutDate": "30.11.2026",
+    "dueDate": "04.12.2026",
+    "dueDateISO": "2026-12-04",
+    "daysLeft": 14,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 2,
+    "rawId": "6fb6f723-f62f-4f4e-8f4d-c9371bd2751d",
+    "bank": "BERKANT VAKIF",
+    "name": "Rail & Miles",
+    "holder": "DEPO",
+    "last4": "1042",
+    "no": "•••• •••• •••• 1042",
+    "limit": 1500000,
+    "used": 1500000,
+    "minPay": 600000,
+    "statementDay": 31,
+    "dueDay": 9,
+    "cutDate": "01.12.2026",
+    "dueDate": "09.12.2026",
+    "dueDateISO": "2026-12-09",
+    "daysLeft": 19,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 4,
+    "rawId": "8a2dda10-f020-41a6-bf11-c29055443ada",
+    "bank": "CEM KUVEYT",
+    "name": "KUVEYT TÜRK",
+    "holder": "CEM",
+    "last4": "0601",
+    "no": "•••• •••• •••• 0601",
+    "limit": 150000,
+    "used": 150000,
+    "minPay": 60000,
+    "statementDay": 31,
+    "dueDay": 9,
+    "cutDate": "01.12.2026",
+    "dueDate": "09.12.2026",
+    "dueDateISO": "2026-12-09",
+    "daysLeft": 19,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 11,
+    "rawId": "2651b897-c60d-45e4-9037-4a5b1560ef05",
+    "bank": "ETİK İŞBANK",
+    "name": "Troy Business",
+    "holder": "Şirket Kartı",
+    "last4": "8488",
+    "no": "•••• •••• •••• 8488",
+    "limit": 1000000,
+    "used": 1000000,
+    "minPay": 400000,
+    "statementDay": 10,
+    "dueDay": 15,
+    "cutDate": "10.12.2026",
+    "dueDate": "15.12.2026",
+    "dueDateISO": "2026-12-15",
+    "daysLeft": 25,
     "isCritical": false,
     "color": "from-teal-800 to-emerald-950"
   },
   {
-    "id": 4,
+    "id": 19,
+    "rawId": "da2b3599-6e95-4387-9901-bd9762667d3d",
+    "bank": "ETİK VAKIF KATILIM",
+    "name": "VKart Business",
+    "holder": "İLKADIM",
+    "last4": "2462",
+    "no": "•••• •••• •••• 2462",
+    "limit": 50000,
+    "used": 50000,
+    "minPay": 20000,
+    "statementDay": 7,
+    "dueDay": 17,
+    "cutDate": "07.12.2026",
+    "dueDate": "17.12.2026",
+    "dueDateISO": "2026-12-17",
+    "daysLeft": 27,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 28,
+    "rawId": "a7a073f0-12a9-4daa-98f6-fd4de51ef68b",
+    "bank": "MARİF YAPI",
+    "name": "World Business",
+    "holder": "ATAKUM",
+    "last4": "9069",
+    "no": "•••• •••• •••• 9069",
+    "limit": 245000,
+    "used": 245000,
+    "minPay": 98000,
+    "statementDay": 14,
+    "dueDay": 18,
+    "cutDate": "14.12.2026",
+    "dueDate": "18.12.2026",
+    "dueDateISO": "2026-12-18",
+    "daysLeft": 28,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 1,
+    "rawId": "4ca29d17-d88d-4465-aca4-ea576705d967",
+    "bank": "BERKANT DENİZ KART",
+    "name": "DenizBank",
+    "holder": "BERKANT",
+    "last4": "7747",
+    "no": "•••• •••• •••• 7747",
+    "limit": 100000,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 17,
+    "dueDay": 27,
+    "cutDate": "17.11.2026",
+    "dueDate": "27.11.2026",
+    "dueDateISO": "2026-11-27",
+    "daysLeft": 7,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 22,
     "rawId": "48eb4cd6-8557-4585-bc07-4684199ab0bf",
     "bank": "MARİF AKBANK",
     "name": "BUSİNESS TİCARİ",
@@ -26439,12 +26048,412 @@
     "minPay": 0,
     "statementDay": 22,
     "dueDay": 27,
-    "cutDate": "22.10.2026",
+    "cutDate": "20.11.2026",
     "dueDate": "27.11.2026",
     "dueDateISO": "2026-11-27",
-    "daysLeft": 30,
+    "daysLeft": 7,
     "isCritical": false,
     "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 17,
+    "rawId": "7467cc58-24db-4590-85dc-1c80799766c4",
+    "bank": "ETİK KUVEYT FİNANSMAN KART",
+    "name": "Business Finansman",
+    "holder": "Şirket Kartı",
+    "last4": "8482",
+    "no": "•••• •••• •••• 8482",
+    "limit": 5770711,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 23,
+    "dueDay": 28,
+    "cutDate": "23.11.2026",
+    "dueDate": "30.11.2026",
+    "dueDateISO": "2026-11-30",
+    "daysLeft": 10,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 26,
+    "rawId": "e5d4e205-07f9-484b-95f5-5086cf49a1bb",
+    "bank": "MARİF KUVEYT FİNANSMAN KART",
+    "name": "Business Finansman",
+    "holder": "Şirket Kartı",
+    "last4": "3678",
+    "no": "•••• •••• •••• 3678",
+    "limit": 2272713,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 23,
+    "dueDay": 28,
+    "cutDate": "23.11.2026",
+    "dueDate": "30.11.2026",
+    "dueDateISO": "2026-11-30",
+    "daysLeft": 10,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 9,
+    "rawId": "12ae5b12-4fc4-46dc-b321-d51fbaed8b59",
+    "bank": "ETİK GARANTİ",
+    "name": "Bonus Business Visa",
+    "holder": "Şirket Kartı",
+    "last4": "4011",
+    "no": "•••• •••• •••• 4011",
+    "limit": 10000,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 29,
+    "dueDay": 3,
+    "cutDate": "27.11.2026",
+    "dueDate": "03.12.2026",
+    "dueDateISO": "2026-12-03",
+    "daysLeft": 13,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 27,
+    "rawId": "29a64395-4055-4240-95d7-e6259eff6bbe",
+    "bank": "MARİF VAKIF KATILIM",
+    "name": "VKart Business - EK KART",
+    "holder": "BERKANT",
+    "last4": "0888",
+    "no": "•••• •••• •••• 0888",
+    "limit": 100000,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 24,
+    "dueDay": 3,
+    "cutDate": "24.11.2026",
+    "dueDate": "03.12.2026",
+    "dueDateISO": "2026-12-03",
+    "daysLeft": 13,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 30,
+    "rawId": "d627e774-1c25-4aa0-87c9-a0c3f21bdcec",
+    "bank": "MARİF ZİRAAT",
+    "name": "Bankkart Başak KK",
+    "holder": "DEPO",
+    "last4": "2864",
+    "no": "•••• •••• •••• 2864",
+    "limit": 1000000,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 25,
+    "dueDay": 4,
+    "cutDate": "25.11.2026",
+    "dueDate": "04.12.2026",
+    "dueDateISO": "2026-12-04",
+    "daysLeft": 14,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 8,
+    "rawId": "b33ebbac-7ab8-4453-b2ba-c67cfd8324ce",
+    "bank": "ETİK DENİZ",
+    "name": "Bonus Business Select Troy",
+    "holder": "CEM",
+    "last4": "7865",
+    "no": "•••• •••• •••• 7865",
+    "limit": 150000,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 30,
+    "dueDay": 5,
+    "cutDate": "30.11.2026",
+    "dueDate": "07.12.2026",
+    "dueDateISO": "2026-12-07",
+    "daysLeft": 17,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 24,
+    "rawId": "d8817d17-a9cc-48c6-8158-d9c336d3e12c",
+    "bank": "MARİF DENİZ",
+    "name": "Bonus Business Select Troy",
+    "holder": "Şirket Kartı",
+    "last4": "8128",
+    "no": "•••• •••• •••• 8128",
+    "limit": 250000,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 30,
+    "dueDay": 5,
+    "cutDate": "30.11.2026",
+    "dueDate": "07.12.2026",
+    "dueDateISO": "2026-12-07",
+    "daysLeft": 17,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 21,
+    "rawId": "ea6f548b-e55a-4f99-bf6a-5c6f66ec3263",
+    "bank": "ETİK ZİRAAT",
+    "name": "Bankkart Başak KK",
+    "holder": "Şirket Kartı",
+    "last4": "9246",
+    "no": "•••• •••• •••• 9246",
+    "limit": 1750000,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 28,
+    "dueDay": 8,
+    "cutDate": "27.11.2026",
+    "dueDate": "08.12.2026",
+    "dueDateISO": "2026-12-08",
+    "daysLeft": 18,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 6,
+    "rawId": "5adf1d39-19c2-49ab-9c90-1b23b16adbe1",
+    "bank": "ETİK ALBARAKA",
+    "name": "EK KART",
+    "holder": "Şirket Kartı",
+    "last4": "9132",
+    "no": "•••• •••• •••• 9132",
+    "limit": 0,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 10,
+    "dueDay": 20,
+    "cutDate": "10.11.2026",
+    "dueDate": "20.11.2026",
+    "dueDateISO": "2026-11-20",
+    "daysLeft": 0,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 7,
+    "rawId": "2d5e177c-6850-454a-8911-ad97e740b518",
+    "bank": "ETİK DENİZ",
+    "name": "Bonus Business Select Troy",
+    "holder": "Şirket Kartı",
+    "last4": "4495",
+    "no": "•••• •••• •••• 4495",
+    "limit": 0,
+    "used": 150000,
+    "minPay": 60000,
+    "statementDay": 30,
+    "dueDay": 5,
+    "cutDate": "30.11.2026",
+    "dueDate": "07.12.2026",
+    "dueDateISO": "2026-12-07",
+    "daysLeft": 17,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 10,
+    "rawId": "80868702-7f93-4ea8-8869-4de12604b471",
+    "bank": "ETİK GARANTİ",
+    "name": "Bonus Business Visa",
+    "holder": "Şirket Kartı",
+    "last4": "4029",
+    "no": "•••• •••• •••• 4029",
+    "limit": 0,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 29,
+    "dueDay": 3,
+    "cutDate": "27.11.2026",
+    "dueDate": "03.12.2026",
+    "dueDateISO": "2026-12-03",
+    "daysLeft": 13,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 12,
+    "rawId": "a0822a65-f9a5-441c-940e-80a6ffb16ab3",
+    "bank": "ETİK İŞBANK",
+    "name": "Maximiles 100. Yıl",
+    "holder": "Şirket Kartı",
+    "last4": "7742",
+    "no": "•••• •••• •••• 7742",
+    "limit": 0,
+    "used": 1000000,
+    "minPay": 400000,
+    "statementDay": 10,
+    "dueDay": 15,
+    "cutDate": "10.12.2026",
+    "dueDate": "15.12.2026",
+    "dueDateISO": "2026-12-15",
+    "daysLeft": 25,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 13,
+    "rawId": "4d54f202-8dbd-48d9-839d-7ca8694c4b5f",
+    "bank": "ETİK KUVEYT",
+    "name": "Business TROY",
+    "holder": "Şirket Kartı",
+    "last4": "8023",
+    "no": "•••• •••• •••• 8023",
+    "limit": 0,
+    "used": 50000,
+    "minPay": 20000,
+    "statementDay": 30,
+    "dueDay": 9,
+    "cutDate": "30.11.2026",
+    "dueDate": "09.12.2026",
+    "dueDateISO": "2026-12-09",
+    "daysLeft": 19,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 14,
+    "rawId": "7119afb5-1eb5-4d5c-a863-3b97ca12dbe5",
+    "bank": "ETİK KUVEYT",
+    "name": "EK KART",
+    "holder": "Şirket Kartı",
+    "last4": "1582",
+    "no": "•••• •••• •••• 1582",
+    "limit": 0,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 30,
+    "dueDay": 9,
+    "cutDate": "30.11.2026",
+    "dueDate": "09.12.2026",
+    "dueDateISO": "2026-12-09",
+    "daysLeft": 19,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 15,
+    "rawId": "46ecf383-3b1f-4a11-b356-84a9f9fe2645",
+    "bank": "ETİK KUVEYT",
+    "name": "Kobi Kart",
+    "holder": "Şirket Kartı",
+    "last4": "3711",
+    "no": "•••• •••• •••• 3711",
+    "limit": 0,
+    "used": 60000,
+    "minPay": 24000,
+    "statementDay": 23,
+    "dueDay": 3,
+    "cutDate": "23.11.2026",
+    "dueDate": "03.12.2026",
+    "dueDateISO": "2026-12-03",
+    "daysLeft": 13,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 18,
+    "rawId": "0f33be37-9c51-4cea-99b7-b5f3e2750242",
+    "bank": "ETİK VAKIF KATILIM",
+    "name": "VKart Business Ek Kart",
+    "holder": "Şirket Kartı",
+    "last4": "5837",
+    "no": "•••• •••• •••• 5837",
+    "limit": 0,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 7,
+    "dueDay": 17,
+    "cutDate": "07.12.2026",
+    "dueDate": "17.12.2026",
+    "dueDateISO": "2026-12-17",
+    "daysLeft": 27,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 20,
+    "rawId": "97e1383c-358b-49b1-a73d-0356c769b198",
+    "bank": "ETİK ZİRAAT",
+    "name": "Bankkart Başak KG Troy Ek Kart",
+    "holder": "Şirket Kartı",
+    "last4": "2027",
+    "no": "•••• •••• •••• 2027",
+    "limit": 0,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 30,
+    "dueDay": 5,
+    "cutDate": "30.11.2026",
+    "dueDate": "07.12.2026",
+    "dueDateISO": "2026-12-07",
+    "daysLeft": 17,
+    "isCritical": false,
+    "color": "from-blue-900 to-indigo-950"
+  },
+  {
+    "id": 23,
+    "rawId": "800bfaf1-0f52-4b55-95c9-d9eebe4a217a",
+    "bank": "MARİF DENİZ",
+    "name": "Bonus Business Select Troy",
+    "holder": "Şirket Kartı",
+    "last4": "5634",
+    "no": "•••• •••• •••• 5634",
+    "limit": 0,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 31,
+    "dueDay": 5,
+    "cutDate": "01.12.2026",
+    "dueDate": "07.12.2026",
+    "dueDateISO": "2026-12-07",
+    "daysLeft": 17,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 25,
+    "rawId": "639a1f33-ce11-47dd-9cd5-39d8a04c6fb0",
+    "bank": "MARİF KUVEYT",
+    "name": "EK KART",
+    "holder": "Şirket Kartı",
+    "last4": "4709",
+    "no": "•••• •••• •••• 4709",
+    "limit": 0,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 23,
+    "dueDay": 3,
+    "cutDate": "23.11.2026",
+    "dueDate": "03.12.2026",
+    "dueDateISO": "2026-12-03",
+    "daysLeft": 13,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
+  },
+  {
+    "id": 29,
+    "rawId": "a8a08a44-d018-4bdc-a031-7687e411d294",
+    "bank": "MARİF ZİRAAT",
+    "name": "EK KART",
+    "holder": "Şirket Kartı",
+    "last4": "6548",
+    "no": "•••• •••• •••• 6548",
+    "limit": 0,
+    "used": 0,
+    "minPay": 0,
+    "statementDay": 25,
+    "dueDay": 4,
+    "cutDate": "25.11.2026",
+    "dueDate": "04.12.2026",
+    "dueDateISO": "2026-12-04",
+    "daysLeft": 14,
+    "isCritical": false,
+    "color": "from-teal-800 to-emerald-950"
   }
 ];
 
@@ -51180,13 +51189,39 @@ function toggleSubTab(tabIndex) {
     
 
     // ==================== 4. CREDIT CARDS ====================
+    function sortMobileCreditCardsList(list) {
+      return [...(list || [])].sort((a, b) => {
+        const limA = Number(a.limit) || 0;
+        const limB = Number(b.limit) || 0;
+        const hasLimA = limA > 1;
+        const hasLimB = limB > 1;
+        if (hasLimA && !hasLimB) return -1;
+        if (!hasLimA && hasLimB) return 1;
+        if (!hasLimA && !hasLimB) return String(a.bank || '').localeCompare(String(b.bank || ''), 'tr');
+        const dA = (a.daysLeft !== undefined && a.daysLeft !== null) ? Number(a.daysLeft) : 999;
+        const dB = (b.daysLeft !== undefined && b.daysLeft !== null) ? Number(b.daysLeft) : 999;
+        const critA = dA <= 4;
+        const critB = dB <= 4;
+        if (critA && !critB) return -1;
+        if (!critA && critB) return 1;
+        const debtA = (Number(a.used) || 0) > 0;
+        const debtB = (Number(b.used) || 0) > 0;
+        if (debtA && !debtB) return -1;
+        if (!debtA && debtB) return 1;
+        if (dA !== dB) return dA - dB;
+        if ((Number(a.used) || 0) !== (Number(b.used) || 0)) return (Number(b.used) || 0) - (Number(a.used) || 0);
+        return String(a.bank || '').localeCompare(String(b.bank || ''), 'tr');
+      });
+    }
+
     function renderCreditCards() {
       const container = document.getElementById('credit-cards-container');
       if (!container) return;
-      const sortedCards = [...mockCreditCards].sort((a, b) => a.daysLeft - b.daysLeft);
+      const sortedCards = sortMobileCreditCardsList(mockCreditCards);
+      const activeLimitCards = sortedCards.filter(c => (Number(c.limit) || 0) > 1);
 
-      const totalLim = sortedCards.reduce((sum, c) => sum + (Number(c.limit) || 0), 0);
-      const totalUsd = sortedCards.reduce((sum, c) => sum + (Number(c.used) || 0), 0);
+      const totalLim = activeLimitCards.reduce((sum, c) => sum + (Number(c.limit) || 0), 0);
+      const totalUsd = activeLimitCards.reduce((sum, c) => sum + (Number(c.used) || 0), 0);
       const totalAvl = Math.max(0, totalLim - totalUsd);
       const elLim = document.getElementById('cc-kpi-limit');
       const elUsd = document.getElementById('cc-kpi-used');
@@ -51201,16 +51236,21 @@ function toggleSubTab(tabIndex) {
             <span class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-sm shrink-0">🔔</span>
             <div class="min-w-0">
               <div class="text-[12px] font-[700] leading-tight truncate">Sabah 09:00 Kredi Kartı Bildirimi Aktif</div>
-              <div class="text-[10.5px] text-blue-100 font-[400] truncate">Canlı site verisiyle (${sortedCards.length} kart) son ödeme ve 2 gün öncesi 09:00 uyarısı</div>
+              <div class="text-[10.5px] text-blue-100 font-[400] truncate">Canlı site verisiyle (${activeLimitCards.length} aktif limitli kart) son ödeme sabah 09:00 uyarısı</div>
             </div>
           </div>
           <span class="text-[11px] font-[600] bg-white/20 px-2.5 py-1 rounded-full shrink-0">Ayarlar &gt;</span>
         </div>
       `;
 
-      container.innerHTML = notifBanner + sortedCards.map(c => `
+      container.innerHTML = notifBanner + sortedCards.map(c => {
+        const hasLimit = (Number(c.limit) || 0) > 1;
+        const isUrgent = hasLimit && c.daysLeft <= 2;
+        const urgentLabel = c.daysLeft <= 0 ? 'BUGÜN SON GÜN!' : (c.daysLeft === 1 ? 'YARIN SON GÜN!' : 'SON 2 GÜN!');
+        return `
         <div class="kt-card p-4 space-y-3.5 border-l-4 ${
-          c.daysLeft <= 2 ? 'border-l-kt-primary ring-1 ring-blue-100 bg-white' 
+          !hasLimit ? 'border-l-slate-300 opacity-80 bg-slate-50/50'
+            : isUrgent ? 'border-l-rose-600 ring-1 ring-rose-100 bg-white' 
             : c.daysLeft <= 7 
               ? 'border-l-amber-500' 
               : 'border-l-kt-primary'
@@ -51226,10 +51266,14 @@ function toggleSubTab(tabIndex) {
               <h3 class="text-[14px] font-[600] text-slate-900 mt-0.5 tracking-tight">${c.name}</h3>
             </div>
             
-            ${c.daysLeft <= 2 ? `
+            ${!hasLimit ? `
+              <div class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-[500] text-[10.5px] flex items-center gap-1">
+                <span>Ek Kart • Bildirim Dışı</span>
+              </div>
+            ` : isUrgent ? `
               <div class="px-2.5 py-1 rounded-full bg-rose-100 border border-rose-400 text-rose-700 font-[600] text-[11px] animate-pulse flex items-center gap-1 shadow-2xs">
                 <span>🚨</span>
-                <span class="tracking-wide uppercase">SON 2 GÜN!</span>
+                <span class="tracking-wide uppercase">${urgentLabel}</span>
               </div>
             ` : c.daysLeft <= 7 ? `
               <div class="px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-800 font-[500] text-[11px] flex items-center gap-1">
@@ -51252,16 +51296,16 @@ function toggleSubTab(tabIndex) {
             </div>
             <div class="p-2.5 bg-blue-50/70 border border-blue-100 rounded-xl">
               <span class="text-[10px] text-blue-700 font-[500] block uppercase">Kullanılabilir Limit</span>
-              <span class="font-[600] text-kt-primary text-[14.5px]">${formatNumber(c.limit - c.used)} TL</span>
+              <span class="font-[600] text-kt-primary text-[14.5px]">${formatNumber(Math.max(0, (Number(c.limit) || 0) - (Number(c.used) || 0)))} TL</span>
             </div>
           </div>
 
           <!-- Prominent Son Ödeme Tarihi & Pay Button Strip -->
-          <div class="p-3 ${c.daysLeft <= 2 ? 'bg-rose-100/60 border border-rose-200' : 'bg-slate-50 border border-gray-100'} rounded-xl flex justify-between items-center text-xs">
+          <div class="p-3 ${isUrgent ? 'bg-rose-100/60 border border-rose-200' : 'bg-slate-50 border border-gray-100'} rounded-xl flex justify-between items-center text-xs">
             <div>
-              <span class="text-[10px] font-[500] ${c.daysLeft <= 2 ? 'text-rose-700 font-[600]' : 'text-slate-400'} block uppercase">Son Ödeme Tarihi</span>
+              <span class="text-[10px] font-[500] ${isUrgent ? 'text-rose-700 font-[600]' : 'text-slate-400'} block uppercase">Son Ödeme Tarihi</span>
               <div class="flex items-baseline gap-1.5 mt-0.5">
-                <span class="text-[14px] font-[600] ${c.daysLeft <= 2 ? 'text-rose-700' : 'text-slate-900'}">${c.dueDate}</span>
+                <span class="text-[14px] font-[600] ${isUrgent ? 'text-rose-700' : 'text-slate-900'}">${c.dueDate}</span>
                 <span class="text-[11px] text-slate-400 font-[400]">(Asgari: ${formatNumber(c.minPay)} TL)</span>
               </div>
             </div>
@@ -51270,7 +51314,8 @@ function toggleSubTab(tabIndex) {
             </button>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function openCardPayModal(cardName, debt) {
@@ -54094,13 +54139,13 @@ function toggleSubTab(tabIndex) {
       morningHour: 9,
       morningMinute: 0,
       creditCardsEnabled: true,
-      creditCardsAdvance2Days: true,
+      creditCardsAdvance2Days: false,
       creditCardsOnDueDay: true,
       billsEnabled: true,
       notesEnabled: true,
       checksEnabled: true,
       vehiclesEnabled: true,
-      dailySummaryEnabled: true
+      dailySummaryEnabled: false
     };
 
     function getNotificationSettings() {
@@ -54156,25 +54201,44 @@ function toggleSubTab(tabIndex) {
     }
 
     let latestNativePendingNotifications = [];
-    window.onNativePendingNotificationsReceived = function(list) {
-      if (Array.isArray(list)) {
-        latestNativePendingNotifications = list;
-        const countBadge = document.getElementById('native-pending-count-badge');
-        if (countBadge) {
-          countBadge.textContent = list.length + ' Bildirim Kilit Ekranına Hazır';
-        }
-        const pendingContainer = document.getElementById('native-pending-items-list');
-        if (pendingContainer && list.length > 0) {
-          pendingContainer.innerHTML = list.slice(0, 8).map(item => `
-            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs space-y-1">
-              <div class="flex justify-between items-center">
-                <span class="font-[700] text-slate-800">${item.title}</span>
-                <span class="text-[10px] font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md font-bold">${item.date || '09:00'}</span>
+    function renderNativePendingQueueDOM() {
+      const list = Array.isArray(latestNativePendingNotifications) ? latestNativePendingNotifications : [];
+      const countBadge = document.getElementById('native-pending-count-badge');
+      if (countBadge) {
+        countBadge.textContent = list.length > 0 ? (list.length + ' Alarm Kuruldu') : (isLiveConnected ? 'Canlı Site Verisi Aktif' : 'Hazır');
+      }
+      const pendingContainer = document.getElementById('native-pending-items-list');
+      if (pendingContainer) {
+        if (list.length > 0) {
+          pendingContainer.innerHTML = `
+            <div class="kt-card p-3 bg-white border border-blue-200/80 rounded-2xl space-y-2 shadow-2xs">
+              <div class="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                <span class="text-[11px] font-[800] text-[#002D59] uppercase tracking-wider">📲 Telefon Kilit Ekranına Kurulan Alarmlar (${list.length})</span>
+                <span class="text-[10px] font-[700] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Aktif Kuyruk</span>
               </div>
-              <p class="text-[11px] text-slate-600">${item.body}</p>
+              <div class="space-y-1.5 max-h-[240px] overflow-y-auto pr-0.5">
+                ${list.slice(0, 15).map(item => `
+                  <div onclick="if('${item.targetScreen || ''}') changeScreen('${item.targetScreen}')" class="p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs space-y-0.5 cursor-pointer hover:bg-blue-50/40 transition-colors">
+                    <div class="flex justify-between items-center gap-2">
+                      <span class="font-[700] text-slate-800 truncate">${item.title}</span>
+                      <span class="text-[10px] font-mono text-blue-700 bg-blue-50 border border-blue-200/60 px-1.5 py-0.5 rounded-md font-bold shrink-0">${item.date || '09:00'}</span>
+                    </div>
+                    <p class="text-[11px] text-slate-600 leading-snug">${item.body}</p>
+                  </div>
+                `).join('')}
+              </div>
             </div>
-          `).join('');
+          `;
+        } else {
+          pendingContainer.innerHTML = '';
         }
+      }
+    }
+
+    window.onNativePendingNotificationsReceived = function(list) {
+      if (Array.isArray(list) && list.length > 0) {
+        latestNativePendingNotifications = list;
+        renderNativePendingQueueDOM();
       }
     };
 
@@ -54223,16 +54287,15 @@ function toggleSubTab(tabIndex) {
       }
     }
 
-    function formatCreditCardSeparateNotice(card) {
+    function formatCreditCardSeparateNotice(card, targetISO, isAdvance2Days = false) {
       const debtVal = Number(card.used) || 0;
       const minPayVal = Number(card.minPay) || (debtVal * 0.2);
       const limitVal = Number(card.limit) || 0;
       const cardNo = card.no || ('•••• ' + (card.last4 || ''));
-      const dueStr = card.dueDate || card.dueDateISO || '';
-      const daysLeftNum = (card.daysLeft !== undefined && card.daysLeft !== null) ? Number(card.daysLeft) : 99;
-      const urgencyTag = daysLeftNum <= 0
-        ? '🚨 BUGÜN SON GÜN'
-        : (daysLeftNum === 1 ? '⚠️ YARIN SON GÜN' : ('Son Ödeme: ' + dueStr));
+      const dueStr = card.dueDate || (targetISO ? formatISOToTR(targetISO) : (card.dueDateISO || ''));
+      const urgencyTag = isAdvance2Days
+        ? '⏳ SON ÖDEMEYE 2 GÜN KALDI'
+        : '🚨 BUGÜN SON GÜN';
 
       const financialDetail = debtVal > 0
         ? ('Güncel Borç: ' + formatNumber(debtVal) + ' TL • Asgari: ' + formatNumber(minPayVal) + ' TL')
@@ -54244,23 +54307,52 @@ function toggleSubTab(tabIndex) {
       };
     }
 
+    function resolveMobileCardDueISOForReference(card, refDate) {
+      if (!card || card.status === 'pasif' || (Number(card.limit) || 0) <= 1) return '';
+      if (typeof computeNextCardCycleDates === 'function') {
+        const cycle = computeNextCardCycleDates(card.statementDay || 10, card.dueDay || 20, null, card.used, refDate);
+        if (cycle && cycle.dueDateISO) return cycle.dueDateISO;
+      }
+      return card.dueDateISO || (card.dueDate && card.dueDate.includes('.') ? card.dueDate.split('.').reverse().join('-') : '');
+    }
+
     function getCardsDueOnDateMobile(targetISO, includeAdvance2Days = false) {
       if (!targetISO || !Array.isArray(mockCreditCards)) return [];
-      const parts = String(targetISO).slice(0, 10).split('-').map(Number);
-      const targetDay = parts[2] || 0;
+      const cleanISO = String(targetISO).slice(0, 10);
+      const parts = cleanISO.split('-').map(Number);
+      if (parts.length !== 3 || isNaN(parts[0])) return [];
+      const refDate = new Date(parts[0], parts[1] - 1, parts[2]);
+      refDate.setHours(0, 0, 0, 0);
+
       let advISO = '';
-      let advDay = -1;
-      if (includeAdvance2Days && parts.length === 3) {
-        const d = new Date(parts[0], parts[1] - 1, parts[2] + 2);
-        advISO = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        advDay = d.getDate();
+      if (includeAdvance2Days) {
+        const advDate = new Date(parts[0], parts[1] - 1, parts[2] + 2);
+        advISO = advDate.getFullYear() + '-' + String(advDate.getMonth() + 1).padStart(2, '0') + '-' + String(advDate.getDate()).padStart(2, '0');
       }
+
       return mockCreditCards.filter(c => {
-        const cISO = c.dueDateISO || (c.dueDate && c.dueDate.includes('.') ? c.dueDate.split('.').reverse().join('-') : '');
-        const cDay = Number(c.dueDay) || (cISO ? Number(cISO.split('-')[2]) : 0);
-        if (cISO === targetISO || (cDay > 0 && cDay === targetDay)) return true;
-        if (includeAdvance2Days && (cISO === advISO || (cDay > 0 && cDay === advDay))) return true;
+        if (!c || c.status === 'pasif' || (Number(c.limit) || 0) <= 1) return false;
+        const resolvedISO = resolveMobileCardDueISOForReference(c, refDate);
+        if (resolvedISO === cleanISO) return true;
+        if (includeAdvance2Days && advISO && resolvedISO === advISO) return true;
         return false;
+      });
+    }
+
+    function getCardsAdvance2DaysOnlyOnDateMobile(targetISO) {
+      if (!targetISO || !Array.isArray(mockCreditCards)) return [];
+      const cleanISO = String(targetISO).slice(0, 10);
+      const parts = cleanISO.split('-').map(Number);
+      if (parts.length !== 3 || isNaN(parts[0])) return [];
+      const refDate = new Date(parts[0], parts[1] - 1, parts[2]);
+      refDate.setHours(0, 0, 0, 0);
+      const advDate = new Date(parts[0], parts[1] - 1, parts[2] + 2);
+      const advISO = advDate.getFullYear() + '-' + String(advDate.getMonth() + 1).padStart(2, '0') + '-' + String(advDate.getDate()).padStart(2, '0');
+
+      return mockCreditCards.filter(c => {
+        if (!c || c.status === 'pasif' || (Number(c.limit) || 0) <= 1) return false;
+        const resolvedISO = resolveMobileCardDueISOForReference(c, refDate);
+        return resolvedISO === advISO;
       });
     }
 
@@ -54297,8 +54389,29 @@ function toggleSubTab(tabIndex) {
       };
     }
 
+    function updateHeaderNotificationDotMobile() {
+      const dotEl = document.getElementById('header-notif-active-dot');
+      if (!dotEl) return;
+      const prefs = getNotificationSettings();
+      if (!prefs.masterEnabled) {
+        dotEl.classList.add('hidden');
+        return;
+      }
+      const todayISO = getTodayISOString();
+      const hasTodayItems =
+        (prefs.creditCardsEnabled && getCardsDueOnDateMobile(todayISO, false).length > 0) ||
+        (prefs.billsEnabled !== false && getBillsDueOnDateMobile(todayISO).length > 0) ||
+        (prefs.notesEnabled && Array.isArray(userCalendarNotes) && userCalendarNotes.some(n => n && !n.completed && stripMobileOwnerTag(n.content)));
+      if (hasTodayItems) {
+        dotEl.classList.remove('hidden');
+      } else {
+        dotEl.classList.add('hidden');
+      }
+    }
+
     function syncNativeMorningNotifications(showFeedbackToast) {
       clearAppIconBadgeMobile();
+      updateHeaderNotificationDotMobile();
       const prefs = getNotificationSettings();
       const hour = Number.isFinite(prefs.morningHour) ? prefs.morningHour : 9;
       const minute = Number.isFinite(prefs.morningMinute) ? prefs.morningMinute : 0;
@@ -54311,6 +54424,8 @@ function toggleSubTab(tabIndex) {
       if (!prefs.masterEnabled) {
         lastMorningSyncSignature = 'DISABLED';
         if (morningNotificationSyncTimer) clearTimeout(morningNotificationSyncTimer);
+        latestNativePendingNotifications = [];
+        renderNativePendingQueueDOM();
         postToNativeNotificationBridge({ action: 'clearAll' });
         postToNativeNotificationBridge({ action: 'updateNotificationSettings', settings: prefs });
         if (showFeedbackToast) showToast('Tüm bildirimler devre dışı bırakıldı');
@@ -54318,7 +54433,7 @@ function toggleSubTab(tabIndex) {
       }
 
       const activeNotes = (prefs.notesEnabled && Array.isArray(userCalendarNotes))
-        ? userCalendarNotes.filter(n => n && !n.completed && stripMobileOwnerTag(n.content))
+        ? userCalendarNotes.filter(n => n && !n.completed && !OBSOLETE_GLOBAL_NOTE_IDS_MOBILE.has(String(n.id)) && stripMobileOwnerTag(n.content))
         : [];
 
       const todayDueCards = prefs.creditCardsEnabled
@@ -54329,40 +54444,20 @@ function toggleSubTab(tabIndex) {
         ? getBillsDueOnDateMobile(todayISO)
         : [];
 
-      const currentSig = JSON.stringify({
-        h: hour,
-        m: minute,
-        next: nextMorningISO,
-        ccEn: Boolean(prefs.creditCardsEnabled),
-        ccAdv: Boolean(prefs.creditCardsAdvance2Days),
-        billsEn: Boolean(prefs.billsEnabled !== false),
-        ntEn: Boolean(prefs.notesEnabled),
-        chEn: Boolean(prefs.checksEnabled),
-        vhEn: Boolean(prefs.vehiclesEnabled),
-        notes: activeNotes.slice(0, 10).map(n => `${n.id}|${stripMobileOwnerTag(n.content)}|${n.date || ''}`),
-        todayCards: todayDueCards.map(c => `${c.rawId || c.id}|${c.dueDateISO || c.dueDate || ''}|${c.used}|${c.limit}`),
-        todayBills: todayDueBills.map(b => `${b.id}|${b.dueDateISO}|${b.amount}|${b.status}`)
-      });
-
-      if (!showFeedbackToast && currentSig === lastMorningSyncSignature) {
-        return;
-      }
-      lastMorningSyncSignature = currentSig;
-
-      // ATOMİK VE GÜVENLİ BİLDİRİM LİSTESİ HAZIRLA (Maksimum 40 güvenli bildirim kotası)
+      // GÜVENLİ BİLDİRİM LİSTESİ HAZIRLA (Maksimum 40 güvenli bildirim kotası)
       const scheduledItems = [];
       const maxSafeRequests = 40;
 
       for (let dayIdx = 0; dayIdx < upcomingMornings.length; dayIdx++) {
         const morningISO = upcomingMornings[dayIdx];
 
-        // 1) Kredi & Finansman Kartları
+        // 1A) Kredi & Finansman Kartları — Son Ödeme Günü (Sadece limit > 1 olan aktif kartlar)
         if (prefs.creditCardsEnabled) {
-          const cardsForMorning = getCardsDueOnDateMobile(morningISO, Boolean(prefs.creditCardsAdvance2Days));
-          for (let cIdx = 0; cIdx < cardsForMorning.length; cIdx++) {
+          const dueCardsForMorning = getCardsDueOnDateMobile(morningISO, false);
+          for (let cIdx = 0; cIdx < dueCardsForMorning.length; cIdx++) {
             if (scheduledItems.length >= maxSafeRequests) break;
-            const card = cardsForMorning[cIdx];
-            const formatted = formatCreditCardSeparateNotice(card);
+            const card = dueCardsForMorning[cIdx];
+            const formatted = formatCreditCardSeparateNotice(card, morningISO, false);
             scheduledItems.push({
               id: 'sep_daily_cc_' + morningISO + '_' + String(card.rawId || card.id || cIdx),
               title: formatted.title,
@@ -54375,9 +54470,30 @@ function toggleSubTab(tabIndex) {
               targetScreen: 'credit_cards'
             });
           }
+
+          // 1B) Kredi & Finansman Kartları — 2 Gün Önceden Ön Uyarı (Ayarlarda açıkça etkinleştirildiyse)
+          if (prefs.creditCardsAdvance2Days === true) {
+            const advCardsForMorning = getCardsAdvance2DaysOnlyOnDateMobile(morningISO);
+            for (let aIdx = 0; aIdx < advCardsForMorning.length; aIdx++) {
+              if (scheduledItems.length >= maxSafeRequests) break;
+              const card = advCardsForMorning[aIdx];
+              const formatted = formatCreditCardSeparateNotice(card, card.dueDateISO, true);
+              scheduledItems.push({
+                id: 'sep_daily_cc_adv_' + morningISO + '_' + String(card.rawId || card.id || aIdx),
+                title: formatted.title,
+                body: formatted.body,
+                date: morningISO,
+                advanceDays: 0,
+                hour: hour,
+                minute: minute,
+                badge: 0,
+                targetScreen: 'credit_cards'
+              });
+            }
+          }
         }
 
-        // 2) Kurum Faturaları
+        // 2) Kurum Faturaları (Hafta sonu Pazartesiye kaydırılmış son ödeme günü)
         if (prefs.billsEnabled !== false) {
           const billsForMorning = getBillsDueOnDateMobile(morningISO);
           for (let bIdx = 0; bIdx < billsForMorning.length; bIdx++) {
@@ -54426,12 +54542,53 @@ function toggleSubTab(tabIndex) {
         }
       }
 
-      // ATOMİK PROGRAMLAMA: Tek mesajda Swift NotificationManager'a gönder
-      postToNativeNotificationBridge({
-        action: 'syncAllMorningNotifications',
-        settings: prefs,
-        items: scheduledItems
+      // Arayüzdeki aktif kilit ekranı bildirim kuyruğunu anında güncelle
+      latestNativePendingNotifications = scheduledItems.map(item => ({
+        id: item.id,
+        title: item.title,
+        body: item.body,
+        date: formatISOToTR(item.date) + ' ' + timeLabel,
+        targetScreen: item.targetScreen
+      }));
+      renderNativePendingQueueDOM();
+
+      const currentSig = JSON.stringify({
+        h: hour,
+        m: minute,
+        next: nextMorningISO,
+        items: scheduledItems.map(i => `${i.id}|${i.title}|${i.body}|${i.date}|${i.hour}:${i.minute}`)
       });
+
+      if (!showFeedbackToast && currentSig === lastMorningSyncSignature) {
+        return;
+      }
+      lastMorningSyncSignature = currentSig;
+
+      // ÇİFT YÖNLÜ TAM UYUMLU (DUAL-PROTOCOL) iOS BİLDİRİM PROGRAMLAMA:
+      // 1) Önce clearAll göndererek iOS başlangıcındaki sahte/demo bildirimleri (scheduleAllFinancialReminders) tamamen temizle
+      postToNativeNotificationBridge({ action: 'clearAll' });
+      postToNativeNotificationBridge({ action: 'updateNotificationSettings', settings: prefs });
+
+      // 2) 150ms sonra (Swift notificationQueue.async clearAll işlemini tamamladıktan hemen sonra)
+      // hem tekil scheduleDate mesajlarını (canlı yüklü iOS uygulaması için) hem de syncAllMorningNotifications gönder
+      if (morningNotificationSyncTimer) clearTimeout(morningNotificationSyncTimer);
+      morningNotificationSyncTimer = setTimeout(() => {
+        for (let i = 0; i < scheduledItems.length; i++) {
+          const item = scheduledItems[i];
+          postToNativeNotificationBridge({
+            action: 'scheduleDate',
+            id: item.id,
+            title: item.title,
+            body: item.body,
+            date: item.date,
+            advanceDays: 0,
+            hour: item.hour,
+            minute: item.minute,
+            badge: 0,
+            targetScreen: item.targetScreen
+          });
+        }
+      }, 150);
 
       if (showFeedbackToast) {
         const ccCount = todayDueCards.length;
@@ -54446,16 +54603,18 @@ function toggleSubTab(tabIndex) {
       await Promise.allSettled([
         syncLiveCards(),
         syncLiveBills(),
-        syncLiveCalendarNotes()
+        syncLiveCalendarNotes(),
+        syncLiveChecks(),
+        syncLiveVehicles()
       ]);
       rebuildLiveCalendarEvents();
+      lastMorningSyncSignature = '';
       syncNativeMorningNotifications(true);
       renderCreditCards();
       renderBillsScreen();
       renderCalendar();
       renderNotifications();
       renderSettings();
-      postToNativeNotificationBridge({ action: 'getPendingNotifications' });
     }
 
     function sendTestMorningNotification() {
@@ -54479,23 +54638,35 @@ function toggleSubTab(tabIndex) {
     function renderNotifications() {
       const container = document.getElementById('notifications-list-container');
       if (!container) return;
-      postToNativeNotificationBridge({ action: 'getPendingNotifications' });
+      updateHeaderNotificationDotMobile();
       const prefs = getNotificationSettings();
       const timeLabel = String(prefs.morningHour || 9).padStart(2, '0') + ':' + String(prefs.morningMinute || 0).padStart(2, '0');
-      const activeNotes = userCalendarNotes.filter(n => !n.completed && n.content);
+      const activeNotes = (Array.isArray(userCalendarNotes) ? userCalendarNotes : [])
+        .filter(n => n && !n.completed && !OBSOLETE_GLOBAL_NOTE_IDS_MOBILE.has(String(n.id)) && stripMobileOwnerTag(n.content));
       const todayISO = getTodayISOString();
+
+      // Sadece aktif ve limiti > 1 TL olan kartlar bildirimlerde yer alır (0 limitli ek kartlar hariç)
+      const activeLimitCards = (Array.isArray(mockCreditCards) ? mockCreditCards : [])
+        .filter(c => c && c.status !== 'pasif' && (Number(c.limit) || 0) > 1);
       const todayDueCards = getCardsDueOnDateMobile(todayISO, false);
-      const upcomingWeekCards = [...mockCreditCards]
-        .filter(c => (c.daysLeft !== undefined ? Number(c.daysLeft) : 99) <= 7)
+      const todayDueCardIds = new Set(todayDueCards.map(c => String(c.rawId || c.id)));
+      const upcomingWeekCards = activeLimitCards
+        .filter(c => !todayDueCardIds.has(String(c.rawId || c.id)) && (c.daysLeft !== undefined ? Number(c.daysLeft) : 99) > 0 && Number(c.daysLeft) <= 7)
         .sort((a, b) => (Number(a.daysLeft) || 0) - (Number(b.daysLeft) || 0));
-      const displayCards = todayDueCards.length > 0 ? todayDueCards : upcomingWeekCards;
 
       mockBillsData = hydrateMobileBillsList(mockBillsData);
       const todayDueBills = getBillsDueOnDateMobile(todayISO);
+      const todayDueBillIds = new Set(todayDueBills.map(b => String(b.id)));
       const upcomingWeekBills = [...mockBillsData]
-        .filter(b => b.status !== 'odendi' && (b.daysLeft !== undefined ? Number(b.daysLeft) : 99) <= 7)
+        .filter(b => b.status !== 'odendi' && !todayDueBillIds.has(String(b.id)) && (b.daysLeft !== undefined ? Number(b.daysLeft) : 99) > 0 && Number(b.daysLeft) <= 7)
         .sort((a, b) => (Number(a.daysLeft) || 0) - (Number(b.daysLeft) || 0));
-      const displayBills = todayDueBills.length > 0 ? todayDueBills : upcomingWeekBills;
+
+      const upcomingChecks = (prefs.checksEnabled && Array.isArray(mockChecks))
+        ? mockChecks
+            .filter(c => c && c.status !== 'odendi' && Number(c.amount) > 0 && typeof c.daysLeft === 'number' && c.daysLeft >= 0 && c.daysLeft <= 7)
+            .sort((a, b) => a.daysLeft - b.daysLeft)
+            .slice(0, 6)
+        : [];
 
       let htmlItems = `
         <!-- Canlı Durum ve Teşhis Paneli -->
@@ -54509,7 +54680,7 @@ function toggleSubTab(tabIndex) {
               </div>
             </div>
             <span id="native-pending-count-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-400/20 border border-emerald-300/40 text-emerald-200 text-[10px] font-[700]">
-              ${isLiveConnected ? 'Canlı Site Verisi Aktif' : 'Hazır'}
+              ${latestNativePendingNotifications.length > 0 ? (latestNativePendingNotifications.length + ' Alarm Kuruldu') : (isLiveConnected ? 'Canlı Site Verisi Aktif' : 'Hazır')}
             </span>
           </div>
 
@@ -54520,7 +54691,7 @@ function toggleSubTab(tabIndex) {
           <div class="grid grid-cols-3 gap-2 pt-0.5">
             <div onclick="changeScreen('credit_cards')" class="p-2 rounded-xl bg-white/10 border border-white/15 text-center cursor-pointer">
               <span class="text-[9.5px] text-blue-200 block font-[600]">KARTLAR</span>
-              <span class="text-xs font-[800] text-white">${todayDueCards.length} Bugün / ${mockCreditCards.length}</span>
+              <span class="text-xs font-[800] text-white">${todayDueCards.length} Bugün / ${activeLimitCards.length}</span>
             </div>
             <div onclick="changeScreen('bills')" class="p-2 rounded-xl bg-white/10 border border-white/15 text-center cursor-pointer">
               <span class="text-[9.5px] text-blue-200 block font-[600]">FATURALAR</span>
@@ -54550,10 +54721,78 @@ function toggleSubTab(tabIndex) {
         <div id="native-pending-items-list" class="space-y-1.5"></div>
       `;
 
-      // 1. Live Notes Notifications (Sabah 09:00)
+      // 1. Bugün Son Ödeme Günü Olan Kredi & Finansman Kartları (Sabah 09:00)
+      if (prefs.creditCardsEnabled) {
+        if (todayDueCards.length > 0) {
+          htmlItems += `<div class="px-1 pt-2 flex justify-between items-center"><span class="text-[11px] font-[700] text-rose-700 uppercase tracking-wider">💳 Bugün Son Ödeme Günü Olan Kartlar • Sabah ${timeLabel} (${todayDueCards.length})</span><button onclick="changeScreen('credit_cards')" class="text-[11px] font-[600] text-[#002D59]">Tüm Kartlar (${activeLimitCards.length})</button></div>`;
+          htmlItems += todayDueCards.map(c => `
+            <div onclick="changeScreen('credit_cards')" class="kt-card p-3.5 space-y-1 border-l-4 border-l-rose-600 bg-rose-50/40 cursor-pointer hover:bg-slate-50 transition-all">
+              <div class="flex justify-between items-center gap-2">
+                <h4 class="text-xs font-[700] text-slate-900 truncate">💳 ${c.bank} (${c.name} •••• ${c.last4})</h4>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-[700] bg-rose-100 text-rose-700 shrink-0">🚨 BUGÜN SON GÜN • ${timeLabel}</span>
+              </div>
+              <p class="text-xs text-slate-600">Son Ödeme: <strong>${c.dueDate}</strong> • Limit: <strong>${formatNumber(c.limit)} TL</strong>${Number(c.used) > 0 ? (' • Güncel Borç: <strong class="text-rose-700">' + formatNumber(c.used) + ' TL</strong> • Asgari: <strong>' + formatNumber(c.minPay) + ' TL</strong>') : ''}</p>
+            </div>
+          `).join('');
+        }
+
+        if (upcomingWeekCards.length > 0) {
+          htmlItems += `<div class="px-1 pt-2 flex justify-between items-center"><span class="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">💳 Yaklaşan Kart Son Ödemeleri (7 Gün İçinde: ${upcomingWeekCards.length})</span><button onclick="changeScreen('credit_cards')" class="text-[11px] font-[600] text-[#002D59]">Tüm Kartlar (${activeLimitCards.length})</button></div>`;
+          htmlItems += upcomingWeekCards.map(c => `
+            <div onclick="changeScreen('credit_cards')" class="kt-card p-3.5 space-y-1 border-l-4 ${c.daysLeft <= 2 ? 'border-l-amber-500 bg-amber-50/30' : 'border-l-blue-600'} cursor-pointer hover:bg-slate-50 transition-all">
+              <div class="flex justify-between items-center gap-2">
+                <h4 class="text-xs font-[700] text-slate-900 truncate">💳 ${c.bank} (${c.name} •••• ${c.last4})</h4>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-[700] ${c.daysLeft <= 2 ? 'bg-amber-100 text-amber-800' : 'bg-blue-50 text-[#002D59]'} shrink-0">${c.daysLeft === 1 ? 'YARIN SON GÜN' : (c.daysLeft + ' Gün Kaldı')} • ${timeLabel}</span>
+              </div>
+              <p class="text-xs text-slate-600">Son Ödeme: <strong>${c.dueDate}</strong> • Limit: <strong>${formatNumber(c.limit)} TL</strong>${Number(c.used) > 0 ? (' • Borç: <strong>' + formatNumber(c.used) + ' TL</strong>') : ''}</p>
+            </div>
+          `).join('');
+        }
+      }
+
+      // 2. Faturalar Son Ödeme Günü Bildirimleri (Sabah 09:00)
+      if (prefs.billsEnabled !== false) {
+        if (todayDueBills.length > 0) {
+          htmlItems += `<div class="px-1 pt-2 flex justify-between items-center"><span class="text-[11px] font-[700] text-rose-700 uppercase tracking-wider">🧾 Bugün Son Ödeme Günü Olan Faturalar • Sabah ${timeLabel} (${todayDueBills.length})</span><button onclick="changeScreen('bills')" class="text-[11px] font-[600] text-[#002D59]">Tüm Faturalar (${mockBillsData.length})</button></div>`;
+          htmlItems += todayDueBills.map(b => `
+            <div onclick="changeScreen('bills')" class="kt-card p-3.5 space-y-1 border-l-4 border-l-rose-600 bg-rose-50/40 cursor-pointer hover:bg-slate-50 transition-all">
+              <div class="flex justify-between items-center gap-2">
+                <h4 class="text-xs font-[700] text-slate-900 truncate">🧾 ${b.name}</h4>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-[700] shrink-0 bg-rose-100 text-rose-700">🚨 BUGÜN SON GÜN • ${timeLabel}</span>
+              </div>
+              <p class="text-xs text-slate-600">Son Ödeme: <strong>${b.dueDateTR}</strong> • Abone: <strong class="font-mono">${b.subscriberNo}</strong>${Number(b.amount) > 0 ? (' • Tutar: <strong>' + formatNumber(b.amount) + ' TL</strong>') : ''}${b.autoPayment ? (' • <span class="text-emerald-700 font-bold">Otomatik Ödeme</span>') : ''}</p>
+            </div>
+          `).join('');
+        }
+
+        if (upcomingWeekBills.length > 0) {
+          htmlItems += `<div class="px-1 pt-2 flex justify-between items-center"><span class="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">🧾 Yaklaşan Fatura Son Ödemeleri (7 Gün İçinde: ${upcomingWeekBills.length})</span><button onclick="changeScreen('bills')" class="text-[11px] font-[600] text-[#002D59]">Tüm Faturalar (${mockBillsData.length})</button></div>`;
+          htmlItems += upcomingWeekBills.map(b => `
+            <div onclick="changeScreen('bills')" class="kt-card p-3.5 space-y-1 border-l-4 ${b.daysLeft === 1 ? 'border-l-amber-500 bg-amber-50/20' : 'border-l-blue-600'} cursor-pointer hover:bg-slate-50 transition-all">
+              <div class="flex justify-between items-center gap-2">
+                <h4 class="text-xs font-[700] text-slate-900 truncate">🧾 ${b.name}</h4>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-[700] shrink-0 ${b.daysLeft === 1 ? 'bg-amber-100 text-amber-800' : 'bg-blue-50 text-[#002D59]'}">${b.daysLeft === 1 ? 'YARIN SON GÜN' : (b.daysLeft + ' Gün Kaldı')} • ${timeLabel}</span>
+              </div>
+              <p class="text-xs text-slate-600">Son Ödeme: <strong>${b.dueDateTR}</strong> • Abone: <strong class="font-mono">${b.subscriberNo}</strong>${Number(b.amount) > 0 ? (' • Tutar: <strong>' + formatNumber(b.amount) + ' TL</strong>') : ''}${b.autoPayment ? (' • <span class="text-emerald-700 font-bold">Otomatik Ödeme</span>') : ''}</p>
+            </div>
+          `).join('');
+        } else if (todayDueBills.length === 0) {
+          htmlItems += `
+            <div onclick="changeScreen('bills')" class="kt-card p-3.5 border-l-4 border-l-blue-600 flex justify-between items-center cursor-pointer">
+              <div>
+                <h4 class="text-xs font-[700] text-slate-800">🧾 Faturalar Sabah ${timeLabel} Bildirimi Aktif</h4>
+                <p class="text-[11px] text-slate-500 mt-0.5">Kayıtlı ${mockBillsData.length} kurum faturasının son ödeme gününde sabah ${timeLabel}'da bildirim gönderilir.</p>
+              </div>
+              <span class="text-xs font-[700] text-[#002D59] shrink-0">Faturalar &gt;</span>
+            </div>
+          `;
+        }
+      }
+
+      // 3. Live Notes Notifications (Sabah 09:00)
       if (prefs.notesEnabled) {
         if (activeNotes.length > 0) {
-          htmlItems += `<div class="px-1 pt-1 flex justify-between items-center"><span class="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">📝 Kullanıcı Notlarım Sabah ${timeLabel} Bildirimleri (${activeNotes.length})</span><button onclick="changeScreen('takvim')" class="text-[11px] font-[600] text-[#002D59]">+ Not Ekle</button></div>`;
+          htmlItems += `<div class="px-1 pt-2 flex justify-between items-center"><span class="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">📝 Kullanıcı Notlarım Sabah ${timeLabel} Bildirimleri (${activeNotes.length})</span><button onclick="changeScreen('takvim')" class="text-[11px] font-[600] text-[#002D59]">+ Not Ekle</button></div>`;
           htmlItems += activeNotes.map(n => {
             const dFormatted = n.date ? n.date.split('-').reverse().join('.') : 'Günlük Hatırlatma';
             return `
@@ -54574,7 +54813,7 @@ function toggleSubTab(tabIndex) {
             <div onclick="changeScreen('takvim')" class="kt-card p-3.5 border-l-4 border-l-emerald-500 flex justify-between items-center cursor-pointer">
               <div>
                 <h4 class="text-xs font-[700] text-slate-800">📝 Notlarım Sabah ${timeLabel} Bildirimi Aktif</h4>
-                <p class="text-[11px] text-slate-500 mt-0.5">Siteden veya Takvimden eklediğiniz tüm notlar sabah ${timeLabel}'da bildirim gönderir.</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">Şu an kayıtlı aktif notunuz bulunmuyor. Eklediğiniz notlar sabah ${timeLabel}'da bildirim gönderir.</p>
               </div>
               <span class="text-xs font-[700] text-[#002D59] shrink-0">+ Not Ekle &gt;</span>
             </div>
@@ -54582,72 +54821,22 @@ function toggleSubTab(tabIndex) {
         }
       }
 
-      // 2. Today's Due Credit Cards / Financing Cards Notifications (Sabah 09:00)
-      if (prefs.creditCardsEnabled && displayCards.length > 0) {
-        const sectionTitle = todayDueCards.length > 0
-          ? `💳 Bugünün Son Ödeme Kartları • Sabah ${timeLabel} (${todayDueCards.length})`
-          : `💳 Yaklaşan Kart Son Ödeme Bildirimleri (${displayCards.length})`;
-        htmlItems += `<div class="px-1 pt-2 flex justify-between items-center"><span class="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">${sectionTitle}</span><button onclick="changeScreen('credit_cards')" class="text-[11px] font-[600] text-[#002D59]">Tüm Kartlar (${mockCreditCards.length})</button></div>`;
-        htmlItems += displayCards.map(c => `
-          <div onclick="changeScreen('credit_cards')" class="kt-card p-3.5 space-y-1 border-l-4 ${c.daysLeft <= 0 ? 'border-l-rose-600 bg-rose-50/40' : 'border-l-amber-500'} cursor-pointer hover:bg-slate-50 transition-all">
-            <div class="flex justify-between items-center">
-              <h4 class="text-xs font-[700] text-slate-900">💳 ${c.bank} (${c.name})</h4>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-[700] ${c.daysLeft <= 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'}">${c.daysLeft <= 0 ? 'BUGÜN SON GÜN' : (c.daysLeft + ' Gün Kaldı')} • ${timeLabel}</span>
+      // 4. Yaklaşan Çek Vadeleri (Ayarlarda açıksa ve 7 gün içinde çek varsa)
+      if (prefs.checksEnabled && upcomingChecks.length > 0) {
+        htmlItems += `<div class="px-1 pt-2 flex justify-between items-center"><span class="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">🚨 Yaklaşan Çek Vadeleri (${upcomingChecks.length})</span><button onclick="changeScreen('takas_cekleri')" class="text-[11px] font-[600] text-[#002D59]">Takas Çekleri &gt;</button></div>`;
+        htmlItems += upcomingChecks.map(chk => `
+          <div onclick="changeScreen('takas_cekleri')" class="kt-card p-3.5 space-y-1 border-l-4 ${chk.daysLeft <= 0 ? 'border-l-rose-600 bg-rose-50/40' : 'border-l-amber-500'} cursor-pointer hover:bg-slate-50 transition-all">
+            <div class="flex justify-between items-center gap-2">
+              <h4 class="text-xs font-[700] text-slate-900 truncate">🚨 ${chk.supplier || chk.debtor || 'Çek'}</h4>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-[700] shrink-0 ${chk.daysLeft <= 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'}">${chk.daysLeft <= 0 ? 'BUGÜN VADE' : (chk.daysLeft + ' Gün Kaldı')} • ${timeLabel}</span>
             </div>
-            <p class="text-xs text-slate-600">Son Ödeme: <strong>${c.dueDate}</strong> • Limit: <strong>${formatNumber(c.limit)} TL</strong>${Number(c.used) > 0 ? (' • Borç: <strong>' + formatNumber(c.used) + ' TL</strong>') : ''}</p>
+            <p class="text-xs text-slate-600">Banka: <strong>${chk.bank || '-'}</strong> • Vade: <strong>${chk.date}</strong> • Tutar: <strong>${formatNumber(chk.amount)} TL</strong></p>
           </div>
         `).join('');
       }
 
-      // 3. Faturalar Son Ödeme Günü Bildirimleri (Sabah 09:00)
-      if (prefs.billsEnabled !== false) {
-        const billSectionTitle = todayDueBills.length > 0
-          ? `🧾 Bugünün Son Ödeme Faturaları • Sabah ${timeLabel} (${todayDueBills.length})`
-          : `🧾 Yaklaşan Fatura Son Ödeme Bildirimleri (${displayBills.length})`;
-        htmlItems += `<div class="px-1 pt-2 flex justify-between items-center"><span class="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">${billSectionTitle}</span><button onclick="changeScreen('bills')" class="text-[11px] font-[600] text-[#002D59]">Tüm Faturalar (${mockBillsData.length})</button></div>`;
-        if (displayBills.length > 0) {
-          htmlItems += displayBills.map(b => `
-            <div onclick="changeScreen('bills')" class="kt-card p-3.5 space-y-1 border-l-4 ${b.daysLeft <= 0 ? 'border-l-rose-600 bg-rose-50/40' : (b.daysLeft === 1 ? 'border-l-amber-500 bg-amber-50/20' : 'border-l-blue-600')} cursor-pointer hover:bg-slate-50 transition-all">
-              <div class="flex justify-between items-center gap-2">
-                <h4 class="text-xs font-[700] text-slate-900 truncate">🧾 ${b.name}</h4>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-[700] shrink-0 ${b.daysLeft <= 0 ? 'bg-rose-100 text-rose-700' : (b.daysLeft === 1 ? 'bg-amber-100 text-amber-800' : 'bg-blue-50 text-[#002D59]')}">${b.daysLeft <= 0 ? 'BUGÜN SON GÜN' : (b.daysLeft === 1 ? 'YARIN SON GÜN' : (b.daysLeft + ' Gün Kaldı'))} • ${timeLabel}</span>
-              </div>
-              <p class="text-xs text-slate-600">Son Ödeme: <strong>${b.dueDateTR}</strong> • Abone: <strong class="font-mono">${b.subscriberNo}</strong>${Number(b.amount) > 0 ? (' • Tutar: <strong>' + formatNumber(b.amount) + ' TL</strong>') : ''}${b.autoPayment ? (' • <span class="text-emerald-700 font-bold">Otomatik Ödeme</span>') : ''}</p>
-            </div>
-          `).join('');
-        } else {
-          htmlItems += `
-            <div onclick="changeScreen('bills')" class="kt-card p-3.5 border-l-4 border-l-blue-600 flex justify-between items-center cursor-pointer">
-              <div>
-                <h4 class="text-xs font-[700] text-slate-800">🧾 Faturalar Sabah ${timeLabel} Bildirimi Aktif</h4>
-                <p class="text-[11px] text-slate-500 mt-0.5">Kayıtlı ${mockBillsData.length} kurum faturasının son ödeme gününde sabah ${timeLabel}'da bildirim gönderilir.</p>
-              </div>
-              <span class="text-xs font-[700] text-[#002D59] shrink-0">Faturalar &gt;</span>
-            </div>
-          `;
-        }
-      }
-
-      // 4. Check & Vehicle Reminders
-      htmlItems += `
-        <div class="px-1 pt-2"><span class="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">🚨 Çek & Araç Vade Uyarıları (${timeLabel})</span></div>
-        <div onclick="changeScreen('takas_cekleri')" class="kt-card p-3.5 space-y-1 border-l-4 border-l-rose-500 cursor-pointer">
-          <div class="flex justify-between items-center">
-            <h4 class="text-xs font-black text-slate-900">🚨 Çek Vadesi Yaklaşıyor</h4>
-            <span class="text-[10px] text-slate-400">Saat ${timeLabel}</span>
-          </div>
-          <p class="text-xs text-slate-600">Vadesi yaklaşan takas ve portföy çekleriniz için sabah ${timeLabel} bakiye kontrol bildirimi aktiftir.</p>
-        </div>
-        <div onclick="changeScreen('vehicles')" class="kt-card p-3.5 space-y-1 border-l-4 border-l-amber-500 cursor-pointer">
-          <div class="flex justify-between items-center">
-            <h4 class="text-xs font-black text-slate-900">⚠️ Araç Muayene & Sigorta Takibi</h4>
-            <span class="text-[10px] text-slate-400">Saat ${timeLabel}</span>
-          </div>
-          <p class="text-xs text-slate-600">TÜVTÜRK araç muayene ve poliçe bitişlerine 2 gün kala sabah ${timeLabel} uyarısı aktiftir.</p>
-        </div>
-      `;
-
       container.innerHTML = htmlItems;
+      renderNativePendingQueueDOM();
     }
 
     function clearNotifications() {
@@ -54661,7 +54850,10 @@ function toggleSubTab(tabIndex) {
       if (!container) return;
       const prefs = getNotificationSettings();
       const timeVal = String(prefs.morningHour || 9).padStart(2, '0') + ':' + String(prefs.morningMinute || 0).padStart(2, '0');
-      const activeNotes = userCalendarNotes.filter(n => !n.completed && n.content);
+      const activeNotes = (Array.isArray(userCalendarNotes) ? userCalendarNotes : [])
+        .filter(n => n && !n.completed && !OBSOLETE_GLOBAL_NOTE_IDS_MOBILE.has(String(n.id)) && stripMobileOwnerTag(n.content));
+      const activeLimitCards = (Array.isArray(mockCreditCards) ? mockCreditCards : [])
+        .filter(c => c && c.status !== 'pasif' && (Number(c.limit) || 0) > 1);
       const todayISO = getTodayISOString();
       const todayCardsCount = getCardsDueOnDateMobile(todayISO, false).length;
       const todayBillsCount = getBillsDueOnDateMobile(todayISO).length;
@@ -54686,7 +54878,7 @@ function toggleSubTab(tabIndex) {
           <div class="grid grid-cols-3 gap-2 pt-1">
             <div onclick="changeScreen('credit_cards')" class="p-2.5 rounded-xl bg-white/10 border border-white/15 cursor-pointer">
               <span class="text-[9.5px] text-blue-200 block font-[600]">BUGÜN KART</span>
-              <span class="text-xs font-[800] text-white">${todayCardsCount} Kart (${mockCreditCards.length})</span>
+              <span class="text-xs font-[800] text-white">${todayCardsCount} Kart (${activeLimitCards.length})</span>
             </div>
             <div onclick="changeScreen('bills')" class="p-2.5 rounded-xl bg-white/10 border border-white/15 cursor-pointer">
               <span class="text-[9.5px] text-blue-200 block font-[600]">BUGÜN FATURA</span>
@@ -55128,6 +55320,28 @@ function toggleSubTab(tabIndex) {
         isLiveConnected = true;
         updateLiveBadge(true, 'Canlı Veritabanı Bağlandı');
 
+        // AŞAMA 1: Bildirim ve Takvim için kritik Turhost tablolarını (<500ms) anında çek ve kilit ekranı alarmlarını hemen kur
+        await Promise.allSettled([
+          syncLiveCards(),
+          syncLiveBills(),
+          syncLiveCalendarNotes()
+        ]);
+        rebuildLiveCalendarEvents();
+        renderCreditCards();
+        renderBillsScreen();
+        renderCalendar();
+        renderNotifications();
+        renderSettings();
+        lastMorningSyncSignature = '';
+        syncNativeMorningNotifications(false);
+
+        // iOS başlangıç izin diyaloğu (scheduleAllFinancialReminders) sonradan tetiklenirse diye +1.8sn güvenlik senkronizasyonu
+        setTimeout(() => {
+          lastMorningSyncSignature = '';
+          syncNativeMorningNotifications(false);
+        }, 1800);
+
+        // AŞAMA 2: Diğer tüm ERP ve finans modüllerini eşitle
         await Promise.allSettled([
           syncLiveCaris(),
           syncLiveCektenHesabi(),
@@ -55135,9 +55349,6 @@ function toggleSubTab(tabIndex) {
           syncLiveVehicles(),
           syncLiveSlaughters(),
           syncLiveTenders(),
-          syncLiveCards(),
-          syncLiveBills(),
-          syncLiveCalendarNotes(),
           syncLiveBanks(),
           syncLiveEstates(),
           syncLiveTransactions(),
@@ -55830,7 +56041,9 @@ function toggleSubTab(tabIndex) {
           const todayTime = new Date().getTime();
           mockVehicles = data.map((v, i) => {
             let extra = { insuranceCompany: '', kaskoCompany: '', kaskoStartDate: '', dainiMurtehin: '' };
-            if (v.description && v.description.startsWith('{')) {
+            if (v.description && typeof v.description === 'object') {
+              extra = { ...extra, ...v.description };
+            } else if (typeof v.description === 'string' && v.description.startsWith('{')) {
               try { extra = JSON.parse(v.description); } catch(e) {}
             }
             
@@ -56152,13 +56365,29 @@ function toggleSubTab(tabIndex) {
       }
     }
 
-    function computeNextCardCycleDates(statementDay, dueDay, openStatementDueDate, currentDebt) {
-      const today = new Date();
+    const MOBILE_CARD_FIXED_HOLIDAYS = new Set(['01-01', '04-23', '05-01', '05-19', '07-15', '08-30', '10-29']);
+    function isMobileCardBusinessDay(date) {
+      const day = date.getDay();
+      if (day === 0 || day === 6) return false;
+      const key = String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+      return !MOBILE_CARD_FIXED_HOLIDAYS.has(key);
+    }
+    function moveMobileCardToBusinessDay(value, direction) {
+      const date = new Date(value);
+      while (!isMobileCardBusinessDay(date)) {
+        date.setDate(date.getDate() + direction);
+      }
+      return date;
+    }
+
+    function computeNextCardCycleDates(statementDay, dueDay, openStatementDueDate, currentDebt, referenceDate) {
+      const today = referenceDate ? new Date(referenceDate) : new Date();
       today.setHours(0, 0, 0, 0);
       const sDay = Math.max(1, Math.min(31, Number(statementDay) || 10));
       const dDay = Math.max(1, Math.min(31, Number(dueDay) || 20));
 
       let dueDateObj = null;
+      let cutDateObj = null;
       if (openStatementDueDate) {
         const parts = String(openStatementDueDate).slice(0, 10).split('-').map(Number);
         if (parts.length === 3 && !isNaN(parts[0])) {
@@ -56172,29 +56401,33 @@ function toggleSubTab(tabIndex) {
 
       if (!dueDateObj) {
         const dueMonthOffset = dDay <= sDay ? 1 : 0;
-        for (const offset of [-1, 0, 1, 2]) {
-          const candidate = new Date(today.getFullYear(), today.getMonth() + offset + dueMonthOffset, dDay);
-          candidate.setHours(0, 0, 0, 0);
-          if (candidate >= today) {
-            dueDateObj = candidate;
-            break;
-          }
-        }
-        if (!dueDateObj) {
-          dueDateObj = new Date(today.getFullYear(), today.getMonth() + 1, dDay);
-        }
+        const cycles = [-1, 0, 1, 2].map(offset => {
+          const nominalStatement = new Date(today.getFullYear(), today.getMonth() + offset, sDay);
+          const statementDate = moveMobileCardToBusinessDay(nominalStatement, -1);
+          const nominalDue = new Date(today.getFullYear(), today.getMonth() + offset + dueMonthOffset, dDay);
+          const dueDate = moveMobileCardToBusinessDay(nominalDue, 1);
+          statementDate.setHours(0, 0, 0, 0);
+          dueDate.setHours(0, 0, 0, 0);
+          return { statementDate, dueDate };
+        });
+        const chosen = cycles.find(c => c.dueDate >= today) || cycles[cycles.length - 1];
+        dueDateObj = chosen.dueDate;
+        cutDateObj = chosen.statementDate;
       }
 
-      const cutDateObj = new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), sDay);
+      if (!cutDateObj) {
+        cutDateObj = moveMobileCardToBusinessDay(new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), sDay), -1);
+      }
       const toTR = d => String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear();
       const toISO = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-      const diffDays = Math.ceil((dueDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const diffDays = Math.round((dueDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
       return {
         cutDate: toTR(cutDateObj),
         dueDate: toTR(dueDateObj),
         dueDateISO: toISO(dueDateObj),
-        dueDay: dueDateObj.getDate(),
+        dueDay: dDay,
+        effectiveDueDay: dueDateObj.getDate(),
         daysLeft: Math.max(0, diffDays)
       };
     }
@@ -56211,15 +56444,27 @@ function toggleSubTab(tabIndex) {
         const statements = statementsRes.data || [];
 
         if (!cardsRes.error && data.length > 0) {
-          mockCreditCards = data
+          const todayISO = getTodayISOString();
+          const mappedCards = data
             .filter(c => !c.status || c.status === 'aktif')
             .map((c, i) => {
-              const openStmt = statements.find(s => s.card_id === c.id && s.payment_status !== 'odendi');
-              const limit = Number(c.card_limit) || 500000;
-              const used = openStmt ? (Number(openStmt.total_debt) || Number(c.current_debt) || 0) : (Number(c.current_debt) || 0);
-              const minRate = Number(c.min_payment_rate) ? (Number(c.min_payment_rate) / 100) : 0.2;
-              const minPay = openStmt && Number(openStmt.min_payment) > 0 ? Number(openStmt.min_payment) : (used * minRate);
-              const cycle = computeNextCardCycleDates(c.statement_day, c.due_day, openStmt ? openStmt.due_date : null, used);
+              const limit = (c.card_limit !== undefined && c.card_limit !== null && c.card_limit !== '')
+                ? (Number(c.card_limit) || 0)
+                : 0;
+              const dbDebt = Number(c.current_debt) || 0;
+              const openStmt = statements
+                .filter(s => s.card_id === c.id && s.payment_status !== 'odendi' && s.due_date)
+                .sort((a, b) => String(b.statement_date || '').localeCompare(String(a.statement_date || '')))[0];
+              const stmtIsActive = openStmt && (String(openStmt.due_date).slice(0, 10) >= todayISO || dbDebt > 0);
+              const used = dbDebt > 0 ? dbDebt : (stmtIsActive ? (Number(openStmt.total_debt) || 0) : 0);
+              const minRateRaw = Number(c.min_payment_rate) || 0;
+              const minRate = minRateRaw > 1 ? (minRateRaw / 100) : (minRateRaw > 0 ? minRateRaw : 0.2);
+              const minPay = (stmtIsActive && Number(openStmt.min_payment) > 0)
+                ? Number(openStmt.min_payment)
+                : (Math.round(used * minRate * 100) / 100);
+              const sDay = Number(c.statement_day) || 10;
+              const dDay = Number(c.due_day) || 20;
+              const cycle = computeNextCardCycleDates(sDay, dDay, stmtIsActive ? openStmt.due_date : null, used);
 
               return {
                 id: i + 1,
@@ -56232,15 +56477,19 @@ function toggleSubTab(tabIndex) {
                 limit: limit,
                 used: used,
                 minPay: minPay,
+                statementDay: sDay,
+                dueDay: dDay,
                 cutDate: cycle.cutDate,
                 dueDate: cycle.dueDate,
                 dueDateISO: cycle.dueDateISO,
-                dueDay: cycle.dueDay,
                 daysLeft: cycle.daysLeft,
-                isCritical: cycle.daysLeft <= 3,
+                isCritical: limit > 1 && cycle.daysLeft <= 3,
                 color: i % 2 === 0 ? 'from-teal-800 to-emerald-950' : 'from-blue-900 to-indigo-950'
               };
             });
+          mockCreditCards = typeof sortMobileCreditCardsList === 'function'
+            ? sortMobileCreditCardsList(mappedCards)
+            : mappedCards;
         }
       } catch (e) {
         console.warn('Cards sync error:', e);
@@ -56416,41 +56665,47 @@ function toggleSubTab(tabIndex) {
 
         function rebuildLiveCalendarEvents() {
       const liveCardEvents = (mockCreditCards || [])
-        .filter(c => Number(c.used) > 0 || Number(c.limit) > 0)
+        .filter(c => c && c.status !== 'pasif' && Number(c.limit) > 1)
         .map(c => ({
           id: 'card-' + (c.rawId || c.id),
           date: c.dueDateISO || getTodayISOString(),
           code: '•••• ' + (c.last4 || String(c.no || '').slice(-4) || '1000'),
           title: c.bank + ' (' + c.name + ') Son Ödeme',
-          subtitle: 'Asgari Ödeme: ' + formatNumber(c.minPay || 0) + ' TL',
+          subtitle: Number(c.used) > 0
+            ? ('Güncel Borç: ' + formatNumber(c.used) + ' TL • Asgari: ' + formatNumber(c.minPay || 0) + ' TL')
+            : ('Limit: ' + formatNumber(c.limit || 0) + ' TL'),
           institution: c.bank,
           detail: 'Kredi Kartı Son Ödeme Günü (Sabah 09:00 Bildirimli)',
           type: 'credit-card',
           to: 'credit_cards',
-          amount: formatNumber(c.used || 0) + ' TL',
-          statusLabel: 'Ödeme Bekliyor',
+          amount: formatNumber(Number(c.used) > 0 ? c.used : c.limit) + ' TL',
+          statusLabel: Number(c.used) > 0 ? 'Ödeme Bekliyor' : 'Aktif Kart',
           statusClass: 'bg-red-50 text-red-700 border border-red-200'
         }));
 
       const liveCheckEvents = (mockChecks || [])
-        .filter(c => c.status !== 'Ödendi' && c.dueISO && Number(c.amount) > 0)
+        .filter(c => c && c.status !== 'odendi' && c.status !== 'Ödendi' && (c.dueDateISO || c.dueISO) && Number(c.amount) > 0)
         .slice(0, 60)
-        .map(c => ({
-          id: 'chk-' + (c.rawId || c.id),
-          date: c.dueISO,
-          code: c.no || 'ÇEK',
-          title: c.party + ' (' + (c.type === 'Alınan Çek' ? 'Alınan' : 'Verilen') + ')',
-          subtitle: c.bank + ' • ' + (c.takasDurumu || c.status),
-          institution: c.bank,
-          detail: c.desc || 'Canlı Çek & Takas Kaydı',
-          type: 'check',
-          to: 'takas_cekleri',
-          amount: formatNumber(c.amount || 0) + ' TL',
-          statusLabel: c.status || 'Tahsilde',
-          statusClass: c.type === 'Alınan Çek'
-            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-            : 'bg-amber-50 text-amber-700 border border-amber-200'
-        }));
+        .map(c => {
+          const isAlinan = c.type === 'alinan' || c.type === 'Alınan Çek';
+          const partyName = c.supplier || c.party || c.debtor || 'Çek';
+          return {
+            id: 'chk-' + (c.rawId || c.id),
+            date: c.dueDateISO || c.dueISO,
+            code: (c.no && c.no !== '-') ? c.no : 'ÇEK',
+            title: partyName + ' (' + (isAlinan ? 'Alınan' : 'Verilen') + ')',
+            subtitle: (c.bank || 'Banka') + ' • ' + (c.rawStatus || c.takasDurumu || c.status),
+            institution: c.bank || 'Banka',
+            detail: c.note || c.desc || 'Canlı Çek & Takas Kaydı',
+            type: 'check',
+            to: 'takas_cekleri',
+            amount: formatNumber(c.amount || 0) + ' TL',
+            statusLabel: c.rawStatus || c.status || 'Tahsilde',
+            statusClass: isAlinan
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              : 'bg-amber-50 text-amber-700 border border-amber-200'
+          };
+        });
 
       const liveBillEvents = (mockBillsData || [])
         .filter(b => b.status !== 'odendi' && b.dueDateISO)
@@ -56469,7 +56724,13 @@ function toggleSubTab(tabIndex) {
           statusClass: 'bg-blue-50 text-[#002D59] border border-blue-200'
         }));
 
-      const otherEvents = (mockCalendarEvents || []).filter(e => !String(e.id).startsWith('card-') && !String(e.id).startsWith('chk-') && !String(e.id).startsWith('bill-'));
+      const otherEvents = (mockCalendarEvents || []).filter(e =>
+        !String(e.id).startsWith('card-') &&
+        !String(e.id).startsWith('ev-cc-') &&
+        !String(e.id).startsWith('chk-') &&
+        !String(e.id).startsWith('ev-chk-') &&
+        !String(e.id).startsWith('bill-')
+      );
       mockCalendarEvents = [...liveCardEvents, ...liveBillEvents, ...liveCheckEvents, ...otherEvents];
     }
 

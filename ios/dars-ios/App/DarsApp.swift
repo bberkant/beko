@@ -247,11 +247,21 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                     let dayOfMonth = cal.component(.day, from: targetDay)
                     let weekday = cal.component(.weekday, from: targetDay) // 1=Pazar, 2=Pazartesi, 7=Cumartesi
                     
-                    // 1) Sadece o gün son ödeme günü olan kartlar
+                    // 1) Sadece o gün son ödeme günü olan (ve limiti > 1 TL olan) aktif kartlar (Hafta sonu Pazartesiye devreder)
                     if ccEnabled {
                         let dueCardsForDay = fetchedCards.filter { card in
+                            let limitVal = (card["card_limit"] as? Double) ?? Double("\(card["card_limit"] ?? 0)") ?? 0.0
+                            if limitVal <= 1.0 { return false }
                             let dueDay = (card["due_day"] as? Int) ?? Int("\(card["due_day"] ?? 0)") ?? 0
-                            return dueDay == dayOfMonth
+                            if weekday == 1 || weekday == 7 { return false }
+                            if dueDay == dayOfMonth { return true }
+                            if weekday == 2 {
+                                if let sat = cal.date(byAdding: .day, value: -2, to: targetDay),
+                                   cal.component(.day, from: sat) == dueDay { return true }
+                                if let sun = cal.date(byAdding: .day, value: -1, to: targetDay),
+                                   cal.component(.day, from: sun) == dueDay { return true }
+                            }
+                            return false
                         }
                         
                         for (cIdx, card) in dueCardsForDay.enumerated() {
