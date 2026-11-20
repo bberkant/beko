@@ -2823,8 +2823,8 @@
     "no": "0026849",
     "voucher_no": "0026849",
     "check_no": "0026849",
-    "status": "ic_takas",
-    "rawStatus": "Tahsilde",
+    "status": "odendi",
+    "rawStatus": "Ödendi",
     "isIcTakas": true,
     "daysLeft": -1,
     "note": "TAKASTA - İÇ TAKAS",
@@ -7575,10 +7575,10 @@
     "no": "0027197",
     "voucher_no": "0027197",
     "check_no": "0027197",
-    "status": "takas",
-    "rawStatus": "Tahsilde",
+    "status": "odendi",
+    "rawStatus": "Ödendi",
     "isIcTakas": false,
-    "daysLeft": 23,
+    "daysLeft": -1,
     "note": "ÇEK",
     "ozelAlan": "ÇEK",
     "ozel_alan": "ÇEK"
@@ -7602,10 +7602,10 @@
     "no": "-",
     "voucher_no": "-",
     "check_no": "-",
-    "status": "takas",
-    "rawStatus": "Tahsilde",
+    "status": "odendi",
+    "rawStatus": "Ödendi",
     "isIcTakas": false,
-    "daysLeft": 23,
+    "daysLeft": -1,
     "note": "TAKSİT",
     "ozelAlan": "TAKSİT",
     "ozel_alan": "TAKSİT"
@@ -7629,13 +7629,67 @@
     "no": "0027196",
     "voucher_no": "0027196",
     "check_no": "0027196",
-    "status": "takas",
+    "status": "odendi",
+    "rawStatus": "Ödendi",
+    "isIcTakas": true,
+    "daysLeft": -1,
+    "note": "TAKASTA - İÇ TAKAS",
+    "ozelAlan": "TAKASTA - İÇ TAKAS",
+    "ozel_alan": "TAKASTA - İÇ TAKAS"
+  },
+  {
+    "id": "2865f0a3-f9cc-4652-936c-93f498aa8e6c",
+    "type": "kesilen",
+    "check_type": "kesilen",
+    "supplier": "ÖMER AKTEPE",
+    "creditor": "ÖMER AKTEPE",
+    "kesideci": "",
+    "debtor": "E.ZİRAAT",
+    "amount": 7570648,
+    "date": "19.11.2026",
+    "dueDateISO": "2026-11-19",
+    "due_date": "2026-11-19",
+    "regDate": "29.10.2026",
+    "issue_date": "2026-10-29",
+    "bank": "E.ZİRAAT",
+    "bank_name": "E.ZİRAAT",
+    "no": "0027213",
+    "voucher_no": "0027213",
+    "check_no": "0027213",
+    "status": "ic_takas",
     "rawStatus": "Tahsilde",
+    "isIcTakas": true,
+    "daysLeft": -1,
+    "note": "TAKASTA - İÇ TAKAS",
+    "ozelAlan": "TAKASTA - İÇ TAKAS",
+    "ozel_alan": "TAKASTA - İÇ TAKAS"
+  },
+  {
+    "id": "1b616756-3e0f-4914-9c17-dfa964869691",
+    "type": "kesilen",
+    "check_type": "kesilen",
+    "supplier": "BERKANT YAPI KART",
+    "creditor": "BERKANT YAPI KART",
+    "kesideci": "",
+    "debtor": "TAKSİT",
+    "amount": 500000,
+    "date": "20.11.2026",
+    "dueDateISO": "2026-11-20",
+    "due_date": "2026-11-20",
+    "regDate": "20.11.2026",
+    "issue_date": "2026-11-20",
+    "bank": "TAKSİT",
+    "bank_name": "TAKSİT",
+    "no": "-",
+    "voucher_no": "-",
+    "check_no": "-",
+    "status": "odendi",
+    "rawStatus": "Ödendi",
     "isIcTakas": false,
-    "daysLeft": 23,
-    "note": "ÇEK",
-    "ozelAlan": "ÇEK",
-    "ozel_alan": "ÇEK"
+    "daysLeft": 0,
+    "note": "TAKASTA - CC_78ef4333-e5a6-4733-8ed1-36a92eaf07f9_2026-11-20",
+    "ozelAlan": "TAKASTA - CC_78ef4333-e5a6-4733-8ed1-36a92eaf07f9_2026-11-20",
+    "ozel_alan": "TAKASTA - CC_78ef4333-e5a6-4733-8ed1-36a92eaf07f9_2026-11-20"
   },
   {
     "id": "5a07ca69-7ea6-477a-bd60-38fe066b57f8",
@@ -47677,7 +47731,7 @@ function toggleSubTab(tabIndex) {
     const takasDaysData = {}; // Legacy compatibility reference
 
     function cleanCheckStatusMobile(st) {
-      return String(st || '').toLocaleLowerCase('tr-TR').trim();
+      return cleanTurkishText(String(st || '')).toLocaleLowerCase('tr-TR').trim();
     }
 
     function isCheckPaidMobile(status) {
@@ -47688,8 +47742,32 @@ function toggleSubTab(tabIndex) {
         st === 'ödenen' ||
         st.includes('ödendi') ||
         st.includes('ödenen') ||
+        st.includes('ciro') ||
+        st.includes('iade') ||
+        st.includes('iptal') ||
         (st.includes('tahsil') && !st.includes('tahsilde'))
       );
+    }
+
+    function formatTaksitDescMobile(desc) {
+      if (!desc) return '';
+      const clean = cleanTurkishText(String(desc).trim()).toLocaleUpperCase('tr-TR');
+      if (clean === 'ÇEKTEN HESABI' || clean === 'CEKTEN HESABI' || clean === 'ÇEKTEN' || clean === 'CEKTEN') {
+        return 'ÇEKTEN';
+      }
+      const idx = clean.indexOf('-');
+      if (idx !== -1) {
+        const left = clean.substring(0, idx).trim();
+        const leftUpper = left.toLocaleUpperCase('tr-TR');
+        const isSystem = leftUpper.includes('ALBARAKA') ||
+                         leftUpper.includes('KUVEYT') ||
+                         leftUpper.includes('TAKSİT') ||
+                         leftUpper.includes('VAKIF') ||
+                         leftUpper.includes('MARİF') ||
+                         leftUpper.includes('MARIF');
+        if (isSystem) return left;
+      }
+      return clean;
     }
 
     function isCektenCheckMobile(c) {
@@ -47879,31 +47957,69 @@ function toggleSubTab(tabIndex) {
         ozel_alan: m.ozelAlan || m.note || ''
       }));
 
-      const targetDateStr = takasSelectedDate || getTodayISOString();
+      const todayISO = getTodayISOString();
+      const targetDateStr = takasSelectedDate || todayISO;
+
+      const paidSignatures = new Set();
+      sourceChecks.forEach(c => {
+        if (isCheckPaidMobile(c.status || c.rawStatus)) {
+          const due = String(c.due_date || formatTRToISO(c.date) || '').slice(0, 10);
+          const amt = Number(c.amount || 0).toFixed(2);
+          const cNo = String(c.check_no || c.voucher_no || c.no || '').trim();
+          const cType = c.check_type || c.type || 'kesilen';
+          if (cNo && cNo !== '-' && due) {
+            paidSignatures.add(`${cType}_${cNo}_${due}_${amt}`);
+          } else if (due) {
+            const cred = cleanTurkishText(c.creditor || c.supplier || '').trim().toLocaleUpperCase('tr-TR');
+            if (cred) paidSignatures.add(`${cType}_NOCNO_${cred}_${due}_${amt}`);
+          }
+        }
+      });
+
+      const isPaidBySignatureMobile = (c) => {
+        const due = String(c.due_date || formatTRToISO(c.date) || '').slice(0, 10);
+        const amt = Number(c.amount || 0).toFixed(2);
+        const cNo = String(c.check_no || c.voucher_no || c.no || '').trim();
+        const cType = c.check_type || c.type || 'kesilen';
+        if (cNo && cNo !== '-' && due && paidSignatures.has(`${cType}_${cNo}_${due}_${amt}`)) return true;
+        if ((!cNo || cNo === '-') && due) {
+          const cred = cleanTurkishText(c.creditor || c.supplier || '').trim().toLocaleUpperCase('tr-TR');
+          if (cred && paidSignatures.has(`${cType}_NOCNO_${cred}_${due}_${amt}`)) return true;
+        }
+        return false;
+      };
 
       const allowedStatuses = ['tahsilde', 'beklemede', 'ödenmedi', 'takas', 'ic_takas', 'nontakas'];
       const activeUnpaidKesilen = sourceChecks.filter(c => {
         if ((c.check_type || c.type) !== 'kesilen') return false;
         const st = cleanCheckStatusMobile(c.status || c.rawStatus);
-        const ozel = String(c.ozel_alan || c.ozelAlan || c.note || '').toLocaleUpperCase('tr-TR');
-        if (ozel.includes('TAKASTA OLMAYAN')) {
-          return allowedStatuses.some(a => st.includes(a)) || st.includes('geri alındı');
+        if (isCheckPaidMobile(st) || isPaidBySignatureMobile(c)) return false;
+        const ozel = cleanTurkishText(c.ozel_alan || c.ozelAlan || c.note || '').toLocaleUpperCase('tr-TR');
+        const isIcTakas = ozel.includes('İÇ TAKAS') || ozel.includes('IC TAKAS') || Boolean(c.isIcTakas);
+        if (ozel.includes('TAKASTA OLMAYAN') || isIcTakas) {
+          return allowedStatuses.some(a => st.includes(a)) || st.includes('geri alındı') || st.includes('geri alindi');
         }
-        if (isCheckPaidMobile(st)) return false;
         return allowedStatuses.some(a => st.includes(a));
       });
 
       const hatirAlinan = sourceChecks.filter(c => {
         if ((c.check_type || c.type) !== 'alinan') return false;
         const st = cleanCheckStatusMobile(c.status || c.rawStatus);
-        if (st.includes('iade') || st.includes('tahsil') || st.includes('ödendi') || st.includes('ödenen') || st.includes('iptal')) return false;
-        const ozel = String(c.ozel_alan || c.note || '').toLocaleUpperCase('tr-TR');
+        if (isCheckPaidMobile(st) || isPaidBySignatureMobile(c)) return false;
+        const ozel = cleanTurkishText(c.ozel_alan || c.note || '').trim().toLocaleUpperCase('tr-TR');
         if (ozel.startsWith('TAKASTA')) return true;
         return isHatirAlinanMobile(c);
       });
 
+      const cardBankKeywords = [
+        'KUVEYT', 'VAKIF', 'ZİRAAT', 'ZIRAAT', 'DENİZ', 'DENIZ',
+        'GARANTİ', 'GARANTI', 'AKBANK', 'İŞBANK', 'ISBANK', 'YAPI',
+        'ALBARAKA', 'ŞEKER', 'SEKER', 'HALK', 'QNB', 'TEB'
+      ];
       const creditCardDueChecks = [];
+      const [ty, tm] = (targetDateStr || todayISO).slice(0, 10).split('-').map(Number);
       (mockCreditCards || []).forEach(card => {
+        if (card.status === 'pasif') return;
         const cardLimit = Math.round(Number(card.limit || 0));
         if (cardLimit <= 1) return;
         let cardLabel = cleanTurkishText(card.bank || '')
@@ -47915,25 +48031,43 @@ function toggleSubTab(tabIndex) {
 
         const cDueISO = card.dueDateISO || (card.dueDate && card.dueDate.includes('.') ? card.dueDate.split('.').reverse().join('-') : '');
         const dDay = Number(card.dueDay) || (cDueISO ? Number(cDueISO.split('-')[2]) : 0);
-        const targetDayNum = Number((targetDateStr || '').split('-')[2]);
+
+        let targetMonthDueISO = cDueISO;
+        if (dDay > 0 && ty && tm) {
+          const maxDays = new Date(ty, tm, 0).getDate();
+          const clampedDay = Math.min(Math.max(1, dDay), maxDays);
+          const nominalDate = new Date(ty, tm - 1, clampedDay);
+          const adjDate = typeof moveMobileCardToBusinessDay === 'function'
+            ? moveMobileCardToBusinessDay(nominalDate, 1)
+            : nominalDate;
+          targetMonthDueISO = adjDate.getFullYear() + '-' + String(adjDate.getMonth() + 1).padStart(2, '0') + '-' + String(adjDate.getDate()).padStart(2, '0');
+        }
+
         const isDueOnTarget = takasViewMode === 'upcoming'
           ? (cDueISO >= targetDateStr)
-          : (cDueISO === targetDateStr || (dDay > 0 && dDay === targetDayNum));
+          : (cDueISO === targetDateStr || targetMonthDueISO === targetDateStr);
         if (!isDueOnTarget) return;
 
         const effectiveDueStr = takasViewMode === 'upcoming' ? (cDueISO || targetDateStr) : targetDateStr;
         const ccId = 'cc_' + (card.rawId || card.id) + '_' + effectiveDueStr;
+        const ccTag = 'CC_' + (card.rawId || card.id) + '_' + effectiveDueStr;
         const alreadyExists = sourceChecks.some(c => {
           if (String(c.id || '') === ccId) return true;
-          if (String(c.ozel_alan || c.note || '').includes('CC_' + (card.rawId || card.id) + '_' + effectiveDueStr)) return true;
+          if (String(c.ozel_alan || c.note || '').includes(ccTag)) return true;
           const cd = String(c.due_date || formatTRToISO(c.date) || '').slice(0, 10);
           if (cd !== effectiveDueStr) return false;
           const cred = cleanTurkishText(c.creditor || c.supplier || '').replace(/\s*BUS[İI]NESS\s*/gi, ' ').replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR');
-          return cred === cardLabel;
+          if (!cred.includes('KART')) return false;
+          if (cred === cardLabel) return true;
+          const cAmt = Math.round(Number(c.amount || 0));
+          if (Math.abs(cAmt - cardLimit) <= 1) {
+            return cardBankKeywords.some(kw => cred.includes(kw) && cardLabel.includes(kw));
+          }
+          return false;
         });
         if (alreadyExists) return;
 
-        creditCardDueChecks.push({
+        const syntheticCardCheck = {
           id: ccId,
           check_type: 'kesilen',
           type: 'kesilen',
@@ -47948,9 +48082,11 @@ function toggleSubTab(tabIndex) {
           bank: 'TAKSİT',
           status: 'Tahsilde',
           rawStatus: 'Tahsilde',
-          ozel_alan: 'TAKASTA - CC_' + (card.rawId || card.id) + '_' + effectiveDueStr,
-          note: 'TAKASTA - CC_' + (card.rawId || card.id) + '_' + effectiveDueStr
-        });
+          ozel_alan: 'TAKASTA - ' + ccTag,
+          note: 'TAKASTA - ' + ccTag
+        };
+        if (isPaidBySignatureMobile(syntheticCardCheck)) return;
+        creditCardDueChecks.push(syntheticCardCheck);
       });
 
       const allUnpaid = [...activeUnpaidKesilen, ...creditCardDueChecks, ...hatirAlinan];
@@ -47958,10 +48094,12 @@ function toggleSubTab(tabIndex) {
       const unpaidKesilen = allUnpaid.filter(c => {
         const due = String(c.due_date || formatTRToISO(c.date) || '').slice(0, 10);
         const isCekten = isCektenCheckMobile(c);
+        const ozel = cleanTurkishText(c.ozel_alan || c.ozelAlan || c.note || '').toLocaleUpperCase('tr-TR');
+        const isIcTakas = ozel.includes('İÇ TAKAS') || ozel.includes('IC TAKAS') || Boolean(c.isIcTakas);
         if (takasViewMode === 'upcoming') {
-          return due >= targetDateStr || isCekten;
+          return due >= targetDateStr || isCekten || (isIcTakas && due <= targetDateStr && due >= '2026-10-20');
         }
-        return due === targetDateStr || (isCekten && due <= targetDateStr);
+        return due === targetDateStr || (isCekten && due <= targetDateStr) || (isIcTakas && due <= targetDateStr && due >= '2026-10-20');
       });
 
       const paidForDate = sourceChecks.filter(c => {
@@ -47988,7 +48126,8 @@ function toggleSubTab(tabIndex) {
 
       takasCandidates.forEach(c => {
         const bankName = getBankColumnMobile(c.debtor, c.bank_name || c.bank);
-        const isExplicitTakasta = String(c.ozel_alan || c.note || '').toLocaleUpperCase('tr-TR').startsWith('TAKASTA');
+        const noteUpper = cleanTurkishText(c.ozel_alan || c.note || '').toLocaleUpperCase('tr-TR');
+        const isExplicitTakasta = noteUpper.includes('TAKASTA') && !noteUpper.includes('TAKASTA OLMAYAN');
         if (
           isHatirAlinanMobile(c) ||
           bankName === 'TAKSİT' ||
@@ -47999,6 +48138,39 @@ function toggleSubTab(tabIndex) {
         } else if (bankName) {
           if (!columns[bankName]) columns[bankName] = [];
           columns[bankName].push(c);
+        } else {
+          nonTakasChecks.push(c);
+        }
+      });
+
+      // Sort each column 1:1 with web portal ChecksPage.tsx
+      Object.keys(columns).forEach(colName => {
+        if (colName === 'TAKSİT') {
+          const getDesc = (c) => cleanTurkishText(isHatirAlinanMobile(c) ? (c.kesideci || c.creditor || '') : (c.creditor || c.supplier || '')).trim().toLocaleUpperCase('tr-TR');
+          const isToggledNonTakas = (c) => {
+            const note = cleanTurkishText(c.ozel_alan || c.note || '').toLocaleUpperCase('tr-TR');
+            return note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN') && !note.includes('CC_');
+          };
+          const isCard = (c) => getDesc(c).includes('KART');
+          const isBill = (c) => String(c.id || '').startsWith('bill_') || String(c.ozel_alan || c.note || '').includes('FATURA_');
+          const isSystem = (c) => {
+            if (isCard(c) || isBill(c) || isToggledNonTakas(c)) return false;
+            const d = getDesc(c);
+            return d.includes('ALBARAKA') || d.includes('KUVEYT') || d.includes('TAKSİT') || d.includes('VAKIF') || d.includes('MARİF') || d.includes('MARIF');
+          };
+          const systemChecks = columns[colName].filter(c => isSystem(c)).sort((a, b) => getDesc(a).localeCompare(getDesc(b), 'tr'));
+          const cardChecks = columns[colName].filter(c => isCard(c) && !isBill(c) && !isToggledNonTakas(c)).sort((a, b) => getDesc(a).localeCompare(getDesc(b), 'tr'));
+          const billChecks = columns[colName].filter(c => isBill(c) && !isToggledNonTakas(c)).sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0));
+          const regularManualChecks = columns[colName].filter(c => !isSystem(c) && !isCard(c) && !isBill(c) && !isToggledNonTakas(c));
+          const toggledNonTakasChecks = columns[colName].filter(c => isToggledNonTakas(c));
+          columns[colName] = [...systemChecks, ...cardChecks, ...billChecks, ...regularManualChecks, ...toggledNonTakasChecks];
+        } else {
+          columns[colName].sort((a, b) => {
+            const aIc = cleanTurkishText(a.ozel_alan || a.note || '').toLocaleUpperCase('tr-TR').includes('İÇ TAKAS') || Boolean(a.isIcTakas);
+            const bIc = cleanTurkishText(b.ozel_alan || b.note || '').toLocaleUpperCase('tr-TR').includes('İÇ TAKAS') || Boolean(b.isIcTakas);
+            if (aIc !== bIc) return aIc ? 1 : -1;
+            return (Number(a.amount) || 0) - (Number(b.amount) || 0);
+          });
         }
       });
 
@@ -48033,8 +48205,8 @@ function toggleSubTab(tabIndex) {
       const nonTakasTotal = nonTakasChecks.reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
 
       const icTakasChecks = unpaidKesilen.filter(c => {
-        const ozel = String(c.ozel_alan || c.note || '').toLocaleUpperCase('tr-TR');
-        return ozel.includes('İÇ TAKAS') || Boolean(c.isIcTakas);
+        const ozel = cleanTurkishText(c.ozel_alan || c.note || '').toLocaleUpperCase('tr-TR');
+        return ozel.includes('İÇ TAKAS') || ozel.includes('IC TAKAS') || Boolean(c.isIcTakas);
       });
       const icTakasTotal = icTakasChecks.reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
 
@@ -48042,13 +48214,17 @@ function toggleSubTab(tabIndex) {
       const dateCountsMap = {};
       allUnpaid.forEach(c => {
         if (isCektenCheckMobile(c)) return;
-        const d = String(c.due_date || formatTRToISO(c.date) || '').slice(0, 10);
-        if (!d) return;
+        const rawDue = String(c.due_date || formatTRToISO(c.date) || '').slice(0, 10);
+        if (!rawDue) return;
+        const ozel = cleanTurkishText(c.ozel_alan || c.ozelAlan || c.note || '').toLocaleUpperCase('tr-TR');
+        const isIc = ozel.includes('İÇ TAKAS') || ozel.includes('IC TAKAS') || Boolean(c.isIcTakas);
+        const d = (isIc && rawDue < todayISO && rawDue >= '2026-10-20') ? todayISO : rawDue;
         if (!dateCountsMap[d]) dateCountsMap[d] = { count: 0, sum: 0 };
         dateCountsMap[d].count += 1;
         dateCountsMap[d].sum += (Number(c.amount) || 0);
       });
-      const activeDates = Object.keys(dateCountsMap).sort().slice(0, 14);
+      const upcomingDates = Object.keys(dateCountsMap).filter(d => d >= todayISO).sort();
+      const activeDates = (upcomingDates.length > 0 ? upcomingDates : Object.keys(dateCountsMap).sort()).slice(0, 14);
 
       return {
         targetDateStr,
@@ -48236,7 +48412,7 @@ function toggleSubTab(tabIndex) {
                 <tbody class="divide-y divide-slate-200 font-[600] text-slate-800 text-[11px]">
                   ${Array.from({ length: maxRows }).map((_, rowIdx) => {
                     const taksitChk = (dash.columns['TAKSİT'] || [])[rowIdx];
-                    const taksitDesc = taksitChk ? cleanTurkishText(isHatirAlinanMobile(taksitChk) ? (taksitChk.kesideci || taksitChk.creditor || '') : (taksitChk.creditor || taksitChk.supplier || '')) : '';
+                    const taksitDesc = taksitChk ? formatTaksitDescMobile(isHatirAlinanMobile(taksitChk) ? (taksitChk.kesideci || taksitChk.creditor || '') : (taksitChk.creditor || taksitChk.supplier || '')) : '';
                     return `
                       <tr class="h-[30px]">
                         ${dash.activeBankCols.map(col => {
@@ -48422,9 +48598,10 @@ function toggleSubTab(tabIndex) {
       const tomorrowTR = formatISOToTR(tomorrowISO);
 
       // Update top 4 KPI cards dynamically from mockChecks
-      const todayChecks = mockChecks.filter(c => !isCheckPaidMobile(c.rawStatus) && (c.dueDateISO === todayISO || c.date === todayTR || c.daysLeft === 0));
+      const isCarriedIcTakasToday = (c) => Boolean(c.isIcTakas && c.dueDateISO && c.dueDateISO <= todayISO && c.dueDateISO >= '2026-10-20');
+      const todayChecks = mockChecks.filter(c => !isCheckPaidMobile(c.rawStatus) && (c.dueDateISO === todayISO || c.date === todayTR || c.daysLeft === 0 || isCarriedIcTakasToday(c)));
       const tomorrowChecks = mockChecks.filter(c => !isCheckPaidMobile(c.rawStatus) && (c.dueDateISO === tomorrowISO || c.date === tomorrowTR || c.daysLeft === 1));
-      const weekChecks = mockChecks.filter(c => !isCheckPaidMobile(c.rawStatus) && c.daysLeft >= 0 && c.daysLeft <= 6);
+      const weekChecks = mockChecks.filter(c => !isCheckPaidMobile(c.rawStatus) && ((c.daysLeft >= 0 && c.daysLeft <= 6) || isCarriedIcTakasToday(c)));
       const tahsildeChecks = mockChecks.filter(c => !isCheckPaidMobile(c.rawStatus));
       const odenenChecks = mockChecks.filter(c => isCheckPaidMobile(c.rawStatus));
 
@@ -48447,9 +48624,9 @@ function toggleSubTab(tabIndex) {
         if (checkListActiveType === 'kesilen' && c.type !== 'kesilen') return false;
         if (checkListActiveType === 'alinan' && c.type !== 'alinan') return false;
 
-        if (checkListActiveDate === 'today' && c.daysLeft !== 0 && c.date !== todayTR) return false;
+        if (checkListActiveDate === 'today' && c.daysLeft !== 0 && c.date !== todayTR && !isCarriedIcTakasToday(c)) return false;
         if (checkListActiveDate === 'tomorrow' && c.daysLeft !== 1 && c.date !== tomorrowTR) return false;
-        if (checkListActiveDate === 'week' && (c.daysLeft < 0 || c.daysLeft > 6)) return false;
+        if (checkListActiveDate === 'week' && (c.daysLeft < 0 || c.daysLeft > 6) && !isCarriedIcTakasToday(c)) return false;
 
         if (checkListActiveStatus === 'tahsilde' && isCheckPaidMobile(c.rawStatus)) return false;
         if (checkListActiveStatus === 'odenen' && !isCheckPaidMobile(c.rawStatus)) return false;
@@ -55320,18 +55497,23 @@ function toggleSubTab(tabIndex) {
         isLiveConnected = true;
         updateLiveBadge(true, 'Canlı Veritabanı Bağlandı');
 
-        // AŞAMA 1: Bildirim ve Takvim için kritik Turhost tablolarını (<500ms) anında çek ve kilit ekranı alarmlarını hemen kur
+        // AŞAMA 1: Bildirim, Takvim ve Takas Çekleri için kritik Turhost tablolarını (<500ms) anında çek ve kilit ekranı alarmlarını hemen kur
         await Promise.allSettled([
           syncLiveCards(),
           syncLiveBills(),
-          syncLiveCalendarNotes()
+          syncLiveCalendarNotes(),
+          syncLiveCektenHesabi(),
+          syncLiveChecks()
         ]);
         rebuildLiveCalendarEvents();
         renderCreditCards();
         renderBillsScreen();
+        renderCektenScreen();
+        renderChecks();
         renderCalendar();
         renderNotifications();
         renderSettings();
+        updateLiveDashboardStats();
         lastMorningSyncSignature = '';
         syncNativeMorningNotifications(false);
 
@@ -55344,8 +55526,6 @@ function toggleSubTab(tabIndex) {
         // AŞAMA 2: Diğer tüm ERP ve finans modüllerini eşitle
         await Promise.allSettled([
           syncLiveCaris(),
-          syncLiveCektenHesabi(),
-          syncLiveChecks(),
           syncLiveVehicles(),
           syncLiveSlaughters(),
           syncLiveTenders(),
@@ -55946,23 +56126,21 @@ function toggleSubTab(tabIndex) {
             .eq('organization_id', orgId)
             .eq('check_type', 'kesilen')
             .neq('status', 'Ödendi')
-            .order('due_date', { ascending: true })
-            .range(0, 999),
+            .order('due_date', { ascending: true }),
           liveSupabase
             .from('ebs_checks')
             .select('*')
             .eq('organization_id', orgId)
             .eq('check_type', 'alinan')
             .neq('status', 'Ödendi')
-            .order('due_date', { ascending: true })
-            .range(0, 999),
+            .order('due_date', { ascending: true }),
           liveSupabase
             .from('ebs_checks')
             .select('*')
             .eq('organization_id', orgId)
             .eq('status', 'Ödendi')
             .order('due_date', { ascending: false })
-            .limit(200),
+            .limit(500),
           liveSupabase
             .from('cekten_hesabi')
             .select('*')
@@ -56023,6 +56201,8 @@ function toggleSubTab(tabIndex) {
               ozelAlan: cleanTurkishText(ozel)
             };
           });
+          renderChecks();
+          updateLiveDashboardStats();
         }
       } catch (e) {
         console.warn('Checks sync error:', e);
@@ -56683,15 +56863,22 @@ function toggleSubTab(tabIndex) {
           statusClass: 'bg-red-50 text-red-700 border border-red-200'
         }));
 
+      const todayCalISO = getTodayISOString();
       const liveCheckEvents = (mockChecks || [])
-        .filter(c => c && c.status !== 'odendi' && c.status !== 'Ödendi' && (c.dueDateISO || c.dueISO) && Number(c.amount) > 0)
-        .slice(0, 60)
+        .filter(c => {
+          if (!c || c.status === 'odendi' || c.status === 'Ödendi' || !(c.dueDateISO || c.dueISO) || Number(c.amount) <= 0) return false;
+          const d = String(c.dueDateISO || c.dueISO).slice(0, 10);
+          return d >= '2026-10-01';
+        })
+        .slice(0, 80)
         .map(c => {
           const isAlinan = c.type === 'alinan' || c.type === 'Alınan Çek';
           const partyName = c.supplier || c.party || c.debtor || 'Çek';
+          const rawDate = String(c.dueDateISO || c.dueISO).slice(0, 10);
+          const effectiveDate = (c.isIcTakas && rawDate < todayCalISO && rawDate >= '2026-10-20') ? todayCalISO : rawDate;
           return {
             id: 'chk-' + (c.rawId || c.id),
-            date: c.dueDateISO || c.dueISO,
+            date: effectiveDate,
             code: (c.no && c.no !== '-') ? c.no : 'ÇEK',
             title: partyName + ' (' + (isAlinan ? 'Alınan' : 'Verilen') + ')',
             subtitle: (c.bank || 'Banka') + ' • ' + (c.rawStatus || c.takasDurumu || c.status),
@@ -56797,18 +56984,19 @@ function toggleSubTab(tabIndex) {
             await refreshActiveCariDetailSilently();
           }
         } else {
-          // Fast 15s cycle: Notes, Credit Cards, Checks, Transactions, and whichever screen is currently open
+          // Fast 15s cycle: Notes, Credit Cards, Bills, Checks, Transactions, and whichever screen is currently open
           const tasks = [
             syncLiveCalendarNotes(),
             syncLiveCards(),
             syncLiveBills(),
+            syncLiveChecks(),
             syncLiveTransactions()
           ];
           if (currentScreen === 'caris' || currentScreen === 'dashboard') tasks.push(syncLiveCaris());
           if (currentScreen === 'cari_detail') tasks.push(refreshActiveCariDetailSilently());
           if (currentScreen === 'slaughters' || currentScreen === 'acik_mal' || currentScreen === 'kesim_cari') tasks.push(syncLiveSlaughters());
           if (currentScreen === 'checks' || currentScreen === 'takas_cekleri' || currentScreen === 'cekten_hesabi') {
-            tasks.push(syncLiveCektenHesabi(), syncLiveChecks());
+            tasks.push(syncLiveCektenHesabi());
           }
           if (currentScreen === 'personnel') tasks.push(syncLivePersonnel());
           if (currentScreen === 'vehicles') tasks.push(syncLiveVehicles());
