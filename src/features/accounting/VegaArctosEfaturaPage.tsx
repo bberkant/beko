@@ -120,7 +120,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
   const [invoices, setInvoices] = useState<VegaEfatura[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'gelen' | 'giden'>('gelen');
+  const [activeTab, setActiveTab] = useState<'gelen' | 'giden'>('giden');
   const [gidenBoxFilter, setGidenBoxFilter] = useState<'all' | 'outbox' | 'sent'>('all');
   const [localSearch, setLocalSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -394,7 +394,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         setActiveTab(prevTab => {
           if (prevTab === 'giden' && hasOutgoing) return 'giden';
           if (prevTab === 'gelen' && hasIncoming) return 'gelen';
-          return hasIncoming ? 'gelen' : (hasOutgoing ? 'giden' : prevTab);
+          return hasOutgoing ? 'giden' : (hasIncoming ? 'gelen' : prevTab);
         });
         const now = new Date();
         const nowIso = now.toISOString();
@@ -450,6 +450,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
   useEffect(() => {
     let isMounted = true;
     setInvoices([]);
+    setActiveTab('giden');
     setLocalSearch('');
     setSearchQuery('');
     setLastSyncTime(null);
@@ -467,8 +468,10 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
           setInvoices(localData.invoices);
           const hasIncoming = localData.invoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
           const hasOutgoing = localData.invoices.some((i: any) => (i.direction || 'gelen') === 'giden');
-          if (!hasIncoming && hasOutgoing) {
+          if (hasOutgoing) {
             setActiveTab('giden');
+          } else if (hasIncoming) {
+            setActiveTab('gelen');
           }
           setCacheSource('Önbellek');
           if (localData.updatedAt) {
@@ -517,7 +520,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
               const hasOutgoing = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'giden');
               if (prevTab === 'giden' && hasOutgoing) return 'giden';
               if (prevTab === 'gelen' && hasIncoming) return 'gelen';
-              return hasIncoming ? 'gelen' : (hasOutgoing ? 'giden' : prevTab);
+              return hasOutgoing ? 'giden' : (hasIncoming ? 'gelen' : prevTab);
             });
             setCacheSource('Supabase');
             const d = new Date(supaData.updatedAt);
@@ -929,23 +932,8 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         </div>
       </div>
 
-      {/* Gelen/Giden Tabs */}
+      {/* Giden/Gelen Tabs */}
       <div className="flex border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('gelen')}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-            activeTab === 'gelen'
-              ? 'border-[#f37021] text-[#f37021]'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
-        >
-          <span>Gelen Faturalar</span>
-          <span className={`rounded-full px-2 py-0.5 text-xs ${
-            activeTab === 'gelen' ? 'bg-orange-100 text-[#f37021]' : 'bg-gray-100 text-gray-600'
-          }`}>
-            {invoices.filter(i => (i.direction || 'gelen') === 'gelen').length}
-          </span>
-        </button>
         <button
           onClick={() => setActiveTab('giden')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
@@ -959,6 +947,21 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
             activeTab === 'giden' ? 'bg-orange-100 text-[#f37021]' : 'bg-gray-100 text-gray-600'
           }`}>
             {invoices.filter(i => (i.direction || 'gelen') === 'giden').length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('gelen')}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'gelen'
+              ? 'border-[#f37021] text-[#f37021]'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <span>Gelen Faturalar</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs ${
+            activeTab === 'gelen' ? 'bg-orange-100 text-[#f37021]' : 'bg-gray-100 text-gray-600'
+          }`}>
+            {invoices.filter(i => (i.direction || 'gelen') === 'gelen').length}
           </span>
         </button>
       </div>
