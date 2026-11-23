@@ -53571,10 +53571,16 @@ function toggleSubTab(tabIndex) {
     }
 
     function doesMobileNoteBelongToUser(row) {
-      if (!currentAuthUser) return true;
       const uKey = getMobileNoteUserKey();
       const ownerTag = extractMobileOwnerKey(row && row.content);
       if (ownerTag) return ownerTag === uKey;
+      if (!currentAuthUser) {
+        if (row && row.created_by) {
+          const cb = String(row.created_by).toLowerCase();
+          return cb === '9c242e61-e15f-41b5-b1e6-60a02baed90a' || cb === '291129b0-b5be-447e-97e1-51c613446aa3';
+        }
+        return true;
+      }
       if (row && row.created_by && currentAuthUser.id) {
         const cb = String(row.created_by).toLowerCase();
         const uid = String(currentAuthUser.id).toLowerCase();
@@ -54325,8 +54331,17 @@ function toggleSubTab(tabIndex) {
       dailySummaryEnabled: false
     };
 
+    function getNotificationSettingsStorageKey() {
+      const uKey = typeof getMobileNoteUserKey === 'function' ? getMobileNoteUserKey() : '';
+      return uKey ? ('dars_notification_settings_' + uKey) : 'dars_notification_settings';
+    }
+
     function getNotificationSettings() {
       try {
+        const userScoped = localStorage.getItem(getNotificationSettingsStorageKey());
+        if (userScoped) {
+          return { ...DEFAULT_NOTIFICATION_SETTINGS, ...JSON.parse(userScoped) };
+        }
         const saved = localStorage.getItem('dars_notification_settings');
         if (saved) {
           return { ...DEFAULT_NOTIFICATION_SETTINGS, ...JSON.parse(saved) };
@@ -54337,7 +54352,9 @@ function toggleSubTab(tabIndex) {
 
     function saveNotificationSettings(nextSettings) {
       try {
-        localStorage.setItem('dars_notification_settings', JSON.stringify(nextSettings));
+        const json = JSON.stringify(nextSettings);
+        localStorage.setItem(getNotificationSettingsStorageKey(), json);
+        localStorage.setItem('dars_notification_settings', json);
       } catch(e) {}
     }
 
@@ -55653,6 +55670,8 @@ function toggleSubTab(tabIndex) {
     function applyAuthenticatedUserToUI(authUser) {
       if (!authUser) return;
       currentAuthUser = authUser;
+      userCalendarNotes = [];
+      lastMorningSyncSignature = '';
       loadMobileUserNotesCache();
       const profileBadge = document.querySelector('#app-header [title="Profil"]');
       if (profileBadge) {
@@ -55862,6 +55881,11 @@ function toggleSubTab(tabIndex) {
 
     function handleLogout() {
       currentAuthUser = null;
+      userCalendarNotes = [];
+      lastMorningSyncSignature = '';
+      latestNativePendingNotifications = [];
+      postToNativeNotificationBridge({ action: 'clearAll' });
+      clearAppIconBadgeMobile();
       try {
         sessionStorage.setItem("dars_explicit_signout", "1");
         sessionStorage.removeItem("dars_cached_auth_user");
