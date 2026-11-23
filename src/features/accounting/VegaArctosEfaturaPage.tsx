@@ -28,7 +28,12 @@ import {
   saveSupabaseCache 
 } from './efaturaCache';
 import { StandardElectronicInvoice } from './components/StandardElectronicInvoice';
-import { downloadInvoiceXml, downloadInvoiceHtml } from './utils/invoiceDocumentHelpers';
+import { 
+  downloadInvoiceXml, 
+  downloadInvoiceHtml, 
+  downloadInvoicePdf, 
+  generateInvoicePdfBlob 
+} from './utils/invoiceDocumentHelpers';
 
 export interface VegaEfatura {
   id: number;
@@ -682,7 +687,22 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         }
       } catch {}
 
-      // 3. Bulunamadıysa otomatik olarak standart resmi elektronik fatura görünümü devrede
+      // 3. Giden kutusu veya entegratörde henüz oluşmamış faturalar için:
+      // Resmi şablonumuzla anında gerçek yüksek çözünürlüklü A4 PDF üret ve PDF görüntüleyicide aç
+      try {
+        const pdfBlob = await generateInvoicePdfBlob(selectedInvoice, details, company as 'etik' | 'marif');
+        if (isMounted && pdfBlob && pdfBlob.size > 1000) {
+          const blobUrl = URL.createObjectURL(pdfBlob);
+          setPdfBlobUrl(blobUrl);
+          setViewerMode('pdf');
+          setIsPdfGenerating(false);
+          return;
+        }
+      } catch (genErr) {
+        console.warn('Otomatik PDF üretim hatası, standart HTML şablonuna geçiliyor:', genErr);
+      }
+
+      // 4. Son çare standart HTML görünümü
       if (isMounted) {
         setPdfBlobUrl(null);
         setViewerMode('standard');
@@ -695,7 +715,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
     return () => {
       isMounted = false;
     };
-  }, [selectedInvoice?.invoiceNo, selectedInvoice?.id, company]);
+  }, [selectedInvoice?.invoiceNo, selectedInvoice?.id, company, details]);
 
   const viewDetails = async (invoice: VegaEfatura) => {
     setSelectedInvoice(invoice);
@@ -1338,15 +1358,15 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                           <Eye size={14} />
                           Detay
                         </button>
-                        <a
-                          href={getInvoicePdfUrl(company, inv)}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => void viewDetails(inv)}
                           className="inline-flex items-center gap-0.5 text-xs font-semibold text-[#1f4e79] hover:text-[#163a5c] hover:underline"
+                          title="Faturayı Görüntüle ve PDF İndir"
                         >
                           <FileText size={13} />
                           PDF
-                        </a>
+                        </button>
                         <a
                           href={`${TUNNEL_URL}/api/${company}/efaturalar/${inv.invoiceNo}/xml`}
                           download
@@ -1525,7 +1545,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                           return;
                         }
                       }
-                      window.open(getInvoicePdfUrl(company, selectedInvoice), '_blank');
+                      window.print();
                     }}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
                     title="Faturayı Yazdır"
@@ -1535,17 +1555,26 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                   </button>
 
                   {/* PDF İndir Button */}
-                  <a
-                    href={pdfBlobUrl || getInvoicePdfUrl(company, selectedInvoice)}
-                    download={`${selectedInvoice.invoiceNo}.pdf`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#1f4e79] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-[#163a5c] transition-colors"
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (pdfBlobUrl) {
+                        const a = document.createElement('a');
+                        a.href = pdfBlobUrl;
+                        a.download = `${selectedInvoice.invoiceNo.trim()}.pdf`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      } else {
+                        await downloadInvoicePdf(selectedInvoice, details, company as 'etik' | 'marif');
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#1f4e79] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-[#163a5c] transition-colors cursor-pointer"
                     title="Resmi Elektronik Fatura PDF İndir"
                   >
                     <Download size={14} />
                     PDF İndir
-                  </a>
+                  </button>
 
                   {/* XML İndir Button */}
                   <button
@@ -1613,10 +1642,16 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                       </span>
                     </div>
                     <a
-                      href={pdfBlobUrl || getInvoicePdfUrl(company, selectedInvoice)}
+                      href={pdfBlobUrl || '#'}
+                      onClick={(e) => {
+                        if (!pdfBlobUrl) {
+                          e.preventDefault();
+                          void downloadInvoicePdf(selectedInvoice, details, company as 'etik' | 'marif');
+                        }
+                      }}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 font-semibold text-[#1f4e79] hover:underline"
+                      className="inline-flex items-center gap-1 font-semibold text-[#1f4e79] hover:underline cursor-pointer"
                     >
                       <ExternalLink size={12} />
                       Yeni Pencerede Tam Boyut Aç

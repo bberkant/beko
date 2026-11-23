@@ -11,30 +11,7 @@ interface StandardElectronicInvoiceProps {
 function GibOfficialLogo() {
   return (
     <div className="flex flex-col items-center">
-      <svg width="68" height="68" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* Double circular red border */}
-        <circle cx="50" cy="50" r="46" stroke="#c00" strokeWidth="2.5" fill="#fff" />
-        <circle cx="50" cy="50" r="41" stroke="#c00" strokeWidth="1" fill="#fff" />
-        {/* Top Arc text: GELİR İDARESİ BAŞKANLIĞI */}
-        <path id="gibArcTextReact" d="M 18,50 A 32,32 0 1,1 82,50" fill="none" />
-        <text fontSize="7.5" fontWeight="bold" fill="#c00" letterSpacing="0.5">
-          <textPath href="#gibArcTextReact" startOffset="50%" textAnchor="middle">
-            GELİR İDARESİ BAŞKANLIĞI
-          </textPath>
-        </text>
-        {/* Central Stylized G emblem */}
-        <path
-          d="M 50 25 A 25 25 0 1 0 75 50 L 52 50 L 52 58 L 71 58 A 19 19 0 1 1 50 31 Z"
-          fill="#c00"
-        />
-        {/* Bottom Arc text: T.C. HAZİNE VE MALİYE BAKANLIĞI */}
-        <path id="gibBottomArcReact" d="M 82,50 A 32,32 0 0,1 18,50" fill="none" />
-        <text fontSize="6" fontWeight="bold" fill="#c00" letterSpacing="0.5">
-          <textPath href="#gibBottomArcReact" startOffset="50%" textAnchor="middle">
-            T.C. HAZİNE VE MALİYE BAKANLIĞI
-          </textPath>
-        </text>
-      </svg>
+      <img src="/gib_logo.png" alt="GİB e-Fatura" className="h-[68px] w-[68px] object-contain" />
     </div>
   );
 }
@@ -42,16 +19,7 @@ function GibOfficialLogo() {
 function WetBlueSignature() {
   return (
     <div className="flex items-center justify-center">
-      <svg width="140" height="55" viewBox="0 0 160 70" fill="none" xmlns="http://www.w3.org/2000/svg" className="transform -rotate-2">
-        <path
-          d="M15 45 C30 20, 45 10, 60 35 C70 50, 85 15, 95 25 C105 35, 115 55, 130 30 C138 18, 145 28, 150 40 M45 42 C70 42, 110 38, 145 45 M30 30 C50 15, 75 12, 100 20 C125 28, 140 25, 155 35"
-          stroke="#1a4f8b"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ opacity: 0.88 }}
-        />
-      </svg>
+      <img src="/etik_signature.png" alt="Yetkili İmza" className="h-[52px] w-auto max-w-[130px] object-contain transform -rotate-2" />
     </div>
   );
 }

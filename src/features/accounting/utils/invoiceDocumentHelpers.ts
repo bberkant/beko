@@ -1,5 +1,7 @@
 import type { VegaEfatura, VegaEfaturaDetail } from '../VegaArctosEfaturaPage';
 import { numberToTurkishWords } from '../../../utils/numberToTurkishWords';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 export interface CompanyLegalInfo {
   name: string;
@@ -372,20 +374,8 @@ export function generateInvoiceHtmlString(invoice: VegaEfatura, details: VegaEfa
       </div>
 
       <div class="center-col">
-        <!-- Official GİB Logo SVG -->
-        <svg width="68" height="68" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="50" cy="50" r="46" stroke="#c00" stroke-width="2.5" fill="#fff" />
-          <circle cx="50" cy="50" r="41" stroke="#c00" stroke-width="1" fill="#fff" />
-          <path id="gibArc" d="M 18,50 A 32,32 0 1,1 82,50" fill="none" />
-          <text font-size="7.5" font-weight="bold" fill="#c00" letter-spacing="0.5">
-            <textPath href="#gibArc" startOffset="50%" text-anchor="middle">GELİR İDARESİ BAŞKANLIĞI</textPath>
-          </text>
-          <path d="M 50 25 A 25 25 0 1 0 75 50 L 52 50 L 52 58 L 71 58 A 19 19 0 1 1 50 31 Z" fill="#c00" />
-          <path id="gibBottom" d="M 82,50 A 32,32 0 0,1 18,50" fill="none" />
-          <text font-size="6" font-weight="bold" fill="#c00" letter-spacing="0.5">
-            <textPath href="#gibBottom" startOffset="50%" text-anchor="middle">T.C. HAZİNE VE MALİYE BAKANLIĞI</textPath>
-          </text>
-        </svg>
+        <!-- Official GİB Logo -->
+        <img src="/gib_logo.png" alt="GİB e-Fatura" style="height: 64px; width: 64px; object-fit: contain;" />
         <div class="doc-type">${isEArsiv ? 'e-ARŞİV FATURA' : 'e-FATURA'}</div>
       </div>
 
@@ -408,10 +398,8 @@ export function generateInvoiceHtmlString(invoice: VegaEfatura, details: VegaEfa
 
       <div class="signature-col">
         ${!isIncoming ? `
-        <!-- Wet Signature SVG -->
-        <svg width="140" height="55" viewBox="0 0 160 70" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(-3deg);">
-          <path d="M15 45 C30 20, 45 10, 60 35 C70 50, 85 15, 95 25 C105 35, 115 55, 130 30 C138 18, 145 28, 150 40 M45 42 C70 42, 110 38, 145 45 M30 30 C50 15, 75 12, 100 20 C125 28, 140 25, 155 35" stroke="#1a4f8b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.88" />
-        </svg>
+        <!-- Official Wet Signature -->
+        <img src="/etik_signature.png" alt="Yetkili İmza" style="height: 48px; width: auto; max-width: 130px; object-fit: contain; transform: rotate(-2deg);" />
         ` : '<div style="font-size:10px; color:#888; font-style:italic;">Elektronik İmzalıdır</div>'}
       </div>
 
@@ -556,6 +544,84 @@ export function downloadInvoiceHtml(invoice: VegaEfatura, details: VegaEfaturaDe
   const a = document.createElement('a');
   a.href = url;
   a.download = `${invNo}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Standart Resmi e-Fatura PDF Blobu Üretir (jsPDF + html2canvas)
+ */
+export async function generateInvoicePdfBlob(
+  invoice: VegaEfatura,
+  details: VegaEfaturaDetail[] = [],
+  company: 'etik' | 'marif' = 'etik'
+): Promise<Blob> {
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+  container.style.width = '210mm';
+  container.style.backgroundColor = '#ffffff';
+  container.style.zIndex = '-9999';
+  container.innerHTML = generateInvoiceHtmlString(invoice, details, company);
+  document.body.appendChild(container);
+
+  // Görsellerin yüklenmesini bekle
+  const images = Array.from(container.querySelectorAll('img'));
+  await Promise.all(
+    images.map(img => {
+      if (img.complete) return Promise.resolve();
+      return new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+    })
+  );
+
+  try {
+    const invoiceBox = (container.querySelector('.invoice-box') as HTMLElement) || container;
+    const canvas = await html2canvas(invoiceBox, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      backgroundColor: '#ffffff'
+    });
+
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(pdfHeight, 297));
+
+    return pdf.output('blob');
+  } finally {
+    if (document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+  }
+}
+
+/**
+ * Resmi e-Fatura PDF Dosyasını İndirir
+ */
+export async function downloadInvoicePdf(
+  invoice: VegaEfatura,
+  details: VegaEfaturaDetail[] = [],
+  company: 'etik' | 'marif' = 'etik'
+) {
+  const blob = await generateInvoicePdfBlob(invoice, details, company);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${invoice.invoiceNo.trim()}.pdf`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
