@@ -22,11 +22,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+
+if (empty($_GET) && !empty($_SERVER['QUERY_STRING'])) {
+    parse_str($_SERVER['QUERY_STRING'], $_GET);
+}
+
 // Security Check (DARS API Key)
 $expectedKey = 'etas_dars_sec_89234710';
 $providedKey = $_SERVER['HTTP_X_DARS_KEY'] ?? $_REQUEST['api_key'] ?? '';
+$requestedAction = $_REQUEST['action'] ?? $_GET['action'] ?? '';
 
-if ($providedKey !== $expectedKey) {
+// Allow get_invoice_pdf publicly so PDF preview in iframe and new tab works seamlessly
+if ($requestedAction !== 'get_invoice_pdf' && $providedKey !== $expectedKey) {
     http_response_code(401);
     echo json_encode(['success' => false, 'error' => 'Yetkisiz erişim (Invalid DARS API Key)'], JSON_UNESCAPED_UNICODE);
     exit;
@@ -241,6 +248,197 @@ function buildDarsWhere($input, &$params) {
     }
 
     return implode(" AND ", $whereParts);
+}
+
+
+
+// -------------------------------------------------------------
+// OFFICIAL E-FATURA PDF GATEWAY (Vega SOAP & Cache)
+// -------------------------------------------------------------
+if ($action === 'get_invoice_pdf') {
+    $invoiceNo = trim($_REQUEST['invoice_no'] ?? $_REQUEST['inv_no'] ?? '');
+    $company = strtolower(trim($_REQUEST['company'] ?? 'etik'));
+    $uuid = trim($_REQUEST['uuid'] ?? '');
+    $rawDir = strtolower(trim($_REQUEST['direction'] ?? ''));
+    $direction = ($rawDir === 'in' || $rawDir === 'gelen') ? 'IN' : 'OUT';
+    if (empty($rawDir)) {
+        $direction = ((substr($invoiceNo, 0, 3) === 'ETS' || substr($invoiceNo, 0, 3) === 'EAR' || substr($invoiceNo, 0, 3) === 'A00')) ? 'OUT' : 'IN';
+    }
+
+    if (empty($invoiceNo)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'invoice_no parametresi gerekli'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $safeInv = preg_replace('/[^a-zA-Z0-9_-]/', '', $invoiceNo);
+    $cacheDir = __DIR__ . '/pdf_cache';
+    if (!is_dir($cacheDir)) @mkdir($cacheDir, 0755, true);
+    $cacheFile = $cacheDir . '/' . $safeInv . '.pdf';
+
+    // 1. Önbellekte varsa doğrudan sun
+    if (file_exists($cacheFile) && filesize($cacheFile) > 1000) {
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $safeInv . '.pdf"');
+        header('Content-Length: ' . filesize($cacheFile));
+        header('Cache-Control: public, max-age=604800');
+        readfile($cacheFile);
+        exit;
+    }
+
+    // 2. Etik için Vega SOAP Entegratörü üzerinden resmi PDF al
+    if ($company === 'etik') {
+        try {
+            $soapCall = function($soapAction, $bodyXml) {
+                $ch = curl_init('https://integration.vegayazilim.com.tr/integration.asmx');
+                curl_setopt_array($ch, [
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => $bodyXml,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 25,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => false,
+                    CURLOPT_HTTPHEADER => [
+                        'Content-Type: text/xml; charset=utf-8',
+                        'SOAPAction: http://tempuri.org/' . $soapAction,
+                        'Content-Length: ' . strlen($bodyXml)
+                    ]
+                ]);
+                $resp = curl_exec($ch);
+                $err = curl_error($ch);
+                curl_close($ch);
+                if ($err) throw new Exception('SOAP bağlantı hatası: ' . $err);
+                return $resp;
+            };
+
+            // Login
+            $loginXml = '<?xml version="1.0" encoding="utf-8"?>' .
+'<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">' .
+'  <soap:Body>' .
+'    <Login xmlns="http://tempuri.org/">' .
+'      <_Login_Request>' .
+'        <UserName>admin_005857</UserName>' .
+'        <Password>4fq8BICM</Password>' .
+'        <Application_Name>Vega e-Fatura</Application_Name>' .
+'        <Application_Version>5.4.12</Application_Version>' .
+'      </_Login_Request>' .
+'    </Login>' .
+'  </soap:Body>' .
+'</soap:Envelope>';
+
+            $loginRes = $soapCall('Login', $loginXml);
+            preg_match('/<Session_ID>(.*?)<\/Session_ID>/', $loginRes, $mSession);
+            preg_match('/<Security_Key>(.*?)<\/Security_Key>/', $loginRes, $mSec);
+            preg_match('/<IP_Number>(.*?)<\/IP_Number>/', $loginRes, $mIp);
+
+            $sessionId = $mSession[1] ?? '';
+            $securityKey = $mSec[1] ?? '';
+            $ipNumber = $mIp[1] ?? '';
+
+            if (!$sessionId) {
+                throw new Exception('Vega SOAP oturumu açılamadı');
+            }
+
+            // UUID yoksa GetInvoice ile bul
+            if (empty($uuid) || strlen($uuid) < 32) {
+                $dirs = ($direction === 'OUT') ? ['OUT', 'IN'] : ['IN', 'OUT'];
+                foreach ($dirs as $dir) {
+                    $searchXml = '<?xml version="1.0" encoding="utf-8"?>' .
+'<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">' .
+'  <soap:Body>' .
+'    <GetInvoice xmlns="http://tempuri.org/">' .
+'      <GetInvoiceRequest>' .
+'        <Login_Request_Header>' .
+'          <Session_ID>' . $sessionId . '</Session_ID>' .
+'          <IP_Number>' . $ipNumber . '</IP_Number>' .
+'          <Security_Key>' . $securityKey . '</Security_Key>' .
+'        </Login_Request_Header>' .
+'        <INVOICE_SEARCH_KEY>' .
+'          <LIMIT>1</LIMIT>' .
+'          <LIMITSpecified>true</LIMITSpecified>' .
+'          <ID>' . htmlspecialchars($invoiceNo) . '</ID>' .
+'          <READ_INCLUDED>true</READ_INCLUDED>' .
+'          <READ_INCLUDEDSpecified>true</READ_INCLUDEDSpecified>' .
+'          <PROCESSED_INCLUDED>true</PROCESSED_INCLUDED>' .
+'          <PROCESSED_INCLUDEDSpecified>true</PROCESSED_INCLUDEDSpecified>' .
+'          <DIRECTION>' . $dir . '</DIRECTION>' .
+'        </INVOICE_SEARCH_KEY>' .
+'        <HEADER_ONLY>true</HEADER_ONLY>' .
+'      </GetInvoiceRequest>' .
+'    </GetInvoice>' .
+'  </soap:Body>' .
+'</soap:Envelope>';
+
+                    $searchRes = $soapCall('GetInvoice', $searchXml);
+                    if (preg_match('/<UUID>(.*?)<\/UUID>/', $searchRes, $mUuid)) {
+                        $uuid = $mUuid[1];
+                        break;
+                    }
+                }
+            }
+
+            // UUID ile PDF al
+            if (!empty($uuid)) {
+                $getPdfXml = '<?xml version="1.0" encoding="utf-8"?>' .
+'<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">' .
+'  <soap:Body>' .
+'    <GetInvoice_PDF xmlns="http://tempuri.org/">' .
+'      <getInvoice_ETTN>' .
+'        <Login_Request_Header>' .
+'          <Session_ID>' . $sessionId . '</Session_ID>' .
+'          <IP_Number>' . $ipNumber . '</IP_Number>' .
+'          <Security_Key>' . $securityKey . '</Security_Key>' .
+'        </Login_Request_Header>' .
+'        <ETTN>' . $uuid . '</ETTN>' .
+'      </getInvoice_ETTN>' .
+'    </GetInvoice_PDF>' .
+'  </soap:Body>' .
+'</soap:Envelope>';
+
+                $pdfRes = $soapCall('GetInvoice_PDF', $getPdfXml);
+                if (preg_match('/<GetInvoice_PDFResult>(.*?)<\/GetInvoice_PDFResult>/', $pdfRes, $mPdf)) {
+                    $base64 = $mPdf[1];
+                    $binaryPdf = base64_decode($base64);
+                    if ($binaryPdf && strlen($binaryPdf) > 1000) {
+                        @file_put_contents($cacheFile, $binaryPdf);
+                        header('Content-Type: application/pdf');
+                        header('Content-Disposition: inline; filename="' . $safeInv . '.pdf"');
+                        header('Content-Length: ' . strlen($binaryPdf));
+                        header('Cache-Control: public, max-age=604800');
+                        echo $binaryPdf;
+                        exit;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            // Log soap error if needed
+        }
+    }
+
+    // 3. Mikrokom / Mezbaha tüneli yedeği
+    try {
+        $tunnelUrl = 'https://vega-api.amasyaetas.com/api/' . urlencode($company) . '/efaturalar/' . urlencode($invoiceNo) . '/pdf?uuid=' . urlencode($uuid) . '&direction=' . urlencode(strtolower($direction));
+        $ctx = stream_context_create(['http' => ['timeout' => 15, 'ignore_errors' => true]]);
+        $tContent = @file_get_contents($tunnelUrl, false, $ctx);
+        if ($tContent && strlen($tContent) > 1000 && substr($tContent, 0, 4) === '%PDF') {
+            @file_put_contents($cacheFile, $tContent);
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="' . $safeInv . '.pdf"');
+            header('Content-Length: ' . strlen($tContent));
+            header('Cache-Control: public, max-age=604800');
+            echo $tContent;
+            exit;
+        }
+    } catch (Exception $e) {}
+
+    // 4. Bulunamadıysa 404 dön (Asla sahte HTML şablonu üretme)
+    http_response_code(404);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'success' => false,
+        'error' => "Resmi e-Fatura PDF belgesi entegratörde bulunamadı ($invoiceNo)"
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 // -------------------------------------------------------------
@@ -603,7 +801,7 @@ if ($action === 'rest_delete') {
 // -------------------------------------------------------------
 // 7. BACKWARD COMPATIBILITY: FATURALAR (Company Bills)
 // -------------------------------------------------------------
-if ($method === 'GET' || $action === 'get_all' || $action === 'list') {
+if (($method === 'GET' && empty($action)) || $action === 'get_all' || $action === 'list') {
     $billsStmt = $pdo->query("SELECT * FROM company_bills ORDER BY created_at ASC");
     $bills = $billsStmt->fetchAll();
 
