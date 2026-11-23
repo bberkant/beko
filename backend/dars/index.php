@@ -479,7 +479,15 @@ if ($action === 'rest_insert') {
         }
     }
 
-    $stmt = $pdo->prepare("INSERT INTO `{$table}` ({$colNames}) VALUES ({$placeholders})");
+    $updateParts = [];
+    foreach ($cols as $c) {
+        if ($c !== 'id') {
+            $updateParts[] = "`{$c}` = VALUES(`{$c}`)";
+        }
+    }
+    $onDuplicate = !empty($updateParts) ? " ON DUPLICATE KEY UPDATE " . implode(', ', $updateParts) : "";
+
+    $stmt = $pdo->prepare("INSERT INTO `{$table}` ({$colNames}) VALUES ({$placeholders}) {$onDuplicate}");
     $stmt->execute($params);
 
     $fetch = $pdo->prepare("SELECT * FROM `{$table}` WHERE id = ?");

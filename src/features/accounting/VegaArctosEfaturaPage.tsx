@@ -49,6 +49,9 @@ export interface VegaEfatura {
   city?: string;
   taxOffice?: string;
   items?: VegaEfaturaDetay[];
+  isUsed?: boolean;
+  usedAt?: string;
+  usedBy?: string;
 }
 
 export interface VegaEfaturaDetay {
@@ -126,6 +129,20 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
   const [cacheSource, setCacheSource] = useState<'Önbellek' | 'Supabase' | 'Canlı' | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState<number>(() => getStoredCooldownRemaining(company));
 
+  // Kullanıldı (Used) Durumu State'leri
+  const [usedInvoiceMap, setUsedInvoiceMap] = useState<Map<string, { isUsed: boolean; usedAt?: string; usedBy?: string }>>(() => {
+    try {
+      const raw = localStorage.getItem(`dars_efatura_used_${company}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return new Map(parsed);
+      }
+    } catch {}
+    return new Map();
+  });
+  const [usedFilter, setUsedFilter] = useState<'all' | 'used' | 'unused'>('all');
+  const [togglingInvoiceNo, setTogglingInvoiceNo] = useState<string | null>(null);
+
   // Update cooldown when company tab switches
   useEffect(() => {
     setCooldownSeconds(getStoredCooldownRemaining(company));
@@ -177,10 +194,113 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
     return () => clearTimeout(timer);
   }, [localSearch]);
 
-  // Reset pagination on search, date filter, tab or company change
+  // Reset pagination on search, date filter, tab, company or usedFilter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, startDate, endDate, activeTab, company]);
+  }, [searchQuery, startDate, endDate, activeTab, company, usedFilter]);
+
+  // Load marked 'Kullanıldı' invoices from Supabase / MySQL
+  const loadUsedInvoices = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('efatura_kullanildi')
+        .select('invoice_no, is_used, used_at, used_by')
+        .eq('company', company);
+      if (!error && Array.isArray(data)) {
+        const map = new Map<string, { isUsed: boolean; usedAt?: string; usedBy?: string }>();
+        data.forEach((r: any) => {
+          const isUsed = r.is_used === true || r.is_used === 1 || r.is_used === '1';
+          if (isUsed) {
+            map.set(r.invoice_no, { isUsed: true, usedAt: r.used_at, usedBy: r.used_by });
+          }
+        });
+        setUsedInvoiceMap(map);
+        try {
+          localStorage.setItem(`dars_efatura_used_${company}`, JSON.stringify(Array.from(map.entries())));
+        } catch {}
+      }
+    } catch (err) {
+      console.warn('Kullanıldı kayıtları yüklenirken hata:', err);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`dars_efatura_used_${company}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setUsedInvoiceMap(new Map(parsed));
+      }
+    } catch {}
+    void loadUsedInvoices();
+  }, [company]);
+
+  // Toggle 'Kullanıldı' status for an invoice
+  const toggleInvoiceUsed = async (inv: VegaEfatura) => {
+    const invNo = (inv.invoiceNo || '').trim();
+    if (!invNo) return;
+    const currentlyUsed = usedInvoiceMap.has(invNo);
+    const nextUsed = !currentlyUsed;
+
+    // Optimistic UI update
+    const nextMap = new Map(usedInvoiceMap);
+    if (nextUsed) {
+      nextMap.set(invNo, {
+        isUsed: true,
+        usedAt: new Date().toISOString(),
+        usedBy: user?.name || user?.email || 'Kullanıcı'
+      });
+    } else {
+      nextMap.delete(invNo);
+    }
+    setUsedInvoiceMap(nextMap);
+    try {
+      localStorage.setItem(`dars_efatura_used_${company}`, JSON.stringify(Array.from(nextMap.entries())));
+    } catch {}
+
+    setTogglingInvoiceNo(invNo);
+
+    try {
+      if (nextUsed) {
+        const genId = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : 'used_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+
+        const { error } = await supabase
+          .from('efatura_kullanildi')
+          .upsert({
+            id: genId,
+            company,
+            invoice_no: invNo,
+            direction: inv.direction || 'giden',
+            is_used: 1,
+            used_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+            used_by: user?.name || user?.email || 'Kullanıcı'
+          });
+        if (error) throw error;
+        notify(`${invNo} nolu fatura 'Kullanıldı' olarak işaretlendi.`, 'success');
+      } else {
+        const { error } = await supabase
+          .from('efatura_kullanildi')
+          .delete()
+          .eq('company', company)
+          .eq('invoice_no', invNo);
+        if (error) throw error;
+        notify(`${invNo} nolu faturanın kullanıldı işareti kaldırıldı.`, 'info');
+      }
+    } catch (err) {
+      console.error('Kullanıldı durumu kaydedilemedi:', err);
+      // Revert optimistic update
+      const revertedMap = new Map(usedInvoiceMap);
+      setUsedInvoiceMap(revertedMap);
+      try {
+        localStorage.setItem(`dars_efatura_used_${company}`, JSON.stringify(Array.from(revertedMap.entries())));
+      } catch {}
+      notify('Kullanıldı durumu kaydedilemedi. Lütfen tekrar deneyin.', 'error');
+    } finally {
+      setTogglingInvoiceNo(null);
+    }
+  };
 
 
   // Cooldown countdown timer (peş peşe istekleri engellemek için)
@@ -643,6 +763,13 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         if (gidenBoxFilter === 'sent' && isToday) return false;
       }
 
+      // Sub-filter for Kullanım Durumu (Kullanıldı / Kullanılmadı)
+      if (activeTab === 'giden' && usedFilter !== 'all') {
+        const isUsed = usedInvoiceMap.has(inv.invoiceNo);
+        if (usedFilter === 'used' && !isUsed) return false;
+        if (usedFilter === 'unused' && isUsed) return false;
+      }
+
       // Search query filtering (Fatura No, Cari Adı, Cari Kod, VKN / TCKN)
       if (!qNorm) return true;
       const vkn = inv.vkn || (inv.cariCode ? cariVknMap.get(String(inv.cariCode)) : '');
@@ -656,7 +783,19 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
              normCariCode.includes(qNorm) || 
              normVkn.includes(qNorm);
     }).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.invoiceNo || '').localeCompare(a.invoiceNo || ''));
-  }, [invoices, searchQuery, startDate, endDate, activeTab, cariVknMap, gidenBoxFilter]);
+  }, [invoices, searchQuery, startDate, endDate, activeTab, cariVknMap, gidenBoxFilter, usedFilter, usedInvoiceMap]);
+
+  const gidenInvoices = useMemo(() => {
+    return invoices.filter(i => (i.direction || 'gelen') === 'giden');
+  }, [invoices]);
+
+  const usedCount = useMemo(() => {
+    return gidenInvoices.filter(i => usedInvoiceMap.has(i.invoiceNo)).length;
+  }, [gidenInvoices, usedInvoiceMap]);
+
+  const unusedCount = useMemo(() => {
+    return Math.max(0, gidenInvoices.length - usedCount);
+  }, [gidenInvoices, usedCount]);
 
   // Date range quick presets helper
   const applyDatePreset = (preset: 'thisMonth' | 'thisYear' | 'last30' | 'clear') => {
@@ -823,45 +962,86 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
         </button>
       </div>
 
-      {/* Vega Arctos Giden Kutusu / Gönderilmiş Kutusu Seçenekleri */}
+      {/* Vega Arctos Giden Kutusu / Gönderilmiş Kutusu & Kullanım Durumu Seçenekleri */}
       {activeTab === 'giden' && (
-        <div className="flex flex-wrap items-center gap-2 bg-gray-100/80 p-1.5 rounded-xl border border-gray-200 w-fit">
-          <span className="text-xs font-bold text-gray-500 px-2 uppercase tracking-wider">Vega Kutusu:</span>
-          <button
-            type="button"
-            onClick={() => setGidenBoxFilter('all')}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-              gidenBoxFilter === 'all'
-                ? 'bg-white text-gray-900 shadow-xs'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Tüm Gidenler
-          </button>
-          <button
-            type="button"
-            onClick={() => setGidenBoxFilter('outbox')}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-              gidenBoxFilter === 'outbox'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'text-amber-800 hover:bg-amber-50'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-amber-300"></span>
-            Giden Kutusu (Gönderim Bekleyen)
-          </button>
-          <button
-            type="button"
-            onClick={() => setGidenBoxFilter('sent')}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-              gidenBoxFilter === 'sent'
-                ? 'bg-[#1f4e79] text-white shadow-xs'
-                : 'text-[#1f4e79] hover:bg-blue-50'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-blue-300"></span>
-            Gönderilmiş Kutusu (GİB'e İletilenler)
-          </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 bg-gray-100/80 p-1.5 rounded-xl border border-gray-200 w-fit">
+            <span className="text-xs font-bold text-gray-500 px-2 uppercase tracking-wider">Vega Kutusu:</span>
+            <button
+              type="button"
+              onClick={() => setGidenBoxFilter('all')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                gidenBoxFilter === 'all'
+                  ? 'bg-white text-gray-900 shadow-xs'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Tüm Gidenler
+            </button>
+            <button
+              type="button"
+              onClick={() => setGidenBoxFilter('outbox')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                gidenBoxFilter === 'outbox'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-amber-800 hover:bg-amber-50'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-300"></span>
+              Giden Kutusu (Gönderim Bekleyen)
+            </button>
+            <button
+              type="button"
+              onClick={() => setGidenBoxFilter('sent')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                gidenBoxFilter === 'sent'
+                  ? 'bg-[#1f4e79] text-white shadow-xs'
+                  : 'text-[#1f4e79] hover:bg-blue-50'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-blue-300"></span>
+              Gönderilmiş Kutusu (GİB'e İletilenler)
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 bg-gray-100/80 p-1.5 rounded-xl border border-gray-200 w-fit">
+            <span className="text-xs font-bold text-gray-500 px-2 uppercase tracking-wider">Kullanım Durumu:</span>
+            <button
+              type="button"
+              onClick={() => setUsedFilter('all')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                usedFilter === 'all'
+                  ? 'bg-white text-gray-900 shadow-xs'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Tümü
+            </button>
+            <button
+              type="button"
+              onClick={() => setUsedFilter('used')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                usedFilter === 'used'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-emerald-700 hover:bg-emerald-50'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              Kullanılanlar ({usedCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setUsedFilter('unused')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                usedFilter === 'unused'
+                  ? 'bg-gray-700 text-white shadow-xs'
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+              Kullanılmayanlar ({unusedCount})
+            </button>
+          </div>
         </div>
       )}
 
@@ -970,13 +1150,14 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
               >
                 Son 30 Gün
               </button>
-              {(startDate || endDate || localSearch) && (
+              {(startDate || endDate || localSearch || usedFilter !== 'all') && (
                 <button
                   type="button"
                   onClick={() => {
                     applyDatePreset('clear');
                     setLocalSearch('');
                     setSearchQuery('');
+                    setUsedFilter('all');
                   }}
                   className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors"
                   title="Tüm filtreleri sıfırla"
@@ -1011,6 +1192,9 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                   <th className="px-6 py-4 text-right text-sm font-extrabold uppercase text-gray-900 tracking-wide">
                     Genel Toplam
                   </th>
+                  {activeTab === 'giden' && (
+                    <th className="px-6 py-4 text-center">Kullanıldı</th>
+                  )}
                   <th className="px-6 py-4 text-center">İşlemler</th>
                 </tr>
               </thead>
@@ -1094,6 +1278,33 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                     <td className="whitespace-nowrap px-6 py-4 text-right text-base font-bold text-gray-950">
                       {formatCurrency(inv.amount)}
                     </td>
+                    {activeTab === 'giden' && (() => {
+                      const isUsed = usedInvoiceMap.has(inv.invoiceNo);
+                      const isToggling = togglingInvoiceNo === inv.invoiceNo;
+                      return (
+                        <td className="whitespace-nowrap px-6 py-4 text-center">
+                          <button
+                            type="button"
+                            disabled={isToggling}
+                            onClick={() => void toggleInvoiceUsed(inv)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer select-none border shadow-xs ${
+                              isUsed
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 hover:border-emerald-400'
+                                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-800'
+                            }`}
+                            title={isUsed ? 'Kullanıldı olarak işaretli (İptal etmek için tıklayın)' : 'Kullanıldı olarak işaretle'}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isUsed}
+                              readOnly
+                              className="h-3.5 w-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer pointer-events-none"
+                            />
+                            <span>{isUsed ? 'Kullanıldı' : 'Kullanılmadı'}</span>
+                          </button>
+                        </td>
+                      );
+                    })()}
                     <td className="whitespace-nowrap px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-3">
                         <button
@@ -1362,6 +1573,33 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                     <Download size={14} />
                     HTML İndir
                   </button>
+
+                  {/* Giden Fatura İçin Kullanıldı Butonu */}
+                  {selectedInvoice.direction === 'giden' && (() => {
+                    const isUsed = usedInvoiceMap.has(selectedInvoice.invoiceNo);
+                    const isToggling = togglingInvoiceNo === selectedInvoice.invoiceNo;
+                    return (
+                      <button
+                        type="button"
+                        disabled={isToggling}
+                        onClick={() => void toggleInvoiceUsed(selectedInvoice)}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm transition-colors border cursor-pointer ${
+                          isUsed
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                        title={isUsed ? 'Kullanıldı olarak işaretli (İptal etmek için tıklayın)' : 'Kullanıldı olarak işaretle'}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isUsed}
+                          readOnly
+                          className="h-3.5 w-3.5 rounded text-emerald-600 focus:ring-emerald-500 pointer-events-none"
+                        />
+                        <span>{isUsed ? 'Kullanıldı' : 'Kullanıldı İşaretle'}</span>
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
 
