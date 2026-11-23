@@ -91,6 +91,9 @@ export function isElectronicInvoice(invoice: { invoiceNo?: string }): boolean {
     no.startsWith('EVF') ||
     no.startsWith('EIS') ||
     no.startsWith('EİS') ||
+    no.startsWith('MAR') ||
+    no.startsWith('MAE') ||
+    no.startsWith('ETM') ||
     /^[A-Z0-9]{3}20[0-9]{2}[0-9]{9}$/.test(no)
   );
 }
@@ -100,7 +103,7 @@ function getInvoicePdfUrl(company: string, invoice: VegaEfatura): string {
   // Yalnızca geçerli 36 karakterlik GUID olan ETTN kodlarını SOAP'a gönder, numerik ID'leri SOAP'a yollama
   const rawUuid = invoice.ettn || '';
   const uuid = GUID_REGEX.test(rawUuid) ? rawUuid : '';
-  const isOutgoing = invoice.direction === 'giden' || invoiceNo.startsWith('ETS') || invoiceNo.startsWith('EAR');
+  const isOutgoing = invoice.direction === 'giden' || invoiceNo.startsWith('ETS') || invoiceNo.startsWith('EAR') || invoiceNo.startsWith('MAR') || invoiceNo.startsWith('MAE');
   const direction = isOutgoing ? 'giden' : (invoice.direction || 'gelen');
   const date = invoice.date || '';
   return `${DARS_BACKEND_URL}/?action=get_invoice_pdf&company=${encodeURIComponent(company)}&invoice_no=${encodeURIComponent(invoiceNo)}&uuid=${encodeURIComponent(uuid)}&direction=${encodeURIComponent(direction)}&date=${encodeURIComponent(date)}`;
@@ -513,13 +516,15 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
           const localHasGiden = localData?.invoices?.some((i: any) => (i.direction || 'gelen') === 'giden');
           const supaHasGiden = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'giden');
 
-          // If local had no data, Supabase is newer, Supabase has more invoices, local is missing giden/gelen, or Supabase has newer invoice dates
+          // If local had no data, Supabase is newer, counts differ, local is stale (>12h), local is missing giden/gelen, or Supabase has newer invoice dates
           const supaLatestDate = supaData.invoices[0]?.date || '';
           const localLatestDate = localData?.invoices?.[0]?.date || '';
+          const isLocalOlderThanDay = !localData?.updatedAt || (Date.now() - localTime > 12 * 60 * 60 * 1000);
           const shouldUpdateFromSupabase =
             !localData ||
+            isLocalOlderThanDay ||
             supaTime > localTime ||
-            supaCount > localCount ||
+            supaCount !== localCount ||
             (!localHasGelen && supaHasGelen) ||
             (!localHasGiden && supaHasGiden) ||
             supaLatestDate > localLatestDate;
@@ -901,7 +906,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
             {company === 'etik' ? 'Etik e-Faturalar' : 'Marif e-Faturalar'}
           </h1>
           <p className="mt-1 text-sm text-gray-555">
-            {company === 'etik' ? 'Etik' : 'Marif'} (Vega Arctos) veritabanındaki tüm e-Fatura ve e-Arşiv belgelerini listeler.
+            {company === 'etik' ? 'Etik (Vega Arctos)' : 'Marif (Mikrokom)'} entegratöründeki tüm e-Fatura ve e-Arşiv belgelerini listeler.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -988,7 +993,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
       {activeTab === 'giden' && (
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-wrap items-center gap-2 bg-gray-100/80 p-1.5 rounded-xl border border-gray-200 w-fit">
-            <span className="text-xs font-bold text-gray-500 px-2 uppercase tracking-wider">Vega Kutusu:</span>
+            <span className="text-xs font-bold text-gray-500 px-2 uppercase tracking-wider">{company === 'etik' ? 'Vega Kutusu:' : 'Mikrokom Kutusu:'}</span>
             <button
               type="button"
               onClick={() => setGidenBoxFilter('all')}
@@ -1232,7 +1237,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                         {(() => {
                           const no = inv.invoiceNo.trim().toUpperCase();
                           const isToday = inv.date?.slice(0, 10) === new Date().toISOString().slice(0, 10);
-                          if (no.startsWith('ETS')) {
+                          if (no.startsWith('ETS') || no.startsWith('MAR')) {
                             return (
                               <>
                                 <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-800 border border-blue-200">e-Fatura</span>
@@ -1246,7 +1251,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                               </>
                             );
                           }
-                          if (no.startsWith('EAS') || no.startsWith('EAR')) {
+                          if (no.startsWith('EAS') || no.startsWith('EAR') || no.startsWith('MAE')) {
                             return (
                               <>
                                 <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-800 border border-purple-200">e-Arşiv</span>

@@ -415,6 +415,114 @@ if ($action === 'get_invoice_pdf') {
         }
     }
 
+    // 2.5 Marif için Mikrokom REST Entegratörü üzerinden resmi PDF al
+    if ($company === 'marif') {
+        try {
+            $authData = json_encode(['username' => 'admin_007408', 'password' => 'rvkDAuKh']);
+            $ch = curl_init('https://portal.mikrokomdonusum.com/accounting/api/auth/signin');
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $authData,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 15,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json;charset=UTF-8',
+                    'User-Agent: Mozilla/5.0'
+                ]
+            ]);
+            $authResp = curl_exec($ch);
+            curl_close($ch);
+            $authJson = json_decode($authResp, true);
+            $mToken = $authJson['token']['accessToken'] ?? $authJson['accessToken'] ?? $authJson['token'] ?? '';
+
+            if (!empty($mToken)) {
+                $dateParam = trim($_REQUEST['date'] ?? '');
+                $targetYear = !empty($dateParam) ? (int)substr($dateParam, 0, 4) : (int)date('Y');
+                $targetMonth = !empty($dateParam) ? ((int)substr($dateParam, 5, 2) - 1) : ((int)date('n') - 1);
+
+                $monthsToTry = [$targetMonth];
+                for ($m = 0; $m <= 11; $m++) {
+                    if (!in_array($m, $monthsToTry)) $monthsToTry[] = $m;
+                }
+
+                // UUID eksikse veya geçersizse Mikrokom Outbox/Inbox'ta sorgula
+                if (empty($uuid) || strlen($uuid) < 32) {
+                    foreach ([$targetMonth, (int)date('n') - 1, 9, 8, 10, 11] as $searchMo) {
+                        $searchUrl = "https://portal.mikrokomdonusum.com/accounting/api/outbox/getOutboxes?year={$targetYear}&month={$searchMo}&page=0&size=100";
+                        $ch = curl_init($searchUrl);
+                        curl_setopt_array($ch, [
+                            CURLOPT_RETURNTRANSFER => true,
+                            CURLOPT_TIMEOUT => 10,
+                            CURLOPT_SSL_VERIFYPEER => false,
+                            CURLOPT_SSL_VERIFYHOST => false,
+                            CURLOPT_HTTPHEADER => [
+                                'Authorization: Bearer ' . $mToken,
+                                'Content-Type: application/json'
+                            ]
+                        ]);
+                        $sResp = curl_exec($ch);
+                        curl_close($ch);
+                        $sJson = json_decode($sResp, true);
+                        if (!empty($sJson['content'])) {
+                            foreach ($sJson['content'] as $item) {
+                                if (($item['documentId'] ?? '') === $invoiceNo) {
+                                    $uuid = $item['documentUuid'] ?? '';
+                                    $targetMonth = $searchMo;
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!empty($uuid)) {
+                    $endpoints = ($direction === 'IN') 
+                        ? ['/inbox/downloadMedia/pdf', '/outbox/downloadMedia/pdf'] 
+                        : ['/outbox/downloadMedia/pdf', '/inbox/downloadMedia/pdf'];
+
+                    foreach ($endpoints as $ep) {
+                        foreach ($monthsToTry as $mo) {
+                            $downloadPayload = json_encode([
+                                'documentUuid' => $uuid,
+                                'year' => $targetYear,
+                                'month' => $mo
+                            ]);
+                            $ch = curl_init("https://portal.mikrokomdonusum.com/accounting/api{$ep}");
+                            curl_setopt_array($ch, [
+                                CURLOPT_POST => true,
+                                CURLOPT_POSTFIELDS => $downloadPayload,
+                                CURLOPT_RETURNTRANSFER => true,
+                                CURLOPT_TIMEOUT => 15,
+                                CURLOPT_SSL_VERIFYPEER => false,
+                                CURLOPT_SSL_VERIFYHOST => false,
+                                CURLOPT_HTTPHEADER => [
+                                    'Authorization: Bearer ' . $mToken,
+                                    'Content-Type: application/json;charset=UTF-8',
+                                    'Content-Length: ' . strlen($downloadPayload)
+                                ]
+                            ]);
+                            $dlResp = curl_exec($ch);
+                            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                            curl_close($ch);
+
+                            if ($httpCode === 200 && strlen($dlResp) > 1000 && substr($dlResp, 0, 4) === '%PDF') {
+                                @file_put_contents($cacheFile, $dlResp);
+                                header('Content-Type: application/pdf');
+                                header('Content-Disposition: inline; filename="' . $safeInv . '.pdf"');
+                                header('Content-Length: ' . strlen($dlResp));
+                                header('Cache-Control: public, max-age=604800');
+                                echo $dlResp;
+                                exit;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception $e) {}
+    }
+
     // 3. Mikrokom / Mezbaha tüneli yedeği
     try {
         $tunnelUrl = 'https://vega-api.amasyaetas.com/api/' . urlencode($company) . '/efaturalar/' . urlencode($invoiceNo) . '/pdf?uuid=' . urlencode($uuid) . '&direction=' . urlencode(strtolower($direction));
