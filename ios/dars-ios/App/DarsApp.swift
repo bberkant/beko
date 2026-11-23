@@ -80,10 +80,10 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             "morningMinute": 0,
             "creditCardsEnabled": true,
             "creditCardsAdvance2Days": false,
-            "billsEnabled": true,
+            "billsEnabled": false,
             "notesEnabled": true,
-            "checksEnabled": true,
-            "vehiclesEnabled": true
+            "checksEnabled": false,
+            "vehiclesEnabled": false
         ]
     }
     
@@ -107,7 +107,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let morningHour = prefs["morningHour"] as? Int ?? 9
         let morningMinute = prefs["morningMinute"] as? Int ?? 0
         let ccEnabled = prefs["creditCardsEnabled"] as? Bool ?? true
-        let billsEnabled = prefs["billsEnabled"] as? Bool ?? true
+        let billsEnabled = prefs["billsEnabled"] as? Bool ?? false
         let notesEnabled = prefs["notesEnabled"] as? Bool ?? true
         
         guard let darsURL = URL(string: "https://amasyaetas.com/dars/") else {

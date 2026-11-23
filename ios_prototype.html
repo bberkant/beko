@@ -54318,16 +54318,17 @@ function toggleSubTab(tabIndex) {
 
     // ==================== 20. NOTIFICATIONS & MORNING 09:00 ENGINE ====================
     const DEFAULT_NOTIFICATION_SETTINGS = {
+      policyVersion: 2,
       masterEnabled: true,
       morningHour: 9,
       morningMinute: 0,
       creditCardsEnabled: true,
       creditCardsAdvance2Days: false,
       creditCardsOnDueDay: true,
-      billsEnabled: true,
+      billsEnabled: false,
       notesEnabled: true,
-      checksEnabled: true,
-      vehiclesEnabled: true,
+      checksEnabled: false,
+      vehiclesEnabled: false,
       dailySummaryEnabled: false
     };
 
@@ -54336,15 +54337,43 @@ function toggleSubTab(tabIndex) {
       return uKey ? ('dars_notification_settings_' + uKey) : 'dars_notification_settings';
     }
 
+    function normalizeNotificationSettingsPolicy(rawObj) {
+      if (!rawObj || typeof rawObj !== 'object') return { ...DEFAULT_NOTIFICATION_SETTINGS };
+      if (rawObj.policyVersion !== 2) {
+        const migrated = {
+          ...DEFAULT_NOTIFICATION_SETTINGS,
+          masterEnabled: rawObj.masterEnabled !== undefined ? Boolean(rawObj.masterEnabled) : true,
+          morningHour: Number.isFinite(rawObj.morningHour) ? rawObj.morningHour : 9,
+          morningMinute: Number.isFinite(rawObj.morningMinute) ? rawObj.morningMinute : 0,
+          creditCardsEnabled: true,
+          creditCardsAdvance2Days: false,
+          creditCardsOnDueDay: true,
+          notesEnabled: true,
+          billsEnabled: false,
+          checksEnabled: false,
+          vehiclesEnabled: false,
+          dailySummaryEnabled: false,
+          policyVersion: 2
+        };
+        try {
+          const json = JSON.stringify(migrated);
+          localStorage.setItem(getNotificationSettingsStorageKey(), json);
+          localStorage.setItem('dars_notification_settings', json);
+        } catch (e) {}
+        return migrated;
+      }
+      return { ...DEFAULT_NOTIFICATION_SETTINGS, ...rawObj };
+    }
+
     function getNotificationSettings() {
       try {
         const userScoped = localStorage.getItem(getNotificationSettingsStorageKey());
         if (userScoped) {
-          return { ...DEFAULT_NOTIFICATION_SETTINGS, ...JSON.parse(userScoped) };
+          return normalizeNotificationSettingsPolicy(JSON.parse(userScoped));
         }
         const saved = localStorage.getItem('dars_notification_settings');
         if (saved) {
-          return { ...DEFAULT_NOTIFICATION_SETTINGS, ...JSON.parse(saved) };
+          return normalizeNotificationSettingsPolicy(JSON.parse(saved));
         }
       } catch(e) {}
       return { ...DEFAULT_NOTIFICATION_SETTINGS };
@@ -54352,7 +54381,8 @@ function toggleSubTab(tabIndex) {
 
     function saveNotificationSettings(nextSettings) {
       try {
-        const json = JSON.stringify(nextSettings);
+        const withVersion = { ...DEFAULT_NOTIFICATION_SETTINGS, ...nextSettings, policyVersion: 2 };
+        const json = JSON.stringify(withVersion);
         localStorage.setItem(getNotificationSettingsStorageKey(), json);
         localStorage.setItem('dars_notification_settings', json);
       } catch(e) {}
@@ -54594,7 +54624,7 @@ function toggleSubTab(tabIndex) {
       const todayISO = getTodayISOString();
       const hasTodayItems =
         (prefs.creditCardsEnabled && getCardsDueOnDateMobile(todayISO, false).length > 0) ||
-        (prefs.billsEnabled !== false && getBillsDueOnDateMobile(todayISO).length > 0) ||
+        (Boolean(prefs.billsEnabled) && getBillsDueOnDateMobile(todayISO).length > 0) ||
         (prefs.notesEnabled && Array.isArray(userCalendarNotes) && userCalendarNotes.some(n => n && !n.completed && stripMobileOwnerTag(n.content)));
       if (hasTodayItems) {
         dotEl.classList.remove('hidden');
@@ -54634,7 +54664,7 @@ function toggleSubTab(tabIndex) {
         ? getCardsDueOnDateMobile(todayISO, false)
         : [];
 
-      const todayDueBills = prefs.billsEnabled !== false
+      const todayDueBills = Boolean(prefs.billsEnabled)
         ? getBillsDueOnDateMobile(todayISO)
         : [];
 
@@ -54687,8 +54717,8 @@ function toggleSubTab(tabIndex) {
           }
         }
 
-        // 2) Kurum Faturaları (Hafta sonu Pazartesiye kaydırılmış son ödeme günü)
-        if (prefs.billsEnabled !== false) {
+        // 2) Kurum Faturaları (Sadece ayarlarda açıkça etkinleştirildiyse)
+        if (Boolean(prefs.billsEnabled)) {
           const billsForMorning = getBillsDueOnDateMobile(morningISO);
           for (let bIdx = 0; bIdx < billsForMorning.length; bIdx++) {
             if (scheduledItems.length >= maxSafeRequests) break;
@@ -54786,9 +54816,8 @@ function toggleSubTab(tabIndex) {
 
       if (showFeedbackToast) {
         const ccCount = todayDueCards.length;
-        const billCount = todayDueBills.length;
         const noteCount = activeNotes.length;
-        showToast('✓ ' + scheduledItems.length + ' kilit ekranı bildirimi kuruldu (Bugün: ' + ccCount + ' Kart, ' + billCount + ' Fatura, ' + noteCount + ' Not)');
+        showToast('✓ ' + scheduledItems.length + ' kilit ekranı bildirimi kuruldu (Bugün: ' + ccCount + ' Kart, ' + noteCount + ' Not)');
       }
     }
 
@@ -54823,7 +54852,7 @@ function toggleSubTab(tabIndex) {
         action: 'scheduleReminder',
         id: 'test_sep_instant_' + nowStamp,
         title: '🔔 DARS Kilit Ekranı Bildirim Testi',
-        body: 'Sabah saat ' + timeLabel + ' kilit ekranı bildirim motorunuz kusursuz çalışıyor! (Kartlar, Faturalar, Notlar)',
+        body: 'Sabah saat ' + timeLabel + ' kilit ekranı bildirim motorunuz kusursuz çalışıyor! (Kredi Kartları & Notlarım)',
         delay: 3,
         badge: 0
       });
@@ -54879,17 +54908,13 @@ function toggleSubTab(tabIndex) {
           </div>
 
           <p class="text-[11.5px] text-blue-100 leading-relaxed">
-            Bugün vadesi gelen <strong>${todayDueCards.length} Kart</strong>, <strong>${todayDueBills.length} Fatura</strong> ve <strong>${activeNotes.length} Notunuz</strong> sabah saat <strong>${timeLabel}</strong>'da telefonunuz kilitliyken sesli ve banner olarak kilit ekranınızda çalar.
+            Bugün son ödeme günü olan <strong>${todayDueCards.length} Kredi Kartı</strong> ve <strong>${activeNotes.length} Kişisel Notunuz</strong> sabah saat <strong>${timeLabel}</strong>'da telefonunuz kilitliyken sesli ve banner olarak kilit ekranınızda çalar.
           </p>
 
-          <div class="grid grid-cols-3 gap-2 pt-0.5">
+          <div class="grid grid-cols-2 gap-2 pt-0.5">
             <div onclick="changeScreen('credit_cards')" class="p-2 rounded-xl bg-white/10 border border-white/15 text-center cursor-pointer">
-              <span class="text-[9.5px] text-blue-200 block font-[600]">KARTLAR</span>
-              <span class="text-xs font-[800] text-white">${todayDueCards.length} Bugün / ${activeLimitCards.length}</span>
-            </div>
-            <div onclick="changeScreen('bills')" class="p-2 rounded-xl bg-white/10 border border-white/15 text-center cursor-pointer">
-              <span class="text-[9.5px] text-blue-200 block font-[600]">FATURALAR</span>
-              <span class="text-xs font-[800] text-white">${todayDueBills.length} Bugün / ${mockBillsData.length}</span>
+              <span class="text-[9.5px] text-blue-200 block font-[600]">KREDİ KARTLARI</span>
+              <span class="text-xs font-[800] text-white">${todayDueCards.length} Bugün / ${activeLimitCards.length} Kart</span>
             </div>
             <div onclick="changeScreen('takvim')" class="p-2 rounded-xl bg-white/10 border border-white/15 text-center cursor-pointer">
               <span class="text-[9.5px] text-blue-200 block font-[600]">NOTLARIM</span>
@@ -54944,8 +54969,8 @@ function toggleSubTab(tabIndex) {
         }
       }
 
-      // 2. Faturalar Son Ödeme Günü Bildirimleri (Sabah 09:00)
-      if (prefs.billsEnabled !== false) {
+      // 2. Faturalar Son Ödeme Günü Bildirimleri (Sadece ayarlarda açıkça etkinleştirildiyse)
+      if (Boolean(prefs.billsEnabled)) {
         if (todayDueBills.length > 0) {
           htmlItems += `<div class="px-1 pt-2 flex justify-between items-center"><span class="text-[11px] font-[700] text-rose-700 uppercase tracking-wider">🧾 Bugün Son Ödeme Günü Olan Faturalar • Sabah ${timeLabel} (${todayDueBills.length})</span><button onclick="changeScreen('bills')" class="text-[11px] font-[600] text-[#002D59]">Tüm Faturalar (${mockBillsData.length})</button></div>`;
           htmlItems += todayDueBills.map(b => `
@@ -55064,19 +55089,15 @@ function toggleSubTab(tabIndex) {
               </span>
               <h3 class="text-[15px] font-[700] mt-1.5 tracking-tight">Sabah ${timeVal} Bildirim Motoru</h3>
               <p class="text-[11px] text-blue-100 leading-relaxed mt-0.5">
-                Web sitesindeki (cem.amasyaetas.com) Kredi Kartları, Faturalar ve Notlarım verileri otomatik çekilerek son ödeme gününde sabah saat <strong>${timeVal}</strong>'da telefonunuza bildirim gönderir.
+                Web sitesindeki (cem.amasyaetas.com) <strong>Kredi Kartları</strong> ve <strong>Kişisel Notlarım</strong> verileri otomatik çekilerek sabah saat <strong>${timeVal}</strong>'da telefonunuza bildirim gönderir.
               </p>
             </div>
           </div>
 
-          <div class="grid grid-cols-3 gap-2 pt-1">
+          <div class="grid grid-cols-2 gap-2 pt-1">
             <div onclick="changeScreen('credit_cards')" class="p-2.5 rounded-xl bg-white/10 border border-white/15 cursor-pointer">
               <span class="text-[9.5px] text-blue-200 block font-[600]">BUGÜN KART</span>
               <span class="text-xs font-[800] text-white">${todayCardsCount} Kart (${activeLimitCards.length})</span>
-            </div>
-            <div onclick="changeScreen('bills')" class="p-2.5 rounded-xl bg-white/10 border border-white/15 cursor-pointer">
-              <span class="text-[9.5px] text-blue-200 block font-[600]">BUGÜN FATURA</span>
-              <span class="text-xs font-[800] text-white">${todayBillsCount} Fatura (${mockBillsData.length})</span>
             </div>
             <div onclick="changeScreen('takvim')" class="p-2.5 rounded-xl bg-white/10 border border-white/15 cursor-pointer">
               <span class="text-[9.5px] text-blue-200 block font-[600]">CANLI NOTLARIM</span>
@@ -55135,7 +55156,7 @@ function toggleSubTab(tabIndex) {
                 <span class="block text-[13px] font-[700] text-slate-900">🧾 Faturalar Sabah ${timeVal} Bildirimi</span>
                 <span class="block text-[11px] font-[400] text-slate-500">Kurum faturalarının (${mockBillsData.length} fatura) son ödeme gününde sabah ${timeVal} uyarısı</span>
               </div>
-              <input type="checkbox" ${prefs.billsEnabled !== false ? 'checked' : ''} onchange="toggleNotificationSetting('billsEnabled', this.checked)" class="w-4 h-4 accent-[#002D59]" />
+              <input type="checkbox" ${Boolean(prefs.billsEnabled) ? 'checked' : ''} onchange="toggleNotificationSetting('billsEnabled', this.checked)" class="w-4 h-4 accent-[#002D59]" />
             </div>
 
             <div class="p-3.5 flex justify-between items-center">
