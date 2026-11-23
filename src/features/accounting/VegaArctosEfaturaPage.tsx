@@ -76,12 +76,31 @@ const DARS_BACKEND_URL = 'https://amasyaetas.com/dars';
 
 const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// E-Faturalar modülü kuralı: Yalnızca resmi GİB e-Fatura / e-Arşiv belgeleri dahil edilir.
+// Vega ERP dahili ambar/depo stok çıkış fişleri (A000..., H..., STK..., IRS...) kesinlikle fatura değildir.
+export function isElectronicInvoice(invoice: { invoiceNo?: string }): boolean {
+  const no = (invoice.invoiceNo || '').trim().toUpperCase();
+  if (!no) return false;
+  if (no.startsWith('A') || no.startsWith('H') || no.startsWith('STK') || no.startsWith('IRS')) {
+    return false;
+  }
+  return (
+    no.startsWith('ETS') ||
+    no.startsWith('EAR') ||
+    no.startsWith('EAS') ||
+    no.startsWith('EVF') ||
+    no.startsWith('EIS') ||
+    no.startsWith('EİS') ||
+    /^[A-Z0-9]{3}20[0-9]{2}[0-9]{9}$/.test(no)
+  );
+}
+
 function getInvoicePdfUrl(company: string, invoice: VegaEfatura): string {
   const invoiceNo = (invoice.invoiceNo || '').trim();
   // Yalnızca geçerli 36 karakterlik GUID olan ETTN kodlarını SOAP'a gönder, numerik ID'leri SOAP'a yollama
   const rawUuid = invoice.ettn || '';
   const uuid = GUID_REGEX.test(rawUuid) ? rawUuid : '';
-  const isOutgoing = invoice.direction === 'giden' || invoiceNo.startsWith('ETS') || invoiceNo.startsWith('EAR') || invoiceNo.startsWith('A00');
+  const isOutgoing = invoice.direction === 'giden' || invoiceNo.startsWith('ETS') || invoiceNo.startsWith('EAR');
   const direction = isOutgoing ? 'giden' : (invoice.direction || 'gelen');
   const date = invoice.date || '';
   return `${DARS_BACKEND_URL}/?action=get_invoice_pdf&company=${encodeURIComponent(company)}&invoice_no=${encodeURIComponent(invoiceNo)}&uuid=${encodeURIComponent(uuid)}&direction=${encodeURIComponent(direction)}&date=${encodeURIComponent(date)}`;
@@ -379,14 +398,8 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
           console.warn(`Supabase ${company} gelen önbellek birleştirme hatası:`, e);
         }
 
-        // Dahili ERP fişlerini (A000...) gelen faturalardan kesin olarak ayıkla
-        finalData = finalData.filter((i: any) => {
-          if ((i.direction || 'gelen') === 'gelen') {
-            const invNo = (i.invoiceNo || '').trim().toUpperCase();
-            return !invNo.startsWith('A000') && !invNo.startsWith('A00');
-          }
-          return true;
-        });
+        // Yalnızca resmi e-Fatura ve e-Arşiv belgelerini al; dahili stok çıkış fişlerini (A000..., H...) kesinlikle dahil etme
+        finalData = finalData.filter(isElectronicInvoice);
         
         setInvoices(finalData);
         const hasIncoming = finalData.some((i: any) => (i.direction || 'gelen') === 'gelen');
@@ -464,10 +477,11 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
       let localData = null;
       try {
         localData = await getLocalCache(company);
-        if (isMounted && localData && Array.isArray(localData.invoices) && localData.invoices.length > 0) {
-          setInvoices(localData.invoices);
-          const hasIncoming = localData.invoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
-          const hasOutgoing = localData.invoices.some((i: any) => (i.direction || 'gelen') === 'giden');
+        const cleanLocalInvoices = (localData?.invoices || []).filter(isElectronicInvoice);
+        if (isMounted && localData && cleanLocalInvoices.length > 0) {
+          setInvoices(cleanLocalInvoices);
+          const hasIncoming = cleanLocalInvoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
+          const hasOutgoing = cleanLocalInvoices.some((i: any) => (i.direction || 'gelen') === 'giden');
           if (hasOutgoing) {
             setActiveTab('giden');
           } else if (hasIncoming) {
@@ -513,11 +527,12 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
           let currentInvoices = localData?.invoices || [];
 
           if (shouldUpdateFromSupabase) {
-            currentInvoices = supaData.invoices;
-            setInvoices(supaData.invoices);
+            const cleanSupaInvoices = (supaData.invoices || []).filter(isElectronicInvoice);
+            currentInvoices = cleanSupaInvoices;
+            setInvoices(cleanSupaInvoices);
             setActiveTab(prevTab => {
-              const hasIncoming = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
-              const hasOutgoing = supaData.invoices.some((i: any) => (i.direction || 'gelen') === 'giden');
+              const hasIncoming = cleanSupaInvoices.some((i: any) => (i.direction || 'gelen') === 'gelen');
+              const hasOutgoing = cleanSupaInvoices.some((i: any) => (i.direction || 'gelen') === 'giden');
               if (prevTab === 'giden' && hasOutgoing) return 'giden';
               if (prevTab === 'gelen' && hasIncoming) return 'gelen';
               return hasOutgoing ? 'giden' : (hasIncoming ? 'gelen' : prevTab);
@@ -748,6 +763,9 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
     const qNorm = normalizeSearch(rawQ);
 
     return invoices.filter(inv => {
+      // Yalnızca resmi e-Fatura ve e-Arşiv belgelerini listele, dahili stok çıkışlarını kesinlikle dahil etme
+      if (!isElectronicInvoice(inv)) return false;
+
       const matchTab = (inv.direction || 'gelen') === activeTab;
       if (!matchTab) return false;
 
@@ -790,7 +808,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
   }, [invoices, searchQuery, startDate, endDate, activeTab, cariVknMap, gidenBoxFilter, usedFilter, usedInvoiceMap]);
 
   const gidenInvoices = useMemo(() => {
-    return invoices.filter(i => (i.direction || 'gelen') === 'giden');
+    return invoices.filter(i => isElectronicInvoice(i) && (i.direction || 'gelen') === 'giden');
   }, [invoices]);
 
   const usedCount = useMemo(() => {
@@ -946,7 +964,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
           <span className={`rounded-full px-2 py-0.5 text-xs ${
             activeTab === 'giden' ? 'bg-orange-100 text-[#f37021]' : 'bg-gray-100 text-gray-600'
           }`}>
-            {invoices.filter(i => (i.direction || 'gelen') === 'giden').length}
+            {invoices.filter(i => isElectronicInvoice(i) && (i.direction || 'gelen') === 'giden').length}
           </span>
         </button>
         <button
@@ -961,7 +979,7 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
           <span className={`rounded-full px-2 py-0.5 text-xs ${
             activeTab === 'gelen' ? 'bg-orange-100 text-[#f37021]' : 'bg-gray-100 text-gray-600'
           }`}>
-            {invoices.filter(i => (i.direction || 'gelen') === 'gelen').length}
+            {invoices.filter(i => isElectronicInvoice(i) && (i.direction || 'gelen') === 'gelen').length}
           </span>
         </button>
       </div>
@@ -1245,11 +1263,8 @@ export function VegaArctosEfaturaPage({ company = 'etik' }: VegaArctosEfaturaPag
                           if (no.startsWith('EVF')) {
                             return <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">Gelen</span>;
                           }
-                          if (no.startsWith('EIS')) {
+                          if (no.startsWith('EIS') || no.startsWith('EİS')) {
                             return <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-800 border border-indigo-200">e-İrsaliye</span>;
-                          }
-                          if (no.startsWith('A') || no.startsWith('H')) {
-                            return <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 border border-gray-200" title="Matbuu / Kağıt Fatura">Matbuu</span>;
                           }
                           return null;
                         })()}
