@@ -1990,6 +1990,9 @@ export function ChecksPage() {
     const activeUnpaidKesilen = checks.filter(c => {
       if (c.check_type !== 'kesilen') return false;
       const status = cleanStatus(c.status);
+      if (status.includes('iptal') || (c.status || '').toLowerCase().includes('iptal')) {
+        return false;
+      }
       const ozelUpper = (c.ozel_alan || '').toUpperCase();
       const isExplicitNonTakas = ozelUpper.includes('TAKASTA OLMAYAN');
       const isIcTakas = ozelUpper.includes('İÇ TAKAS') || ozelUpper.includes('IC TAKAS');
@@ -2175,6 +2178,11 @@ export function ChecksPage() {
 
 
     const isNonTakasCheck = (c: EbsCheck) => {
+      const st = cleanStatus(c.status);
+      if (st.includes('iptal') || (c.status || '').toLowerCase().includes('iptal') || isCheckPaid(c.status)) {
+        return false;
+      }
+
       const note = (c.ozel_alan || '').toUpperCase();
       if (note.includes('TAKASTA OLMAYAN')) {
         return true;
