@@ -497,22 +497,8 @@
           </div>
         </div>
 
-        <!-- 1. DARS Finansal Takvim Widget (Artık Üst Sırada) -->
+        <!-- 1. Anasayfa Takas Çekleri Tablosu & Hangi Çek Kimin (Hızlı İşlemlerin Altında, Takvimin Üstünde) -->
         <div class="space-y-2.5">
-          <div class="flex justify-between items-center px-1">
-            <h3 class="text-[13.5px] font-[600] text-slate-800 tracking-tight">DARS Finansal Takvim</h3>
-            <button onclick="changeScreen('takvim')" class="text-[12.5px] font-[500] text-kt-primary flex items-center gap-0.5 hover:underline">
-              <span>Tümünü Gör</span>
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-            </button>
-          </div>
-          <div id="dashboard-calendar-widget" class="space-y-3">
-            <!-- Rendered dynamically by renderCalendar() -->
-          </div>
-        </div>
-
-        <!-- 2. Anasayfa Takas Çekleri Tablosu & Hangi Çek Kimin -->
-        <div class="space-y-2.5 pt-1">
           <div class="flex justify-between items-center px-1">
             <div class="flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
@@ -526,6 +512,20 @@
 
           <div id="dashboard-takas-widget" class="space-y-2.5">
             <!-- Rendered dynamically by renderDashboardTakasWidget() -->
+          </div>
+        </div>
+
+        <!-- 2. DARS Finansal Takvim Widget -->
+        <div class="space-y-2.5 pt-1">
+          <div class="flex justify-between items-center px-1">
+            <h3 class="text-[13.5px] font-[600] text-slate-800 tracking-tight">DARS Finansal Takvim</h3>
+            <button onclick="changeScreen('takvim')" class="text-[12.5px] font-[500] text-kt-primary flex items-center gap-0.5 hover:underline">
+              <span>Tümünü Gör</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+            </button>
+          </div>
+          <div id="dashboard-calendar-widget" class="space-y-3">
+            <!-- Rendered dynamically by renderCalendar() -->
           </div>
         </div>
       </div>
