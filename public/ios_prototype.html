@@ -8,15 +8,11 @@
   <!-- Premium iOS Fonts: Inter with Apple System font metrics -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- Premium iOS Fonts: Inter with Apple System font metrics -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Supabase Live Database Bridge SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" async defer></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
     :root {
       --kt-primary: #002D59;
@@ -88,6 +84,8 @@
       padding: 0;
       background-color: var(--kt-bg-page);
       overflow: hidden;
+      overscroll-behavior: none;
+      overscroll-behavior-y: none;
       touch-action: pan-y;
       -webkit-touch-callout: none;
       -webkit-user-select: none;
@@ -105,8 +103,15 @@
       border-radius: 0;
       box-shadow: none;
       overflow: hidden;
+      overscroll-behavior: none;
+      overscroll-behavior-y: none;
       display: flex;
       flex-direction: column;
+    }
+
+    .overflow-y-auto {
+      overscroll-behavior-y: contain;
+      -webkit-overflow-scrolling: touch;
     }
 
     .ios-status-bar { height: 46px; }
@@ -55522,7 +55527,7 @@ function toggleSubTab(tabIndex) {
 
       async postApi(action, payload) {
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timer = controller ? setTimeout(() => controller.abort(), 12000) : null;
+        const timer = controller ? setTimeout(() => controller.abort(), 4500) : null;
         try {
           const res = await fetch(DARS_API_URL, {
             method: 'POST',
@@ -55606,8 +55611,8 @@ function toggleSubTab(tabIndex) {
           syncNativeMorningNotifications(false);
         }, 1800);
 
-        // AŞAMA 2: Diğer tüm ERP ve finans modüllerini eşitle
-        await Promise.allSettled([
+        // AŞAMA 2: Diğer tüm ERP ve finans modüllerini arka planda bloklamadan eşitle (pull-to-refresh bekletmesin)
+        void Promise.allSettled([
           syncLiveCaris(),
           syncLiveVehicles(),
           syncLiveSlaughters(),
@@ -55617,28 +55622,27 @@ function toggleSubTab(tabIndex) {
           syncLiveTransactions(),
           syncLivePersonnel(),
           syncLiveInvoices()
-        ]);
-
-        rebuildLiveCalendarEvents();
-
-        renderCaris(mockCaris);
-        renderCektenScreen();
-        renderChecks();
-        renderVehicles();
-        renderSlaughters();
-        renderTenders();
-        renderCreditCards();
-        renderBillsScreen();
-        renderBankAccounts();
-        renderRealEstates();
-        renderPersonnel();
-        renderInvoices();
-        renderCalendar();
-        renderNotifications();
-        renderSettings();
-        updateLiveDashboardStats();
-        syncNativeMorningNotifications(false);
-        setupLiveRealtimeSubscriptions();
+        ]).then(() => {
+          rebuildLiveCalendarEvents();
+          renderCaris(mockCaris);
+          renderCektenScreen();
+          renderChecks();
+          renderVehicles();
+          renderSlaughters();
+          renderTenders();
+          renderCreditCards();
+          renderBillsScreen();
+          renderBankAccounts();
+          renderRealEstates();
+          renderPersonnel();
+          renderInvoices();
+          renderCalendar();
+          renderNotifications();
+          renderSettings();
+          updateLiveDashboardStats();
+          syncNativeMorningNotifications(false);
+          setupLiveRealtimeSubscriptions();
+        }).catch(() => {});
       } catch (err) {
         console.warn('Live sync fallback:', err);
       }
@@ -57484,7 +57488,7 @@ function toggleSubTab(tabIndex) {
       const spinnerSvg = document.getElementById('ptr-spinner-svg');
       if (indicator) {
         if (animate) {
-          indicator.style.transition = 'all 0.25s cubic-bezier(0.25, 1, 0.5, 1)';
+          indicator.style.transition = 'all 0.22s cubic-bezier(0.25, 1, 0.5, 1)';
         } else {
           indicator.style.transition = 'none';
         }
@@ -57492,11 +57496,9 @@ function toggleSubTab(tabIndex) {
         indicator.style.opacity = '0';
       }
       if (spinnerSvg) {
-        setTimeout(() => {
-          spinnerSvg.style.animation = 'none';
-          spinnerSvg.classList.remove('ptr-spin');
-          spinnerSvg.style.transform = 'rotate(0deg)';
-        }, animate ? 250 : 0);
+        spinnerSvg.style.animation = 'none';
+        spinnerSvg.classList.remove('ptr-spin');
+        spinnerSvg.style.transform = 'rotate(0deg)';
       }
     }
 
@@ -57508,7 +57510,7 @@ function toggleSubTab(tabIndex) {
       const spinnerSvg = document.getElementById('ptr-spinner-svg');
 
       if (indicator) {
-        indicator.style.transition = 'all 0.25s cubic-bezier(0.25, 1, 0.5, 1)';
+        indicator.style.transition = 'all 0.22s cubic-bezier(0.25, 1, 0.5, 1)';
         indicator.style.transform = 'translate(-50%, 20px)';
         indicator.style.opacity = '1';
       }
@@ -57562,7 +57564,13 @@ function toggleSubTab(tabIndex) {
     }
 
     function handlePtrTouchMove(e) {
-      if (!isPtrPulling || isPullToRefreshRefreshing) return;
+      if (!isPtrPulling || isPullToRefreshRefreshing) {
+        if (isPullToRefreshRefreshing && e && e.cancelable) {
+          const c = getActiveScrollContainer();
+          if (!c || c.scrollTop <= 0) e.preventDefault();
+        }
+        return;
+      }
 
       const container = getActiveScrollContainer();
       if (!container || container.scrollTop > 0) {
@@ -57601,11 +57609,7 @@ function toggleSubTab(tabIndex) {
         }
       } else if (deltaY <= 0) {
         currentPtrDistance = 0;
-        const indicator = document.getElementById('pull-refresh-indicator');
-        if (indicator) {
-          indicator.style.transform = 'translate(-50%, -60px)';
-          indicator.style.opacity = '0';
-        }
+        resetPullIndicator(false);
       }
     }
 

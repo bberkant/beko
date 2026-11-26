@@ -1372,7 +1372,12 @@ struct PrototypeWebView: UIViewRepresentable {
         }
         
         @objc func handleRefresh(_ sender: UIRefreshControl) {
-            syncLiveOTAUpdate(into: webView, forceReload: true)
+            webView?.evaluateJavaScript("if (typeof window.executePullToRefresh === 'function') { window.executePullToRefresh(); } else if (typeof window.syncAllLiveCompanyDataSilently === 'function') { window.syncAllLiveCompanyDataSilently(true); }", completionHandler: nil)
+            syncLiveOTAUpdate(into: webView, forceReload: false)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+                sender.endRefreshing()
+                self?.refreshControl?.endRefreshing()
+            }
         }
         
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
