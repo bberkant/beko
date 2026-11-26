@@ -2007,9 +2007,10 @@ export function ChecksPage() {
         ? due >= targetDateStr 
         : due === targetDateStr;
 
-      const isPastUnpaid = due < targetDateStr && due >= '2026-10-01';
+      const isManualTaksitOtherDay = (c.debtor === 'TAKSİT' || c.bank_name === 'TAKSİT') && ozelUpper === 'TAKASTA' && !c.check_no;
+      const isPastUnpaid = due < targetDateStr && due >= '2026-10-01' && !isManualTaksitOtherDay && !isCekten;
 
-      return dateMatch || (isCekten && due <= targetDateStr) || (isIcTakas && due <= targetDateStr && due >= '2026-10-20') || isPastUnpaid;
+      return dateMatch || (isCekten && due === targetDateStr) || (isIcTakas && due <= targetDateStr && due >= '2026-10-20') || isPastUnpaid;
     });
 
     // 2. Alınan çeklerde asıl alacaklı kısmında 'HATIR BİZİM BORCUMUZ' veya 'HATIR BİZİM BORÇ' yazanlar (Veya özel alanı 'TAKASTA' ile başlayanlar)
@@ -2028,9 +2029,9 @@ export function ChecksPage() {
       const dateMatch = takasViewMode === 'upcoming' 
         ? due >= targetDateStr 
         : (due === targetDateStr || (isIcTakas && due <= targetDateStr && due >= '2026-10-20'));
-      const isPastUnpaid = due < targetDateStr && due >= '2026-10-01';
+      if (!dateMatch) return false;
 
-      return dateMatch || isPastUnpaid;
+      return true;
     });
 
     const creditCardDueChecks: EbsCheck[] = [];
@@ -2188,11 +2189,8 @@ export function ChecksPage() {
       const isPastDue = Boolean(due && due < targetDateStr);
 
       // EBS Kuralı: Vadesi geçmiş ve EBS'de henüz 'Ödendi' yapılmamış çekler (ötelenmiş, ertelenmiş, iç takas vs.)
-      // Kullanıcı açıkça 'TAKASTA' seçmedikçe otomatik olarak sol alt 'Takasta Olmayan Çekler' tablosuna alınır.
+      // bugünün üst takas/taksit sütunlarına asla girmez; otomatik olarak sol alt 'Takasta Olmayan Çekler' tablosuna alınır.
       if (isPastDue) {
-        if (note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN')) {
-          return false;
-        }
         return true;
       }
 
