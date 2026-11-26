@@ -79,7 +79,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             "morningHour": 9,
             "morningMinute": 0,
             "creditCardsEnabled": true,
-            "creditCardsAdvance2Days": false,
+            "creditCardsAdvance2Days": true,
             "billsEnabled": false,
             "notesEnabled": true,
             "checksEnabled": false,
@@ -107,6 +107,7 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let morningHour = prefs["morningHour"] as? Int ?? 9
         let morningMinute = prefs["morningMinute"] as? Int ?? 0
         let ccEnabled = prefs["creditCardsEnabled"] as? Bool ?? true
+        let ccAdvEnabled = prefs["creditCardsAdvance2Days"] as? Bool ?? true
         let billsEnabled = prefs["billsEnabled"] as? Bool ?? false
         let notesEnabled = prefs["notesEnabled"] as? Bool ?? true
         
@@ -285,6 +286,42 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                                 userInfo: ["targetScreen": "credit_cards"]
                             )
                             scheduledCount += 1
+                        }
+                        
+                        if ccAdvEnabled {
+                            let adv1Day = cal.date(byAdding: .day, value: 1, to: targetDay).map { cal.component(.day, from: $0) } ?? -1
+                            let adv2Day = cal.date(byAdding: .day, value: 2, to: targetDay).map { cal.component(.day, from: $0) } ?? -1
+                            let advCardsForDay = fetchedCards.filter { card in
+                                let limitVal = (card["card_limit"] as? Double) ?? Double("\(card["card_limit"] ?? 0)") ?? 0.0
+                                if limitVal <= 1.0 { return false }
+                                let dueDay = (card["due_day"] as? Int) ?? Int("\(card["due_day"] ?? 0)") ?? 0
+                                if dueDay == dayOfMonth { return false }
+                                return dueDay == adv1Day || dueDay == adv2Day
+                            }
+                            for (aIdx, card) in advCardsForDay.enumerated() {
+                                if scheduledCount >= maxSafeRequests { break }
+                                let bank = card["bank"] as? String ?? "Kredi Kartı"
+                                let cardName = card["card_name"] as? String ?? ""
+                                let last4 = card["last4"] as? String ?? ""
+                                let cardId = (card["id"] as? String) ?? "\(aIdx)"
+                                let dueDay = (card["due_day"] as? Int) ?? Int("\(card["due_day"] ?? 0)") ?? 0
+                                let limitVal = (card["card_limit"] as? Double) ?? Double("\(card["card_limit"] ?? 0)") ?? 0.0
+                                let debtVal = (card["current_debt"] as? Double) ?? Double("\(card["current_debt"] ?? 0)") ?? 0.0
+                                let tag = (dueDay == adv1Day) ? "⚠️ YARIN SON GÜN (1 GÜN KALDI)" : "⏳ SON ÖDEMEYE 2 GÜN KALDI"
+                                let finDetail = debtVal > 0 ? "Güncel Borç: \(self.formatCurrency(debtVal))" : "Limit: \(self.formatCurrency(limitVal))"
+                                self.scheduleCalendarNotification(
+                                    title: "💳 \(bank) (\(cardName))",
+                                    body: "\(tag) (•••• \(last4)) • \(finDetail)",
+                                    identifier: "sep_daily_cc_adv_\(iso)_\(cardId)",
+                                    dateString: iso,
+                                    advanceDays: 0,
+                                    hour: morningHour,
+                                    minute: morningMinute,
+                                    badge: 0,
+                                    userInfo: ["targetScreen": "credit_cards"]
+                                )
+                                scheduledCount += 1
+                            }
                         }
                     }
                     
