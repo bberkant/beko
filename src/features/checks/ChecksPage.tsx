@@ -2185,17 +2185,18 @@ export function ChecksPage() {
       const creditor = (c.creditor || '').toUpperCase();
       const debtor = (c.debtor || '').toUpperCase();
 
+      // Kullanıcı açıkça 'Takasa Taşı' dediyse (özel alanda TAKASTA varsa) üst takas tablosuna gitmelidir
+      if (note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN')) {
+        return false;
+      }
+
       const due = (c.due_date || '').substring(0, 10);
       const isPastDue = Boolean(due && due < targetDateStr);
 
-      // EBS Kuralı: Vadesi geçmiş ve EBS'de henüz 'Ödendi' yapılmamış çekler (ötelenmiş, ertelenmiş, iç takas vs.)
-      // bugünün üst takas/taksit sütunlarına asla girmez; otomatik olarak sol alt 'Takasta Olmayan Çekler' tablosuna alınır.
+      // EBS Kuralı: Vadesi geçmiş ve kullanıcı tarafından açıkça takasa taşınmamış çekler (ötelenmiş, ertelenmiş vs.)
+      // otomatik olarak sol alt 'Takasta Olmayan Çekler' tablosuna alınır.
       if (isPastDue) {
         return true;
-      }
-
-      if (note.includes('TAKASTA') && !note.includes('TAKASTA OLMAYAN')) {
-        return false;
       }
 
       if (isCektenCheck(c)) {
