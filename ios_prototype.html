@@ -511,18 +511,21 @@
           </div>
         </div>
 
-        <!-- 2. Son İşlemler (Artık En Altta & Son 10 İşlem) -->
+        <!-- 2. Anasayfa Takas Çekleri Tablosu & Hangi Çek Kimin -->
         <div class="space-y-2.5 pt-1">
           <div class="flex justify-between items-center px-1">
             <div class="flex items-center gap-1.5">
-              <h3 class="text-[13.5px] font-[700] text-slate-800 tracking-tight">Son İşlemler</h3>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">Son 10 İşlem</span>
+              <span class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+              <h3 class="text-[13.5px] font-[700] text-slate-800 tracking-tight">Takas Çekleri &amp; Evrak Detayları</h3>
             </div>
-            <button onclick="changeScreen('transactions_history')" class="text-[12.5px] font-[600] text-kt-primary hover:underline">Tümünü Gör &gt;</button>
+            <button onclick="changeScreen('takas_cekleri')" class="text-[12.5px] font-[600] text-kt-primary flex items-center gap-0.5 hover:underline">
+              <span>Tam Ekran</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+            </button>
           </div>
-          
-          <div id="dash-recent-transactions-list" class="space-y-2">
-            <!-- Rendered dynamically by renderDashboardTransactions() -->
+
+          <div id="dashboard-takas-widget" class="space-y-2.5">
+            <!-- Rendered dynamically by renderDashboardTakasWidget() -->
           </div>
         </div>
       </div>
@@ -1015,8 +1018,8 @@
 
       <div id="screen-transactions_history" class="hidden flex-1 flex flex-col overflow-hidden bg-[#F5F7F8] screen-fade">
         <div class="px-5 py-3.5 bg-white border-b border-gray-100 flex items-center justify-between shrink-0 select-none">
-          <button onclick="changeScreen('bank_accounts')" class="text-[13px] font-[500] text-slate-700 bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-all flex items-center gap-1">← Hesaplar</button>
-          <span class="text-[15px] font-[600] text-slate-800 tracking-tight">Hesap Hareketleri</span>
+          <button onclick="changeScreen('menu')" class="text-[13px] font-[500] text-slate-700 bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-all flex items-center gap-1">← Menü</button>
+          <span class="text-[15px] font-[600] text-slate-800 tracking-tight">Son İşlemler</span>
           <div class="w-8"></div>
         </div>
         <div class="flex-1 overflow-y-auto p-4 space-y-2.5 no-scrollbar" id="transactions-list-container"></div>
@@ -47423,7 +47426,26 @@
       if (!container) return;
       const q = filter.toLowerCase().trim();
 
-      const filtered = darsNavModules.filter(m => {
+      const sonIslemlerModule = {
+        id: 'son_islemler',
+        label: 'Son İşlemler',
+        desc: 'Tüm finans, kasa, banka ve cari işlem hareketleri',
+        category: 'Genel & Analitik',
+        iconKey: 'activity',
+        colorClass: 'bg-blue-50 text-kt-primary',
+        badge: ((typeof mockTransactions !== 'undefined' && Array.isArray(mockTransactions)) ? mockTransactions.length : 15) + ' İşlem',
+        screenTarget: 'transactions_history'
+      };
+
+      const menuModulesWithSonIslemler = [];
+      darsNavModules.forEach(m => {
+        if (m.id === 'ayarlar') {
+          menuModulesWithSonIslemler.push(sonIslemlerModule);
+        }
+        menuModulesWithSonIslemler.push(m);
+      });
+
+      const filtered = menuModulesWithSonIslemler.filter(m => {
         if (!q) return true;
         const mainMatch = (m.label && m.label.toLowerCase().includes(q)) || (m.desc && m.desc.toLowerCase().includes(q));
         const childMatch = m.children && m.children.some(c => (c.label && c.label.toLowerCase().includes(q)) || (c.desc && c.desc.toLowerCase().includes(q)));
@@ -47585,11 +47607,14 @@
       else if (screenId === 'checks') document.getElementById('tab-cekten')?.classList.add('active');
       else if (screenId === 'takas_cekleri' || screenId === 'check_valuation' || screenId === 'durumum') document.getElementById('tab-takas')?.classList.add('active');
       else if (screenId === 'caris' || screenId === 'cari_detail') document.getElementById('tab-transfer')?.classList.add('active');
-      else if (screenId === 'menu' || screenId === 'cekten_hesabi') document.getElementById('tab-menu')?.classList.add('active');
+      else if (screenId === 'menu' || screenId === 'cekten_hesabi' || screenId === 'transactions_history') document.getElementById('tab-menu')?.classList.add('active');
 
       // Trigger screen renderers
       if (screenId === 'menu') renderMenuModules();
-      if (screenId === 'dashboard') renderCalendar();
+      if (screenId === 'dashboard') {
+        renderCalendar();
+        if (typeof renderDashboardTakasWidget === 'function') renderDashboardTakasWidget();
+      }
       if (screenId === 'takas_cekleri') renderTakasScreen();
       if (screenId === 'checks') renderCheckListScreen();
       if (screenId === 'cekten_hesabi') renderCektenScreen();
@@ -48302,7 +48327,10 @@ function toggleSubTab(tabIndex) {
 
     function renderTakasScreen() {
       const container = document.getElementById('takas-screen-content');
-      if (!container) return;
+      if (!container) {
+        if (typeof renderDashboardTakasWidget === 'function') renderDashboardTakasWidget();
+        return;
+      }
 
       const dash = computeLiveTakasDashboardData();
       const todayISO = getTodayISOString();
@@ -48540,6 +48568,175 @@ function toggleSubTab(tabIndex) {
           <h4 class="text-[13px] font-[700] text-slate-800">Seçili Tarihte (${dateTitleDisplay}) Evrak Bulunmuyor</h4>
           <p class="text-[11px] text-slate-400 max-w-xs mx-auto">Yukarıdaki "Dolu Günler" kısayollarından veya "Tüm Yaklaşan Takasları Göster" butonundan aktif takas günlerine geçiş yapabilirsiniz.</p>
           <button onclick="toggleTakasUpcomingMode()" class="mt-2 px-4 py-2 bg-kt-primary text-white text-xs font-[700] rounded-xl shadow-xs hover:opacity-95 transition-all">📅 Tüm Yaklaşan Takasları Göster</button>
+        </div>
+      `);
+
+      renderDashboardTakasWidget(dash);
+    }
+
+    function renderDashboardTakasWidget(precomputedDash) {
+      const container = document.getElementById('dashboard-takas-widget');
+      if (!container) return;
+
+      const dash = precomputedDash || computeLiveTakasDashboardData();
+      const todayISO = getTodayISOString();
+      const tomObj = new Date();
+      tomObj.setDate(tomObj.getDate() + 1);
+      const tomorrowISO = tomObj.getFullYear() + '-' + String(tomObj.getMonth() + 1).padStart(2, '0') + '-' + String(tomObj.getDate()).padStart(2, '0');
+      const generalTotal = dash.takasGrandTotal + dash.nonTakasTotal;
+
+      const dateTitleDisplay = takasViewMode === 'upcoming'
+        ? 'Tüm Yaklaşan Takaslar'
+        : (formatISOToTR(dash.targetDateStr) + (dash.targetDateStr === todayISO ? ' (Bugün)' : (dash.targetDateStr === tomorrowISO ? ' (Yarın)' : '')));
+
+      const quickDatesHtml = dash.activeDates.length > 0 ? `
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+          <span class="text-[9.5px] font-[700] text-slate-400 uppercase shrink-0">Dolu Günler:</span>
+          ${dash.activeDates.map(d => {
+            const info = dash.dateCountsMap[d];
+            const isSel = takasViewMode === 'date' && dash.targetDateStr === d;
+            return `<button onclick="setTakasDate('${d}')" class="px-2 py-1 rounded-lg text-[10px] font-[700] shrink-0 transition-all ${isSel ? 'bg-[#002D59] text-white shadow-2xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}">${formatISOToTR(d)} (${info.count})</button>`;
+          }).join('')}
+        </div>
+      ` : '';
+
+      const dateNavHtml = `
+        <div class="kt-card p-3 bg-white border border-slate-200 rounded-2xl space-y-2 shadow-2xs">
+          <div class="flex items-center justify-between gap-1.5 flex-wrap">
+            <div class="flex items-center gap-1">
+              <button onclick="shiftTakasDate(-1)" class="px-2 py-1 text-[11px] font-[700] rounded-lg border border-slate-200 bg-slate-50 text-slate-700">← Önceki</button>
+              <button onclick="setTakasDate('${todayISO}')" class="px-2.5 py-1 text-[11px] font-[700] rounded-lg ${takasViewMode === 'date' && dash.targetDateStr === todayISO ? 'bg-[#002D59] text-white' : 'border border-slate-200 bg-white text-slate-700'}">Bugün</button>
+              <button onclick="setTakasDate('${tomorrowISO}')" class="px-2.5 py-1 text-[11px] font-[700] rounded-lg ${takasViewMode === 'date' && dash.targetDateStr === tomorrowISO ? 'bg-[#002D59] text-white' : 'border border-slate-200 bg-white text-slate-700'}">Yarın</button>
+              <button onclick="shiftTakasDate(1)" class="px-2 py-1 text-[11px] font-[700] rounded-lg border border-slate-200 bg-slate-50 text-slate-700">Sonraki →</button>
+            </div>
+            <input type="date" value="${dash.targetDateStr}" onchange="setTakasDate(this.value)" class="px-2 py-1 text-[11px] font-[700] text-slate-800 border border-slate-300 rounded-lg bg-slate-50" />
+          </div>
+          ${quickDatesHtml}
+        </div>
+      `;
+
+      const allColsWithTaksit = [...dash.activeBankCols, 'TAKSİT'];
+      const activeBankPillsHtml = allColsWithTaksit
+        .filter(col => (dash.columnTotals[col] || 0) > 0)
+        .map(col => `
+          <div class="px-2.5 py-1.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-1.5 shrink-0">
+            <span class="text-[10px] font-bold text-kt-primary">${col}:</span>
+            <span class="text-xs font-black text-slate-900">${formatNumber(dash.columnTotals[col])} TL</span>
+          </div>
+        `).join('');
+
+      const maxRows = Math.max(
+        4,
+        ...allColsWithTaksit.map(col => (dash.columns[col] || []).length)
+      );
+
+      const matrixHtml = `
+        <div class="kt-card p-3.5 space-y-2.5 bg-white border border-slate-200 shadow-xs">
+          <div class="flex justify-between items-center px-1">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+              <h4 class="text-[12.5px] font-[800] text-red-600 uppercase tracking-tight">TAKAS ÇEKLERİ TABLOSU (${dateTitleDisplay})</h4>
+            </div>
+            <span class="text-[9.5px] font-[600] text-slate-400">↔ Sağa Kaydır</span>
+          </div>
+
+          ${activeBankPillsHtml ? `<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">${activeBankPillsHtml}</div>` : ''}
+
+          <div class="overflow-x-auto no-scrollbar border-2 border-slate-800 rounded-xl">
+            <table class="min-w-[680px] w-full text-center text-[11px] border-collapse bg-white">
+              <thead>
+                <tr class="bg-slate-100 border-b-2 border-slate-800 text-red-700 font-[800] text-[10.5px]">
+                  ${dash.activeBankCols.map(col => `
+                    <th class="p-2 border-r border-slate-300 ${dash.columnTotals[col] > 0 ? 'bg-blue-50 text-kt-primary' : ''}">${col}</th>
+                  `).join('')}
+                  <th class="p-2 border-r border-slate-300 bg-amber-50/70 text-red-700">TAKSİT</th>
+                  <th class="p-2 bg-amber-50/70 text-slate-700 text-left pl-2.5 min-w-[130px]">TAKSİT AÇIKLAMA</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 font-[600] text-slate-800 text-[11px]">
+                ${Array.from({ length: maxRows }).map((_, rowIdx) => {
+                  const taksitChk = (dash.columns['TAKSİT'] || [])[rowIdx];
+                  const taksitDesc = taksitChk ? formatTaksitDescMobile(isHatirAlinanMobile(taksitChk) ? (taksitChk.kesideci || taksitChk.creditor || '') : (taksitChk.creditor || taksitChk.supplier || '')) : '';
+                  return `
+                    <tr class="h-[30px]">
+                      ${dash.activeBankCols.map(col => {
+                        const chk = (dash.columns[col] || [])[rowIdx];
+                        const val = chk ? Number(chk.amount) : 0;
+                        const isIc = chk && String(chk.ozel_alan || chk.note || '').toLocaleUpperCase('tr-TR').includes('İÇ TAKAS');
+                        return `<td ${chk ? `onclick="openCheckActionModal('${chk.id}')"` : ''} class="p-1.5 border-r border-slate-200 ${chk ? 'cursor-pointer' : ''} ${isIc ? 'bg-red-600 text-white font-[800]' : (val ? 'font-[700] text-slate-900 bg-blue-50/30' : 'text-slate-300')}">${val ? formatNumber(val) : '-'}</td>`;
+                      }).join('')}
+                      <td ${taksitChk ? `onclick="openCheckActionModal('${taksitChk.id}')"` : ''} class="p-1.5 border-r border-slate-200 ${taksitChk ? 'font-[700] text-slate-900 bg-amber-50/30 cursor-pointer' : 'text-slate-300'}">${taksitChk ? formatNumber(taksitChk.amount) : '-'}</td>
+                      <td ${taksitChk ? `onclick="openCheckActionModal('${taksitChk.id}')"` : ''} class="p-1.5 text-left pl-2.5 font-[700] text-[10px] text-slate-700 uppercase truncate max-w-[150px] ${taksitChk ? 'cursor-pointer' : ''}">${taksitDesc || ''}</td>
+                    </tr>
+                  `;
+                }).join('')}
+                <tr class="bg-slate-100 font-[800] text-[11px] border-t-2 border-slate-800 text-slate-900">
+                  ${dash.activeBankCols.map(col => `
+                    <td class="p-2 border-r border-slate-300 ${dash.columnTotals[col] > 0 ? 'text-kt-primary bg-blue-100/60' : ''}">${dash.columnTotals[col] > 0 ? formatNumber(dash.columnTotals[col]) : '0'}</td>
+                  `).join('')}
+                  <td class="p-2 border-r border-slate-300 text-red-700 bg-amber-100/50">${dash.columnTotals['TAKSİT'] > 0 ? formatNumber(dash.columnTotals['TAKSİT']) : '0'}</td>
+                  <td class="p-2 text-left pl-2.5 text-[10px] text-slate-500">TOPLAM</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="p-2.5 bg-blue-50/70 border border-blue-200/80 rounded-xl flex justify-between items-center">
+            <div class="flex items-center gap-1.5">
+              <div class="w-6 h-6 rounded-lg bg-kt-primary text-white flex items-center justify-center text-xs font-bold">₺</div>
+              <span class="text-xs font-[800] text-slate-800">TAKAS TOPLAMI</span>
+            </div>
+            <span class="text-sm font-[900] text-kt-primary">${formatNumber(dash.takasGrandTotal)} TL</span>
+          </div>
+
+          ${dash.nonTakasChecks.length > 0 ? `
+            <div class="pt-1 space-y-2">
+              <div class="flex justify-between items-center">
+                <h5 class="text-[11px] font-[800] text-red-600 uppercase tracking-wider">📌 TAKASTA OLMAYAN ÇEKLER &amp; ÇEKTEN</h5>
+                <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-[700]">${dash.nonTakasChecks.length} Adet • ${formatNumber(dash.nonTakasTotal)} TL</span>
+              </div>
+              <div class="p-2.5 bg-slate-900 text-white rounded-xl flex justify-between items-center">
+                <span class="text-xs font-[800] uppercase tracking-wider">GENEL TOPLAM (TAKAS + DİĞER)</span>
+                <span class="text-sm font-[900] text-emerald-400">${formatNumber(generalTotal)} TL</span>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      const combinedOwnerChecks = [...dash.allTakasChecks, ...dash.nonTakasChecks].map(normalizeCheckForCard);
+      const ownerCardsHtml = combinedOwnerChecks.map(c => `
+        <div class="kt-card p-3.5 space-y-2 ${c.isIcTakas ? 'border-l-4 border-l-red-600 bg-red-50/15' : (c.isCekten ? 'border-l-4 border-l-amber-500 bg-amber-50/10' : 'border-l-4 border-l-kt-primary bg-white')} shadow-xs transition-all">
+          <div class="flex justify-between items-start gap-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-[9.5px] font-[700] px-1.5 py-0.5 rounded ${c.isIcTakas ? 'bg-red-100 text-red-700' : (c.isCekten ? 'bg-amber-100 text-amber-800' : 'bg-blue-50 text-kt-primary')}">${c.isIcTakas ? 'İÇ TAKAS' : (c.isCekten ? 'ÇEKTEN HESABI' : (c.isNonTakas ? 'TAKASTA OLMAYAN' : 'TAKAS EVRAKI'))}</span>
+                <span class="text-[11.5px] font-[600] text-slate-700">Vade: <strong class="text-slate-800 font-[700]">${c.date}</strong></span>
+                <span class="text-[10.5px] text-slate-400">(${c.no || '-'})</span>
+              </div>
+              <h4 class="text-[13.5px] font-[800] text-slate-900 tracking-tight mt-1 cursor-pointer hover:text-kt-primary truncate" onclick="openCariDetailByName('${c.supplier.replace(/'/g, "\\'")}')">${c.supplier}</h4>
+              <p class="text-[11px] text-slate-500 mt-0.5">Banka / Borçlu: <strong class="text-slate-800 font-[700]">${c.debtor || c.bank}</strong>${c.note ? ` • <span class="text-slate-600">${c.note}</span>` : ''}</p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="text-[14px] font-[800] text-slate-900 tracking-tight block">${formatNumber(c.amount)} TL</span>
+              <div class="flex items-center justify-end gap-1 mt-1.5">
+                <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-[600] text-[9.5px]">${c.rawStatus || 'Tahsilde'}</span>
+                <button onclick="openCheckActionModal('${c.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg font-[700] text-slate-700 text-[10.5px] transition-colors">İşlem</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      container.innerHTML = dateNavHtml + matrixHtml + `
+        <div class="flex justify-between items-center px-1 pt-1">
+          <span class="text-[12.5px] font-[800] text-slate-800">📌 Hangi Çek Kimin (${dateTitleDisplay})</span>
+          <span class="text-[11px] font-[700] px-2 py-0.5 rounded-full bg-blue-50 text-kt-primary">${combinedOwnerChecks.length} Çek / Evrak</span>
+        </div>
+      ` + (combinedOwnerChecks.length > 0 ? `<div class="space-y-2">${ownerCardsHtml}</div>` : `
+        <div class="p-5 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-1.5">
+          <h4 class="text-[12.5px] font-[700] text-slate-700">Seçili Tarihte (${dateTitleDisplay}) Takas Çeki Bulunmuyor</h4>
+          <p class="text-[11px] text-slate-400">Üstteki tarih butonlarından veya "Dolu Günler" kısayollarından çek listesini görüntüleyebilirsiniz.</p>
         </div>
       `);
     }
@@ -53418,6 +53615,9 @@ function toggleSubTab(tabIndex) {
     }
 
     function renderDashboardTransactions() {
+      if (typeof renderDashboardTakasWidget === 'function') {
+        renderDashboardTakasWidget();
+      }
       const container = document.getElementById('dash-recent-transactions-list');
       if (!container) return;
 
