@@ -57403,7 +57403,7 @@ function toggleSubTab(tabIndex) {
       } else if (currentScreen === 'findeks') {
         if (typeof renderFindeksScreen === 'function') renderFindeksScreen();
       } else if (currentScreen === 'caris') {
-        if (typeof renderCaris === 'function') renderCaris(typeof getFilteredCarisListMobile === 'function' ? getFilteredCarisListMobile() : mockCaris);
+        if (typeof renderCaris === 'function') renderCaris(typeof getFilteredCarisListMobile === 'function' ? getFilteredCarisListMobile() : (typeof mockCaris !== 'undefined' ? mockCaris : []));
       } else if (currentScreen === 'cari_detail') {
         if (typeof renderCariDetailScreen === 'function') renderCariDetailScreen();
       } else if (currentScreen === 'takvim') {
